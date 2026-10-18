@@ -23,6 +23,7 @@ pub(crate) struct TilingView {
     commits: Option<TilingCommits>,
     commit_wakeups: usize,
     presentation: Option<TilingPresentation>,
+    snapshots: std::collections::HashMap<driftwm::stage::ElementId, TilingSnapshot>,
     pending_close_return: Option<CloseReturnView>,
     selected: Option<driftwm::stage::ElementId>,
     configure_timer: Option<smithay::reexports::calloop::RegistrationToken>,
@@ -32,6 +33,11 @@ pub(crate) struct TilingView {
         driftwm::stage::ElementId,
         smithay::utils::Rectangle<i32, Logical>,
     )>,
+}
+
+struct TilingSnapshot {
+    image: crate::render::ClosingSnapshot,
+    opacity: f64,
 }
 
 struct TilingPresentation {
@@ -104,6 +110,7 @@ impl DriftWm {
             commits: None,
             commit_wakeups: 0,
             presentation: None,
+            snapshots: Default::default(),
             pending_close_return: None,
             selected: None,
             initial_configures: Default::default(),
@@ -392,6 +399,11 @@ impl DriftWm {
         let selected_closed = view
             .selected
             .is_some_and(|id| self.stage.window_by_id(id).is_none());
+        self.tiling_view
+            .as_mut()
+            .unwrap()
+            .snapshots
+            .retain(|id, _| self.stage.is_tiled(*id) && self.stage.window_by_id(*id).is_some());
         let recover_focus = selected_closed
             && !self.suppress_auto_anchor
             && self.focused_anchor_element().is_none();
@@ -570,6 +582,14 @@ impl DriftWm {
             extra_x += reserved_width - desired_width;
         }
         self.expire_tiling_commits(now);
+        if placements.iter().any(|p| {
+            self.stage
+                .window_by_id(p.id)
+                .and_then(|w| w.client())
+                .is_some_and(|w| configured_window_size(w) != p.content.size)
+        }) {
+            self.capture_tiling_snapshots();
+        }
         let mut requests = std::collections::HashMap::new();
         let mut changed = false;
         for placement in &placements {
@@ -698,7 +718,12 @@ impl DriftWm {
         {
             return;
         }
-        self.tiling_view.as_mut().unwrap().presentation = None;
+        let view = self.tiling_view.as_mut().unwrap();
+        view.presentation = None;
+        if !view.snapshots.is_empty() {
+            view.snapshots.clear();
+            self.mark_all_dirty();
+        }
         let close_return = self
             .tiling_view
             .as_mut()
@@ -781,6 +806,110 @@ impl DriftWm {
             view.last_usable = Some(usable);
             view.anchor = anchor;
         }
+    }
+
+    fn capture_tiling_snapshots(&mut self) {
+        use smithay::utils::Rectangle;
+        let Some(mut backend) = self.backend.take() else {
+            return;
+        };
+        let tiles: Vec<_> = self.stage.tiled_windows().map(|t| t.id).collect();
+        let focused = self.focus_root_window();
+        for id in tiles {
+            if self
+                .tiling_view
+                .as_ref()
+                .unwrap()
+                .snapshots
+                .contains_key(&id)
+                || self.window_animations.open_progress(id).is_some()
+                || self.window_animations.generation_of(id).is_some()
+            {
+                continue;
+            }
+            let Some(element) = self.stage.window_by_id(id) else {
+                continue;
+            };
+            let Some(window) = element.client() else {
+                continue;
+            };
+            let Some(surface) = window.wl_surface() else {
+                continue;
+            };
+            // The bake does not contain popup trees or a live blurred backdrop.
+            if smithay::desktop::PopupManager::popups_for_surface(&surface)
+                .next()
+                .is_some()
+                || driftwm::config::effective_blur(
+                    driftwm::config::applied_rule(&surface).as_ref(),
+                    &self.config.decorations,
+                    false,
+                )
+                || smithay::wayland::compositor::with_states(&surface, |s| {
+                    crate::handlers::background_effect::get_cached_blur_region(s)
+                        .is_some_and(|r| !r.is_empty())
+                })
+            {
+                continue;
+            }
+            let Some(position) = self.stage.position_of(element) else {
+                continue;
+            };
+            let geometry = window.geometry();
+            if !self.canvas_rect_drawable(Rectangle::new(position, geometry.size)) {
+                continue;
+            }
+            let opacity = self.effective_opacity_of(window, focused.as_ref());
+            let Some(pixels) = crate::render::capture_close_pixels(
+                backend.renderer(),
+                &surface,
+                geometry,
+                std::time::Instant::now(),
+            ) else {
+                continue;
+            };
+            let chrome = self.snapshot_chrome(&surface, geometry, false);
+            let origin = position.to_f64() - geometry.loc.to_f64();
+            let scale = self.flatten_scale_for_canvas_rect(Rectangle::new(position, geometry.size));
+            if let Some(image) = crate::render::snapshot_canvas(
+                backend.renderer(),
+                &pixels,
+                origin,
+                scale,
+                1.0,
+                true,
+                chrome.as_ref(),
+            ) {
+                self.tiling_view
+                    .as_mut()
+                    .unwrap()
+                    .snapshots
+                    .insert(id, TilingSnapshot { image, opacity });
+            }
+        }
+        self.backend = Some(backend);
+    }
+
+    pub(crate) fn tiling_snapshot_count(&self) -> usize {
+        self.tiling_view.as_ref().map_or(0, |v| v.snapshots.len())
+    }
+
+    pub(crate) fn tiling_snapshot_element(
+        &self,
+        id: driftwm::stage::ElementId,
+        output: &Output,
+        camera: Point<f64, Logical>,
+        zoom: f64,
+        output_scale: f64,
+    ) -> Option<crate::render::OutputRenderElements> {
+        let snapshot = self.tiling_view.as_ref()?.snapshots.get(&id)?;
+        snapshot.image.render_element_with_opacity(
+            &output.name(),
+            camera,
+            zoom,
+            output_scale,
+            snapshot.opacity,
+        )
     }
 
     fn tiling_presentation_ready(&self, now: std::time::Instant) -> bool {

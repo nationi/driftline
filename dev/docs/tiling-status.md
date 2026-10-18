@@ -422,13 +422,55 @@ while waiting, application after timeout, and latest placement after supersessio
 Earlier geometry/camera tests explicitly deliver replies before asserting settled
 coordinates; refusal tests release all participants before checking reservation.
 
-Next implement rendering/snapshot coordination and broaden rapid supersession,
-remap and cancellation traces. The current change defers compositor geometry;
-it does not freeze imported textures, implement niri animation physics, or prove
-frame-atomic rendering with several asynchronous renderer blockers.
+The deferred-placement batch did not freeze imported textures. The snapshot
+foundation below now preserves eligible windows' old pixels; general
+frame-atomic rendering, niri animation physics and broader rapid supersession,
+remap and cancellation traces remain outstanding.
 
 Validation for deferred placement: all 46 tiling-filtered binary tests passed.
 `dev/scripts/ci-local` passed fmt, locked check, strict all-target clippy, all
 regular/ignored tests and the isolated soak after the final supersession fix.
 The library was unchanged in this batch; the previous 4000-case property evidence
 still applies. Graphical/rendered-frame validation remains outstanding.
+
+
+## Frozen tiling presentation images
+
+Before issuing a batch of size requests, reflow now bakes visible eligible tiled
+windows into owned canvas snapshots. The normal output composer substitutes each
+snapshot in its window's existing z-order slot until deferred placement can
+apply. Superseding batches keep the first picture while still waiting. Snapshot
+opacity and chrome are captured with the old geometry; these images do not tick
+as closing animations. Completion, timeout and mode exit drop them, and dead
+stage IDs are pruned. `tiling_snapshots` in debug counters exposes retained images.
+A failed capture or missing backend preserves the live rendering fallback.
+
+This reuses the existing closing-image baker and shares chrome policy with
+closing snapshots. Pixel comparison found a pre-existing baker coordinate bug:
+border/shadow shader areas were still surface-local while the framebuffer origin
+was shifted to the union bounds. Rebasing those areas aligns chrome with content. The baked shadow also now
+uses the border's outer edge as its casting body, matching live composition.
+The shared change affects closing snapshots too, without changing their timing.
+
+Four new GLES scenarios check old pixels while one new buffer already applied
+and another is held by a separate surface blocker; image release after all
+buffers, the deadline and mode exit; and shadow alignment. The no-shadow frame
+comparison is exact. The shadow case allows one byte of rounding error from the
+additional offscreen composition. GL scenarios take `gl::lock()` and self-skip
+only when EGL/GLES is unavailable, following the existing pixel-suite convention.
+
+Limits: windows with existing popup trees, requested background blur or active
+window animations use live rendering, since a root-tree bake cannot reproduce
+those effects. Capture is limited to currently drawable windows; moving the view
+can reveal uncaptured windows. Isolated capture paths still capture live content.
+This is a best-effort frozen presentation foundation, not the complete niri
+render/animation model or a guarantee across all rendering paths. Extend popup/
+blur/animation integration, fractional-scale tiling pixel cases, supersession and
+remap traces before closing P2 or P13. Input continues to use stage/client
+geometry, as with the existing compositor animation policy.
+
+Validation for frozen presentation images: all seven GLES pixel scenarios passed
+on the available surfaceless Mesa renderer, including four new tiling scenarios.
+`dev/scripts/ci-local` then passed every stage, including strict all-target
+clippy, ignored tests and the isolated soak. The pure layout library is unchanged.
+No interactive nested-session or hardware presentation test was performed.

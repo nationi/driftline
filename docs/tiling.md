@@ -104,5 +104,7 @@ for the other affected windows, for at most 300 ms. A window may choose a
 different size without holding up the group. Closing a participant or leaving
 tiling releases waiting buffers. Window positions and view adjustments wait
 until the corresponding buffers apply or the deadline expires. Refused sizes
-still reserve enough space for the visible window. Rendering animations and
-complete visual atomicity are not implemented yet.
+still reserve enough space for the visible window. Visible windows without
+popups, background blur or active window animations keep a snapshot of their
+previous image while waiting, when capture is available. Full rendering
+animations and complete visual atomicity are not implemented yet.

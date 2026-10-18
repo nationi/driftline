@@ -1136,6 +1136,74 @@ impl DriftWm {
         }
     }
 
+    pub(crate) fn snapshot_chrome(
+        &self,
+        surface: &WlSurface,
+        geometry: Rectangle<i32, Logical>,
+        fullscreen: bool,
+    ) -> Option<crate::render::CloseChrome<'_>> {
+        let geom_loc = geometry.loc;
+        let geom_size = geometry.size;
+        let policy = self.baked_chrome_policy(surface, fullscreen);
+        let corner_radius = policy.corner_radius;
+        if policy.bare {
+            None
+        } else {
+            let applied = driftwm::config::applied_rule(surface);
+            let mode = driftwm::config::effective_decoration_mode(
+                applied.as_ref().and_then(|r| r.decoration.as_ref()),
+                &self.config.decorations.default_mode,
+            );
+            let bw = driftwm::config::effective_border_width(
+                applied.as_ref(),
+                mode,
+                &self.config.decorations,
+            );
+            let focused = self
+                .seat
+                .get_keyboard()
+                .and_then(|kb| kb.current_focus())
+                .is_some_and(|f| f.0 == *surface);
+            let border_color = if focused {
+                driftwm::config::effective_border_color_focused(
+                    applied.as_ref(),
+                    &self.config.decorations,
+                )
+            } else {
+                driftwm::config::effective_border_color(applied.as_ref(), &self.config.decorations)
+            };
+            let shadow_on = driftwm::config::effective_shadow_enabled(
+                applied.as_ref(),
+                mode,
+                &self.config.decorations,
+            );
+            let bar_h = self.config.decorations.title_bar_height;
+            let deco_key = crate::decorations::DecorationKey::Surface(surface.id());
+            let bar = self.decorations.get(&deco_key).map(|d| {
+                (
+                    &d.title_bar,
+                    Rectangle::new(
+                        Point::from((geom_loc.x as f64, (geom_loc.y - bar_h) as f64)),
+                        Size::from((geom_size.w as f64, bar_h as f64)),
+                    ),
+                )
+            });
+            Some(crate::render::CloseChrome {
+                geometry: Rectangle::new(geom_loc.to_f64(), geom_size.to_f64()),
+                corner_radius,
+                corner_clip: self.render.corner_clip_shader.as_ref(),
+                border_shader: self.render.border_shader.as_ref(),
+                border_width: bw,
+                border_color,
+                focused,
+                shadow_shader: shadow_on
+                    .then_some(self.render.shadow_shader.as_ref())
+                    .flatten(),
+                bar,
+            })
+        }
+    }
+
     /// Drop both halves of a resize crossfade for `id`: content stashed for a
     /// flatten that will not happen, and an overlay already fading. Called
     /// wherever the geometry entry itself is dropped — the id survives
@@ -1242,71 +1310,7 @@ impl DriftWm {
             self.backend = Some(backend);
             return;
         }
-        // Resolve the live chrome so the fade starts from the picture the window
-        // actually had. Everything is still intact here (pre-`cleanup_surface_state`),
-        // and the rects are surface-origin-local for the bake. A fullscreen window
-        // has no chrome live, so it bakes bare.
-        let corner_clip = self.render.corner_clip_shader.clone();
-        let border_shader = self.render.border_shader.clone();
-        let shadow_shader = self.render.shadow_shader.clone();
-        // A bare window bakes with no clip, no border and no shadow, matching the
-        // nothing it draws live.
-        let policy = self.baked_chrome_policy(surface, fullscreen_output.is_some());
-        let corner_radius = policy.corner_radius;
-        let chrome = if policy.bare {
-            None
-        } else {
-            let applied = driftwm::config::applied_rule(surface);
-            let mode = driftwm::config::effective_decoration_mode(
-                applied.as_ref().and_then(|r| r.decoration.as_ref()),
-                &self.config.decorations.default_mode,
-            );
-            let bw = driftwm::config::effective_border_width(
-                applied.as_ref(),
-                mode,
-                &self.config.decorations,
-            );
-            let focused = self
-                .seat
-                .get_keyboard()
-                .and_then(|kb| kb.current_focus())
-                .is_some_and(|f| f.0 == *surface);
-            let border_color = if focused {
-                driftwm::config::effective_border_color_focused(
-                    applied.as_ref(),
-                    &self.config.decorations,
-                )
-            } else {
-                driftwm::config::effective_border_color(applied.as_ref(), &self.config.decorations)
-            };
-            let shadow_on = driftwm::config::effective_shadow_enabled(
-                applied.as_ref(),
-                mode,
-                &self.config.decorations,
-            );
-            let bar_h = self.config.decorations.title_bar_height;
-            let deco_key = crate::decorations::DecorationKey::Surface(id.clone());
-            let bar = self.decorations.get(&deco_key).map(|d| {
-                (
-                    &d.title_bar,
-                    Rectangle::new(
-                        Point::from((geom_loc.x as f64, (geom_loc.y - bar_h) as f64)),
-                        Size::from((geom_size.w as f64, bar_h as f64)),
-                    ),
-                )
-            });
-            Some(crate::render::CloseChrome {
-                geometry: Rectangle::new(geom_loc.to_f64(), geom_size.to_f64()),
-                corner_radius,
-                corner_clip: corner_clip.as_ref(),
-                border_shader: border_shader.as_ref(),
-                border_width: bw,
-                border_color,
-                focused,
-                shadow_shader: shadow_on.then_some(shadow_shader.as_ref()).flatten(),
-                bar,
-            })
-        };
+        let chrome = self.snapshot_chrome(surface, px.geometry, fullscreen_output.is_some());
         let chrome = chrome.as_ref();
         let snapshot = if let Some(output) = fullscreen_output {
             let flatten_scale = output.current_scale().fractional_scale();

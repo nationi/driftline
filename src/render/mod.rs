@@ -927,6 +927,13 @@ pub fn compose_frame(
         if output_fullscreen && !fullscreen_windows.contains(window) {
             continue;
         }
+        if let Some(id) = state.stage.id_of(window)
+            && let Some(snapshot) =
+                state.tiling_snapshot_element(id, output, camera, zoom, output_scale)
+        {
+            zoomed_normal.push(snapshot);
+            continue;
+        }
         let geom_loc = window.geometry().loc;
         let geom_size = window.geometry().size;
         let Some(wl_surface) = window.wl_surface() else {

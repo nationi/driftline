@@ -448,3 +448,152 @@ fn live_frame_agrees_with_the_capture_at_fractional_output_scale() {
     f.state().render.remove_output(&output_name);
     gl::uninstall(&mut f);
 }
+
+fn tiling_live_frame(f: &mut Fixture, output: &smithay::output::Output) -> Vec<u8> {
+    let mut backend = f.state().backend.take().expect("fixture renderer");
+    let renderer = backend.renderer();
+    let elements = crate::render::compose_frame(f.state(), renderer, output, Vec::new());
+    let refs: Vec<_> = elements.iter().collect();
+    let bytes = crate::render::render_elements_to_rgba(
+        renderer,
+        Size::<i32, Physical>::from((1200, 800)),
+        Scale::from(1.0),
+        &refs,
+    )
+    .expect("render tiling frame");
+    f.state().backend = Some(backend);
+    bytes
+}
+
+#[derive(Clone, Copy)]
+enum TilingFinish {
+    Buffers,
+    Deadline,
+    Exit,
+}
+
+fn check_pending_tiling_pixels(finish: TilingFinish, shadow: bool) {
+    use super::{last_configured, window_by_app_id};
+    use driftwm::config::Action;
+    use smithay::reexports::wayland_server::Resource;
+    use smithay::wayland::compositor::{
+        Barrier, add_blocker, add_pre_commit_hook, remove_pre_commit_hook,
+    };
+    use smithay::wayland::seat::WaylandFocus;
+
+    let Some(renderer) = gl::surfaceless_renderer("tiling freeze") else {
+        return;
+    };
+    let config = format!("{}\n[snap]\ngap = 0\n", config_toml(shadow));
+    let mut f = Fixture::with_config(super::config(&config));
+    let output = f.add_output(1, (1200, 800));
+    gl::install(&mut f, renderer);
+    let first = f.add_client();
+    let second = f.add_client();
+    let old = solid_bgra(200, 100, CONTENT_BGRA, false);
+    let a = map_window_shm(&mut f, first, "a", (200, 100), (200, 100), &old);
+    let b = map_window_shm(&mut f, second, "b", (200, 100), (200, 100), &old);
+    super::tick_until_settled(&mut f);
+    let wa = window_by_app_id(&mut f, "a").unwrap();
+    let wb = window_by_app_id(&mut f, "b").unwrap();
+    f.state().stage.set_position(&wa, (50, 50).into());
+    f.state().stage.set_position(&wb, (350, 50).into());
+    f.state().set_camera((0.0, 0.0).into());
+    let before = tiling_live_frame(&mut f, &output);
+    f.state().execute_action(&Action::ToggleTiling);
+    assert_eq!(f.state().tiling_snapshot_count(), 2);
+    let target_a = last_configured(&mut f, first, &a);
+    let target_b = last_configured(&mut f, second, &b);
+    let surface = wb.wl_surface().unwrap().into_owned();
+    let barrier = Barrier::new(false);
+    let blocker = barrier.clone();
+    let hook = add_pre_commit_hook::<crate::state::DriftWm, _>(&surface, move |_, _, s| {
+        add_blocker(s, blocker.clone());
+    });
+    for (client, surface, size) in [(first, &a, target_a), (second, &b, target_b)] {
+        let pixels = solid_bgra(size.0, size.1, [0, 255, 0, 255], false);
+        let w = f.client(client).window(surface);
+        w.set_size(size.0 as u16, size.1 as u16);
+        w.attach_shm_buffer(size, &pixels);
+        w.ack_last_and_commit();
+        f.double_roundtrip(client);
+    }
+    f.double_roundtrip(first);
+    assert_eq!(wa.geometry().size, target_a.into());
+    assert_eq!(wb.geometry().size, (200, 100).into());
+    let pending = tiling_live_frame(&mut f, &output);
+    let differences: Vec<_> = before
+        .as_chunks::<4>()
+        .0
+        .iter()
+        .zip(pending.as_chunks::<4>().0.iter())
+        .enumerate()
+        .filter(|(_, (a, b))| {
+            a.iter()
+                .zip(b.iter())
+                .any(|(a, b)| a.abs_diff(*b) > u8::from(shadow))
+        })
+        .take(8)
+        .map(|(i, (a, b))| (i % 1200, i / 1200, a, b))
+        .collect();
+    assert!(differences.is_empty(), "changed pixels: {differences:?}");
+    match finish {
+        TilingFinish::Buffers => {}
+        TilingFinish::Deadline => {
+            std::thread::sleep(std::time::Duration::from_millis(310));
+            f.pump(4);
+            f.double_roundtrip(first);
+            assert_eq!(f.state().tiling_snapshot_count(), 0);
+            assert!(before != tiling_live_frame(&mut f, &output));
+        }
+        TilingFinish::Exit => {
+            f.state().execute_action(&Action::ToggleTiling);
+            assert_eq!(f.state().tiling_snapshot_count(), 0);
+            assert!(before != tiling_live_frame(&mut f, &output));
+        }
+    }
+    barrier.signal();
+    let owner = surface.client().unwrap();
+    let client_state = owner.get_data::<crate::state::ClientState>().unwrap();
+    let dh = f.state().display_handle.clone();
+    client_state
+        .compositor_state
+        .blocker_cleared(f.state(), &dh);
+    f.double_roundtrip(second);
+    assert_eq!(f.state().tiling_snapshot_count(), 0);
+    assert!(before != tiling_live_frame(&mut f, &output));
+    remove_pre_commit_hook(&surface, &hook);
+    if f.state().tiling_view.is_some() {
+        f.state().execute_action(&Action::ToggleTiling);
+    }
+    f.state().render.remove_output(&output.name());
+    gl::uninstall(&mut f);
+}
+
+#[test]
+#[ignore = "needs Mesa surfaceless EGL; run with --include-ignored"]
+fn pending_tiling_keeps_the_old_pixels_until_all_buffers_apply() {
+    let _gl = gl::lock();
+    check_pending_tiling_pixels(TilingFinish::Buffers, false);
+}
+
+#[test]
+#[ignore = "needs Mesa surfaceless EGL; run with --include-ignored"]
+fn pending_tiling_pixels_are_released_at_the_group_deadline() {
+    let _gl = gl::lock();
+    check_pending_tiling_pixels(TilingFinish::Deadline, false);
+}
+
+#[test]
+#[ignore = "needs Mesa surfaceless EGL; run with --include-ignored"]
+fn exiting_tiling_drops_the_pending_pixel_snapshot() {
+    let _gl = gl::lock();
+    check_pending_tiling_pixels(TilingFinish::Exit, false);
+}
+
+#[test]
+#[ignore = "needs Mesa surfaceless EGL; run with --include-ignored"]
+fn pending_tiling_snapshot_keeps_the_shadow_aligned() {
+    let _gl = gl::lock();
+    check_pending_tiling_pixels(TilingFinish::Buffers, true);
+}

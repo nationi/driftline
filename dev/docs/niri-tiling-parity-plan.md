@@ -188,7 +188,8 @@ immutable set of generation/serial requests, one shared 300 ms deadline,
 participant removal and release on cancellation/drop. Its deterministic tests
 cover peer waiting, exact timeout, stale generations, serial wraparound and
 independent groups. It accepts client-chosen geometry, unlike the existing
-exact-size post-commit diagnostic tracker. Mapped-toplevel pre-commit hooks now install the barrier on new-buffer replies;
+exact-size post-commit diagnostic tracker. Mapped-toplevel pre-commit hooks now
+install the barrier on new-buffer replies;
 idle callbacks wake affected clients after all peers arrive, timeout, removal,
 supersession or mode exit. Supersession carries outstanding requests without
 extending their earliest deadline. Real-client tests cover cross-client waiting,
@@ -198,9 +199,14 @@ group's buffer commits to apply, or its deadline. Readiness checks actual
 new-buffer application even when an earlier empty commit acknowledged the same
 serial; other surface blockers therefore keep placement deferred too. Reflow
 recomputes the latest placements after client wake-ups. Supersession preserves
-outstanding presentation requests independently of pre-commit arrivals. Full
-render snapshots/animations and a frame-atomic rendering guarantee remain
-outstanding. A pinned source audit confirms that unbuffered windows
+outstanding presentation requests independently of pre-commit arrivals. Visible
+eligible windows now retain baked old pixels until deferred placement
+applies; output composition replaces their live trees in the normal z-order.
+Completion, timeout, mode exit and dead IDs release these images. GLES pixel
+scenarios cover an independent buffer blocker, normal release, timeout, exit and
+shadow placement. Popup/blur/animated windows and failed captures retain live
+rendering. Full animation integration and an unconditional frame-atomic rendering
+guarantee remain outstanding. A pinned source audit confirms that unbuffered windows
 remain outside the scrolling layout until mapping; do not reserve phantom
 columns or initial-configure order. First-buffer order and mapping-time focus
 are now covered by headless reference scenarios. Live-frame reservation is

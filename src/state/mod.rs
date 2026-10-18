@@ -1337,6 +1337,7 @@ impl DriftWm {
             ("closing_snapshots", self.closing_snapshots.len()),
             ("standin_fades", self.standin_fades.len()),
             ("close_pixels", self.close_pixels.len()),
+            ("tiling_snapshots", self.tiling_snapshot_count()),
             ("resize_captures", self.resize_captures.len()),
             ("resize_crossfades", self.resize_crossfades.len()),
             ("unmap_snapshots", self.unmap_snapshots.len()),

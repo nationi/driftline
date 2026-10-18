@@ -576,15 +576,20 @@ fn flatten(
         Some((_, bar_rect)) => content_rect.merge(bar_rect),
         None => content_rect,
     };
-    let shadow_element = chrome.shadow_shader.map(|shader| {
+    let mut shadow_element = chrome.shadow_shader.map(|shader| {
+        let border = f64::from(chrome.border_width.max(0));
+        let casting_body = Rectangle::new(
+            body.loc - Point::from((border, border)),
+            Size::from((body.size.w + 2.0 * border, body.size.h + 2.0 * border)),
+        );
         shaders::bake_shadow_element(
             shader,
-            body,
+            casting_body,
             shaders::outer_corner_radius(chrome.corner_radius[2], chrome.border_width as f32),
             scale,
         )
     });
-    let border_element = chrome.border_shader.and_then(|shader| {
+    let mut border_element = chrome.border_shader.and_then(|shader| {
         shaders::bake_border_element(
             shader,
             body,
@@ -603,6 +608,14 @@ fn flatten(
     }
     if let Some((_, area)) = border_element {
         bounds = bounds.merge(area.to_f64());
+    }
+    // Shader elements were built in surface-local coordinates; the framebuffer
+    // starts at bounds.loc, just like the content and bar offsets below.
+    for (element, area) in shadow_element.iter_mut().chain(border_element.iter_mut()) {
+        element.resize(
+            Rectangle::new(area.loc - bounds.loc.to_i32_round(), area.size),
+            None,
+        );
     }
     let phys_size = phys_size_of(bounds, flatten_scale);
     if phys_size.w <= 0 || phys_size.h <= 0 {
@@ -779,7 +792,18 @@ impl ClosingSnapshot {
         zoom: f64,
         output_scale: f64,
     ) -> Option<OutputRenderElements> {
-        let alpha = fade_out_alpha(self.progress);
+        self.render_element_with_opacity(output_name, camera, zoom, output_scale, 1.0)
+    }
+
+    pub(crate) fn render_element_with_opacity(
+        &self,
+        output_name: &str,
+        camera: Point<f64, Logical>,
+        zoom: f64,
+        output_scale: f64,
+        opacity: f64,
+    ) -> Option<OutputRenderElements> {
+        let alpha = fade_out_alpha(self.progress) * opacity as f32;
         let close_scale = if self.alpha_only {
             1.0
         } else {

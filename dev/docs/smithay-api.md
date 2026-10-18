@@ -614,3 +614,13 @@ Copy values out before re-entering other surface userdata APIs.
 `add_pre_commit_hook::<D, _>` returns its `HookId`. The synthetic surface blocker
 in the tiling headless test uses this to exercise deferred buffer application
 without requiring a GPU or DMA-BUF.
+
+
+### Rebasing baked shader elements
+
+`backend::renderer::gles::element::PixelShaderElement::resize(&mut self,
+area: Rectangle<i32, Logical>, opaque_regions: Option<Vec<Rectangle<i32, Logical>>>)`
+updates its destination area. Border/shadow uniforms use coordinates relative to
+that area; rebasing the element into an offscreen framebuffer therefore keeps
+uniforms unchanged and subtracts the framebuffer's surface-local origin from
+`area.loc`. Content and bar elements must use the same origin.
