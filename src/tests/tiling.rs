@@ -542,3 +542,113 @@ fn grouped_configures_follow_reference_sequential_height_rounding() {
         );
     }
 }
+
+#[test]
+fn closing_selected_middle_tile_or_column_focuses_the_next_window() {
+    for grouped in [false, true] {
+        let mut f = Fixture::new();
+        f.add_output(1, (1200, 800));
+        let client = f.add_client();
+        map_window(&mut f, client, "a", (400, 200));
+        let b = map_window(&mut f, client, "b", (400, 200));
+        map_window(&mut f, client, "c", (400, 200));
+        let wc = window_by_app_id(&mut f, "c").unwrap();
+        let cid = f.state().stage.id_of(&wc).unwrap();
+        f.state().execute_action(&Action::ToggleTiling);
+        f.state()
+            .execute_action(&Action::FocusColumn(Direction::Left));
+        if grouped {
+            f.state()
+                .execute_action(&Action::FocusColumn(Direction::Left));
+            f.state().execute_action(&Action::ConsumeWindowIntoColumn);
+            f.state().execute_action(&Action::ConsumeWindowIntoColumn);
+            f.state()
+                .execute_action(&Action::FocusColumn(Direction::Down));
+        }
+        f.client(client).window(&b).destroy();
+        f.double_roundtrip(client);
+        assert_eq!(f.state().stage.active_tile(), Some(cid));
+        let focused = f.state().focused_element().unwrap();
+        assert_eq!(f.state().stage.id_of(&focused), Some(cid));
+        assert!(f.state().tiling_view.is_some());
+    }
+}
+
+#[test]
+fn closing_a_new_interior_column_returns_until_another_column_is_focused() {
+    for change_focus in [false, true] {
+        let mut f = Fixture::new();
+        f.add_output(1, (1200, 800));
+        let client = f.add_client();
+        map_window(&mut f, client, "a", (400, 200));
+        map_window(&mut f, client, "b", (400, 200));
+        let wa = window_by_app_id(&mut f, "a").unwrap();
+        let wb = window_by_app_id(&mut f, "b").unwrap();
+        f.state().execute_action(&Action::ToggleTiling);
+        f.state()
+            .execute_action(&Action::FocusColumn(Direction::Left));
+        let c = map_window(&mut f, client, "c", (400, 200));
+        if change_focus {
+            f.state()
+                .execute_action(&Action::FocusColumn(Direction::Right));
+            f.state()
+                .execute_action(&Action::FocusColumn(Direction::Left));
+        }
+        f.client(client).window(&c).destroy();
+        f.double_roundtrip(client);
+        let expected = if change_focus { &wb } else { &wa };
+        let id = f.state().stage.id_of(expected).unwrap();
+        assert_eq!(f.state().stage.active_tile(), Some(id));
+        let focused = f.state().focused_element().unwrap();
+        assert_eq!(f.state().stage.id_of(&focused), Some(id));
+    }
+}
+
+#[test]
+fn crashing_the_selected_middle_column_recovers_structural_focus() {
+    let mut f = Fixture::new();
+    f.add_output(1, (1200, 800));
+    let survivor = f.add_client();
+    let crashing = f.add_client();
+    map_window(&mut f, survivor, "a", (400, 200));
+    map_window(&mut f, crashing, "b", (400, 200));
+    map_window(&mut f, survivor, "c", (400, 200));
+    let wc = window_by_app_id(&mut f, "c").unwrap();
+    let cid = f.state().stage.id_of(&wc).unwrap();
+    f.state().execute_action(&Action::ToggleTiling);
+    f.state()
+        .execute_action(&Action::FocusColumn(Direction::Left));
+    f.kill_client(crashing);
+    f.double_roundtrip(survivor);
+    assert_eq!(f.state().stage.active_tile(), Some(cid));
+    let focused = f.state().focused_element().unwrap();
+    assert_eq!(f.state().stage.id_of(&focused), Some(cid));
+}
+
+#[test]
+fn a_background_close_and_an_intentional_focus_clear_do_not_steal_focus() {
+    for clear_focus in [false, true] {
+        let mut f = Fixture::new();
+        f.add_output(1, (1200, 800));
+        let client = f.add_client();
+        let a = map_window(&mut f, client, "a", (400, 200));
+        let b = map_window(&mut f, client, "b", (400, 200));
+        let wb = window_by_app_id(&mut f, "b").unwrap();
+        let bid = f.state().stage.id_of(&wb).unwrap();
+        f.state().execute_action(&Action::ToggleTiling);
+        if clear_focus {
+            f.state()
+                .clear_focus_to_empty_canvas(SERIAL_COUNTER.next_serial());
+            f.client(client).window(&b).destroy();
+        } else {
+            f.client(client).window(&a).destroy();
+        }
+        f.double_roundtrip(client);
+        if clear_focus {
+            assert!(f.state().focused_element().is_none());
+        } else {
+            let focused = f.state().focused_element().unwrap();
+            assert_eq!(f.state().stage.id_of(&focused), Some(bid));
+        }
+    }
+}

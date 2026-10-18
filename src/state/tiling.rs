@@ -208,6 +208,24 @@ impl DriftWm {
             return;
         }
         let origin = view.origin;
+        let selected_closed = view
+            .revealed
+            .is_some_and(|(id, _)| self.stage.window_by_id(id).is_none());
+        if selected_closed && !self.suppress_auto_anchor && self.focused_anchor_element().is_none()
+        {
+            let serial = SERIAL_COUNTER.next_serial();
+            if let Some(element) = self
+                .stage
+                .active_tile()
+                .and_then(|id| self.stage.window_by_id(id))
+                .cloned()
+            {
+                self.raise_and_focus_element(&element, serial);
+            } else {
+                self.set_window_focus(None, serial);
+            }
+        }
+
         if self.stage.tiled_windows().any(|column| {
             self.stage
                 .window_by_id(column.id)

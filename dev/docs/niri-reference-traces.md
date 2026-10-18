@@ -39,7 +39,7 @@ All symbols below are in `src/layout/scrolling.rs` at the pinned revision:
 | Consume first from next column | `consume_into_column`, `add_tile_to_column`, `Column::add_tile_at` |
 | Expel last and retain source selection | `expel_from_column`, `remove_tile_by_idx`, `add_tile` with activation disabled |
 | Column/window reordering | `move_left`, `move_column_to`, `Column::move_up` |
-| Close nonactive or trailing column | `remove_tile_by_idx`, `remove_column_by_idx` |
+| Closure and new-column return | `remove_tile_by_idx`, `remove_column_by_idx`, `add_column`, `activate_column_with_anim_config` |
 | Fit target | `compute_new_view_offset_fit`, `compute_new_view_offset` with zero padding and centering disabled |
 
 Niri's horizontal offset is relative to the selected column: the absolute
@@ -47,6 +47,8 @@ camera is `column_x + offset` with a zero working-area origin. A fully visible
 column leaves the supplied camera unchanged. A column wider than the viewport
 returns offset zero, aligning its leading edge. Vertical fit is unchanged in
 these cases because all selected tiles are inside the working area.
+
+The corpus now has 60 snapshots across seven traces.
 
 The structural trace uses width 100 and viewport `200 × 600`. It checks mapping,
 focus, two consumes, tile reorder, two expels, column reorder, a width change,
@@ -67,12 +69,19 @@ width 300 in a viewport of width 200.
   it is an exact size. Driftwm equalizes content heights and honors maxima.
   Mixed decorations, non-unit weights and non-exact maximum limits need their
   own reference cases and a deliberate sizing-policy implementation.
-- Closing an active interior column can select a different neighbor: driftwm
-  chooses its predecessor; niri normally retains the shifted index (next
-  column), with an additional previous-column restoration flag for new windows.
-  Removing an active interior tile has a related next-versus-previous difference.
-  This corpus covers nonactive/trailing closure only; it does not certify the
-  remaining closure contexts. Add selection-history policy before widening it.
+- Closure traces now cover next-neighbor selection for an active interior tile
+  or column, returning from a newly inserted column, preserving the return on
+  repeated same-column selection, cancellation after switching columns, and
+  cancellation when the predecessor disappears. Stage stores the previous
+  column's stable ID; it is cleared on active-column reorder, layout exit and
+  removal to the left. Ordinary trailing closure falls back to the last survivor.
+  Batched crash pruning chooses the next surviving original neighbor rather than
+  indexing the already-shortened list with the old index; exact event-order
+  comparisons for all multi-window disconnect permutations remain future work.
+- Niri's new-column return also stores a view offset. This batch matches target
+  selection, not restoration of that saved offset. Fit probes remain independent
+  camera inputs. Modal/layer focus contexts and animation timing are outside
+  the reference corpus, even where driftwm has its own regression tests.
 - Gap-aware proportions, centering, fractional scales, constraints, floating,
   fullscreen, tabs, multi-output ownership, gestures and animation/anchor state
   remain outside this corpus. Existing driftwm regression tests are not evidence

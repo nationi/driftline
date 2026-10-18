@@ -334,7 +334,13 @@ impl XdgShellHandler for DriftWm {
                 self.window_focus,
                 Some(crate::state::FocusIntent::Suspended(_))
             );
-            if !focus_is_suspended
+            let tiled = self.tiling_view.is_some()
+                && self
+                    .stage
+                    .id_of(window)
+                    .is_some_and(|id| self.stage.is_tiled(id));
+            if !tiled
+                && !focus_is_suspended
                 && (focus_on_this_toplevel || was_last_focused || no_keyboard_focus)
             {
                 if let Some(target) = follow {

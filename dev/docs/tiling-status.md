@@ -71,7 +71,7 @@ Cardinal `center-nearest` also follows the tiling structure while in this mode.
    nested values, defaults and ID-targeted action availability. Do not infer
    exact compatibility from the generated schema index.
 2. Extend the new hermetic reference corpus beyond its zero-gap, undecorated,
-   fixed-width subset. Include reference selection-history closure, constraints,
+   fixed-width subset. Include more selection histories, constraints,
    gaps, proportions and real camera/animation state, not just fit probes.
 3. P1 now has stable column/layout IDs, separate tile/column sizing inputs
    and a shared transition gate. Extend transitions as floating and retained
@@ -107,9 +107,10 @@ remain outstanding. Random membership histories include both actions.
 ## Reference geometry and fit corpus
 
 [Reference-trace methodology](niri-reference-traces.md) documents the new offline
-JSON corpus, its pinned source derivation and limits. Twenty-seven snapshots
+JSON corpus, its pinned source derivation and limits. Sixty snapshots
 cover map/focus, consume/expel, tile/column reorder, fixed-width changes,
-working-area resize, nonactive/trailing closure and oversized-column fit.
+working-area resize, interior/nonactive/trailing closure, new-column return
+and oversized-column fit.
 Each checks ordered membership, selection and exact rectangles; explicit camera
 inputs additionally check fit targets. These are source-derived expectations,
 not recordings or full camera-lifecycle replay.
@@ -122,10 +123,22 @@ allocation fixes it and the failing seed is retained. A real-client test checks
 `201, 202, 201` configure heights and matching positions for three grouped windows
 in 604 available pixels.
 
-New explicit gaps: active interior column/tile closure can pick a different
-neighbor than niri, and niri has a previous-column restoration flag tied to new
-windows. Cover these selection histories before claiming general closure parity.
-Max-height handling and mixed-decoration weighting remain different as before.
+Closure now selects the next surviving tile/column, or the preceding one at the
+end. A newly opened column remembers its predecessor until another column is
+selected, the active column is reordered, or a column to its left disappears.
+Repeated selection in the same column preserves this memory. Invariants check
+that the return target is a live immediate predecessor. Clearing the layout
+clears the memory. Crash pruning handles several dead members without using an
+old index against an already-shortened list.
+
+Tiled closes bypass canvas MRU/spatial focus-follow. After normal unmap or the
+dead-client sweep, reflow restores structural keyboard focus when the previously
+selected tile disappeared and no other live focus intent exists. A deliberate
+empty-canvas focus clear is respected. Headless tests cover interior tile and
+column closure, return/cancellation for newly mapped columns, client crash,
+background closure and intentional focus clearing. Niri's saved view-offset
+restoration and broader modal/layer and disconnect-order reference cases remain
+outstanding. Max-height handling and mixed-decoration weighting still differ.
 
 ## Layout identity and sizing inputs
 
@@ -181,7 +194,7 @@ For the latest implementation batch:
 
 - `dev/scripts/ci-local` passed every stage, including ignored tests and isolated soak.
 - `PROPTEST_CASES=4000 cargo test --lib --quiet` passed all 355 library tests.
-- The headless tiling/session coverage includes 21 scenarios, including direct
+- The headless tiling/session coverage includes 25 scenarios, including direct
   operation restoration, reorder and
   preservation of camera/pointer coordinates and camera targets.
 - The reference inventory regenerates byte-for-byte from the pinned checkout.

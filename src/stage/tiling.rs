@@ -30,6 +30,7 @@ pub(super) struct Tiling {
     pub(super) columns: Vec<TiledColumn>,
     pub(super) active: Option<ColumnId>,
     next_column_id: u64,
+    pub(super) restore_previous: Option<ColumnId>,
     layout_id: Option<TilingLayoutId>,
     next_layout_id: u64,
 }
@@ -122,6 +123,7 @@ impl<W: StageElement> Stage<W> {
             .active
             .and_then(|id| self.tiling.columns.iter().position(|c| c.id == id))
             .map_or(self.tiling.columns.len(), |i| i + 1);
+        self.tiling.restore_previous = self.tiling.active;
         self.tiling.columns.insert(index, column);
         self.tiling.active = Some(column_id);
         true
@@ -131,6 +133,9 @@ impl<W: StageElement> Stage<W> {
         let Some(index) = self.column_index(id) else {
             return false;
         };
+        if self.tiling.active != Some(self.tiling.columns[index].id) {
+            self.tiling.restore_previous = None;
+        }
         self.tiling.columns[index].selected = id;
         self.tiling.active = Some(self.tiling.columns[index].id);
         true
@@ -179,6 +184,7 @@ impl<W: StageElement> Stage<W> {
         let Some(next) = next.filter(|next| *next < self.tiling.columns.len()) else {
             return false;
         };
+        self.tiling.restore_previous = None;
         self.tiling.columns.swap(index, next);
         true
     }
@@ -217,6 +223,7 @@ impl<W: StageElement> Stage<W> {
         let at = column.windows.iter().position(|w| w.id == target).unwrap() + 1;
         column.windows.insert(at, window);
         column.selected = active;
+        self.tiling.restore_previous = None;
         self.tiling.active = Some(column.id);
         true
     }
@@ -244,6 +251,7 @@ impl<W: StageElement> Stage<W> {
                 windows: vec![window],
             },
         );
+        self.tiling.restore_previous = None;
         self.tiling.active = Some(id);
         true
     }
@@ -319,6 +327,7 @@ impl<W: StageElement> Stage<W> {
 
     pub fn clear_tiling(&mut self) -> Vec<TiledWindow> {
         self.tiling.layout_id = None;
+        self.tiling.restore_previous = None;
         self.tiling.active = None;
         std::mem::take(&mut self.tiling.columns)
             .into_iter()
@@ -327,24 +336,34 @@ impl<W: StageElement> Stage<W> {
     }
 
     pub(super) fn prune_tiling(&mut self) {
+        let live: std::collections::HashSet<_> = self.entries.iter().map(|e| e.id).collect();
         let previous_column = self
             .tiling
             .columns
             .iter()
             .position(|c| Some(c.id) == self.tiling.active);
+        let surviving_before = previous_column.map_or(0, |index| {
+            self.tiling.columns[..index]
+                .iter()
+                .filter(|c| c.windows.iter().any(|w| live.contains(&w.id)))
+                .count()
+        });
+        if previous_column.is_some_and(|index| surviving_before != index) {
+            self.tiling.restore_previous = None;
+        }
         for column in &mut self.tiling.columns {
-            let previous = column
+            let selected_index = column
                 .windows
                 .iter()
                 .position(|w| w.id == column.selected)
                 .unwrap_or(0);
-            column
-                .windows
-                .retain(|w| self.entries.iter().any(|entry| entry.id == w.id));
-            if !column.windows.is_empty() && !column.windows.iter().any(|w| w.id == column.selected)
-            {
-                column.selected =
-                    column.windows[previous.saturating_sub(1).min(column.windows.len() - 1)].id;
+            let surviving_before = column.windows[..selected_index]
+                .iter()
+                .filter(|w| live.contains(&w.id))
+                .count();
+            column.windows.retain(|w| live.contains(&w.id));
+            if !column.windows.is_empty() && !live.contains(&column.selected) {
+                column.selected = column.windows[surviving_before.min(column.windows.len() - 1)].id;
             }
         }
         self.tiling.columns.retain(|c| !c.windows.is_empty());
@@ -354,13 +373,25 @@ impl<W: StageElement> Stage<W> {
             .iter()
             .any(|c| Some(c.id) == self.tiling.active)
         {
-            self.tiling.active = previous_column.and_then(|index| {
+            let previous = self
+                .tiling
+                .restore_previous
+                .take()
+                .filter(|id| self.tiling.columns.iter().any(|c| c.id == *id));
+            self.tiling.active = previous.or_else(|| {
                 self.tiling
                     .columns
-                    .get(index.saturating_sub(1))
+                    .get(surviving_before)
                     .or(self.tiling.columns.last())
                     .map(|c| c.id)
             });
+        }
+        if self
+            .tiling
+            .restore_previous
+            .is_some_and(|id| !self.tiling.columns.iter().any(|c| c.id == id))
+        {
+            self.tiling.restore_previous = None;
         }
     }
 }

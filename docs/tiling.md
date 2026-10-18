@@ -66,7 +66,12 @@ windows. Focusing an off-screen window reveals it vertically as needed.
 each. `focus-column up/down` changes windows inside a column. Navigation does
 not wrap; the corresponding `center-nearest` actions follow the same structure
 while tiling. Closing a window redistributes height; closing the last window
-removes the column. Trackpad panning is horizontal, using existing momentum.
+removes the column. Closing the selected window chooses the next window or
+column, falling back to the previous one at the end. A newly opened column
+returns focus to its source column when closed, until another column is focused
+or the column is reordered. Repeated focus within the new column preserves this
+return; removing a column to its left cancels it. Background closure preserves
+keyboard focus. Trackpad panning is horizontal, using existing momentum.
 Column snapping at the end of a gesture is not implemented yet.
 
 Toggle again to restore the saved canvas positions, sizes, camera and zoom.

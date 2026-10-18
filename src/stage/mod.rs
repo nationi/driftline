@@ -710,6 +710,22 @@ impl<W: StageElement> Stage<W> {
             }
         }
         assert_eq!(self.tiling.active.is_none(), self.tiling.columns.is_empty());
+        if let Some(previous) = self.tiling.restore_previous {
+            let active = self
+                .tiling
+                .columns
+                .iter()
+                .position(|c| Some(c.id) == self.tiling.active)
+                .unwrap();
+            assert_eq!(
+                active
+                    .checked_sub(1)
+                    .map(|index| self.tiling.columns[index].id),
+                Some(previous),
+                "close-return column is not the active column's predecessor"
+            );
+        }
+
         if let Some(id) = self.tiling.active {
             assert!(
                 self.column(id).is_some(),
