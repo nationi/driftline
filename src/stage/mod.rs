@@ -16,7 +16,7 @@ mod tests;
 mod tiling;
 
 pub use element::StageElement;
-pub use tiling::TiledColumn;
+pub use tiling::{TiledColumn, TiledWindow};
 
 use crate::layout::snap::SnapRect;
 use smithay::utils::{Logical, Point, Size};
@@ -689,21 +689,28 @@ impl<W: StageElement> Stage<W> {
     /// windows: a dead window may linger in the focus history until its
     /// destroy handler runs.
     pub fn verify_invariants(&self) {
-        for (index, column) in self.tiling.columns.iter().enumerate() {
+        let mut tiled_ids = std::collections::HashSet::new();
+        for column in &self.tiling.columns {
+            assert!(!column.windows.is_empty(), "empty tiled column");
             assert!(
-                self.window_by_id(column.id).is_some(),
-                "tiled window missing from stage"
+                column.windows.iter().any(|w| w.id == column.id),
+                "selected tile missing from column"
             );
-            assert!(
-                !self.tiling.columns[index + 1..]
-                    .iter()
-                    .any(|c| c.id == column.id),
-                "duplicate tiled window"
-            );
+            for window in &column.windows {
+                assert!(
+                    self.window_by_id(window.id).is_some(),
+                    "tiled window missing from stage"
+                );
+                assert!(tiled_ids.insert(window.id), "duplicate tiled window");
+            }
         }
         assert_eq!(self.tiling.active.is_none(), self.tiling.columns.is_empty());
         if let Some(id) = self.tiling.active {
             assert!(self.is_tiled(id), "active column missing from tiling");
+            assert!(
+                self.tiling.columns.iter().any(|c| c.id == id),
+                "active tile differs from column selection"
+            );
         }
         for (i, e) in self.entries.iter().enumerate() {
             assert!(

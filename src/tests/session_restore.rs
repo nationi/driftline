@@ -63,21 +63,30 @@ fn tiling_saves_the_canvas_rectangle_and_view_instead_of_temporary_geometry() {
     let tmp = TempDir::new();
     let mut f = Fixture::with_config(config_restore(true));
     let output = f.add_output(1, (1200, 800));
-    inject_cache(&mut f, &tmp, &["alpha"]);
+    inject_cache(&mut f, &tmp, &["alpha", "beta"]);
     let path = tmp.path().join("session.json");
     f.state().session_store.path = Some(path.clone());
     let client = f.add_client();
     map_at(&mut f, client, "alpha", (400, 300), (100, 200));
+    map_at(&mut f, client, "beta", (300, 200), (600, 400));
     f.state().set_camera((50.0, 75.0).into());
     f.state().set_zoom(0.6);
     f.state().session_store_write_now();
     let before = session::read(&path);
     f.state()
         .execute_action(&driftwm::config::Action::ToggleTiling);
+    f.state()
+        .execute_action(&driftwm::config::Action::MoveIntoColumn(
+            driftwm::config::Direction::Left,
+        ));
     f.state().session_store_write_now();
     let after = session::read(&path);
-    assert_eq!(after.entries[0].position, before.entries[0].position);
-    assert_eq!(after.entries[0].size, before.entries[0].size);
+    assert_eq!(after.entries.len(), before.entries.len());
+    for (actual, expected) in after.entries.iter().zip(&before.entries) {
+        assert_eq!(actual.app_id, expected.app_id);
+        assert_eq!(actual.position, expected.position);
+        assert_eq!(actual.size, expected.size);
+    }
     assert_eq!(after.outputs[&output.name()].camera, [50.0, 75.0]);
     assert_eq!(after.outputs[&output.name()].zoom, 0.6);
 }

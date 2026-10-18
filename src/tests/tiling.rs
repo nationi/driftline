@@ -224,3 +224,124 @@ fn restoring_after_a_tiled_commit_settles_at_the_original_canvas_position() {
     adopt_last_configure(&mut f, client, &surface);
     assert_eq!(window_position(&mut f, &window), before);
 }
+
+#[test]
+fn grouped_windows_share_height_navigate_and_restore_their_original_rectangles() {
+    let mut f = Fixture::new();
+    f.add_output(1, (1200, 800));
+    let client = f.add_client();
+    let a = map_window(&mut f, client, "a", (400, 200));
+    let b = map_window(&mut f, client, "b", (400, 250));
+    let c = map_window(&mut f, client, "c", (400, 300));
+    let wa = window_by_app_id(&mut f, "a").unwrap();
+    let wb = window_by_app_id(&mut f, "b").unwrap();
+    let wc = window_by_app_id(&mut f, "c").unwrap();
+    let saved: Vec<_> = [&wa, &wb, &wc]
+        .iter()
+        .map(|w| window_position(&mut f, w))
+        .collect();
+    f.state().execute_action(&Action::ToggleTiling);
+    f.state()
+        .execute_action(&Action::MoveIntoColumn(Direction::Left));
+    assert_eq!(f.state().stage.tiled_columns().len(), 2);
+    let b_size = last_configured(&mut f, client, &b);
+    let c_size = last_configured(&mut f, client, &c);
+    assert!((b_size.1 - c_size.1).abs() <= 1);
+    assert!(b_size.1 < 500);
+    assert_eq!(b_size.0, c_size.0);
+    adopt_last_configure(&mut f, client, &b);
+    adopt_last_configure(&mut f, client, &c);
+    assert_eq!(
+        window_position(&mut f, &wb).x,
+        window_position(&mut f, &wc).x
+    );
+    assert!(window_position(&mut f, &wb).y < window_position(&mut f, &wc).y);
+    f.state()
+        .execute_action(&Action::FocusColumn(Direction::Up));
+    let bid = f.state().stage.id_of(&wb).unwrap();
+    assert_eq!(f.state().stage.active_column(), Some(bid));
+    f.state()
+        .execute_action(&Action::FocusColumn(Direction::Left));
+    f.state()
+        .execute_action(&Action::FocusColumn(Direction::Right));
+    assert_eq!(f.state().stage.active_column(), Some(bid));
+    f.state()
+        .execute_action(&Action::CenterNearest(Direction::Down));
+    let cid = f.state().stage.id_of(&wc).unwrap();
+    assert_eq!(f.state().stage.active_column(), Some(cid));
+    f.state().execute_action(&Action::ToggleTiling);
+    for (surface, window, expected) in [
+        (&a, &wa, (400, 200)),
+        (&b, &wb, (400, 250)),
+        (&c, &wc, (400, 300)),
+    ] {
+        assert_eq!(last_configured(&mut f, client, surface), expected);
+        adopt_last_configure(&mut f, client, surface);
+        assert!(saved.contains(&window_position(&mut f, window)));
+    }
+    assert_eq!(
+        [&wa, &wb, &wc]
+            .iter()
+            .map(|w| window_position(&mut f, w))
+            .collect::<Vec<_>>(),
+        saved
+    );
+}
+
+#[test]
+fn expelling_and_closing_grouped_windows_keeps_membership_consistent() {
+    let mut f = Fixture::new();
+    f.add_output(1, (1200, 800));
+    let client = f.add_client();
+    let a = map_window(&mut f, client, "a", (400, 200));
+    map_window(&mut f, client, "b", (400, 250));
+    f.state().execute_action(&Action::ToggleTiling);
+    f.state()
+        .execute_action(&Action::MoveIntoColumn(Direction::Left));
+    assert_eq!(f.state().stage.tiled_columns().len(), 1);
+    f.state().execute_action(&Action::ExpelFromColumn);
+    assert_eq!(f.state().stage.tiled_columns().len(), 2);
+    f.state()
+        .execute_action(&Action::MoveIntoColumn(Direction::Left));
+    f.client(client).window(&a).destroy();
+    f.double_roundtrip(client);
+    assert_eq!(f.state().stage.tiled_columns().len(), 1);
+    assert_eq!(f.state().stage.tiled_windows().count(), 1);
+    let b = window_by_app_id(&mut f, "b").unwrap();
+    let id = f.state().stage.id_of(&b).unwrap();
+    assert_eq!(f.state().stage.active_column(), Some(id));
+    let c = map_window(&mut f, client, "c", (400, 200));
+    assert_eq!(f.state().stage.tiled_columns().len(), 2);
+    assert!(last_configured(&mut f, client, &c).1 > 700);
+    assert!(f.state().tiling_view.is_some());
+}
+
+#[test]
+fn a_delayed_vertical_resize_reserves_live_height_without_repeated_requests() {
+    let mut f = Fixture::new();
+    f.add_output(1, (1200, 800));
+    let client = f.add_client();
+    let a = map_window(&mut f, client, "a", (400, 700));
+    let b = map_window(&mut f, client, "b", (400, 700));
+    let wa = window_by_app_id(&mut f, "a").unwrap();
+    let wb = window_by_app_id(&mut f, "b").unwrap();
+    f.state().execute_action(&Action::ToggleTiling);
+    f.state()
+        .execute_action(&Action::MoveIntoColumn(Direction::Left));
+    f.double_roundtrip(client);
+    ack_but_keep_size(&mut f, client, &a);
+    assert!(window_position(&mut f, &wb).y >= window_position(&mut f, &wa).y + 700);
+    let count = configure_count(&mut f, client, &a);
+    for _ in 0..5 {
+        f.state().refresh_and_flush_clients();
+    }
+    assert_eq!(configure_count(&mut f, client, &a), count);
+    let (width, height) = last_configured(&mut f, client, &a);
+    let window = f.client(client).window(&a);
+    window.set_size(width as u16, height as u16);
+    window.attach_new_buffer();
+    window.commit();
+    f.double_roundtrip(client);
+    adopt_last_configure(&mut f, client, &b);
+    assert!(window_position(&mut f, &wb).y < window_position(&mut f, &wa).y + 700);
+}

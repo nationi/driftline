@@ -5,7 +5,7 @@ behavior remains the default. User instructions: [tiling](../../docs/tiling.md).
 
 ## Implementation progress
 
-`src/layout/scrolling/` now calculates a one-window-per-column layout from
+`src/layout/scrolling/` now calculates single- and multi-window columns from
 stage IDs and caller-supplied order. It supports fixed/proportional frame
 widths, content constraints, decorations, inter-column gaps, and a camera
 reveal target at zoom 1 with output-local usable-area offsets. Invalid inputs
@@ -30,16 +30,23 @@ widgets, pinned/fitted/filled windows and stand-ins are excluded. Durable sessio
 save the original canvas rectangles and view, not temporary tiled geometry.
 
 Steps 2 and the initial integration portion of step 3 are implemented. Individual
-detach, configurable width presets, multi-window columns, gesture settling,
+detach to canvas, configurable width presets, gesture settling,
 multi-output ownership and persistent topology remain outstanding. Horizontal
 pan currently reuses existing momentum without column snapping.
+
+Step 4 now includes moving a window into an adjacent column, expelling it into
+a separate column, vertical focus, per-column selection memory and equal height
+allocation subject to min/max constraints. Impossible minimum heights overflow
+downward. Delayed or refused client sizes reserve their current frames on both
+axes. Height weights, vertical reordering and interactive tile resizing remain
+future extensions.
 
 Validation includes pure geometry tests, stage topology/model tests and headless
 Wayland scenarios for transitions, map/close, focus, width cycling, delayed/refused
 sizes, dialog exclusion, hotplug and saving the canvas session while tiling.
-The full library suite passes with `PROPTEST_CASES=4000` (341 tests).
+The full library suite passes with `PROPTEST_CASES=4000` (348 tests).
 The full `dev/scripts/ci-local` sequence passes, including ignored scenarios and
-the isolated soak test. Eleven headless scenarios cover tiling and its session
+the isolated soak test. Fourteen headless scenarios cover tiling and its session
 integration. These checks include the pre-existing output-management changes in
 the working tree. No graphical session has been launched for manual validation.
 

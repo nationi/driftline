@@ -51,6 +51,8 @@ pub enum Action {
     ToggleTiling,
     FocusColumn(Direction),
     CycleColumnWidth,
+    MoveIntoColumn(Direction),
+    ExpelFromColumn,
     Exec(String),
     ExecTerminal,
     ExecLauncher,

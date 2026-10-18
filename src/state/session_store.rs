@@ -615,7 +615,7 @@ impl DriftWm {
     /// pre-fullscreen saved rect, or the unpin-to-canvas landing.
     fn live_window_rect(&self, window: &Window) -> (Point<i32, Logical>, Size<i32, Logical>) {
         if let Some(id) = self.stage.id_of(window)
-            && let Some(column) = self.stage.tiled_columns().iter().find(|c| c.id == id)
+            && let Some(column) = self.stage.tiled_windows().find(|w| w.id == id)
         {
             return (column.restore.loc, column.restore.size);
         }

@@ -199,6 +199,37 @@ fn oversized_frames_align_the_leading_edge_and_settle() {
 
 proptest! {
     #[test]
+    fn grouped_layout_has_no_overlaps_and_is_deterministic(
+        sizes in prop::collection::vec(prop::collection::vec((1i32..800, 0i32..900, 0i32..900), 1..8), 0..8),
+        working_height in 1i32..1200,
+        gap in 0i32..30,
+    ) {
+        let mut id = 0;
+        let groups: Vec<Vec<_>> = sizes.iter().map(|group| group.iter().map(|(width, min, max)| {
+            id += 1;
+            let mut tile = column(id, ColumnWidth::Fixed(*width));
+            tile.constraints.min.h = *min;
+            tile.constraints.max.h = *max;
+            tile.chrome = Chrome { bar: 20, border: 2 };
+            tile
+        }).collect()).collect();
+        let result = arrange_columns(&groups, (-100, -200).into(), (1000, working_height).into(), gap).unwrap();
+        prop_assert_eq!(&result, &arrange_columns(&groups, (-100, -200).into(), (1000, working_height).into(), gap).unwrap());
+        for (i, placement) in result.iter().enumerate() {
+            prop_assert!(placement.content.size.w > 0 && placement.content.size.h > 0);
+            for other in &result[i + 1..] {
+                prop_assert!(!placement.frame.overlaps(other.frame));
+            }
+        }
+        for (spec, placement) in groups.iter().flatten().zip(&result) {
+            prop_assert!(placement.content.size.h >= spec.constraints.min.h.max(1));
+            if spec.constraints.max.h > 0 {
+                prop_assert!(placement.content.size.h <= spec.constraints.max.h.max(spec.constraints.min.h).max(1));
+            }
+        }
+    }
+
+    #[test]
     fn arbitrary_inputs_never_panic(
         values in any::<[i32; 11]>(),
         fraction in any::<f64>(),
@@ -254,4 +285,65 @@ proptest! {
             }
         }
     }
+}
+
+#[test]
+fn grouped_windows_share_height_and_the_next_column_starts_after_the_widest_tile() {
+    let groups = vec![
+        vec![
+            column(1, ColumnWidth::Fixed(300)),
+            column(2, ColumnWidth::Fixed(500)),
+        ],
+        vec![column(3, ColumnWidth::Fixed(200))],
+    ];
+    let result = arrange_columns(&groups, (0, 0).into(), (1000, 701).into(), 10).unwrap();
+    assert_eq!(result[0].frame, rect(0, 0, 500, 346));
+    assert_eq!(result[1].frame, rect(0, 356, 500, 345));
+    assert_eq!(result[2].frame, rect(510, 0, 200, 701));
+}
+
+#[test]
+fn height_distribution_respects_limits_and_redistributes_remaining_space() {
+    let mut a = column(1, ColumnWidth::Fixed(300));
+    a.constraints.min.h = 450;
+    let mut b = column(2, ColumnWidth::Fixed(300));
+    b.constraints.max.h = 50;
+    let c = column(3, ColumnWidth::Fixed(300));
+    let result = arrange_columns(&[vec![a, b, c]], (0, 0).into(), (1000, 600).into(), 0).unwrap();
+    assert_eq!(
+        result.iter().map(|p| p.content.size.h).collect::<Vec<_>>(),
+        vec![450, 50, 100]
+    );
+    assert_eq!(result[2].frame.loc.y, 500);
+}
+
+#[test]
+fn minimum_heights_overflow_downward_and_decorations_consume_height() {
+    let mut a = column(1, ColumnWidth::Fixed(300));
+    a.constraints.min.h = 500;
+    a.chrome = Chrome { bar: 20, border: 2 };
+    let mut b = a;
+    b.id = ElementId(2);
+    let result = arrange_columns(&[vec![a, b]], (0, 0).into(), (1000, 700).into(), 10).unwrap();
+    assert_eq!(result[0].content.size.h, 500);
+    assert_eq!(result[0].frame.size.h, 524);
+    assert_eq!(result[1].frame.loc.y, 534);
+}
+
+#[test]
+fn grouped_layout_rejects_empty_columns_and_duplicate_membership() {
+    let tile = column(1, ColumnWidth::Fixed(300));
+    assert_eq!(
+        arrange_columns(&[vec![]], (0, 0).into(), (1000, 700).into(), 0),
+        Err(LayoutError::EmptyColumn)
+    );
+    assert_eq!(
+        arrange_columns(
+            &[vec![tile], vec![tile]],
+            (0, 0).into(),
+            (1000, 700).into(),
+            0
+        ),
+        Err(LayoutError::DuplicateWindow(tile.id))
+    );
 }

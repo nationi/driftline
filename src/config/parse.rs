@@ -180,13 +180,24 @@ pub fn parse_action(s: &str) -> Result<Action, String> {
         "fit-window" => Ok(Action::FitWindow),
         "toggle-tiling" => Ok(Action::ToggleTiling),
         "focus-column" => {
-            let dir = parse_direction(arg.ok_or("focus-column requires left or right")?)?;
-            if !matches!(dir, Direction::Left | Direction::Right) {
-                return Err("focus-column requires left or right".to_string());
+            let dir = parse_direction(arg.ok_or("focus-column requires left, right, up or down")?)?;
+            if !matches!(
+                dir,
+                Direction::Left | Direction::Right | Direction::Up | Direction::Down
+            ) {
+                return Err("focus-column requires left, right, up or down".to_string());
             }
             Ok(Action::FocusColumn(dir))
         }
         "cycle-column-width" => Ok(Action::CycleColumnWidth),
+        "move-into-column" => {
+            let dir = parse_direction(arg.ok_or("move-into-column requires left or right")?)?;
+            if !matches!(dir, Direction::Left | Direction::Right) {
+                return Err("move-into-column requires left or right".to_string());
+            }
+            Ok(Action::MoveIntoColumn(dir))
+        }
+        "expel-from-column" => Ok(Action::ExpelFromColumn),
         "fit-window-snapped" => Ok(Action::FitWindowSnapped),
         "fill-window" => Ok(Action::FillWindow),
         "send-to-output" => {
@@ -240,6 +251,8 @@ pub const ACTION_NAMES: &[(&str, &str)] = &[
     ("toggle-tiling", "toggle-tiling"),
     ("focus-column", "focus-column left"),
     ("cycle-column-width", "cycle-column-width"),
+    ("move-into-column", "move-into-column left"),
+    ("expel-from-column", "expel-from-column"),
     ("center-nearest", "center-nearest up"),
     ("center-window", "center-window"),
     ("close-window", "close-window"),
@@ -615,6 +628,8 @@ mod tests {
             Action::ToggleTiling => "toggle-tiling",
             Action::FocusColumn(_) => "focus-column",
             Action::CycleColumnWidth => "cycle-column-width",
+            Action::MoveIntoColumn(_) => "move-into-column",
+            Action::ExpelFromColumn => "expel-from-column",
             Action::Exec(_) => "exec",
             Action::ExecTerminal => "exec-terminal",
             Action::ExecLauncher => "exec-launcher",

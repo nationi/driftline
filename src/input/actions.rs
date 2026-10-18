@@ -33,10 +33,15 @@ impl DriftWm {
                 action,
                 Action::ToggleTiling
                     | Action::CenterNearest(
-                        driftwm::config::Direction::Left | driftwm::config::Direction::Right
+                        driftwm::config::Direction::Left
+                            | driftwm::config::Direction::Right
+                            | driftwm::config::Direction::Up
+                            | driftwm::config::Direction::Down
                     )
                     | Action::FocusColumn(_)
                     | Action::CycleColumnWidth
+                    | Action::MoveIntoColumn(_)
+                    | Action::ExpelFromColumn
                     | Action::Exec(_)
                     | Action::ExecTerminal
                     | Action::ExecLauncher
@@ -77,6 +82,8 @@ impl DriftWm {
         match action {
             Action::ToggleTiling => self.toggle_tiling(),
             Action::FocusColumn(direction) => self.focus_tiling_column(direction.clone()),
+            Action::MoveIntoColumn(direction) => self.move_into_tiling_column(direction.clone()),
+            Action::ExpelFromColumn => self.expel_tiling_window(),
             Action::CycleColumnWidth => {
                 self.stage.cycle_column_width();
                 self.refresh_tiling();

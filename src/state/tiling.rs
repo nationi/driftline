@@ -102,13 +102,42 @@ impl DriftWm {
     }
 
     pub(crate) fn focus_tiling_column(&mut self, direction: Direction) {
-        if let Some(id) = self.stage.adjacent_column(direction == Direction::Left)
+        self.select_focused_tile();
+        let target = match direction {
+            Direction::Left => self.stage.adjacent_column(true),
+            Direction::Right => self.stage.adjacent_column(false),
+            Direction::Up => self.stage.adjacent_tile(true),
+            Direction::Down => self.stage.adjacent_tile(false),
+            _ => None,
+        };
+        if let Some(id) = target
             && let Some(element) = self.stage.window_by_id(id).cloned()
         {
             self.stage.select_column(id);
             self.raise_and_focus_element(&element, SERIAL_COUNTER.next_serial());
             self.refresh_tiling();
         }
+    }
+
+    pub(crate) fn move_into_tiling_column(&mut self, direction: Direction) {
+        if self.select_focused_tile() && self.stage.move_into_column(direction == Direction::Left) {
+            self.refresh_tiling();
+        }
+    }
+
+    pub(crate) fn expel_tiling_window(&mut self) {
+        if self.select_focused_tile() && self.stage.expel_from_column() {
+            self.refresh_tiling();
+        }
+    }
+
+    fn select_focused_tile(&mut self) -> bool {
+        let Some(element) = self.focused_element() else {
+            return false;
+        };
+        self.stage
+            .id_of(&element)
+            .is_some_and(|id| self.stage.select_column(id))
     }
 
     fn tiling_eligible(&self, element: &StageWindow) -> bool {
@@ -141,7 +170,7 @@ impl DriftWm {
             return;
         }
         let origin = view.origin;
-        if self.stage.tiled_columns().iter().any(|column| {
+        if self.stage.tiled_windows().any(|column| {
             self.stage
                 .window_by_id(column.id)
                 .is_some_and(|w| !self.tiling_eligible(w))
@@ -164,28 +193,34 @@ impl DriftWm {
         {
             self.stage.select_column(id);
         }
-        let columns: Vec<_> = self
+        let columns: Vec<Vec<Column>> = self
             .stage
             .tiled_columns()
             .iter()
-            .filter_map(|column| {
-                let element = self.stage.window_by_id(column.id)?;
-                let window = element.client()?;
-                let constraints = SizeConstraints::for_window(window);
-                Some(Column {
-                    id: column.id,
-                    width: column.width,
-                    constraints: Constraints {
-                        min: constraints.min,
-                        max: constraints.max,
-                    },
-                    chrome: self.element_chrome(element),
-                })
+            .map(|column| {
+                column
+                    .windows
+                    .iter()
+                    .filter_map(|tile| {
+                        let element = self.stage.window_by_id(tile.id)?;
+                        let window = element.client()?;
+                        let constraints = SizeConstraints::for_window(window);
+                        Some(Column {
+                            id: tile.id,
+                            width: column.width,
+                            constraints: Constraints {
+                                min: constraints.min,
+                                max: constraints.max,
+                            },
+                            chrome: self.element_chrome(element),
+                        })
+                    })
+                    .collect()
             })
             .collect();
         let usable = self.get_usable_area();
         let gap = self.config.snap_gap.max(0.0).round() as i32;
-        let mut placements = match scrolling::arrange(&columns, origin, usable.size, gap) {
+        let mut placements = match scrolling::arrange_columns(&columns, origin, usable.size, gap) {
             Ok(placements) => placements,
             Err(error) => {
                 tracing::warn!(?error, "Leaving scrolling tiling after invalid layout");
@@ -195,27 +230,47 @@ impl DriftWm {
         };
         // A client can delay or refuse a size. Reserve its current frame as
         // well as the requested one without feeding that size back into configures.
-        let mut extra = 0i64;
-        for placement in &mut placements {
-            let Some(element) = self.stage.window_by_id(placement.id) else {
-                continue;
-            };
-            let actual_width = i64::from(element.geometry().size.w)
-                + 2 * i64::from(self.element_chrome(element).border);
-            let width = i64::from(placement.frame.size.w).max(actual_width);
-            let x = i64::from(placement.frame.loc.x) + extra;
-            let content_x = i64::from(placement.content.loc.x) + extra;
-            if i32::try_from(x + width).is_err()
-                || i32::try_from(width).is_err()
-                || i32::try_from(content_x).is_err()
-            {
-                self.exit_tiling();
-                return;
+        let mut extra_x = 0i64;
+        let mut start = 0;
+        for column in &columns {
+            let group = &mut placements[start..start + column.len()];
+            start += column.len();
+            let desired_width = group
+                .iter()
+                .map(|p| i64::from(p.frame.size.w))
+                .max()
+                .unwrap_or(1);
+            let mut reserved_width = desired_width;
+            let mut extra_y = 0i64;
+            for placement in group {
+                let Some(element) = self.stage.window_by_id(placement.id) else {
+                    continue;
+                };
+                let chrome = self.element_chrome(element);
+                let actual = element.geometry().size;
+                let width = i64::from(placement.frame.size.w)
+                    .max(i64::from(actual.w) + 2 * i64::from(chrome.border));
+                let height = i64::from(placement.frame.size.h).max(
+                    i64::from(actual.h) + i64::from(chrome.bar) + 2 * i64::from(chrome.border),
+                );
+                let x = i64::from(placement.frame.loc.x) + extra_x;
+                let y = i64::from(placement.frame.loc.y) + extra_y;
+                let content_x = i64::from(placement.content.loc.x) + extra_x;
+                let content_y = i64::from(placement.content.loc.y) + extra_y;
+                if [x + width, y + height, width, height, content_x, content_y]
+                    .iter()
+                    .any(|v| i32::try_from(*v).is_err())
+                {
+                    self.exit_tiling();
+                    return;
+                }
+                placement.frame.loc = (x as i32, y as i32).into();
+                placement.content.loc = (content_x as i32, content_y as i32).into();
+                extra_y += height - i64::from(placement.frame.size.h);
+                placement.frame.size = (width as i32, height as i32).into();
+                reserved_width = reserved_width.max(width);
             }
-            placement.frame.loc.x = x as i32;
-            placement.content.loc.x = content_x as i32;
-            extra += width - i64::from(placement.frame.size.w);
-            placement.frame.size.w = width as i32;
+            extra_x += reserved_width - desired_width;
         }
         let mut changed = false;
         for placement in &placements {

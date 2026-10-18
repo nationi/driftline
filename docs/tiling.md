@@ -1,8 +1,9 @@
 # Experimental scrolling tiling
 
-Scrolling tiling arranges normal windows in a horizontal strip, with one window
-per column. It currently supports a single connected output. The canvas remains
-the default; no keybindings change until you configure them.
+Scrolling tiling arranges normal windows in a horizontal strip. Each column can
+contain several windows stacked vertically. It currently supports a single
+connected output. The canvas remains the default; no keybindings change until
+you configure them.
 
 Add bindings to `~/.config/driftwm/config.toml`:
 
@@ -11,7 +12,12 @@ Add bindings to `~/.config/driftwm/config.toml`:
 "mod+ctrl+t" = "toggle-tiling"
 "mod+alt+left" = "focus-column left"
 "mod+alt+right" = "focus-column right"
+"mod+alt+up" = "focus-column up"
+"mod+alt+down" = "focus-column down"
 "mod+alt+r" = "cycle-column-width"
+"mod+alt+shift+left" = "move-into-column left"
+"mod+alt+shift+right" = "move-into-column right"
+"mod+alt+e" = "expel-from-column"
 ```
 
 Merge these entries into an existing `[keybindings]` table, then reload your
@@ -21,12 +27,25 @@ Entering the mode sets zoom to 1 and arranges eligible windows. Columns start
 at half the usable output width. Width cycling selects full width, one third,
 then one half again. Client size constraints and compositor decorations are
 included. Panels reserve their usual space. A client that delays or refuses a
-resize keeps enough space for its current width.
+resize keeps enough space for its current width and height.
 
-New windows join after the active column. Closing a window removes its column.
-`focus-column` moves without wrapping and scrolls the selected frame into view;
-the existing `center-nearest left` and `center-nearest right` actions do the
-same while tiling. Trackpad panning is horizontal, using existing momentum.
+New windows create a column after the active column. `move-into-column left`
+or `right` moves the focused window into the neighboring column, immediately
+after its selected window. An empty source column disappears. `expel-from-column`
+splits the focused window into a new column on the right, preserving column
+width and its original canvas rectangle; it does nothing for a single-window
+column. Moving past either end of the strip does nothing.
+
+Windows share column height equally, subject to their content size limits and
+decorations. Space a maximum-limited window cannot use goes to the others. If
+minimum heights cannot fit, the column grows downward without overlapping its
+windows. Focusing an off-screen window reveals it vertically as needed.
+
+`focus-column left/right` changes columns, remembering the selected window in
+each. `focus-column up/down` changes windows inside a column. Navigation does
+not wrap; the corresponding `center-nearest` actions follow the same structure
+while tiling. Closing a window redistributes height; closing the last window
+removes the column. Trackpad panning is horizontal, using existing momentum.
 Column snapping at the end of a gesture is not implemented yet.
 
 Toggle again to restore the saved canvas positions, sizes, camera and zoom.
@@ -39,6 +58,6 @@ are not enrolled. Fullscreen, fit/fill, pinning, free window movement/resizing
 and other canvas actions leave tiling before running. Connecting another output
 also leaves tiling. A zoom change leaves tiling and restores the saved view.
 
-This first version does not provide multiple windows in a column, independent
-strips on several monitors, drag-to-reorder, per-window detach or configurable
+This version does not provide independent strips on several monitors,
+drag-to-reorder, per-window detach to the canvas or configurable
 width presets. The fixed presets are one third, one half and full usable width.

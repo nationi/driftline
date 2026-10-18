@@ -23,7 +23,7 @@ pub struct Constraints {
     pub max: Size<i32, Logical>,
 }
 
-/// One window per column for the initial scrolling layout.
+/// Window sizing input; grouped windows share the largest resolved frame width.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Column {
     pub id: ElementId,
@@ -41,6 +41,7 @@ pub struct Placement {
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum LayoutError {
+    EmptyColumn,
     InvalidWorkingArea,
     InvalidGap,
     InvalidWidth,
@@ -48,6 +49,105 @@ pub enum LayoutError {
     InvalidConstraints,
     DuplicateWindow(ElementId),
     CoordinateOverflow,
+}
+
+/// Arrange vertical groups, sharing height equally except where client limits
+/// require a different allocation. If minimum heights do not fit, overflow
+/// downward rather than overlap windows or violate their minimum sizes.
+pub fn arrange_columns(
+    columns: &[Vec<Column>],
+    origin: Point<i32, Logical>,
+    usable_size: Size<i32, Logical>,
+    gap: i32,
+) -> Result<Vec<Placement>, LayoutError> {
+    arrange(&[], origin, usable_size, gap)?;
+    let mut seen = HashSet::new();
+    let mut result = Vec::new();
+    let mut x = i64::from(origin.x);
+    for column in columns {
+        if column.is_empty() {
+            return Err(LayoutError::EmptyColumn);
+        }
+        let mut width = 1;
+        let mut chrome_heights = Vec::with_capacity(column.len());
+        let mut limits = Vec::with_capacity(column.len());
+        for tile in column {
+            if !seen.insert(tile.id) {
+                return Err(LayoutError::DuplicateWindow(tile.id));
+            }
+            let placement = arrange(&[*tile], (0, 0).into(), usable_size, 0)?;
+            width = width.max(placement[0].frame.size.w);
+            chrome_heights.push(i64::from(tile.chrome.bar) + 2 * i64::from(tile.chrome.border));
+            let min = constrained(0, tile.constraints.min.h, tile.constraints.max.h)?;
+            let max = constrained(
+                i64::from(i32::MAX),
+                tile.constraints.min.h,
+                tile.constraints.max.h,
+            )?;
+            limits.push((min, max));
+        }
+        let budget = i64::from(usable_size.h)
+            - chrome_heights.iter().sum::<i64>()
+            - i64::from(gap) * (column.len() as i64 - 1);
+        let heights = distribute_height(&limits, budget);
+        let mut y = i64::from(origin.y);
+        for ((tile, height), chrome_height) in column.iter().zip(heights).zip(chrome_heights) {
+            let content_width = constrained(
+                i64::from(width) - 2 * i64::from(tile.chrome.border),
+                tile.constraints.min.w,
+                tile.constraints.max.w,
+            )?;
+            let frame_width = content_width + 2 * i64::from(tile.chrome.border);
+            result.push(Placement {
+                id: tile.id,
+                frame: rectangle(x, y, frame_width, height + chrome_height)?,
+                content: rectangle(
+                    x + i64::from(tile.chrome.border),
+                    y + i64::from(tile.chrome.bar) + i64::from(tile.chrome.border),
+                    content_width,
+                    height,
+                )?,
+            });
+            y += height + chrome_height + i64::from(gap);
+        }
+        x += i64::from(width) + i64::from(gap);
+    }
+    Ok(result)
+}
+
+fn distribute_height(limits: &[(i64, i64)], mut remaining: i64) -> Vec<i64> {
+    if limits.iter().map(|(min, _)| min).sum::<i64>() > remaining {
+        return limits.iter().map(|(min, _)| *min).collect();
+    }
+    let mut heights = vec![0; limits.len()];
+    let mut pending: Vec<_> = (0..limits.len()).collect();
+    while !pending.is_empty() {
+        let share = remaining / pending.len() as i64;
+        // Freeze minimum-limited windows first: they consume space that would
+        // otherwise incorrectly force another window against its maximum.
+        let limited = pending
+            .iter()
+            .copied()
+            .find(|i| limits[*i].0 > share)
+            .or_else(|| pending.iter().copied().find(|i| limits[*i].1 < share));
+        if let Some(index) = limited {
+            let value = share.clamp(limits[index].0, limits[index].1);
+            heights[index] = value;
+            remaining -= value;
+            pending.retain(|i| *i != index);
+        } else {
+            let mut remainder = remaining % pending.len() as i64;
+            for index in pending {
+                heights[index] = share;
+                if remainder > 0 && share < limits[index].1 {
+                    heights[index] += 1;
+                    remainder -= 1;
+                }
+            }
+            break;
+        }
+    }
+    heights
 }
 
 /// Arrange columns from a fixed canvas origin, independent of camera position.
