@@ -472,7 +472,45 @@ enum TilingFinish {
     Exit,
 }
 
-fn check_pending_tiling_pixels(finish: TilingFinish, shadow: bool) {
+#[derive(Clone, Copy)]
+enum TilingPopupScene {
+    None,
+    Menu,
+    Nested,
+    Dismiss,
+    Unmap,
+    Appears,
+}
+
+fn colored_tiling_popup(
+    f: &mut Fixture,
+    client: super::client::ClientId,
+    parent: &wayland_client::protocol::wl_surface::WlSurface,
+    offset: (i32, i32),
+    color: [u8; 4],
+) -> wayland_client::protocol::wl_surface::WlSurface {
+    let props = super::client::PopupProps {
+        size: (80, 60),
+        offset,
+        ..Default::default()
+    };
+    let surface = f
+        .client(client)
+        .create_popup_with(parent, props)
+        .surface
+        .clone();
+    f.client(client).popup(&surface).commit();
+    f.roundtrip(client);
+    let popup = f.client(client).popup(&surface);
+    popup.set_size(100, 80);
+    popup.xdg_surface.set_window_geometry(7, 9, 80, 60);
+    popup.attach_shm_buffer((100, 80), &solid_bgra(100, 80, color, false));
+    popup.ack_last_and_commit();
+    f.double_roundtrip(client);
+    surface
+}
+
+fn check_pending_tiling_pixels(finish: TilingFinish, shadow: bool, scene: TilingPopupScene) {
     use super::{last_configured, window_by_app_id};
     use driftwm::config::Action;
     use smithay::reexports::wayland_server::Resource;
@@ -499,9 +537,40 @@ fn check_pending_tiling_pixels(finish: TilingFinish, shadow: bool) {
     f.state().stage.set_position(&wa, (50, 50).into());
     f.state().stage.set_position(&wb, (350, 50).into());
     f.state().set_camera((0.0, 0.0).into());
+    let popup = if matches!(scene, TilingPopupScene::None | TilingPopupScene::Appears) {
+        None
+    } else {
+        Some(colored_tiling_popup(
+            &mut f,
+            first,
+            &a,
+            (180, 50),
+            [255, 0, 0, 255],
+        ))
+    };
+    if matches!(scene, TilingPopupScene::Nested) {
+        colored_tiling_popup(
+            &mut f,
+            first,
+            popup.as_ref().unwrap(),
+            (35, 20),
+            [255, 0, 255, 255],
+        );
+    }
     let before = tiling_live_frame(&mut f, &output);
+    if popup.is_some() {
+        assert!(
+            before.as_chunks::<4>().0.contains(&[0, 0, 255, 255]),
+            "popup is visible outside the parent"
+        );
+    }
     f.state().execute_action(&Action::ToggleTiling);
-    assert_eq!(f.state().tiling_snapshot_count(), 2);
+    let images = match scene {
+        TilingPopupScene::None | TilingPopupScene::Appears => 2,
+        TilingPopupScene::Nested => 4,
+        _ => 3,
+    };
+    assert_eq!(f.state().tiling_snapshot_count(), images);
     let target_a = last_configured(&mut f, first, &a);
     let target_b = last_configured(&mut f, second, &b);
     let surface = wb.wl_surface().unwrap().into_owned();
@@ -537,6 +606,29 @@ fn check_pending_tiling_pixels(finish: TilingFinish, shadow: bool) {
         .map(|(i, (a, b))| (i % 1200, i / 1200, a, b))
         .collect();
     assert!(differences.is_empty(), "changed pixels: {differences:?}");
+    if matches!(scene, TilingPopupScene::Dismiss | TilingPopupScene::Unmap) {
+        let menu = f.client(first).popup(popup.as_ref().unwrap());
+        if matches!(scene, TilingPopupScene::Unmap) {
+            menu.surface.attach(None, 0, 0);
+            menu.commit();
+        } else {
+            menu.destroy();
+        }
+        f.double_roundtrip(first);
+        let dismissed = tiling_live_frame(&mut f, &output);
+        assert!(
+            !dismissed.as_chunks::<4>().0.contains(&[0, 0, 255, 255]),
+            "dismissed menu must not survive in the snapshot"
+        );
+    }
+    if matches!(scene, TilingPopupScene::Appears) {
+        colored_tiling_popup(&mut f, first, &a, (180, 50), [255, 0, 0, 255]);
+        let opened = tiling_live_frame(&mut f, &output);
+        assert!(
+            opened.as_chunks::<4>().0.contains(&[0, 0, 255, 255]),
+            "new menus must appear while the parent is waiting"
+        );
+    }
     match finish {
         TilingFinish::Buffers => {}
         TilingFinish::Deadline => {
@@ -574,26 +666,61 @@ fn check_pending_tiling_pixels(finish: TilingFinish, shadow: bool) {
 #[ignore = "needs Mesa surfaceless EGL; run with --include-ignored"]
 fn pending_tiling_keeps_the_old_pixels_until_all_buffers_apply() {
     let _gl = gl::lock();
-    check_pending_tiling_pixels(TilingFinish::Buffers, false);
+    check_pending_tiling_pixels(TilingFinish::Buffers, false, TilingPopupScene::None);
 }
 
 #[test]
 #[ignore = "needs Mesa surfaceless EGL; run with --include-ignored"]
 fn pending_tiling_pixels_are_released_at_the_group_deadline() {
     let _gl = gl::lock();
-    check_pending_tiling_pixels(TilingFinish::Deadline, false);
+    check_pending_tiling_pixels(TilingFinish::Deadline, false, TilingPopupScene::None);
 }
 
 #[test]
 #[ignore = "needs Mesa surfaceless EGL; run with --include-ignored"]
 fn exiting_tiling_drops_the_pending_pixel_snapshot() {
     let _gl = gl::lock();
-    check_pending_tiling_pixels(TilingFinish::Exit, false);
+    check_pending_tiling_pixels(TilingFinish::Exit, false, TilingPopupScene::None);
 }
 
 #[test]
 #[ignore = "needs Mesa surfaceless EGL; run with --include-ignored"]
 fn pending_tiling_snapshot_keeps_the_shadow_aligned() {
     let _gl = gl::lock();
-    check_pending_tiling_pixels(TilingFinish::Buffers, true);
+    check_pending_tiling_pixels(TilingFinish::Buffers, true, TilingPopupScene::None);
+}
+
+#[test]
+#[ignore = "needs Mesa surfaceless EGL; run with --include-ignored"]
+fn pending_tiling_keeps_popup_overhangs_and_geometry_offsets() {
+    let _gl = gl::lock();
+    check_pending_tiling_pixels(TilingFinish::Buffers, false, TilingPopupScene::Menu);
+}
+
+#[test]
+#[ignore = "needs Mesa surfaceless EGL; run with --include-ignored"]
+fn pending_tiling_keeps_nested_popups_in_their_original_order() {
+    let _gl = gl::lock();
+    check_pending_tiling_pixels(TilingFinish::Buffers, false, TilingPopupScene::Nested);
+}
+
+#[test]
+#[ignore = "needs Mesa surfaceless EGL; run with --include-ignored"]
+fn a_dismissed_popup_is_not_kept_by_the_tiling_snapshot() {
+    let _gl = gl::lock();
+    check_pending_tiling_pixels(TilingFinish::Buffers, false, TilingPopupScene::Dismiss);
+}
+
+#[test]
+#[ignore = "needs Mesa surfaceless EGL; run with --include-ignored"]
+fn an_unmapped_popup_is_not_kept_by_the_tiling_snapshot() {
+    let _gl = gl::lock();
+    check_pending_tiling_pixels(TilingFinish::Buffers, false, TilingPopupScene::Unmap);
+}
+
+#[test]
+#[ignore = "needs Mesa surfaceless EGL; run with --include-ignored"]
+fn a_popup_opened_while_tiling_waits_is_visible() {
+    let _gl = gl::lock();
+    check_pending_tiling_pixels(TilingFinish::Buffers, false, TilingPopupScene::Appears);
 }

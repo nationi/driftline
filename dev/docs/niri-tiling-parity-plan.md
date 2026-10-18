@@ -204,8 +204,10 @@ eligible windows now retain baked old pixels until deferred placement
 applies; output composition replaces their live trees in the normal z-order.
 Completion, timeout, mode exit and dead IDs release these images. GLES pixel
 scenarios cover an independent buffer blocker, normal release, timeout, exit and
-shadow placement. Popup/blur/animated windows and failed captures retain live
-rendering. Full animation integration and an unconditional frame-atomic rendering
+shadow placement. Popup trees now have separate unclipped images, preserving manager order and
+surface/geometry offsets. Popup membership/geometry changes fall back to live
+rendering so newly opened or dismissed menus are not hidden or stranded. Blur,
+animated windows and failed captures still retain live rendering. Full animation integration and an unconditional frame-atomic rendering
 guarantee remain outstanding. A pinned source audit confirms that unbuffered windows
 remain outside the scrolling layout until mapping; do not reserve phantom
 columns or initial-configure order. First-buffer order and mapping-time focus

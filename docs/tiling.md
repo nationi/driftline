@@ -105,6 +105,8 @@ different size without holding up the group. Closing a participant or leaving
 tiling releases waiting buffers. Window positions and view adjustments wait
 until the corresponding buffers apply or the deadline expires. Refused sizes
 still reserve enough space for the visible window. Visible windows without
-popups, background blur or active window animations keep a snapshot of their
-previous image while waiting, when capture is available. Full rendering
+background blur or active window animations keep a snapshot of their previous
+image while waiting, when capture is available. Popup menus are included without
+clipping them to the window. Opening, closing or moving a popup restores live
+rendering for its window so menus remain responsive. Full rendering
 animations and complete visual atomicity are not implemented yet.

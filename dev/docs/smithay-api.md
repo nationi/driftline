@@ -624,3 +624,18 @@ updates its destination area. Border/shadow uniforms use coordinates relative to
 that area; rebasing the element into an offscreen framebuffer therefore keeps
 uniforms unchanged and subtracts the framebuffer's surface-local origin from
 `area.loc`. Content and bar elements must use the same origin.
+
+
+### Popup images and mapped state
+
+`PopupKind::geometry(&self) -> Rectangle<i32, Logical>` supplies the popup's
+surface-local geometry; `PopupManager::popups_for_surface` supplies cumulative
+parent-relative offsets, including nested popups. A popup's canvas surface origin
+is `stage_position + offset - popup.geometry().loc`; do not apply the parent's
+geometry offset a second time. Render popup surface trees separately from the
+parent corner clip.
+
+A live `PopupKind`/`WlSurface` does not prove the popup is mapped. For pending
+presentation image validation, read `RendererSurfaceStateUserData` in the popup's
+surface data and test `buffer().is_some()` after the compositor buffer handler.
+This distinguishes a null-buffer unmap from an unchanged, live protocol role.

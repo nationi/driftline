@@ -37,7 +37,15 @@ pub(crate) struct TilingView {
 
 struct TilingSnapshot {
     image: crate::render::ClosingSnapshot,
+    popups: Vec<TilingPopupSnapshot>,
     opacity: f64,
+}
+
+struct TilingPopupSnapshot {
+    surface: smithay::reexports::wayland_server::protocol::wl_surface::WlSurface,
+    offset: Point<i32, Logical>,
+    geometry: smithay::utils::Rectangle<i32, Logical>,
+    image: crate::render::ClosingSnapshot,
 }
 
 struct TilingPresentation {
@@ -63,6 +71,19 @@ struct CloseReturnView {
     opened: driftwm::stage::ColumnId,
     previous: driftwm::stage::ColumnId,
     offset: f64,
+}
+
+fn mapped_tiling_popups(
+    surface: &smithay::reexports::wayland_server::protocol::wl_surface::WlSurface,
+) -> impl Iterator<Item = (smithay::desktop::PopupKind, Point<i32, Logical>)> {
+    smithay::desktop::PopupManager::popups_for_surface(surface).filter(|(popup, _)| {
+        smithay::wayland::compositor::with_states(popup.wl_surface(), |states| {
+            states
+                .data_map
+                .get::<smithay::backend::renderer::utils::RendererSurfaceStateUserData>()
+                .is_some_and(|data| data.lock().unwrap().buffer().is_some())
+        })
+    })
 }
 
 impl DriftWm {
@@ -836,20 +857,15 @@ impl DriftWm {
             let Some(surface) = window.wl_surface() else {
                 continue;
             };
-            // The bake does not contain popup trees or a live blurred backdrop.
-            if smithay::desktop::PopupManager::popups_for_surface(&surface)
-                .next()
-                .is_some()
-                || driftwm::config::effective_blur(
-                    driftwm::config::applied_rule(&surface).as_ref(),
-                    &self.config.decorations,
-                    false,
-                )
-                || smithay::wayland::compositor::with_states(&surface, |s| {
-                    crate::handlers::background_effect::get_cached_blur_region(s)
-                        .is_some_and(|r| !r.is_empty())
-                })
-            {
+            // A root-tree bake cannot reproduce the live blurred backdrop.
+            if driftwm::config::effective_blur(
+                driftwm::config::applied_rule(&surface).as_ref(),
+                &self.config.decorations,
+                false,
+            ) || smithay::wayland::compositor::with_states(&surface, |s| {
+                crate::handlers::background_effect::get_cached_blur_region(s)
+                    .is_some_and(|r| !r.is_empty())
+            }) {
                 continue;
             }
             let Some(position) = self.stage.position_of(element) else {
@@ -880,36 +896,97 @@ impl DriftWm {
                 true,
                 chrome.as_ref(),
             ) {
-                self.tiling_view
-                    .as_mut()
-                    .unwrap()
-                    .snapshots
-                    .insert(id, TilingSnapshot { image, opacity });
+                let popups: Option<Vec<_>> = mapped_tiling_popups(&surface)
+                    .map(|(popup, offset)| {
+                        let geometry = popup.geometry();
+                        let pixels = crate::render::capture_close_pixels(
+                            backend.renderer(),
+                            popup.wl_surface(),
+                            geometry,
+                            std::time::Instant::now(),
+                        )?;
+                        // Popups use their own surface origin and bypass the
+                        // parent's corner clip, including portions outside it.
+                        let origin = position.to_f64() + offset.to_f64() - geometry.loc.to_f64();
+                        let image = crate::render::snapshot_canvas(
+                            backend.renderer(),
+                            &pixels,
+                            origin,
+                            scale,
+                            1.0,
+                            true,
+                            None,
+                        )?;
+                        Some(TilingPopupSnapshot {
+                            surface: popup.wl_surface().clone(),
+                            offset,
+                            geometry,
+                            image,
+                        })
+                    })
+                    .collect();
+                if let Some(popups) = popups {
+                    self.tiling_view.as_mut().unwrap().snapshots.insert(
+                        id,
+                        TilingSnapshot {
+                            image,
+                            popups,
+                            opacity,
+                        },
+                    );
+                }
             }
         }
         self.backend = Some(backend);
     }
 
     pub(crate) fn tiling_snapshot_count(&self) -> usize {
-        self.tiling_view.as_ref().map_or(0, |v| v.snapshots.len())
+        self.tiling_view.as_ref().map_or(0, |v| {
+            v.snapshots.values().map(|s| 1 + s.popups.len()).sum()
+        })
     }
 
-    pub(crate) fn tiling_snapshot_element(
+    pub(crate) fn tiling_snapshot_elements(
         &self,
         id: driftwm::stage::ElementId,
         output: &Output,
         camera: Point<f64, Logical>,
         zoom: f64,
         output_scale: f64,
-    ) -> Option<crate::render::OutputRenderElements> {
+    ) -> Option<Vec<crate::render::OutputRenderElements>> {
         let snapshot = self.tiling_view.as_ref()?.snapshots.get(&id)?;
-        snapshot.image.render_element_with_opacity(
-            &output.name(),
+        let root = self.stage.window_by_id(id)?.wl_surface()?;
+        let current = mapped_tiling_popups(&root)
+            .map(|(popup, offset)| (popup.wl_surface().clone(), offset, popup.geometry()));
+        if !current.eq(snapshot
+            .popups
+            .iter()
+            .map(|p| (p.surface.clone(), p.offset, p.geometry)))
+        {
+            return None;
+        }
+        let name = output.name();
+        let mut elements: Vec<_> = snapshot
+            .popups
+            .iter()
+            .filter_map(|popup| {
+                popup.image.render_element_with_opacity(
+                    &name,
+                    camera,
+                    zoom,
+                    output_scale,
+                    snapshot.opacity,
+                )
+            })
+            .collect();
+        elements.extend(snapshot.image.render_element_with_opacity(
+            &name,
             camera,
             zoom,
             output_scale,
             snapshot.opacity,
-        )
+        ));
+        Some(elements)
     }
 
     fn tiling_presentation_ready(&self, now: std::time::Instant) -> bool {

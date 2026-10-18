@@ -277,6 +277,8 @@ pub struct LayerSurface {
 pub struct Popup {
     pub qh: QueueHandle<State>,
     pub spbm: WpSinglePixelBufferManagerV1,
+    pub shm: WlShm,
+    shm_buffer: Option<(std::fs::File, WlShmPool, WlBuffer)>,
     pub seat: WlSeat,
 
     pub surface: WlSurface,
@@ -1168,6 +1170,8 @@ impl State {
         let popup = Popup {
             qh: self.qh.clone(),
             spbm: self.spbm.clone().unwrap(),
+            shm: self.shm.clone().unwrap(),
+            shm_buffer: None,
             seat: self.seat.clone().unwrap(),
 
             surface,
@@ -1660,6 +1664,26 @@ impl Popup {
     pub fn ack_last_and_commit(&self) {
         self.ack_last();
         self.commit();
+    }
+
+    /// Attach a real popup image, using the same BGRA format as window buffers.
+    pub fn attach_shm_buffer(&mut self, size: (i32, i32), pixels: &[u8]) {
+        let (w, h) = size;
+        let stride = w * 4;
+        assert_eq!(
+            pixels.len(),
+            (stride * h) as usize,
+            "an Argb8888 buffer of {w}x{h} texels is {} bytes",
+            stride * h
+        );
+        let file = shm_file(pixels);
+        let pool = self
+            .shm
+            .create_pool(file.as_fd(), pixels.len() as i32, &self.qh, ());
+        let buffer = pool.create_buffer(0, w, h, stride, wl_shm::Format::Argb8888, &self.qh, ());
+        self.surface.attach(Some(&buffer), 0, 0);
+        self.surface.damage_buffer(0, 0, w, h);
+        self.shm_buffer = Some((file, pool, buffer));
     }
 
     pub fn attach_new_buffer(&self) {

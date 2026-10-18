@@ -929,9 +929,9 @@ pub fn compose_frame(
         }
         if let Some(id) = state.stage.id_of(window)
             && let Some(snapshot) =
-                state.tiling_snapshot_element(id, output, camera, zoom, output_scale)
+                state.tiling_snapshot_elements(id, output, camera, zoom, output_scale)
         {
-            zoomed_normal.push(snapshot);
+            zoomed_normal.extend(snapshot);
             continue;
         }
         let geom_loc = window.geometry().loc;

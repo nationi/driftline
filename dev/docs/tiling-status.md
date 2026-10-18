@@ -459,13 +459,12 @@ comparison is exact. The shadow case allows one byte of rounding error from the
 additional offscreen composition. GL scenarios take `gl::lock()` and self-skip
 only when EGL/GLES is unavailable, following the existing pixel-suite convention.
 
-Limits: windows with existing popup trees, requested background blur or active
-window animations use live rendering, since a root-tree bake cannot reproduce
-those effects. Capture is limited to currently drawable windows; moving the view
+Limits: windows with requested background blur or active window animations use
+live rendering, since a root-tree bake cannot reproduce those effects. Popup
+trees are now included by the follow-up below. Capture is limited to currently drawable windows; moving the view
 can reveal uncaptured windows. Isolated capture paths still capture live content.
 This is a best-effort frozen presentation foundation, not the complete niri
-render/animation model or a guarantee across all rendering paths. Extend popup/
-blur/animation integration, fractional-scale tiling pixel cases, supersession and
+render/animation model or a guarantee across all rendering paths. Extend blur/animation integration, fractional-scale tiling pixel cases, supersession and
 remap traces before closing P2 or P13. Input continues to use stage/client
 geometry, as with the existing compositor animation policy.
 
@@ -474,3 +473,41 @@ on the available surfaceless Mesa renderer, including four new tiling scenarios.
 `dev/scripts/ci-local` then passed every stage, including strict all-target
 clippy, ignored tests and the isolated soak. The pure layout library is unchanged.
 No interactive nested-session or hardware presentation test was performed.
+
+
+## Popup images in pending tiling presentations
+
+A frozen window now stores separate, unclipped images for its mapped popup
+surface trees. Popup origins use `stage_position + popup_offset - popup_geometry.loc`,
+matching the live composer and pinned niri's popup placement. Each popup keeps its
+own content bounds, so it can extend beyond the parent and its declared geometry.
+Images preserve `PopupManager` order above the parent image; nested popups remain
+above their ancestors. A failure to capture any popup falls back to the whole
+window's live rendering, avoiding a partially missing menu. Unimportable buffers
+retain this fallback, including single-pixel buffers unsupported by the existing
+texture capture path.
+
+The composer compares the current mapped popup identities, offsets and geometry
+against the snapshot. New, destroyed, unmapped or repositioned popup trees cause
+live rendering for that window. Renderer buffer presence is checked separately
+from role/surface lifetime, so a null-buffer unmap cannot leave an old menu on
+screen merely because its protocol objects still exist. Frozen images remain
+bounded by the presentation deadline and are released with the parent snapshot;
+`tiling_snapshots` now counts parent and popup images, not just window entries.
+
+Five new pixel scenarios cover overhang and nonzero geometry offsets, nested
+popup ordering, destruction, null-buffer unmap and opening a menu after freezing.
+The fixture Popup type can now attach real SHM pixels using the same format and
+lifetime rules as its existing window/layer helpers. Comparisons of unchanged
+popup scenes are exact byte comparisons on the complete live frame.
+
+Blur and active window animations remain on live rendering. Popup movement uses
+a safe live fallback rather than animated/rebased snapshot transitions. Further
+P2/P13 work still needs blur/animation integration, fractional-scale tiling scenes
+and broader rapid supersession/remap tests; this does not complete niri parity.
+
+Validation for popup presentations: all 12 GLES pixel scenarios passed on Mesa,
+including five new popup cases. `dev/scripts/ci-local` passed every stage after
+the final changes, including strict all-target clippy, ignored tests and the
+isolated soak. The pure layout library was unchanged. Interactive session and
+fractional-scale popup-presentation validation remain outstanding.
