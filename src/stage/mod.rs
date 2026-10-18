@@ -14,6 +14,8 @@ mod mock;
 #[cfg(test)]
 mod tests;
 mod tiling;
+#[cfg(test)]
+mod tiling_reference_tests;
 
 pub use element::StageElement;
 pub use tiling::{ColumnId, TiledColumn, TiledWindow, TilingLayoutId};

@@ -5,3 +5,4 @@
 # It is recommended to check this file in to source control so that
 # everyone who runs the test benefits from these saved cases.
 cc 8d387f73dbbc40ba165687edd150113484c2235ff63aa9c89a4fd5647f14978b # shrinks to values = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, -1], fraction = 0.0
+cc 08b8e1455a81b5f8121b71784f6468891d565652d7e27b25a141f5d8752888b9 # shrinks to limits = [(1, 0), (123, 0), (102, 0), (168, 0), (150, 0), (125, 0), (97, 0), (80, 1)], budget = 847

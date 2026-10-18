@@ -289,6 +289,21 @@ fn oversized_frames_align_the_leading_edge_and_settle() {
 
 proptest! {
     #[test]
+    fn bounded_height_allocation_conserves_the_available_budget(
+        limits in prop::collection::vec((1i64..200, 0i64..500), 1..20),
+        budget in 0i64..5000,
+    ) {
+        let limits: Vec<_> = limits.into_iter().map(|(min, extra)| (min, min + extra)).collect();
+        let heights = distribute_height(&limits, budget);
+        let minimum: i64 = limits.iter().map(|(min, _)| min).sum();
+        let maximum: i64 = limits.iter().map(|(_, max)| max).sum();
+        prop_assert_eq!(heights.iter().sum::<i64>(), budget.clamp(minimum, maximum));
+        for (height, (min, max)) in heights.iter().zip(limits) {
+            prop_assert!((min..=max).contains(height));
+        }
+    }
+
+    #[test]
     fn grouped_layout_has_no_overlaps_and_is_deterministic(
         sizes in prop::collection::vec((1i32..800, prop::collection::vec((0i32..900, 0i32..900), 1..8)), 0..8),
         working_height in 1i32..1200,

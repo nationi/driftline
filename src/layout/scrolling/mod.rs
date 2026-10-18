@@ -127,36 +127,44 @@ pub fn arrange_columns(
     Ok(result)
 }
 
-fn distribute_height(limits: &[(i64, i64)], mut remaining: i64) -> Vec<i64> {
-    if limits.iter().map(|(min, _)| min).sum::<i64>() > remaining {
-        return limits.iter().map(|(min, _)| *min).collect();
-    }
-    let mut heights = vec![0; limits.len()];
-    let mut pending: Vec<_> = (0..limits.len()).collect();
-    while !pending.is_empty() {
-        let share = remaining / pending.len() as i64;
-        // Freeze minimum-limited windows first: they consume space that would
-        // otherwise incorrectly force another window against its maximum.
-        let limited = pending
+fn distribute_height(limits: &[(i64, i64)], budget: i64) -> Vec<i64> {
+    let minimum: i64 = limits.iter().map(|(min, _)| min).sum();
+    let maximum: i64 = limits.iter().map(|(_, max)| max).sum();
+    let budget = budget.clamp(minimum, maximum);
+    let mut low = 0;
+    let mut high = limits.iter().map(|(_, max)| *max).max().unwrap_or(0);
+    // Find the common height before rounding. Freezing minima or maxima first
+    // can leave usable space stranded when both kinds of limits are present.
+    while low < high {
+        let middle = low + (high - low + 1) / 2;
+        let total: i64 = limits
             .iter()
-            .copied()
-            .find(|i| limits[*i].0 > share)
-            .or_else(|| pending.iter().copied().find(|i| limits[*i].1 < share));
-        if let Some(index) = limited {
-            let value = share.clamp(limits[index].0, limits[index].1);
-            heights[index] = value;
-            remaining -= value;
-            pending.retain(|i| *i != index);
+            .map(|(min, max)| middle.clamp(*min, *max))
+            .sum();
+        if total <= budget {
+            low = middle;
         } else {
-            let mut remainder = remaining % pending.len() as i64;
-            for index in pending {
-                heights[index] = share;
-                if remainder > 0 && share < limits[index].1 {
-                    heights[index] += 1;
-                    remainder -= 1;
-                }
+            high = middle - 1;
+        }
+    }
+    let mut heights: Vec<_> = limits
+        .iter()
+        .map(|(min, max)| low.clamp(*min, *max))
+        .collect();
+    let mut remaining = budget - heights.iter().sum::<i64>();
+    let mut count = limits
+        .iter()
+        .filter(|(min, max)| *min <= low && low < *max)
+        .count() as i64;
+    for (height, (min, max)) in heights.iter_mut().zip(limits) {
+        if *min <= low && low < *max {
+            // Round each share from the remaining budget, matching sequential
+            // rounding of integer client sizes rather than front-loading pixels.
+            if remaining * 2 >= count {
+                *height += 1;
+                remaining -= 1;
             }
-            break;
+            count -= 1;
         }
     }
     heights

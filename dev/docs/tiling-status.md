@@ -70,9 +70,9 @@ Cardinal `center-nearest` also follows the tiling structure while in this mode.
 1. Audit inventory fields against custom decoders and public option names,
    nested values, defaults and ID-targeted action availability. Do not infer
    exact compatibility from the generated schema index.
-2. Add a hermetic reference operation-trace corpus for map/focus/close/group/
-   split/reorder/resize. Include geometry, focus and view outcomes, not only
-   driftwm structural invariants.
+2. Extend the new hermetic reference corpus beyond its zero-gap, undecorated,
+   fixed-width subset. Include reference selection-history closure, constraints,
+   gaps, proportions and real camera/animation state, not just fit probes.
 3. P1 now has stable column/layout IDs, separate tile/column sizing inputs
    and a shared transition gate. Extend transitions as floating and retained
    fullscreen become supported; broad mode-exit fallbacks still exist.
@@ -100,8 +100,32 @@ The source-derived `pinned_niri_consume_expel_topology_trace` test cites the
 pinned scrolling-layout methods and checks ordered membership, active selection,
 source selection and column identity. It is not a trace captured from running
 niri. The headless reference-action scenario additionally checks keyboard focus
-and requested grouped/split sizes; exact reference geometry, view and animation
-fixtures remain outstanding. Random membership histories include both actions.
+and requested grouped/split sizes. The additional JSON corpus now covers
+geometry and fit probes for a controlled subset; full view/animation fixtures
+remain outstanding. Random membership histories include both actions.
+
+## Reference geometry and fit corpus
+
+[Reference-trace methodology](niri-reference-traces.md) documents the new offline
+JSON corpus, its pinned source derivation and limits. Twenty-seven snapshots
+cover map/focus, consume/expel, tile/column reorder, fixed-width changes,
+working-area resize, nonactive/trailing closure and oversized-column fit.
+Each checks ordered membership, selection and exact rectangles; explicit camera
+inputs additionally check fit targets. These are source-derived expectations,
+not recordings or full camera-lifecycle replay.
+
+The corpus exposed front-loaded auto-height rounding. Allocation now rounds
+sequentially among the remaining unconstrained tiles, matching niri's unit-weight
+integer sizes in this subset. A conservation property also found a pre-existing
+case where combined min/max limits stranded a usable pixel; bounded water-level
+allocation fixes it and the failing seed is retained. A real-client test checks
+`201, 202, 201` configure heights and matching positions for three grouped windows
+in 604 available pixels.
+
+New explicit gaps: active interior column/tile closure can pick a different
+neighbor than niri, and niri has a previous-column restoration flag tied to new
+windows. Cover these selection histories before claiming general closure parity.
+Max-height handling and mixed-decoration weighting remain different as before.
 
 ## Layout identity and sizing inputs
 
@@ -125,7 +149,8 @@ Stage and real-client tests cover empty-mode entry, last-window removal, a new
 window in the same layout, explicit exit and fresh identity on reentry. A direct
 geometry scenario covers shared width with conflicting per-window limits and
 mixed decorations. This finishes the remaining P1 identity/input refactor; the
-P0 semantic audit and reference geometry/view corpus still need work before P2.
+P0 semantic audit and broader reference geometry/view coverage still need work
+before P2.
 
 ## Central transition gate
 
@@ -155,8 +180,8 @@ cover the preserve/invalidation paths.
 For the latest implementation batch:
 
 - `dev/scripts/ci-local` passed every stage, including ignored tests and isolated soak.
-- `PROPTEST_CASES=4000 cargo test --lib --quiet` passed all 353 library tests.
-- The headless tiling/session coverage includes 20 scenarios, including direct
+- `PROPTEST_CASES=4000 cargo test --lib --quiet` passed all 355 library tests.
+- The headless tiling/session coverage includes 21 scenarios, including direct
   operation restoration, reorder and
   preservation of camera/pointer coordinates and camera targets.
 - The reference inventory regenerates byte-for-byte from the pinned checkout.

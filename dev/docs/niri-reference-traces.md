@@ -1,0 +1,83 @@
+# Pinned scrolling-layout reference traces
+
+`src/stage/fixtures/niri-scrolling.json` contains hand-reviewed, source-derived
+snapshots for niri `12de51d6a60baad8896366920278a24f17921f52`. These are not
+recordings from a running niri process or a differential execution oracle.
+The replay test is `src/stage/tiling_reference_tests.rs`; it runs offline against
+Stage, pure geometry and `reveal`, without a display or a niri checkout:
+
+```bash
+cargo test --lib pinned_niri_geometry_and_fit_target_traces
+```
+
+## Reference assumptions
+
+One normal scrolling layout; scale 1; zero gaps, borders, titlebars and struts;
+fixed window/column widths; unconstrained client sizes; untabbed columns with
+automatic height weight 1 for every tile. Focus centering is `never`, including
+single-column centering. Coordinates start at `(0, 0)`. Clients have adopted the
+requested geometry; there are no live buffers requiring extra reserved space.
+Animations and configure transactions are outside these snapshots.
+
+Each step asserts ordered columns, selected window and `[window, x, y, w, h]`
+frame rectangles. A `camera` field is an independently supplied input for a fit
+calculation; `target` is the expected output camera. These pairs are probes of
+fit policy at that snapshot, not replay of the compositor's animation, anchor
+translation or camera state across structural operations. Keyboard focus and
+actual protocol requests remain covered separately by the headless fixture.
+
+## Source derivation
+
+All symbols below are in `src/layout/scrolling.rs` at the pinned revision:
+
+| Snapshot behavior | Reference source |
+| --- | --- |
+| Column X positions | `column_xs`: successive widths plus gaps, starting at zero |
+| Fixed width | `Column::resolve_column_width`: `Fixed` returns the requested width |
+| Normal tile origins and vertical positions | `tiles_origin`, `tile_offsets_iter` |
+| Equal automatic heights and integer rounding | `update_tile_sizes_with_transaction`: consume the remaining height and weight sequentially, rounding each requested client height |
+| Consume first from next column | `consume_into_column`, `add_tile_to_column`, `Column::add_tile_at` |
+| Expel last and retain source selection | `expel_from_column`, `remove_tile_by_idx`, `add_tile` with activation disabled |
+| Column/window reordering | `move_left`, `move_column_to`, `Column::move_up` |
+| Close nonactive or trailing column | `remove_tile_by_idx`, `remove_column_by_idx` |
+| Fit target | `compute_new_view_offset_fit`, `compute_new_view_offset` with zero padding and centering disabled |
+
+Niri's horizontal offset is relative to the selected column: the absolute
+camera is `column_x + offset` with a zero working-area origin. A fully visible
+column leaves the supplied camera unchanged. A column wider than the viewport
+returns offset zero, aligning its leading edge. Vertical fit is unchanged in
+these cases because all selected tiles are inside the working area.
+
+The structural trace uses width 100 and viewport `200 × 600`. It checks mapping,
+focus, two consumes, tile reorder, two expels, column reorder, a width change,
+a working-area resize and closing nonactive/trailing columns. The rounding
+trace changes a three-tile column from height 600 to 4: the reference gives
+`round(4/3) = 1`, then `round(3/2) = 2`, then 1. The oversized-column trace uses
+width 300 in a viewport of width 200.
+
+## Discovered differences and limits
+
+- Driftwm previously front-loaded rounding remainder (`2, 1, 1` for height 4),
+  whereas niri rounds each remaining share (`1, 2, 1`). The replay now gates the
+  corrected rounding. A separate property checks that bounded allocation uses
+  the available budget up to the sum of maxima, or overflows only to satisfy
+  minima. Its saved seed also covers the former stranded-space bug.
+- General automatic height policies still differ. Niri allocates frame heights
+  with weights and generally ignores an automatic tile's maximum height unless
+  it is an exact size. Driftwm equalizes content heights and honors maxima.
+  Mixed decorations, non-unit weights and non-exact maximum limits need their
+  own reference cases and a deliberate sizing-policy implementation.
+- Closing an active interior column can select a different neighbor: driftwm
+  chooses its predecessor; niri normally retains the shifted index (next
+  column), with an additional previous-column restoration flag for new windows.
+  Removing an active interior tile has a related next-versus-previous difference.
+  This corpus covers nonactive/trailing closure only; it does not certify the
+  remaining closure contexts. Add selection-history policy before widening it.
+- Gap-aware proportions, centering, fractional scales, constraints, floating,
+  fullscreen, tabs, multi-output ownership, gestures and animation/anchor state
+  remain outside this corpus. Existing driftwm regression tests are not evidence
+  of reference parity for these contexts.
+
+Update the source derivation and expected snapshots together when extending the
+corpus. Do not regenerate expected values from driftwm's own geometry output.
+Changing the pinned revision requires a separate baseline review.

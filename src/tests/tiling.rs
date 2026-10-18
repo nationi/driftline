@@ -512,3 +512,33 @@ fn empty_tiling_keeps_its_layout_identity_until_toggle_off() {
     f.state().execute_action(&Action::ToggleTiling);
     assert_ne!(f.state().stage.tiling_layout_id(), Some(first));
 }
+
+#[test]
+fn grouped_configures_follow_reference_sequential_height_rounding() {
+    let config = driftwm::config::Config::from_toml("[snap]\ngap = 0\n").unwrap();
+    let mut f = Fixture::with_config(config);
+    f.add_output(1, (1200, 604));
+    let client = f.add_client();
+    let a = map_window(&mut f, client, "a", (400, 100));
+    let b = map_window(&mut f, client, "b", (400, 100));
+    let c = map_window(&mut f, client, "c", (400, 100));
+    f.state().execute_action(&Action::ToggleTiling);
+    f.state()
+        .execute_action(&Action::FocusColumn(Direction::Left));
+    f.state()
+        .execute_action(&Action::FocusColumn(Direction::Left));
+    f.state().execute_action(&Action::ConsumeWindowIntoColumn);
+    f.state().execute_action(&Action::ConsumeWindowIntoColumn);
+    assert_eq!(last_configured(&mut f, client, &a), (600, 201));
+    assert_eq!(last_configured(&mut f, client, &b), (600, 202));
+    assert_eq!(last_configured(&mut f, client, &c), (600, 201));
+    let first = window_by_app_id(&mut f, "a").unwrap();
+    let origin = window_position(&mut f, &first);
+    for (name, y) in [("a", 0), ("b", 201), ("c", 403)] {
+        let window = window_by_app_id(&mut f, name).unwrap();
+        assert_eq!(
+            window_position(&mut f, &window),
+            origin + smithay::utils::Point::from((0, y))
+        );
+    }
+}
