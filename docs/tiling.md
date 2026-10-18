@@ -33,6 +33,13 @@ then one half again. Client size constraints and compositor decorations are
 included. Panels reserve their usual space. A client that delays or refuses a
 resize keeps enough space for its current width and height.
 
+New ordinary windows receive their initial column content size in the first
+configure, including client size limits and compositor decorations. They join
+the strip after their first buffer. Dialogs and explicit size/placement rules
+keep their existing initial sizing policy. If a client chooses another first
+buffer size, that size is saved for its later return to the canvas. If it accepts
+the initial offer, that accepted size becomes the canvas fallback.
+
 New windows create a column after the active column. `move-into-column left`
 or `right` moves the focused window into the neighboring column, immediately
 after its selected window. An empty source column disappears. `expel-from-column`

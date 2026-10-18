@@ -76,9 +76,9 @@ Cardinal `center-nearest` also follows the tiling structure while in this mode.
 3. P1 now has stable column/layout IDs, separate tile/column sizing inputs
    and a shared transition gate. Extend transitions as floating and retained
    fullscreen become supported; broad mode-exit fallbacks still exist.
-4. Extend the P2 generation/serial foundation to pre-first-configure enrollment
-   and grouped bounded commit transactions before layout-native interactive
-   resizing. Then P3 settings and P5 gesture physics.
+4. Extend P2 to pre-buffer column ownership and grouped bounded commit
+   transactions before layout-native interactive resizing. First-configure size
+   offers for ordinary new windows now exist. Then P3 settings and P5 physics.
 5. Extend the new reference consume/expel topology subset. Existing focused
    move/split commands are preserved. First/last/index, swap, animation and fullscreen/tab
    contexts of structural operations remain outstanding.
@@ -189,9 +189,42 @@ Pure tests cover superseded generations/serials, a different layout ID, serial
 wraparound, independent completion, exact deadlines, terminal timeout and pruning.
 Headless tests cover ack before commit/buffer, old-size commits after a newer
 request, unchanged-request suppression and late replies after mode exit. The
-next P2 steps are pre-first-configure enrollment, generation-bound completion
+next P2 steps are pre-buffer column ownership, generation-bound completion
 integration and grouped bounded transactions/commit blockers. Extend the P0
 semantic audit and reference cases in parallel; do not mark P2 complete yet.
+
+## Initial sizing before the first buffer
+
+Ordinary windows created while tiling is active now get a content-size offer in
+the existing first configure, after rule and decoration resolution. The preview
+uses the pure one-tile column calculation, shared `ColumnWidth::default`, client
+min/max and `mapping_chrome`; it does not send a separate initial configure or
+focus/map an unbuffered tile. The normal first-buffer path still establishes
+canvas placement and enrolls the window after the active column.
+
+Each preview retains its issued serial, size and original timestamp in the
+owning `TilingView`. It shares the 300 ms deadline timer and pending counter.
+On enrollment, a matching target transfers to the generation-scoped batch with
+its original deadline; changed constraints/decorations get a fresh normal request.
+Dead windows and windows mapped into excluded roles retire their preview record.
+Exiting before the first buffer cancels the offer with a client-choice size
+configure and drops the waiter, so a late buffer cannot recreate tiling state.
+
+Already-parented dialogs, widgets, pinned/fullscreen/fit windows, explicit
+size/position/output rules and potential suspended-window adoptions keep their
+existing initial sizing path. Matching pending relaunches are only inspected,
+not consumed early. A late parent declaration is rechecked at first buffer.
+When a client declines the offer, canvas restoration saves its first committed
+size rather than the compositor's pending offer. If it honors the offer, the
+accepted size is the available fallback; its unreported preferred size is unknown.
+
+Headless scenarios cover CSD, per-window SSD titlebar/borders, undecorated
+windows, min/max, one resolved initial configure, no pre-buffer focus/membership,
+size stability after adoption, explicit rules, dialogs, a late parent change,
+exit before first buffer and declined-offer restoration. Topology is still
+buffer-driven: several unbuffered windows do not reserve columns in creation
+order, and early requests do not yet participate in grouped commit blockers.
+This completes ordinary initial size offers, not all P2 enrollment semantics.
 
 ## Layout identity and sizing inputs
 
@@ -247,7 +280,7 @@ For the latest implementation batch:
 
 - `dev/scripts/ci-local` passed every stage, including ignored tests and isolated soak.
 - `PROPTEST_CASES=4000 cargo test --lib --quiet` passed all 361 library tests.
-- The headless tiling/session coverage includes 29 scenarios, including direct
+- The headless tiling/session coverage includes 35 scenarios, including direct
   operation restoration, reorder and
   preservation of camera/pointer coordinates and camera targets.
 - The reference inventory regenerates byte-for-byte from the pinned checkout.

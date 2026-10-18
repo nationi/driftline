@@ -65,7 +65,7 @@ fit/fill, pin, snap clusters, bookmarks and suspended stand-ins.
 
 Commits: `2b61c79` establishes the mode; `0fc1309` adds multi-window columns.
 Last implementation validation: full local CI, 361 library tests with 4000
-property cases, and 29 headless tiling/session scenarios. These validate the
+property cases, and 35 headless tiling/session scenarios. These validate the
 implementation, not behavioral equivalence to niri.
 
 | Area | Current state | Remaining parity work |
@@ -179,9 +179,12 @@ Generation/serial readiness tracking now exists, scoped to layout identity and
 pure placement revisions. Reflow checks committed serial plus geometry; each
 request has a 300 ms deadline driven by a per-view event-loop timer. Tests cover
 stale generations, early acknowledgements, delayed buffers, serial wraparound,
-mode-exit cleanup and terminal timeout. This is the foundation only: pre-first-
-configure enrollment, grouped atomic commit handling and rendering transactions
-are still outstanding. Live-frame reservation is still independent of timeout.
+mode-exit cleanup and terminal timeout. Ordinary windows now receive their initial
+column size before the first buffer, with resolved chrome and constraints; the
+issued serial/deadline transfers into the batch on actual enrollment. Exclusions
+keep their initial policies and exit-before-buffer cancels the offer. Pre-buffer
+column ownership, grouped atomic commit handling and rendering transactions
+remain outstanding. Live-frame reservation is still independent of timeout.
 
 Depends on P1; required before advanced resize/drag/animations.
 
@@ -454,8 +457,8 @@ anchor preservation have landed. Continue unfinished P0/P1 work before drag-and-
    keep direct-call and action-dispatch regression coverage.
 4. Extend structural operations to first/last/index and swap with reference
    semantics and evidence; current reorder is not full P4 completion.
-5. Extend the implemented P2 generation/serial foundation with first-configure
-   enrollment and grouped bounded transactions. Use it for P3 settings and P5
+5. Extend the implemented P2 generation/serial and initial-size-offer foundation
+   with pre-buffer ownership and grouped bounded transactions. Use it for P3 settings and P5
    gesture snapping after the remaining acceptance checks.
 
 Suggested commit boundaries: inventory/docs; stable topology; structural actions;

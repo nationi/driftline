@@ -18,6 +18,12 @@ pub enum ColumnWidth {
     Proportion(f64),
 }
 
+impl Default for ColumnWidth {
+    fn default() -> Self {
+        Self::Proportion(0.5)
+    }
+}
+
 /// Client content constraints; zero means unconstrained, minimum wins conflicts.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct Constraints {

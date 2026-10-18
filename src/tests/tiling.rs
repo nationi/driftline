@@ -239,6 +239,7 @@ fn a_dialog_remains_floating_and_does_not_replace_its_parent_column() {
     dialog.set_app_id("dialog");
     dialog.commit();
     f.roundtrip(client);
+    assert_eq!(last_configured(&mut f, client, &surface), (0, 0));
     let dialog = f.client(client).window(&surface);
     dialog.set_size(200, 100);
     dialog.attach_new_buffer();
@@ -837,4 +838,172 @@ fn an_old_tiling_reply_cannot_complete_the_latest_size_or_survive_mode_exit() {
     f.double_roundtrip(client);
     assert!(f.state().tiling_view.is_none());
     assert_eq!(f.state().tiling_configure_progress(id), None);
+}
+
+#[test]
+fn new_tiled_windows_receive_their_content_size_in_the_first_configure() {
+    use driftwm::layout::scrolling::transaction::ConfigureProgress;
+    for (decorations, expected) in [
+        ("client", (600, 800)),
+        ("server", (596, 771)),
+        ("none", (600, 800)),
+    ] {
+        let default = if decorations == "server" {
+            "client"
+        } else {
+            decorations
+        };
+        let rule = if decorations == "server" {
+            "[[window_rules]]\napp_id = \"initial-size\"\ndecoration = \"server\"\n"
+        } else {
+            ""
+        };
+        let config = driftwm::config::Config::from_toml(&format!(
+            "[snap]\ngap = 0\n[decorations]\ndefault_mode = \"{default}\"\nborder_width = {}\ntitle_bar_height = 25\n{rule}",
+            if decorations == "server" { 2 } else { 0 },
+        )).unwrap();
+        let mut f = Fixture::with_config(config);
+        f.add_output(1, (1200, 800));
+        let client = f.add_client();
+        f.state().execute_action(&Action::ToggleTiling);
+        let window = f.client(client).create_window();
+        let surface = window.surface.clone();
+        window.set_app_id("initial-size");
+        window.commit();
+        f.double_roundtrip(client);
+        assert_eq!(last_configured(&mut f, client, &surface), expected);
+        assert_eq!(configure_count(&mut f, client, &surface), 1);
+        assert!(f.state().stage.tiled_columns().is_empty());
+        assert!(f.state().focused_element().is_none());
+        assert_eq!(f.state().tiling_pending_configures(), 1);
+        adopt_last_configure(&mut f, client, &surface);
+        let window = window_by_app_id(&mut f, "initial-size").unwrap();
+        let id = f.state().stage.id_of(&window).unwrap();
+        assert!(f.state().stage.is_tiled(id));
+        assert_eq!(
+            f.state().tiling_configure_progress(id),
+            Some(ConfigureProgress::Applied)
+        );
+        assert!(
+            f.client(client)
+                .window(&surface)
+                .configures_received
+                .iter()
+                .all(|(_, c)| c.size == expected)
+        );
+    }
+}
+
+#[test]
+fn initial_tiling_configure_respects_client_size_limits() {
+    let config = driftwm::config::Config::from_toml("[snap]\ngap = 0\n").unwrap();
+    let mut f = Fixture::with_config(config);
+    f.add_output(1, (1200, 800));
+    let client = f.add_client();
+    f.state().execute_action(&Action::ToggleTiling);
+    let window = f.client(client).create_window();
+    let surface = window.surface.clone();
+    window.set_app_id("limited-initial");
+    window.set_min_size(750, 0);
+    window.set_max_size(0, 500);
+    window.commit();
+    f.double_roundtrip(client);
+    assert_eq!(last_configured(&mut f, client, &surface), (750, 500));
+    adopt_last_configure(&mut f, client, &surface);
+    assert_eq!(last_configured(&mut f, client, &surface), (750, 500));
+}
+
+#[test]
+fn exiting_before_the_first_buffer_releases_the_initial_tiling_size_offer() {
+    let mut f = Fixture::new();
+    f.add_output(1, (1200, 800));
+    let client = f.add_client();
+    f.state().execute_action(&Action::ToggleTiling);
+    let window = f.client(client).create_window();
+    let surface = window.surface.clone();
+    window.set_app_id("late-first-buffer");
+    window.commit();
+    f.double_roundtrip(client);
+    assert!(last_configured(&mut f, client, &surface).0 > 0);
+    f.state().execute_action(&Action::ToggleTiling);
+    assert_eq!(last_configured(&mut f, client, &surface), (0, 0));
+    assert_eq!(f.state().tiling_pending_configures(), 0);
+    let window = f.client(client).window(&surface);
+    window.set_size(400, 200);
+    window.attach_new_buffer();
+    window.ack_last_and_commit();
+    f.double_roundtrip(client);
+    assert!(f.state().tiling_view.is_none());
+    assert!(f.state().stage.tiled_columns().is_empty());
+    assert_eq!(last_configured(&mut f, client, &surface), (400, 200));
+}
+
+#[test]
+fn explicit_window_rules_keep_their_initial_sizing_policy_in_tiling_mode() {
+    for (rule, expected) in [
+        ("widget = true", (0, 0)),
+        ("size = [400, 250]", (400, 250)),
+        ("pinned_to_screen = true", (0, 0)),
+    ] {
+        let config = driftwm::config::Config::from_toml(&format!(
+            "[snap]\ngap = 0\n[[window_rules]]\napp_id = \"explicit-initial\"\n{rule}\n"
+        ))
+        .unwrap();
+        let mut f = Fixture::with_config(config);
+        f.add_output(1, (1200, 800));
+        let client = f.add_client();
+        f.state().execute_action(&Action::ToggleTiling);
+        let window = f.client(client).create_window();
+        let surface = window.surface.clone();
+        window.set_app_id("explicit-initial");
+        window.commit();
+        f.double_roundtrip(client);
+        assert_eq!(
+            last_configured(&mut f, client, &surface),
+            expected,
+            "{rule}"
+        );
+        assert_eq!(f.state().tiling_pending_configures(), 0);
+    }
+}
+
+#[test]
+fn a_refused_initial_offer_keeps_the_first_buffer_size_for_canvas_restore() {
+    let config = driftwm::config::Config::from_toml("[snap]\ngap = 0\n").unwrap();
+    let mut f = Fixture::with_config(config);
+    f.add_output(1, (1200, 800));
+    let client = f.add_client();
+    f.state().execute_action(&Action::ToggleTiling);
+    let surface = map_window(&mut f, client, "preferred-size", (400, 200));
+    assert_eq!(last_configured(&mut f, client, &surface), (600, 800));
+    f.state().execute_action(&Action::ToggleTiling);
+    assert_eq!(last_configured(&mut f, client, &surface), (400, 200));
+}
+
+#[test]
+fn becoming_a_dialog_after_initial_configure_retires_the_early_tiling_request() {
+    let mut f = Fixture::new();
+    f.add_output(1, (1200, 800));
+    let client = f.add_client();
+    let parent = map_window(&mut f, client, "parent", (400, 200));
+    f.state().execute_action(&Action::ToggleTiling);
+    f.double_roundtrip(client);
+    adopt_last_configure(&mut f, client, &parent);
+    let parent_role = f.client(client).window(&parent).xdg_toplevel.clone();
+    let window = f.client(client).create_window();
+    let surface = window.surface.clone();
+    window.set_app_id("late-dialog");
+    window.commit();
+    f.double_roundtrip(client);
+    assert_eq!(f.state().tiling_pending_configures(), 1);
+    f.client(client)
+        .window(&surface)
+        .set_parent(Some(&parent_role));
+    adopt_last_configure(&mut f, client, &surface);
+    let window = window_by_app_id(&mut f, "late-dialog").unwrap();
+    let id = f.state().stage.id_of(&window).unwrap();
+    assert!(!f.state().stage.is_tiled(id));
+    assert_eq!(f.state().stage.tiled_columns().len(), 1);
+    assert_eq!(f.state().tiling_pending_configures(), 0);
+    assert!(f.state().tiling_view.is_some());
 }

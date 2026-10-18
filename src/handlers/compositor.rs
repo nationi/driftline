@@ -717,7 +717,15 @@ impl CompositorHandler for DriftWm {
                         }
                     }
 
+                    let initial_tiling_size = if !has_size {
+                        self.initial_tiling_size(&window, &effective, applied.as_ref())
+                    } else {
+                        None
+                    };
                     if let Some(toplevel) = window.toplevel() {
+                        if let Some(size) = initial_tiling_size {
+                            toplevel.with_pending_state(|state| state.size = Some(size));
+                        }
                         // Only overwrite wire mode when a rule forces it;
                         // otherwise the client's negotiated choice stands.
                         if rule_explicit.is_some() {
@@ -753,7 +761,10 @@ impl CompositorHandler for DriftWm {
                             }
                         }
 
-                        toplevel.send_configure();
+                        let serial = toplevel.send_configure();
+                        if let Some(size) = initial_tiling_size {
+                            self.record_initial_tiling_configure(&window, serial, size);
+                        }
                     }
                     if effective != driftwm::config::DecorationMode::Client {
                         self.pending_ssd.insert(root.id());

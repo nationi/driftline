@@ -125,7 +125,7 @@ impl<W: StageElement> Stage<W> {
         let column = TiledColumn {
             id: column_id,
             selected: id,
-            width: ColumnWidth::Proportion(0.5),
+            width: ColumnWidth::default(),
             windows: vec![TiledWindow { id, restore }],
         };
         let index = self
