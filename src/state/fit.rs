@@ -96,7 +96,7 @@ impl DriftWm {
     }
 
     pub fn fit_window(&mut self, window: &Window) {
-        self.exit_tiling();
+        self.prepare_tiling_operation(super::TilingOperation::Fit);
         let Some(wl_surface) = window.wl_surface() else {
             return;
         };

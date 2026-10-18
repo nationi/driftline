@@ -135,7 +135,7 @@ impl DriftWm {
     }
 
     pub fn fill_window(&mut self, window: &Window) {
-        self.exit_tiling();
+        self.prepare_tiling_operation(super::TilingOperation::Fill);
         let Some(wl_surface) = window.wl_surface() else {
             return;
         };

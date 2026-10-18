@@ -7,6 +7,49 @@ use super::{
 };
 
 #[test]
+fn remapping_a_tiled_window_restores_other_windows_before_placing_it() {
+    let mut f = Fixture::new();
+    f.add_output(1, (1200, 800));
+    let client = f.add_client();
+    let a = map_window(&mut f, client, "a", (400, 300));
+    let b = map_window(&mut f, client, "b", (350, 250));
+    let wa = window_by_app_id(&mut f, "a").unwrap();
+    let wb = window_by_app_id(&mut f, "b").unwrap();
+    let before_b = window_position(&mut f, &wb);
+    f.state().set_camera((100.0, -200.0).into());
+    f.state().set_zoom(0.6);
+    f.state().execute_action(&Action::ToggleTiling);
+    f.state().map_window(wa.clone(), (900, -500).into(), true);
+    assert!(f.state().tiling_view.is_none());
+    assert!(f.state().stage.tiled_columns().is_empty());
+    assert_eq!(window_position(&mut f, &wa), (900, -500).into());
+    assert_eq!(window_position(&mut f, &wb), before_b);
+    assert_eq!(last_configured(&mut f, client, &a), (400, 300));
+    assert_eq!(last_configured(&mut f, client, &b), (350, 250));
+    assert_eq!(f.state().camera(), (100.0, -200.0).into());
+    assert_eq!(f.state().zoom(), 0.6);
+}
+
+#[test]
+fn direct_fit_restores_the_canvas_without_action_dispatch() {
+    let mut f = Fixture::new();
+    f.add_output(1, (1200, 800));
+    let client = f.add_client();
+    map_window(&mut f, client, "a", (400, 300));
+    let b = map_window(&mut f, client, "b", (350, 250));
+    let wa = window_by_app_id(&mut f, "a").unwrap();
+    let wb = window_by_app_id(&mut f, "b").unwrap();
+    let before_b = window_position(&mut f, &wb);
+    f.state().execute_action(&Action::ToggleTiling);
+    f.state().fit_window(&wa);
+    assert!(f.state().tiling_view.is_none());
+    assert!(f.state().stage.tiled_columns().is_empty());
+    assert!(f.state().stage.is_fit(&wa));
+    assert_eq!(window_position(&mut f, &wb), before_b);
+    assert_eq!(last_configured(&mut f, client, &b), (350, 250));
+}
+
+#[test]
 fn refusing_a_resize_reserves_the_live_width_without_configure_loops() {
     let mut f = Fixture::new();
     f.add_output(1, (1200, 800));

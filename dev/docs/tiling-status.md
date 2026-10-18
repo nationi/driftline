@@ -46,6 +46,8 @@ Implementation locations:
 - `src/layout/scrolling/` — pure single/grouped geometry and reveal calculations.
 - `src/stage/tiling.rs` — membership, ordering, selection and original canvas rects.
 - `src/state/tiling.rs` — mode lifecycle, reflow, configures and view integration.
+- `src/state/tiling_policy.rs` — exhaustive action policy and shared transition
+  gate for input, IPC, direct window operations and invalidated layouts.
 - `src/config/{types,parse}.rs`, `src/input/actions.rs` — public binding actions.
 - `src/tests/tiling.rs`, session-restore tests — real headless Wayland scenarios.
 - `config.reference.toml`, generated `docs/config.md`, `docs/tiling.md` — user interface.
@@ -69,8 +71,9 @@ Cardinal `center-nearest` also follows the tiling structure while in this mode.
    split/reorder/resize. Include geometry, focus and view outcomes, not only
    driftwm structural invariants.
 3. Finish P1: stable layout-container identity, clean tile/column sizing inputs,
-   and centralized canvas/tiling/floating/fullscreen transition policy. Broad
-   mode-exit fallbacks still exist.
+   and extend the centralized transition policy as floating and retained
+   fullscreen become supported. The shared gate exists; broad mode-exit
+   fallbacks still exist.
 4. Complete P2 generation/serial and bounded configure-lifecycle handling before
    layout-native interactive resizing. Then P3 settings and P5 gesture physics.
 5. Preserve current command semantics while adding distinct niri-compatible
@@ -90,13 +93,37 @@ Important differences to preserve explicitly while adding reference actions:
 
 Do not break documented existing actions merely to reuse reference names.
 
+## Central transition gate
+
+All automatic mode exits go through `prepare_tiling_operation`; only explicit
+toggle-off and the gate call the canvas restoration routine directly. The action
+match is exhaustive so adding an action requires a deliberate transition choice.
+This consolidates existing behavior; it does not add floating or retained
+fullscreen support.
+
+| Operation | Current policy |
+| --- | --- |
+| Structural tiling actions, cardinal center-nearest | Preserve tiling |
+| Launch, close, keyboard layout and trackpad settings | Preserve tiling |
+| Other canvas actions, including diagonal center-nearest | Restore canvas before dispatch |
+| New normal window or excluded dialog | Preserve mode; existing enrollment rules apply |
+| Explicit placement of an already tiled window | Restore all canvas rectangles before placing it |
+| Direct move, resize, rule placement, fit/fill, pin, fullscreen | Restore canvas before operation |
+| Incompatible output, zoom, membership or invalid geometry | Restore canvas during reflow |
+
+Headless regression scenarios additionally cover direct fit without action
+dispatch and remapping a tiled window, including restoration of other windows,
+requested sizes and the saved view. Existing mapping/dialog and output tests
+cover the preserve/invalidation paths.
+
 ## Validation evidence
 
 For the latest implementation batch:
 
 - `dev/scripts/ci-local` passed every stage, including ignored tests and isolated soak.
 - `PROPTEST_CASES=4000 cargo test --lib --quiet` passed all 350 library tests.
-- The headless tiling/session filter passed 16 scenarios, including reorder and
+- The headless tiling/session coverage includes 18 scenarios, including direct
+  operation restoration, reorder and
   preservation of camera/pointer coordinates and camera targets.
 - The reference inventory regenerates byte-for-byte from the pinned checkout.
 - The user tried the initial single-window-column version nested and reported

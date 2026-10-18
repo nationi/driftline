@@ -150,8 +150,10 @@ existing implemented behavior is labeled exact, partial or divergent with eviden
 
 Stable column IDs, separate selection, horizontal column/vertical tile reorder
 and horizontal view-anchor preservation are implemented with stage and headless
-tests. Container IDs, pure sizing API separation and centralized transition
-policy remain outstanding; this milestone is not yet complete.
+tests. A shared transition gate now covers actions, direct operations, IPC and
+layout invalidation, with an explicit compatibility table in the handoff.
+Container IDs, pure sizing API separation and retained floating/fullscreen
+transitions remain outstanding; this milestone is not yet complete.
 
 Depends on P0.
 
@@ -432,7 +434,8 @@ anchor preservation have landed. Continue unfinished P0/P1 work before drag-and-
 1. Finish the inventory's custom-decoder audit and reference operation fixtures,
    including exact consume/expel differences and current command compatibility.
 2. Add stable layout-container identity and separate tile/column sizing inputs.
-3. Centralize transition policy and test formerly implicit mode-exit behavior.
+3. Extend the shared transition policy when retained floating/fullscreen lands;
+   keep direct-call and action-dispatch regression coverage.
 4. Extend structural operations to first/last/index and swap with reference
    semantics and evidence; current reorder is not full P4 completion.
 5. Start P2 generation/serial bookkeeping and deterministic late-commit tests.

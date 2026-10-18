@@ -38,6 +38,8 @@ mod session_store;
 mod stage_window;
 mod suspended;
 mod tiling;
+mod tiling_policy;
+pub(crate) use tiling_policy::TilingOperation;
 mod viewport;
 mod viewport_animation;
 pub(crate) mod window_animation;
@@ -1129,7 +1131,7 @@ impl DriftWm {
     /// is balanced by `disarm_interactive_move` on grab unset; the cancel is a
     /// one-way snapshot of the moment the grab took over.
     pub fn arm_interactive_move<T: Clone + Into<ClusterMember>>(&mut self, target: &T) {
-        self.exit_tiling();
+        self.prepare_tiling_operation(TilingOperation::FreeMove);
         // The grab measures its delta against a frozen canvas anchor, and a
         // camera tick warps the pointer synchronously into it — so a flight the
         // grab did not cause would drag the window from a motionless mouse.

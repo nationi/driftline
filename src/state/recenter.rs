@@ -60,7 +60,7 @@ impl DriftWm {
         y: i32,
         activate: bool,
     ) {
-        self.exit_tiling();
+        self.prepare_tiling_operation(super::TilingOperation::FreePlacement);
         // Moving re-anchors the window, invalidating any fill restore point.
         self.stage.clear_fill(window);
 

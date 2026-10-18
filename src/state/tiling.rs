@@ -66,7 +66,7 @@ impl DriftWm {
         self.refresh_tiling();
     }
 
-    pub(crate) fn exit_tiling(&mut self) {
+    pub(super) fn exit_tiling(&mut self) {
         let Some(view) = self.tiling_view.take() else {
             return;
         };
@@ -180,7 +180,7 @@ impl DriftWm {
             || self.active_output().as_ref() != Some(&view.output)
             || self.zoom() != 1.0
         {
-            self.exit_tiling();
+            self.prepare_tiling_operation(super::TilingOperation::LayoutInvalidated);
             return;
         }
         let origin = view.origin;
@@ -189,7 +189,7 @@ impl DriftWm {
                 .window_by_id(column.id)
                 .is_some_and(|w| !self.tiling_eligible(w))
         }) {
-            self.exit_tiling();
+            self.prepare_tiling_operation(super::TilingOperation::LayoutInvalidated);
             return;
         }
         let candidates: Vec<_> = self
@@ -238,7 +238,7 @@ impl DriftWm {
             Ok(placements) => placements,
             Err(error) => {
                 tracing::warn!(?error, "Leaving scrolling tiling after invalid layout");
-                self.exit_tiling();
+                self.prepare_tiling_operation(super::TilingOperation::LayoutInvalidated);
                 return;
             }
         };
@@ -275,7 +275,7 @@ impl DriftWm {
                     .iter()
                     .any(|v| i32::try_from(*v).is_err())
                 {
-                    self.exit_tiling();
+                    self.prepare_tiling_operation(super::TilingOperation::LayoutInvalidated);
                     return;
                 }
                 placement.frame.loc = (x as i32, y as i32).into();

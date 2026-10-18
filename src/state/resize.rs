@@ -190,7 +190,7 @@ impl DriftWm {
         initial_window_size: Size<i32, Logical>,
         pinned_initial_screen_pos: Option<Point<i32, Logical>>,
     ) {
-        self.exit_tiling();
+        self.prepare_tiling_operation(super::TilingOperation::FreeResize);
         // A camera flight still running when this grab installs would read as
         // resize input once a tick warps the pointer into it (same trap
         // `arm_interactive_move` guards against for moves).

@@ -28,33 +28,7 @@ impl DriftWm {
     }
 
     pub fn execute_action(&mut self, action: &Action) {
-        if self.tiling_view.is_some()
-            && !matches!(
-                action,
-                Action::ToggleTiling
-                    | Action::CenterNearest(
-                        driftwm::config::Direction::Left
-                            | driftwm::config::Direction::Right
-                            | driftwm::config::Direction::Up
-                            | driftwm::config::Direction::Down
-                    )
-                    | Action::FocusColumn(_)
-                    | Action::CycleColumnWidth
-                    | Action::MoveIntoColumn(_)
-                    | Action::ExpelFromColumn
-                    | Action::MoveColumn(_)
-                    | Action::MoveTiledWindow(_)
-                    | Action::Exec(_)
-                    | Action::ExecTerminal
-                    | Action::ExecLauncher
-                    | Action::Spawn(_)
-                    | Action::CloseWindow
-                    | Action::SwitchLayout(_)
-                    | Action::SetTrackpad(_)
-            )
-        {
-            self.exit_tiling();
-        }
+        self.prepare_tiling_operation(crate::state::TilingOperation::Action(action));
         // A non-cycle action from any input source ends an in-progress Alt-Tab
         // cycle here, committing the selection before it runs. CycleWindows
         // itself is exempt so stepping deeper keeps working.
