@@ -35,7 +35,9 @@ resize keeps enough space for its current width and height.
 
 New ordinary windows receive their initial column content size in the first
 configure, including client size limits and compositor decorations. They join
-the strip after their first buffer. Dialogs and explicit size/placement rules
+the strip after their first buffer, after the column active at that time. Windows
+waiting for their first buffer do not reserve space or take focus. Their first
+configure order does not determine their eventual column order. Dialogs and explicit size/placement rules
 keep their existing initial sizing policy. If a client chooses another first
 buffer size, that size is saved for its later return to the canvas. If it accepts
 the initial offer, that accepted size becomes the canvas fallback.

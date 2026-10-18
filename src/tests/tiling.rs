@@ -1007,3 +1007,109 @@ fn becoming_a_dialog_after_initial_configure_retires_the_early_tiling_request() 
     assert_eq!(f.state().tiling_pending_configures(), 0);
     assert!(f.state().tiling_view.is_some());
 }
+
+#[test]
+fn reference_mapping_order_follows_first_buffers_without_reserving_empty_columns() {
+    let config = driftwm::config::Config::from_toml("[snap]\ngap = 0\n").unwrap();
+    let mut f = Fixture::with_config(config);
+    f.add_output(1, (1200, 800));
+    let client = f.add_client();
+    let a = map_window(&mut f, client, "a", (400, 200));
+    let wa = window_by_app_id(&mut f, "a").unwrap();
+    f.state().execute_action(&Action::ToggleTiling);
+    f.double_roundtrip(client);
+    adopt_last_configure(&mut f, client, &a);
+    let origin = window_position(&mut f, &wa);
+    let mut surfaces = Vec::new();
+    for name in ["b", "c"] {
+        let window = f.client(client).create_window();
+        surfaces.push(window.surface.clone());
+        window.set_app_id(name);
+        window.commit();
+        f.double_roundtrip(client);
+    }
+    assert_eq!(f.state().stage.tiled_columns().len(), 1);
+    let focused = f.state().focused_element().unwrap();
+    assert_eq!(f.state().stage.id_of(&focused), f.state().stage.id_of(&wa));
+    adopt_last_configure(&mut f, client, &surfaces[1]);
+    let wc = window_by_app_id(&mut f, "c").unwrap();
+    let cid = f.state().stage.id_of(&wc).unwrap();
+    let column = f.state().stage.column_of(cid).unwrap();
+    let before = window_position(&mut f, &wc);
+    assert_eq!(before.x, origin.x + 600);
+    adopt_last_configure(&mut f, client, &surfaces[0]);
+    let wb = window_by_app_id(&mut f, "b").unwrap();
+    let bid = f.state().stage.id_of(&wb).unwrap();
+    let order = [&wa, &wc, &wb].map(|w| f.state().stage.id_of(w).unwrap());
+    assert_eq!(
+        f.state()
+            .stage
+            .tiled_columns()
+            .iter()
+            .map(|c| c.selected)
+            .collect::<Vec<_>>(),
+        order
+    );
+    assert_eq!(f.state().stage.column_of(cid), Some(column));
+    assert_eq!(window_position(&mut f, &wc), before);
+    assert_eq!(window_position(&mut f, &wb).x, origin.x + 1200);
+    assert_eq!(f.state().stage.active_tile(), Some(bid));
+}
+
+#[test]
+fn a_delayed_first_buffer_uses_the_column_focused_when_it_maps() {
+    let mut f = Fixture::new();
+    f.add_output(1, (1200, 800));
+    let client = f.add_client();
+    map_window(&mut f, client, "a", (400, 200));
+    map_window(&mut f, client, "b", (400, 200));
+    let wa = window_by_app_id(&mut f, "a").unwrap();
+    let wb = window_by_app_id(&mut f, "b").unwrap();
+    f.state().execute_action(&Action::ToggleTiling);
+    f.state()
+        .execute_action(&Action::FocusColumn(Direction::Left));
+    let window = f.client(client).create_window();
+    let surface = window.surface.clone();
+    window.set_app_id("delayed");
+    window.commit();
+    f.double_roundtrip(client);
+    f.state()
+        .execute_action(&Action::FocusColumn(Direction::Right));
+    adopt_last_configure(&mut f, client, &surface);
+    let wd = window_by_app_id(&mut f, "delayed").unwrap();
+    let order = [&wa, &wb, &wd].map(|w| f.state().stage.id_of(w).unwrap());
+    assert_eq!(
+        f.state()
+            .stage
+            .tiled_columns()
+            .iter()
+            .map(|c| c.selected)
+            .collect::<Vec<_>>(),
+        order
+    );
+}
+
+#[test]
+fn closing_an_unbuffered_window_does_not_change_tiling_focus_or_camera() {
+    let mut f = Fixture::new();
+    f.add_output(1, (1200, 800));
+    let client = f.add_client();
+    let a = map_window(&mut f, client, "a", (400, 200));
+    f.state().execute_action(&Action::ToggleTiling);
+    f.double_roundtrip(client);
+    adopt_last_configure(&mut f, client, &a);
+    let active = f.state().stage.active_tile();
+    let camera = f.state().camera();
+    let target = f.state().camera_target();
+    let window = f.client(client).create_window();
+    let surface = window.surface.clone();
+    window.commit();
+    f.double_roundtrip(client);
+    f.client(client).window(&surface).destroy();
+    f.double_roundtrip(client);
+    assert_eq!(f.state().stage.tiled_columns().len(), 1);
+    assert_eq!(f.state().stage.active_tile(), active);
+    assert_eq!(f.state().camera(), camera);
+    assert_eq!(f.state().camera_target(), target);
+    assert_eq!(f.state().tiling_pending_configures(), 0);
+}

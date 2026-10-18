@@ -76,9 +76,10 @@ Cardinal `center-nearest` also follows the tiling structure while in this mode.
 3. P1 now has stable column/layout IDs, separate tile/column sizing inputs
    and a shared transition gate. Extend transitions as floating and retained
    fullscreen become supported; broad mode-exit fallbacks still exist.
-4. Extend P2 to pre-buffer column ownership and grouped bounded commit
-   transactions before layout-native interactive resizing. First-configure size
-   offers for ordinary new windows now exist. Then P3 settings and P5 physics.
+4. Extend P2 to grouped bounded commit transactions before layout-native
+   interactive resizing. Early size offers and unmapped mapping-time ownership
+   now have coverage. Do not reserve phantom columns before first buffer.
+   Then P3 settings and P5 physics.
 5. Extend the new reference consume/expel topology subset. Existing focused
    move/split commands are preserved. First/last/index, swap, animation and fullscreen/tab
    contexts of structural operations remain outstanding.
@@ -189,8 +190,8 @@ Pure tests cover superseded generations/serials, a different layout ID, serial
 wraparound, independent completion, exact deadlines, terminal timeout and pruning.
 Headless tests cover ack before commit/buffer, old-size commits after a newer
 request, unchanged-request suppression and late replies after mode exit. The
-next P2 steps are pre-buffer column ownership, generation-bound completion
-integration and grouped bounded transactions/commit blockers. Extend the P0
+next P2 steps are generation-bound completion integration and grouped bounded
+transactions/commit blockers for mapped windows. Extend the P0
 semantic audit and reference cases in parallel; do not mark P2 complete yet.
 
 ## Initial sizing before the first buffer
@@ -224,7 +225,29 @@ size stability after adoption, explicit rules, dialogs, a late parent change,
 exit before first buffer and declined-offer restoration. Topology is still
 buffer-driven: several unbuffered windows do not reserve columns in creation
 order, and early requests do not yet participate in grouped commit blockers.
-This completes ordinary initial size offers, not all P2 enrollment semantics.
+This completes ordinary initial size offers, not all P2 transaction semantics.
+
+## Mapping-time ownership: reference correction
+
+A source audit of pinned niri's `handlers/xdg_shell.rs`, `window/unmapped.rs`,
+`handlers/compositor.rs`, `layout/workspace.rs` and `layout/scrolling.rs` confirms
+that an initially configured, unbuffered window is outside the scrolling layout.
+Only `is_mapped(surface)` routes it into `layout.add_window`; ordinary automatic
+placement inserts after the column active then. A delayed B configured before C
+can therefore appear after C if C maps and takes focus first. No early column
+ID, blank strip space or focus is reserved for B.
+
+The earlier suggestion to implement pre-buffer column reservation was incorrect
+for the parity goal. An uncommitted prototype was discarded; no reservation
+runtime change was committed. Keep `InitialTilingConfigure` as sizing/serial
+bookkeeping, and allocate column identity when the first buffer enrolls the tile.
+[The reference methodology](niri-reference-traces.md#first-buffer-mapping-boundary)
+records derivation and assumptions. New real-client tests cover reversed first-
+buffer arrival, focus changes while unbuffered and closure before the first
+buffer, including geometry, identity, selection, camera and waiter cleanup.
+This is a reference-conformance and roadmap correction; current runtime behavior
+already matched these controlled cases. Grouped mapped-window transactions are
+the next P2 implementation task.
 
 ## Layout identity and sizing inputs
 
@@ -280,13 +303,17 @@ For the latest implementation batch:
 
 - `dev/scripts/ci-local` passed every stage, including ignored tests and isolated soak.
 - `PROPTEST_CASES=4000 cargo test --lib --quiet` passed all 361 library tests.
-- The headless tiling/session coverage includes 35 scenarios, including direct
+- The headless tiling/session coverage includes 38 scenarios, including direct
   operation restoration, reorder and
   preservation of camera/pointer coordinates and camera targets.
 - The reference inventory regenerates byte-for-byte from the pinned checkout.
 - The user tried the initial single-window-column version nested and reported
   that it worked. Multi-window/reorder behavior has headless coverage; real
   trackpad feel and current graphical behavior still need manual validation.
+
+The mapping-boundary audit changed tests/docs only and reran the full CI gate.
+The deeper library-property evidence above applies to the unchanged runtime
+library; the discarded reservation prototype is not validation evidence.
 
 Documentation-only handoff changes do not constitute a new runtime validation.
 For new implementation, run relevant tests, the deeper property pass when

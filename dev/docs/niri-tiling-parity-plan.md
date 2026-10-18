@@ -65,7 +65,7 @@ fit/fill, pin, snap clusters, bookmarks and suspended stand-ins.
 
 Commits: `2b61c79` establishes the mode; `0fc1309` adds multi-window columns.
 Last implementation validation: full local CI, 361 library tests with 4000
-property cases, and 35 headless tiling/session scenarios. These validate the
+property cases, and 38 headless tiling/session scenarios. These validate the
 implementation, not behavioral equivalence to niri.
 
 | Area | Current state | Remaining parity work |
@@ -182,14 +182,22 @@ stale generations, early acknowledgements, delayed buffers, serial wraparound,
 mode-exit cleanup and terminal timeout. Ordinary windows now receive their initial
 column size before the first buffer, with resolved chrome and constraints; the
 issued serial/deadline transfers into the batch on actual enrollment. Exclusions
-keep their initial policies and exit-before-buffer cancels the offer. Pre-buffer
-column ownership, grouped atomic commit handling and rendering transactions
-remain outstanding. Live-frame reservation is still independent of timeout.
+keep their initial policies and exit-before-buffer cancels the offer.
+Mapped-window grouped atomic commit handling and rendering transactions
+remain outstanding. A pinned source audit confirms that unbuffered windows
+remain outside the scrolling layout until mapping; do not reserve phantom
+columns or initial-configure order. First-buffer order and mapping-time focus
+are now covered by headless reference scenarios. Live-frame reservation is
+still independent of timeout.
 
 Depends on P1; required before advanced resize/drag/animations.
 
 - Apply tiling rules before the first configure. Avoid briefly opening at a
   canvas position and immediately sending another independent placement request.
+  Keep initially configured windows outside column membership until their first
+  buffer, as the reference does. Recheck late parent/floating hints and choose
+  the ordinary insertion neighbor from mapping-time focus; do not reserve blank
+  columns merely to preserve configure order.
 - Track layout generation and relevant configure serials; ignore stale completion
   effects after a newer resize, transfer, fullscreen transition or mode exit.
 - Group related window geometry changes without blocking the event loop. Give
@@ -458,7 +466,8 @@ anchor preservation have landed. Continue unfinished P0/P1 work before drag-and-
 4. Extend structural operations to first/last/index and swap with reference
    semantics and evidence; current reorder is not full P4 completion.
 5. Extend the implemented P2 generation/serial and initial-size-offer foundation
-   with pre-buffer ownership and grouped bounded transactions. Use it for P3 settings and P5
+   with grouped bounded transactions for mapped windows. Mapping-time column
+   ownership is intentional and reference-tested. Use it for P3 settings and P5
    gesture snapping after the remaining acceptance checks.
 
 Suggested commit boundaries: inventory/docs; stable topology; structural actions;

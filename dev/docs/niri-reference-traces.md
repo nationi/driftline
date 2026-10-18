@@ -57,6 +57,41 @@ trace changes a three-tile column from height 600 to 4: the reference gives
 `round(4/3) = 1`, then `round(3/2) = 2`, then 1. The oversized-column trace uses
 width 300 in a viewport of width 200.
 
+## First-buffer mapping boundary
+
+The pinned reference keeps new toplevels in `unmapped_windows`
+(`src/handlers/xdg_shell.rs::new_toplevel`). Initial rules, sizing and target
+output/workspace information live in `window/unmapped.rs::InitialConfigureState`.
+They are not columns in the scrolling layout.
+
+In `handlers/compositor.rs`, the `is_mapped(surface)` branch removes the unmapped
+entry, rechecks late floating hints, chooses activation/parent targeting and calls
+`layout.add_window`. For an ordinary focused tiled window in one workspace,
+`layout/workspace.rs::add_tile` handles `WorkspaceAddWindowTarget::Auto` with
+`scrolling.add_tile(None, ...)`. `scrolling.rs::add_column` then inserts after
+the active column. Consequently layout insertion and focus context are determined
+at first-buffer mapping, not initial configure.
+
+Three headless conformance scenarios in `src/tests/tiling.rs` now gate this:
+
+- A is mapped; B and C receive initial configures but stay unbuffered. Neither
+  creates a column or takes focus. C maps first at A's next column, then B maps
+  after C: order A/C/B. C keeps its column ID and position when B appears.
+- A window gets its initial configure while A is active; the user focuses B
+  before its buffer arrives. The window maps after B.
+- A window closes before its first buffer. Existing layout membership, selection,
+  camera and target stay unchanged; the early configure waiter is retired.
+
+These cases assume ordinary focus-on-open behavior, no parent, floating,
+fullscreen, explicit target workspace/output or activation-token special policy.
+They are source-derived tests, not recordings of a running niri compositor.
+
+Do not add pre-buffer phantom columns or preserve initial configure ordering as
+a parity feature: that would change the observed behavior above. Earlier roadmap
+language calling for pre-buffer column ownership was too broad; retain early
+sizing/protocol bookkeeping separately from mapped layout membership. Grouped
+commit transactions remain necessary for already mapped windows.
+
 ## Discovered differences and limits
 
 - Driftwm previously front-loaded rounding remainder (`2, 1, 1` for height 4),
