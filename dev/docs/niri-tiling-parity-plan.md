@@ -64,8 +64,8 @@ fit/fill, pin, snap clusters, bookmarks and suspended stand-ins.
 ## Current baseline and known differences
 
 Commits: `2b61c79` establishes the mode; `0fc1309` adds multi-window columns.
-Last implementation validation: full local CI, 355 library tests with 4000
-property cases, and 25 headless tiling/session scenarios. These validate the
+Last implementation validation: full local CI, 356 library tests with 4000
+property cases, and 27 headless tiling/session scenarios. These validate the
 implementation, not behavioral equivalence to niri.
 
 | Area | Current state | Remaining parity work |
@@ -437,7 +437,9 @@ anchor preservation have landed. Continue unfinished P0/P1 work before drag-and-
 1. Finish the inventory's custom-decoder audit and extend
    [reference operation fixtures](niri-reference-traces.md) beyond the controlled
    geometry/fit/closure subset. Extend selection histories and cover gaps,
-   constraints, saved view-offset restoration and complete camera lifecycle.
+   constraints, gesture/batched-enrollment return offsets and complete camera
+   lifecycle. Static and animation-target close-return restoration now has
+   headless coverage, including resized columns and client crashes.
 2. Stable layout identity and separate tile/column sizing inputs have landed;
    preserve empty-layout lifetime and per-window constraints in later changes.
 3. Extend the shared transition policy when retained floating/fullscreen lands;

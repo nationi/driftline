@@ -136,9 +136,27 @@ dead-client sweep, reflow restores structural keyboard focus when the previously
 selected tile disappeared and no other live focus intent exists. A deliberate
 empty-canvas focus clear is respected. Headless tests cover interior tile and
 column closure, return/cancellation for newly mapped columns, client crash,
-background closure and intentional focus clearing. Niri's saved view-offset
-restoration and broader modal/layer and disconnect-order reference cases remain
-outstanding. Max-height handling and mixed-decoration weighting still differ.
+background closure and intentional focus clearing. Broader modal/layer and
+multi-disconnect reference cases remain outstanding. Max-height handling and
+mixed-decoration weighting still differ.
+
+The close return now saves the stationary horizontal camera offset relative to
+its predecessor, using the pending animation target when present. Reflow consumes
+an explicit stage close-return event once, verifies both column IDs and restores
+the saved offset from the surviving column's current frame X. `reveal` adjusts
+the target for changed width/usable area. This starts a flight from the current
+camera instead of teleporting it, and subsequent no-op flushes retain the flight.
+The stage event survives no-op liveness sweeps and same-column focus sync, but is
+cleared by explicit layout exit, new enrollment or incompatible structural/focus
+changes. Navigation to eligible tiling windows now only raises/focuses them;
+reflow owns the camera and does not inherit a flight to temporary canvas placement.
+
+Headless tests cover an unfinished previous flight, changed minimum width,
+normal and crashed-client closure, repeated flushes, and cancellation after
+switching columns. Remaining limits: integer reveal rounding, gesture-specific
+stationary offsets, multiple newly enrolled windows in one reflow and complete
+reference animation timing. The JSON corpus remains fit probes; these lifecycle
+checks are in the compositor fixture, not recordings of niri.
 
 ## Layout identity and sizing inputs
 
@@ -193,8 +211,8 @@ cover the preserve/invalidation paths.
 For the latest implementation batch:
 
 - `dev/scripts/ci-local` passed every stage, including ignored tests and isolated soak.
-- `PROPTEST_CASES=4000 cargo test --lib --quiet` passed all 355 library tests.
-- The headless tiling/session coverage includes 25 scenarios, including direct
+- `PROPTEST_CASES=4000 cargo test --lib --quiet` passed all 356 library tests.
+- The headless tiling/session coverage includes 27 scenarios, including direct
   operation restoration, reorder and
   preservation of camera/pointer coordinates and camera targets.
 - The reference inventory regenerates byte-for-byte from the pinned checkout.

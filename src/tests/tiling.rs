@@ -652,3 +652,85 @@ fn a_background_close_and_an_intentional_focus_clear_do_not_steal_focus() {
         }
     }
 }
+
+#[test]
+fn closing_a_new_column_restores_the_stationary_view_target_once() {
+    for (resized, crash) in [(false, false), (true, false), (false, true)] {
+        let config = driftwm::config::Config::from_toml("[snap]\ngap = 0\n").unwrap();
+        let mut f = Fixture::with_config(config);
+        f.add_output(1, (1200, 800));
+        let client = f.add_client();
+        let a = map_window(&mut f, client, "a", (400, 200));
+        map_window(&mut f, client, "b", (400, 200));
+        let wa = window_by_app_id(&mut f, "a").unwrap();
+        f.state().execute_action(&Action::ToggleTiling);
+        f.state()
+            .execute_action(&Action::FocusColumn(Direction::Left));
+        let x = f64::from(window_position(&mut f, &wa).x);
+        let y = f.state().camera().y;
+        f.state().set_camera((x - 200.0, y).into());
+        f.state().set_camera_target(Some((x - 100.0, y).into()));
+        let opening = f.add_client();
+        let c = map_window(&mut f, opening, "c", (400, 200));
+        if resized {
+            f.client(client).window(&a).set_min_size(1150, 0);
+            f.client(client).window(&a).commit();
+            f.double_roundtrip(client);
+        }
+        let in_flight = (x + 50.0, y).into();
+        f.state().set_camera(in_flight);
+        f.state().set_camera_target(Some((x + 600.0, y).into()));
+        if crash {
+            f.kill_client(opening);
+            f.double_roundtrip(client);
+        } else {
+            f.client(opening).window(&c).destroy();
+            f.double_roundtrip(opening);
+        }
+        assert_eq!(f.state().stage.tiled_columns().len(), 2);
+        assert_eq!(f.state().camera(), in_flight);
+        let expected = if resized { x - 50.0 } else { x - 100.0 };
+        assert_eq!(
+            f.state().camera_target().unwrap().x,
+            expected,
+            "resized={resized}, crash={crash}"
+        );
+        for _ in 0..3 {
+            f.state().refresh_and_flush_clients();
+        }
+        assert_eq!(
+            f.state().camera_target().unwrap().x,
+            expected,
+            "resized={resized}, crash={crash}"
+        );
+        assert_eq!(f.state().camera(), in_flight);
+    }
+}
+
+#[test]
+fn switching_columns_cancels_the_saved_return_view() {
+    let config = driftwm::config::Config::from_toml("[snap]\ngap = 0\n").unwrap();
+    let mut f = Fixture::with_config(config);
+    f.add_output(1, (1200, 800));
+    let client = f.add_client();
+    map_window(&mut f, client, "a", (400, 200));
+    map_window(&mut f, client, "b", (400, 200));
+    f.state().execute_action(&Action::ToggleTiling);
+    f.state()
+        .execute_action(&Action::FocusColumn(Direction::Left));
+    let camera = f.state().camera();
+    f.state()
+        .set_camera_target(Some(camera + smithay::utils::Point::from((-100.0, 0.0))));
+    let c = map_window(&mut f, client, "c", (400, 200));
+    f.state()
+        .execute_action(&Action::FocusColumn(Direction::Right));
+    f.state()
+        .execute_action(&Action::FocusColumn(Direction::Left));
+    f.state().set_camera(camera);
+    f.client(client).window(&c).destroy();
+    f.double_roundtrip(client);
+    assert_eq!(
+        f.state().camera_target(),
+        Some(camera.to_i32_round::<i32>().to_f64())
+    );
+}

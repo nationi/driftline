@@ -70,7 +70,9 @@ removes the column. Closing the selected window chooses the next window or
 column, falling back to the previous one at the end. A newly opened column
 returns focus to its source column when closed, until another column is focused
 or the column is reordered. Repeated focus within the new column preserves this
-return; removing a column to its left cancels it. Background closure preserves
+return; removing a column to its left cancels it. Returning also restores the
+previous horizontal view target, adjusted to keep a resized column visible.
+The return animates from the current view. Background closure preserves
 keyboard focus. Trackpad panning is horizontal, using existing momentum.
 Column snapping at the end of a gesture is not implemented yet.
 

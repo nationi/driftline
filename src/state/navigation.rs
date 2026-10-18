@@ -112,6 +112,9 @@ impl DriftWm {
         }
 
         let serial = smithay::utils::SERIAL_COUNTER.next_serial();
+        if self.focus_tiling_navigation(window, output, serial) {
+            return;
+        }
 
         // A fullscreen window lives in screen space, shown only on its own
         // output. From any other output it's invisible and parked at that

@@ -78,10 +78,21 @@ width 300 in a viewport of width 200.
   Batched crash pruning chooses the next surviving original neighbor rather than
   indexing the already-shortened list with the old index; exact event-order
   comparisons for all multi-window disconnect permutations remain future work.
-- Niri's new-column return also stores a view offset. This batch matches target
-  selection, not restoration of that saved offset. Fit probes remain independent
-  camera inputs. Modal/layer focus contexts and animation timing are outside
-  the reference corpus, even where driftwm has its own regression tests.
+- `ViewOffset::stationary` saves the animation destination rather than its
+  current intermediate value. `add_column` saves this offset; `remove_column_by_idx`
+  restores it and applies fit again for resized columns. Driftwm now saves the
+  stationary X relative to the previous column, matches a one-shot structural
+  return event and computes a new camera target from the surviving frame X.
+  Headless lifecycle checks cover restoration from an unfinished flight,
+  width 600 growing to minimum 1150 in a viewport of width 1200, normal/crashed
+  closure and cancellation after changing columns. For the resized case a saved
+  offset of -100 becomes -50 to keep the right edge visible; without resize it
+  stays -100. Camera position remains unchanged until animation ticks.
+- JSON fit probes remain independent camera inputs. The lifecycle checks above
+  are source-derived conformance scenarios in `src/tests/tiling.rs`, not a niri
+  runtime oracle. Integer reveal rounding, gesture stationary offsets, batched
+  enrollment, modal/layer contexts and animation timing remain outside this
+  reference subset.
 - Gap-aware proportions, centering, fractional scales, constraints, floating,
   fullscreen, tabs, multi-output ownership, gestures and animation/anchor state
   remain outside this corpus. Existing driftwm regression tests are not evidence

@@ -31,6 +31,7 @@ pub(super) struct Tiling {
     pub(super) active: Option<ColumnId>,
     next_column_id: u64,
     pub(super) restore_previous: Option<ColumnId>,
+    pending_close_return: Option<(ColumnId, ColumnId)>,
     layout_id: Option<TilingLayoutId>,
     next_layout_id: u64,
 }
@@ -57,6 +58,15 @@ impl<W: StageElement> Stage<W> {
 
     pub fn tiled_columns(&self) -> &[TiledColumn] {
         &self.tiling.columns
+    }
+
+    pub fn close_return_column(&self) -> Option<ColumnId> {
+        self.tiling.restore_previous
+    }
+
+    /// Take the (closed column, previous column) pair once after a close return.
+    pub fn take_tiling_close_return(&mut self) -> Option<(ColumnId, ColumnId)> {
+        self.tiling.pending_close_return.take()
     }
 
     pub fn active_column(&self) -> Option<ColumnId> {
@@ -123,6 +133,7 @@ impl<W: StageElement> Stage<W> {
             .active
             .and_then(|id| self.tiling.columns.iter().position(|c| c.id == id))
             .map_or(self.tiling.columns.len(), |i| i + 1);
+        self.tiling.pending_close_return = None;
         self.tiling.restore_previous = self.tiling.active;
         self.tiling.columns.insert(index, column);
         self.tiling.active = Some(column_id);
@@ -135,6 +146,7 @@ impl<W: StageElement> Stage<W> {
         };
         if self.tiling.active != Some(self.tiling.columns[index].id) {
             self.tiling.restore_previous = None;
+            self.tiling.pending_close_return = None;
         }
         self.tiling.columns[index].selected = id;
         self.tiling.active = Some(self.tiling.columns[index].id);
@@ -185,6 +197,7 @@ impl<W: StageElement> Stage<W> {
             return false;
         };
         self.tiling.restore_previous = None;
+        self.tiling.pending_close_return = None;
         self.tiling.columns.swap(index, next);
         true
     }
@@ -224,6 +237,7 @@ impl<W: StageElement> Stage<W> {
         column.windows.insert(at, window);
         column.selected = active;
         self.tiling.restore_previous = None;
+        self.tiling.pending_close_return = None;
         self.tiling.active = Some(column.id);
         true
     }
@@ -252,6 +266,7 @@ impl<W: StageElement> Stage<W> {
             },
         );
         self.tiling.restore_previous = None;
+        self.tiling.pending_close_return = None;
         self.tiling.active = Some(id);
         true
     }
@@ -328,6 +343,7 @@ impl<W: StageElement> Stage<W> {
     pub fn clear_tiling(&mut self) -> Vec<TiledWindow> {
         self.tiling.layout_id = None;
         self.tiling.restore_previous = None;
+        self.tiling.pending_close_return = None;
         self.tiling.active = None;
         std::mem::take(&mut self.tiling.columns)
             .into_iter()
@@ -350,6 +366,7 @@ impl<W: StageElement> Stage<W> {
         });
         if previous_column.is_some_and(|index| surviving_before != index) {
             self.tiling.restore_previous = None;
+            self.tiling.pending_close_return = None;
         }
         for column in &mut self.tiling.columns {
             let selected_index = column
@@ -378,6 +395,11 @@ impl<W: StageElement> Stage<W> {
                 .restore_previous
                 .take()
                 .filter(|id| self.tiling.columns.iter().any(|c| c.id == *id));
+            if let Some(previous) = previous
+                && let Some(closed) = self.tiling.active
+            {
+                self.tiling.pending_close_return = Some((closed, previous));
+            }
             self.tiling.active = previous.or_else(|| {
                 self.tiling
                     .columns
@@ -392,6 +414,7 @@ impl<W: StageElement> Stage<W> {
             .is_some_and(|id| !self.tiling.columns.iter().any(|c| c.id == id))
         {
             self.tiling.restore_previous = None;
+            self.tiling.pending_close_return = None;
         }
     }
 }
@@ -402,6 +425,30 @@ mod tests {
 
     use super::*;
     use crate::stage::mock::TestWindow;
+
+    #[test]
+    fn close_return_event_survives_noop_sweeps_and_is_consumed_once() {
+        let mut stage = Stage::<TestWindow>::new();
+        let a = TestWindow::new(1);
+        let b = TestWindow::new(2);
+        for window in [&a, &b] {
+            stage.map(window.clone(), (0, 0).into());
+            stage.tile(stage.id_of(window).unwrap(), (100, 100).into());
+        }
+        let previous = stage.column_of(stage.id_of(&a).unwrap()).unwrap();
+        let opened = stage.active_column().unwrap();
+        stage.remove(&b);
+        stage.retain_alive();
+        stage.select_tile(stage.id_of(&a).unwrap());
+        assert_eq!(stage.take_tiling_close_return(), Some((opened, previous)));
+        assert_eq!(stage.take_tiling_close_return(), None);
+        stage.map(b.clone(), (0, 0).into());
+        stage.tile(stage.id_of(&b).unwrap(), (100, 100).into());
+        stage.remove(&b);
+        stage.clear_tiling();
+        assert_eq!(stage.take_tiling_close_return(), None);
+        stage.verify_invariants();
+    }
 
     #[test]
     fn layout_identity_survives_an_empty_strip_and_is_not_recycled() {

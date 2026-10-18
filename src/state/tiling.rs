@@ -18,10 +18,18 @@ pub(crate) struct TilingView {
     origin: Point<i32, Logical>,
     last_usable: Option<smithay::utils::Rectangle<i32, Logical>>,
     anchor: Option<(driftwm::stage::ColumnId, i32)>,
+    close_return: Option<CloseReturnView>,
     revealed: Option<(
         driftwm::stage::ElementId,
         smithay::utils::Rectangle<i32, Logical>,
     )>,
+}
+
+#[derive(Clone, Copy)]
+struct CloseReturnView {
+    opened: driftwm::stage::ColumnId,
+    previous: driftwm::stage::ColumnId,
+    offset: f64,
 }
 
 impl DriftWm {
@@ -63,6 +71,7 @@ impl DriftWm {
             origin,
             last_usable: None,
             anchor: None,
+            close_return: None,
             revealed: None,
         });
         self.set_zoom(1.0);
@@ -195,6 +204,26 @@ impl DriftWm {
             && !self.hidden_by_deferred_adopt(element)
     }
 
+    pub(super) fn focus_tiling_navigation(
+        &mut self,
+        window: &smithay::desktop::Window,
+        output: &Output,
+        serial: smithay::utils::Serial,
+    ) -> bool {
+        if self
+            .tiling_view
+            .as_ref()
+            .is_some_and(|view| &view.output == output)
+            && self.tiling_eligible(&StageWindow::Client(window.clone()))
+        {
+            // Reflow owns the camera target; a new window's temporary canvas
+            // placement must not overwrite the stationary tiling view.
+            self.raise_and_focus(window, serial);
+            return true;
+        }
+        false
+    }
+
     pub(crate) fn refresh_tiling(&mut self) {
         let Some(view) = self.tiling_view.as_ref() else {
             return;
@@ -208,11 +237,29 @@ impl DriftWm {
             return;
         }
         let origin = view.origin;
+        let previous_anchor = view.anchor;
+        let saved_return = view.close_return;
+        let stationary_x = self.camera_target().unwrap_or_else(|| self.camera()).x;
+        let previous_active = self.stage.active_column();
+
         let selected_closed = view
             .revealed
             .is_some_and(|(id, _)| self.stage.window_by_id(id).is_none());
-        if selected_closed && !self.suppress_auto_anchor && self.focused_anchor_element().is_none()
-        {
+        let recover_focus = selected_closed
+            && !self.suppress_auto_anchor
+            && self.focused_anchor_element().is_none();
+        let close_return = self
+            .stage
+            .take_tiling_close_return()
+            .and_then(|(closed, previous)| {
+                saved_return.filter(|saved| {
+                    saved.opened == closed
+                        && saved.previous == previous
+                        && self.stage.active_column() == Some(previous)
+                        && recover_focus
+                })
+            });
+        if recover_focus {
             let serial = SERIAL_COUNTER.next_serial();
             if let Some(element) = self
                 .stage
@@ -379,7 +426,18 @@ impl DriftWm {
         } else {
             false
         };
-        if let Some((id, frame)) = selected
+        if let Some(saved) = close_return
+            && self.stage.active_column() == Some(saved.previous)
+            && let Some((_, frame)) = selected
+            && let Ok(target) = scrolling::reveal(
+                frame,
+                usable,
+                Point::from((f64::from(frame.loc.x) + saved.offset, self.camera().y))
+                    .to_i32_round(),
+            )
+        {
+            self.set_camera_target(Some(target.to_f64()));
+        } else if let Some((id, frame)) = selected
             && self.tiling_view.as_ref().is_some_and(|v| {
                 let translation_only = translated
                     && v.last_usable == Some(usable)
@@ -395,7 +453,27 @@ impl DriftWm {
         {
             self.set_camera_target(Some(target.to_f64()));
         }
+        let return_pair = self
+            .stage
+            .active_column()
+            .zip(self.stage.close_return_column());
+        let new_return = if added {
+            return_pair.and_then(|(opened, previous)| {
+                previous_anchor
+                    .filter(|(column, _)| Some(*column) == previous_active && *column == previous)
+                    .map(|(_, x)| CloseReturnView {
+                        opened,
+                        previous,
+                        offset: stationary_x - f64::from(x),
+                    })
+            })
+        } else {
+            None
+        };
         if let Some(view) = &mut self.tiling_view {
+            view.close_return = new_return
+                .or(saved_return)
+                .filter(|saved| return_pair == Some((saved.opened, saved.previous)));
             view.revealed = selected;
             view.last_usable = Some(usable);
             view.anchor = anchor;
