@@ -454,3 +454,39 @@ fn reorder_actions_keep_the_focused_window_and_column_identity() {
     assert_eq!(f.state().stage.id_of(&focused), Some(id));
     assert!(f.state().tiling_view.is_some());
 }
+
+#[test]
+fn reference_consume_and_expel_keep_keyboard_focus_in_the_source_column() {
+    let mut f = Fixture::new();
+    f.add_output(1, (1200, 800));
+    let client = f.add_client();
+    let a = map_window(&mut f, client, "a", (400, 200));
+    let b = map_window(&mut f, client, "b", (400, 200));
+    f.state().execute_action(&Action::ToggleTiling);
+    f.state()
+        .execute_action(&Action::FocusColumn(Direction::Left));
+    let wa = window_by_app_id(&mut f, "a").unwrap();
+    let wb = window_by_app_id(&mut f, "b").unwrap();
+    let aid = f.state().stage.id_of(&wa).unwrap();
+    let bid = f.state().stage.id_of(&wb).unwrap();
+    let column = f.state().stage.active_column();
+    f.state().execute_action(&Action::ConsumeWindowIntoColumn);
+    assert_eq!(f.state().stage.tiled_columns().len(), 1);
+    assert_eq!(f.state().stage.active_tile(), Some(aid));
+    assert_eq!(f.state().stage.active_column(), column);
+    let size_a = last_configured(&mut f, client, &a);
+    let size_b = last_configured(&mut f, client, &b);
+    assert_eq!(size_a, size_b);
+    assert!(size_a.1 < 800);
+    f.state()
+        .execute_action(&Action::FocusColumn(Direction::Down));
+    assert_eq!(f.state().stage.active_tile(), Some(bid));
+    f.state().execute_action(&Action::ExpelWindowFromColumn);
+    assert_eq!(f.state().stage.tiled_columns().len(), 2);
+    assert_eq!(f.state().stage.active_column(), column);
+    assert_eq!(f.state().stage.active_tile(), Some(aid));
+    let focused = f.state().focused_element().unwrap();
+    assert_eq!(f.state().stage.id_of(&focused), Some(aid));
+    assert!(last_configured(&mut f, client, &a).1 > size_a.1);
+    assert!(f.state().tiling_view.is_some());
+}

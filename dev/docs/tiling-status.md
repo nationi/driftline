@@ -60,6 +60,9 @@ fullscreen are missing. These exits are temporary fallbacks, not parity.
 Current action names: `toggle-tiling`, `focus-column left/right/up/down`,
 `cycle-column-width`, `move-into-column left/right`, `expel-from-column`.
 Structural actions: `move-column left/right`, `move-tiled-window up/down`.
+Reference topology actions: `consume-window-into-column`,
+`expel-window-from-column`; these retain selection in the destination/source
+column, respectively.
 Cardinal `center-nearest` also follows the tiling structure while in this mode.
 
 ## Next work: finish P0/P1 before expanding interaction
@@ -76,22 +79,30 @@ Cardinal `center-nearest` also follows the tiling structure while in this mode.
    fallbacks still exist.
 4. Complete P2 generation/serial and bounded configure-lifecycle handling before
    layout-native interactive resizing. Then P3 settings and P5 gesture physics.
-5. Preserve current command semantics while adding distinct niri-compatible
-   consume/expel variants. First/last/index, swap, animation and fullscreen/tab
+5. Extend the new reference consume/expel topology subset. Existing focused
+   move/split commands are preserved. First/last/index, swap, animation and fullscreen/tab
    contexts of structural operations remain outstanding.
 
 Important differences to preserve explicitly while adding reference actions:
 
-- Our merge action moves the focused window into its neighbor. Niri's consume
-  action instead pulls a window into the current column.
-- Our expel action splits the focused window. The pinned niri operation and its
-  directional consume-or-expel variants have different selection semantics.
+- Our merge action moves the focused window into its neighbor. The distinct
+  reference consume action now pulls the first window of the next column.
+- Our short expel action splits the focused window. The new reference expel
+  action splits the last window while keeping the source active. Directional
+  consume-or-expel variants remain missing.
 - Current presets are hardcoded 1/3, 1/2, full width. Reference defaults and a
   separate full-width toggle still need implementation.
 - Current height allocation equalizes content heights; reference automatic
   weights and frame-space allocation are not implemented.
 
 Do not break documented existing actions merely to reuse reference names.
+
+The source-derived `pinned_niri_consume_expel_topology_trace` test cites the
+pinned scrolling-layout methods and checks ordered membership, active selection,
+source selection and column identity. It is not a trace captured from running
+niri. The headless reference-action scenario additionally checks keyboard focus
+and requested grouped/split sizes; exact reference geometry, view and animation
+fixtures remain outstanding. Random membership histories include both actions.
 
 ## Central transition gate
 
@@ -121,8 +132,8 @@ cover the preserve/invalidation paths.
 For the latest implementation batch:
 
 - `dev/scripts/ci-local` passed every stage, including ignored tests and isolated soak.
-- `PROPTEST_CASES=4000 cargo test --lib --quiet` passed all 350 library tests.
-- The headless tiling/session coverage includes 18 scenarios, including direct
+- `PROPTEST_CASES=4000 cargo test --lib --quiet` passed all 351 library tests.
+- The headless tiling/session coverage includes 19 scenarios, including direct
   operation restoration, reorder and
   preservation of camera/pointer coordinates and camera targets.
 - The reference inventory regenerates byte-for-byte from the pinned checkout.

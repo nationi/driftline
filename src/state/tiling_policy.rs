@@ -24,6 +24,8 @@ impl TilingOperation<'_> {
                 | Action::FocusColumn(_)
                 | Action::CycleColumnWidth
                 | Action::MoveIntoColumn(_)
+                | Action::ConsumeWindowIntoColumn
+                | Action::ExpelWindowFromColumn
                 | Action::ExpelFromColumn
                 | Action::MoveColumn(_)
                 | Action::MoveTiledWindow(_)

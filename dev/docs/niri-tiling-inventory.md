@@ -86,8 +86,8 @@ Outside = explicit non-layout scope exclusion. Never infer Exact from a similar 
 | `ConsumeOrExpelWindowLeftById` | Layout | Missing | — | P4/P6–P14; no parity evidence yet |
 | `ConsumeOrExpelWindowRight` | Layout | Missing | — | P4/P6–P14; no parity evidence yet |
 | `ConsumeOrExpelWindowRightById` | Layout | Missing | — | P4/P6–P14; no parity evidence yet |
-| `ConsumeWindowIntoColumn` | Layout | Missing | — | P4/P6–P14; no parity evidence yet |
-| `ExpelWindowFromColumn` | Layout | Divergent | expel-from-column targets focused tile, reference targets last tile | grouped_windows_share_height_navigate_and_restore_their_original_rectangles |
+| `ConsumeWindowIntoColumn` | Layout | Partial | consume-window-into-column (topology/focus subset) | src/tests/tiling.rs; src/stage/tiling.rs tests |
+| `ExpelWindowFromColumn` | Layout | Partial | expel-window-from-column (topology/focus subset) | src/tests/tiling.rs; src/stage/tiling.rs tests |
 | `SwapWindowLeft` | Layout | Missing | — | P4/P6–P14; no parity evidence yet |
 | `SwapWindowRight` | Layout | Missing | — | P4/P6–P14; no parity evidence yet |
 | `ToggleColumnTabbedDisplay` | Layout | Missing | — | P4/P6–P14; no parity evidence yet |

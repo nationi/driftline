@@ -133,6 +133,26 @@ impl DriftWm {
         }
     }
 
+    pub(crate) fn consume_reference_tiling_window(&mut self) {
+        if self.select_focused_tile() && self.stage.consume_window_into_column() {
+            self.refresh_tiling();
+        }
+    }
+
+    pub(crate) fn expel_reference_tiling_window(&mut self) {
+        if self.select_focused_tile() && self.stage.expel_window_from_column() {
+            if let Some(element) = self
+                .stage
+                .active_tile()
+                .and_then(|id| self.stage.window_by_id(id))
+                .cloned()
+            {
+                self.raise_and_focus_element(&element, SERIAL_COUNTER.next_serial());
+            }
+            self.refresh_tiling();
+        }
+    }
+
     pub(crate) fn move_tiling_column(&mut self, direction: Direction) {
         if self.select_focused_tile() && self.stage.move_column(direction == Direction::Left) {
             self.refresh_tiling();

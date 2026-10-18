@@ -222,13 +222,55 @@ impl<W: StageElement> Stage<W> {
         true
     }
 
+    /// Append the first window of the next column without changing focus.
+    pub fn consume_window_into_column(&mut self) -> bool {
+        let Some(active) = self.active_tile() else {
+            return false;
+        };
+        let target = self.column_index(active).unwrap();
+        let source = target + 1;
+        let Some(column) = self.tiling.columns.get(source) else {
+            return false;
+        };
+        let id = column.windows[0].id;
+        let window = self.take_tiled_window(source, id);
+        self.tiling.columns[target].windows.push(window);
+        true
+    }
+
+    /// Split the last window right while keeping the source column active.
+    pub fn expel_window_from_column(&mut self) -> bool {
+        let Some(active) = self.active_tile() else {
+            return false;
+        };
+        let source = self.column_index(active).unwrap();
+        let column = &self.tiling.columns[source];
+        if column.windows.len() == 1 {
+            return false;
+        }
+        let last = column.windows.last().unwrap().id;
+        let width = column.width;
+        let window = self.take_tiled_window(source, last);
+        let id = self.next_column_id();
+        self.tiling.columns.insert(
+            source + 1,
+            TiledColumn {
+                id,
+                selected: last,
+                width,
+                windows: vec![window],
+            },
+        );
+        true
+    }
+
     fn take_tiled_window(&mut self, source: usize, id: ElementId) -> TiledWindow {
         let column = &mut self.tiling.columns[source];
         let index = column.windows.iter().position(|w| w.id == id).unwrap();
         let window = column.windows.remove(index);
         if column.windows.is_empty() {
             self.tiling.columns.remove(source);
-        } else {
+        } else if column.selected == id {
             column.selected = column.windows[index.saturating_sub(1)].id;
         }
         window
@@ -302,6 +344,57 @@ mod tests {
 
     use super::*;
     use crate::stage::mock::TestWindow;
+
+    #[test]
+    fn pinned_niri_consume_expel_topology_trace() {
+        // Source-derived trace: niri 12de51d6, scrolling.rs consume_into_column
+        // and expel_from_column. This covers topology, not sizing or animations.
+        let mut stage = Stage::<TestWindow>::new();
+        let mut ids = Vec::new();
+        for i in 0..4 {
+            let window = TestWindow::new(i);
+            stage.map(window.clone(), (10, 20).into());
+            let id = stage.id_of(&window).unwrap();
+            stage.tile(id, (100, 200).into());
+            ids.push(id);
+        }
+        let original: Vec<_> = stage.tiled_columns().iter().map(|c| c.id).collect();
+        let assert_trace = |stage: &Stage<TestWindow>, expected: &[&[usize]], active: usize| {
+            let topology: Vec<Vec<_>> = stage
+                .tiled_columns()
+                .iter()
+                .map(|c| {
+                    c.windows
+                        .iter()
+                        .map(|w| ids.iter().position(|id| *id == w.id).unwrap())
+                        .collect()
+                })
+                .collect();
+            assert_eq!(topology, expected);
+            assert_eq!(stage.active_tile(), Some(ids[active]));
+            stage.verify_invariants();
+        };
+        assert!(!stage.consume_window_into_column());
+        stage.select_tile(ids[1]);
+        assert!(stage.consume_window_into_column());
+        assert_trace(&stage, &[&[0], &[1, 2], &[3]], 1);
+        assert_eq!(stage.active_column(), Some(original[1]));
+        assert!(stage.consume_window_into_column());
+        assert_trace(&stage, &[&[0], &[1, 2, 3]], 1);
+        assert!(stage.expel_window_from_column());
+        assert_trace(&stage, &[&[0], &[1, 2], &[3]], 1);
+        stage.select_tile(ids[2]);
+        assert!(stage.expel_window_from_column());
+        assert_trace(&stage, &[&[0], &[1], &[2], &[3]], 1);
+        assert!(!stage.expel_window_from_column());
+        stage.select_tile(ids[2]);
+        assert!(stage.move_into_column(true));
+        stage.select_tile(ids[0]);
+        assert!(stage.consume_window_into_column());
+        assert_trace(&stage, &[&[0, 1], &[2], &[3]], 0);
+        assert_eq!(stage.tiled_columns()[1].selected, ids[2]);
+        assert_eq!(stage.active_column(), Some(original[0]));
+    }
 
     #[test]
     fn column_identity_survives_selection_merge_close_and_replacement() {
@@ -444,7 +537,7 @@ mod tests {
     proptest! {
         #[test]
         fn grouped_operations_preserve_membership_and_restore_geometry(
-            ops in prop::collection::vec((0u8..10, 0usize..10), 0..150)
+            ops in prop::collection::vec((0u8..12, 0usize..10), 0..150)
         ) {
             let mut stage = Stage::<TestWindow>::new();
             let mut windows: Vec<_> = (0..10).map(TestWindow::new).collect();
@@ -472,6 +565,8 @@ mod tests {
                     }
                     7 => { stage.move_column(index % 2 == 0); }
                     8 => { stage.move_tile(index % 2 == 0); }
+                    9 => { stage.consume_window_into_column(); }
+                    10 => { stage.expel_window_from_column(); }
                     _ => { stage.cycle_column_width(); }
                 }
                 stage.verify_invariants();

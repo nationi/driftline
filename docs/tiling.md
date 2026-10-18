@@ -40,6 +40,16 @@ splits the focused window into a new column on the right, preserving column
 width and its original canvas rectangle; it does nothing for a single-window
 column. Moving past either end of the strip does nothing.
 
+`consume-window-into-column` appends the first window from the next column to
+this column, keeping the current selection. `expel-window-from-column` moves the
+last window into a new column on the right, keeping the source column active.
+If that last window was selected, focus moves to the preceding window in the
+source column. These commands do nothing at the end of the strip or in a
+single-window source column, respectively. They follow niri's basic topology
+and selection rules; sizing policies and animations still differ. The shorter
+`move-into-column` and `expel-from-column` commands retain the focused-window
+behavior described above.
+
 `move-column left/right` reorders the focused column as a whole.
 `move-tiled-window up/down` reorders the focused window within its column.
 Both preserve selection and do nothing at a boundary. Column identity survives

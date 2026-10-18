@@ -27,11 +27,11 @@ def action_status(name):
         "MoveWindowDown": "move-tiled-window down",
         "SwitchPresetColumnWidth": "cycle-column-width (different presets/units)",
         "CloseWindow": "close-window",
+        "ConsumeWindowIntoColumn": "consume-window-into-column (topology/focus subset)",
+        "ExpelWindowFromColumn": "expel-window-from-column (topology/focus subset)",
     }
     if name in partial:
         return "Layout", "Partial", partial[name], "src/tests/tiling.rs; src/stage/tiling.rs tests"
-    if name == "ExpelWindowFromColumn":
-        return "Layout", "Divergent", "expel-from-column targets focused tile, reference targets last tile", "grouped_windows_share_height_navigate_and_restore_their_original_rectangles"
     if name in {"FullscreenWindow", "ToggleWindowedFullscreen"}:
         return "Layout", "Divergent", "toggle-fullscreen exits tiling; topology not retained", "incompatible_actions_leave_tiling_before_applying_canvas_policy"
     if name.startswith(("Focus", "Move", "Consume", "Expel", "Swap", "Center", "SetWindow", "SetColumn", "SwitchPreset", "ResetWindow", "Maximize")) or name in {

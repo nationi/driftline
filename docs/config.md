@@ -781,6 +781,8 @@ Actions:
 - `focus-column <dir>` — focus a scrolling column (left/right) or a window inside it (up/down); center-nearest also follows this structure while tiling
 - `cycle-column-width` — cycle the active column through 1/3, 1/2 and full usable width
 - `move-into-column <dir>` — move the focused tiled window into the neighboring column (left/right), after its selected window
+- `consume-window-into-column` — append the first window from the next column, preserving focus
+- `expel-window-from-column` — split the last window right, keeping focus in the source column
 - `expel-from-column` — split the focused tiled window into a new column on the right, keeping the current column width
 - `move-column <dir>` — move the focused column left or right, keeping its windows and selection
 - `move-tiled-window <dir>` — reorder the focused window up or down inside its column

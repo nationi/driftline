@@ -53,6 +53,8 @@ pub enum Action {
     CycleColumnWidth,
     MoveIntoColumn(Direction),
     ExpelFromColumn,
+    ConsumeWindowIntoColumn,
+    ExpelWindowFromColumn,
     MoveColumn(Direction),
     MoveTiledWindow(Direction),
     Exec(String),

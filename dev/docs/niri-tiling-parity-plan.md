@@ -71,7 +71,7 @@ implementation, not behavioral equivalence to niri.
 | Area | Current state | Remaining parity work |
 | --- | --- | --- |
 | Topology | Columns and ordered windows; selected window remembered | Stable column/strip identities, reorder/swap and complete reference actions |
-| Consume/expel | Move focused window into a neighbor; expel focused window right | Exact reference consume, expel and directional combined semantics |
+| Consume/expel | Existing focused move/split plus distinct reference first-consume/last-expel topology and focus | Reference sizing/animation, directional combined semantics and context coverage |
 | Width | Hardcoded 1/3, 1/2, 1 presets; integer frame widths | Configurable forward/back presets, reference defaults, sizing units and gaps |
 | Height | Equal content-space allocation with min/max | Automatic weights, fixed/preset heights, frame-space weighting and reset |
 | View | Reveal focused rectangle; horizontal generic momentum | Column-relative anchoring, centering modes, snap physics and interruption |
