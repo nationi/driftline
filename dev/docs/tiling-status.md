@@ -25,6 +25,8 @@ working tree and history; update this file as implementation advances.
 | --- | --- |
 | `2b61c79` | Experimental single-output mode; columns, focus, width cycle, mapping/close, canvas restoration and session fallback |
 | `0fc1309` | Multiple windows per column, merge/split actions, vertical navigation, selection memory, height constraints and live-frame reservation |
+| `41034d2` | Pinned niri action/schema inventory and reproducible source-index generator |
+| `53b5903` | Stable column identity, structural reorder and camera/pointer anchor preservation |
 
 The subsequent implementation adds stable `ColumnId` values, separate selected
 windows and active column identity, column left/right and tile up/down reordering,

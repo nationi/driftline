@@ -590,4 +590,3 @@ Named schema fields indexed: **318**.
 - Automatic tile heights use reference weighting semantics; equal content heights are not equivalent with mixed decorations.
 - Current fullscreen, floating exclusion, generic momentum and one-output fallback are not parity implementations.
 - Structural reorder now exists, but reference movement animation, fullscreen/tab context and complete view policy remain pending.
-
