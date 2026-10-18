@@ -16,7 +16,7 @@ mod tests;
 mod tiling;
 
 pub use element::StageElement;
-pub use tiling::{ColumnId, TiledColumn, TiledWindow};
+pub use tiling::{ColumnId, TiledColumn, TiledWindow, TilingLayoutId};
 
 use crate::layout::snap::SnapRect;
 use smithay::utils::{Logical, Point, Size};
@@ -691,6 +691,7 @@ impl<W: StageElement> Stage<W> {
     pub fn verify_invariants(&self) {
         let mut tiled_ids = std::collections::HashSet::new();
         let mut column_ids = std::collections::HashSet::new();
+        assert!(self.tiling.columns.is_empty() || self.tiling_layout_id().is_some());
         for column in &self.tiling.columns {
             assert!(column_ids.insert(column.id), "duplicate column ID");
             assert!(!column.windows.is_empty(), "empty tiled column");

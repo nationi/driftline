@@ -13,6 +13,10 @@ pub struct TiledWindow {
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct ColumnId(u64);
 
+/// Identity of one tiling session, including an empty strip.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct TilingLayoutId(u64);
+
 #[derive(Clone, Debug, PartialEq)]
 pub struct TiledColumn {
     pub id: ColumnId,
@@ -26,9 +30,30 @@ pub(super) struct Tiling {
     pub(super) columns: Vec<TiledColumn>,
     pub(super) active: Option<ColumnId>,
     next_column_id: u64,
+    layout_id: Option<TilingLayoutId>,
+    next_layout_id: u64,
 }
 
 impl<W: StageElement> Stage<W> {
+    pub fn tiling_layout_id(&self) -> Option<TilingLayoutId> {
+        self.tiling.layout_id
+    }
+
+    /// Begin a layout once; removing its last window does not end its lifetime.
+    pub fn begin_tiling(&mut self) -> TilingLayoutId {
+        if let Some(id) = self.tiling.layout_id {
+            return id;
+        }
+        let id = TilingLayoutId(self.tiling.next_layout_id);
+        self.tiling.next_layout_id = self
+            .tiling
+            .next_layout_id
+            .checked_add(1)
+            .expect("tiling layout ID space exhausted");
+        self.tiling.layout_id = Some(id);
+        id
+    }
+
     pub fn tiled_columns(&self) -> &[TiledColumn] {
         &self.tiling.columns
     }
@@ -84,6 +109,7 @@ impl<W: StageElement> Stage<W> {
             return false;
         };
         let restore = Rectangle::new(entry.position, restore_size);
+        self.begin_tiling();
         let column_id = self.next_column_id();
         let column = TiledColumn {
             id: column_id,
@@ -292,6 +318,7 @@ impl<W: StageElement> Stage<W> {
     }
 
     pub fn clear_tiling(&mut self) -> Vec<TiledWindow> {
+        self.tiling.layout_id = None;
         self.tiling.active = None;
         std::mem::take(&mut self.tiling.columns)
             .into_iter()
@@ -344,6 +371,34 @@ mod tests {
 
     use super::*;
     use crate::stage::mock::TestWindow;
+
+    #[test]
+    fn layout_identity_survives_an_empty_strip_and_is_not_recycled() {
+        let mut stage = Stage::<TestWindow>::new();
+        assert_eq!(stage.tiling_layout_id(), None);
+        let first = stage.begin_tiling();
+        assert_eq!(stage.begin_tiling(), first);
+        stage.verify_invariants();
+        let window = TestWindow::new(0);
+        stage.map(window.clone(), (10, 20).into());
+        stage.tile(stage.id_of(&window).unwrap(), (100, 200).into());
+        assert_eq!(stage.tiling_layout_id(), Some(first));
+        stage.remove(&window);
+        assert!(stage.tiled_columns().is_empty());
+        assert_eq!(stage.tiling_layout_id(), Some(first));
+        stage.verify_invariants();
+        stage.clear_tiling();
+        assert_eq!(stage.tiling_layout_id(), None);
+        let second = stage.begin_tiling();
+        assert_ne!(first, second);
+        stage.clear_tiling();
+        stage.map(window.clone(), (10, 20).into());
+        stage.tile(stage.id_of(&window).unwrap(), (100, 200).into());
+        let third = stage.tiling_layout_id().unwrap();
+        assert_ne!(first, third);
+        assert_ne!(second, third);
+        stage.verify_invariants();
+    }
 
     #[test]
     fn pinned_niri_consume_expel_topology_trace() {

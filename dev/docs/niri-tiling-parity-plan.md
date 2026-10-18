@@ -64,13 +64,13 @@ fit/fill, pin, snap clusters, bookmarks and suspended stand-ins.
 ## Current baseline and known differences
 
 Commits: `2b61c79` establishes the mode; `0fc1309` adds multi-window columns.
-Last implementation validation: full local CI, 350 library tests with 4000
-property cases, and 16 headless tiling/session scenarios. These validate the
+Last implementation validation: full local CI, 353 library tests with 4000
+property cases, and 20 headless tiling/session scenarios. These validate the
 implementation, not behavioral equivalence to niri.
 
 | Area | Current state | Remaining parity work |
 | --- | --- | --- |
-| Topology | Columns and ordered windows; selected window remembered | Stable column/strip identities, reorder/swap and complete reference actions |
+| Topology | Stable column/layout IDs, separate selection, column/tile reorder | Swap and complete reference actions; multi-container ownership |
 | Consume/expel | Existing focused move/split plus distinct reference first-consume/last-expel topology and focus | Reference sizing/animation, directional combined semantics and context coverage |
 | Width | Hardcoded 1/3, 1/2, 1 presets; integer frame widths | Configurable forward/back presets, reference defaults, sizing units and gaps |
 | Height | Equal content-space allocation with min/max | Automatic weights, fixed/preset heights, frame-space weighting and reset |
@@ -102,7 +102,8 @@ Two concrete semantic traps must be captured before adding aliases:
    geometry. No second authoritative window registry; no `Space` window APIs.
 2. Give columns and layout containers stable IDs independent of their selected
    `ElementId`. Stable `ColumnId` and separate per-column selection are now
-   implemented; layout-container identity remains outstanding.
+   implemented. `TilingLayoutId` now survives an empty strip and changes only
+   when a layout ends and a new one begins; multi-container ownership is future work.
 3. Pure layout consumes topology, constraints, settings and work area, producing
    geometry and view decisions. `state/tiling.rs` applies protocol effects.
 4. Distinguish desired layout, configured size, acknowledged configure and
@@ -152,8 +153,10 @@ Stable column IDs, separate selection, horizontal column/vertical tile reorder
 and horizontal view-anchor preservation are implemented with stage and headless
 tests. A shared transition gate now covers actions, direct operations, IPC and
 layout invalidation, with an explicit compatibility table in the handoff.
-Container IDs, pure sizing API separation and retained floating/fullscreen
-transitions remain outstanding; this milestone is not yet complete.
+Stable layout-container identity and separate `Column`/`Tile` sizing inputs
+are now implemented. The single-container P1 foundation is in place. Retained
+floating/fullscreen transitions remain with their feature milestones; this does
+not close the P0 semantic audit or imply support for multiple containers.
 
 Depends on P0.
 
@@ -433,7 +436,8 @@ anchor preservation have landed. Continue unfinished P0/P1 work before drag-and-
 
 1. Finish the inventory's custom-decoder audit and reference operation fixtures,
    including exact consume/expel differences and current command compatibility.
-2. Add stable layout-container identity and separate tile/column sizing inputs.
+2. Stable layout identity and separate tile/column sizing inputs have landed;
+   preserve empty-layout lifetime and per-window constraints in later changes.
 3. Extend the shared transition policy when retained floating/fullscreen lands;
    keep direct-call and action-dispatch regression coverage.
 4. Extend structural operations to first/last/index and swap with reference

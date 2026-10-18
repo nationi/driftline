@@ -73,10 +73,9 @@ Cardinal `center-nearest` also follows the tiling structure while in this mode.
 2. Add a hermetic reference operation-trace corpus for map/focus/close/group/
    split/reorder/resize. Include geometry, focus and view outcomes, not only
    driftwm structural invariants.
-3. Finish P1: stable layout-container identity, clean tile/column sizing inputs,
-   and extend the centralized transition policy as floating and retained
-   fullscreen become supported. The shared gate exists; broad mode-exit
-   fallbacks still exist.
+3. P1 now has stable column/layout IDs, separate tile/column sizing inputs
+   and a shared transition gate. Extend transitions as floating and retained
+   fullscreen become supported; broad mode-exit fallbacks still exist.
 4. Complete P2 generation/serial and bounded configure-lifecycle handling before
    layout-native interactive resizing. Then P3 settings and P5 gesture physics.
 5. Extend the new reference consume/expel topology subset. Existing focused
@@ -103,6 +102,30 @@ source selection and column identity. It is not a trace captured from running
 niri. The headless reference-action scenario additionally checks keyboard focus
 and requested grouped/split sizes; exact reference geometry, view and animation
 fixtures remain outstanding. Random membership histories include both actions.
+
+## Layout identity and sizing inputs
+
+`Stage::begin_tiling` returns an opaque `TilingLayoutId`, reused for the whole
+mode lifetime even when no windows remain. `clear_tiling` ends that lifetime;
+reentry allocates a new ID without recycling old values. Valid tile insertion
+also begins a layout for pure-stage callers. The compositor starts the layout
+at mode entry, stores its ID in `TilingView` and rejects a mismatched view during
+reflow. These IDs are stage-local and do not implement configure generations,
+workspace ownership or persistence.
+
+The pure geometry API takes `Column { width, tiles }` and
+`Tile { id, constraints, chrome }`. Width belongs to the column exactly once;
+client limits and decorations remain per window. A minimum-limited tile can
+widen the column while a maximum-limited neighbor remains narrower. Height
+allocation and pixel rounding retain the existing behavior. The old singleton
+`arrange` API and window-shaped `Column` input have been removed; singleton
+regression tests construct one-tile columns through test helpers.
+
+Stage and real-client tests cover empty-mode entry, last-window removal, a new
+window in the same layout, explicit exit and fresh identity on reentry. A direct
+geometry scenario covers shared width with conflicting per-window limits and
+mixed decorations. This finishes the remaining P1 identity/input refactor; the
+P0 semantic audit and reference geometry/view corpus still need work before P2.
 
 ## Central transition gate
 
@@ -132,8 +155,8 @@ cover the preserve/invalidation paths.
 For the latest implementation batch:
 
 - `dev/scripts/ci-local` passed every stage, including ignored tests and isolated soak.
-- `PROPTEST_CASES=4000 cargo test --lib --quiet` passed all 351 library tests.
-- The headless tiling/session coverage includes 19 scenarios, including direct
+- `PROPTEST_CASES=4000 cargo test --lib --quiet` passed all 353 library tests.
+- The headless tiling/session coverage includes 20 scenarios, including direct
   operation restoration, reorder and
   preservation of camera/pointer coordinates and camera targets.
 - The reference inventory regenerates byte-for-byte from the pinned checkout.

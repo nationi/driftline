@@ -23,13 +23,19 @@ pub struct Constraints {
     pub max: Size<i32, Logical>,
 }
 
-/// Window sizing input; grouped windows share the largest resolved frame width.
+/// Per-window content limits and compositor decorations.
 #[derive(Clone, Copy, Debug, PartialEq)]
-pub struct Column {
+pub struct Tile {
     pub id: ElementId,
-    pub width: ColumnWidth,
     pub constraints: Constraints,
     pub chrome: Chrome,
+}
+
+/// One shared width policy and an ordered, nonempty set of windows.
+#[derive(Clone, Debug, PartialEq)]
+pub struct Column {
+    pub width: ColumnWidth,
+    pub tiles: Vec<Tile>,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -55,28 +61,33 @@ pub enum LayoutError {
 /// require a different allocation. If minimum heights do not fit, overflow
 /// downward rather than overlap windows or violate their minimum sizes.
 pub fn arrange_columns(
-    columns: &[Vec<Column>],
+    columns: &[Column],
     origin: Point<i32, Logical>,
     usable_size: Size<i32, Logical>,
     gap: i32,
 ) -> Result<Vec<Placement>, LayoutError> {
-    arrange(&[], origin, usable_size, gap)?;
+    if usable_size.w <= 0 || usable_size.h <= 0 {
+        return Err(LayoutError::InvalidWorkingArea);
+    }
+    if gap < 0 {
+        return Err(LayoutError::InvalidGap);
+    }
     let mut seen = HashSet::new();
     let mut result = Vec::new();
     let mut x = i64::from(origin.x);
     for column in columns {
-        if column.is_empty() {
+        if column.tiles.is_empty() {
             return Err(LayoutError::EmptyColumn);
         }
         let mut width = 1;
-        let mut chrome_heights = Vec::with_capacity(column.len());
-        let mut limits = Vec::with_capacity(column.len());
-        for tile in column {
+        let mut chrome_heights = Vec::with_capacity(column.tiles.len());
+        let mut limits = Vec::with_capacity(column.tiles.len());
+        for tile in &column.tiles {
             if !seen.insert(tile.id) {
                 return Err(LayoutError::DuplicateWindow(tile.id));
             }
-            let placement = arrange(&[*tile], (0, 0).into(), usable_size, 0)?;
-            width = width.max(placement[0].frame.size.w);
+            let placement = arrange_tile(tile, column.width, (0, 0).into(), usable_size)?;
+            width = width.max(placement.frame.size.w);
             chrome_heights.push(i64::from(tile.chrome.bar) + 2 * i64::from(tile.chrome.border));
             let min = constrained(0, tile.constraints.min.h, tile.constraints.max.h)?;
             let max = constrained(
@@ -88,10 +99,11 @@ pub fn arrange_columns(
         }
         let budget = i64::from(usable_size.h)
             - chrome_heights.iter().sum::<i64>()
-            - i64::from(gap) * (column.len() as i64 - 1);
+            - i64::from(gap) * (column.tiles.len() as i64 - 1);
         let heights = distribute_height(&limits, budget);
         let mut y = i64::from(origin.y);
-        for ((tile, height), chrome_height) in column.iter().zip(heights).zip(chrome_heights) {
+        for ((tile, height), chrome_height) in column.tiles.iter().zip(heights).zip(chrome_heights)
+        {
             let content_width = constrained(
                 i64::from(width) - 2 * i64::from(tile.chrome.border),
                 tile.constraints.min.w,
@@ -150,74 +162,55 @@ fn distribute_height(limits: &[(i64, i64)], mut remaining: i64) -> Vec<i64> {
     heights
 }
 
-/// Arrange columns from a fixed canvas origin, independent of camera position.
-/// `usable_size` excludes outer gaps and layer-shell reservations. `gap` is
-/// between visual frames. Constraints may make a frame exceed the usable area;
-/// subsequent columns still start after its actual target frame.
-pub fn arrange(
-    columns: &[Column],
+fn arrange_tile(
+    tile: &Tile,
+    width_policy: ColumnWidth,
     origin: Point<i32, Logical>,
     usable_size: Size<i32, Logical>,
-    gap: i32,
-) -> Result<Vec<Placement>, LayoutError> {
-    if usable_size.w <= 0 || usable_size.h <= 0 {
-        return Err(LayoutError::InvalidWorkingArea);
+) -> Result<Placement, LayoutError> {
+    let x = i64::from(origin.x);
+    let Chrome { bar, border } = tile.chrome;
+    if bar < 0 || border < 0 {
+        return Err(LayoutError::InvalidChrome);
     }
-    if gap < 0 {
-        return Err(LayoutError::InvalidGap);
-    }
-    let mut seen = HashSet::new();
-    let mut placements = Vec::with_capacity(columns.len());
-    let mut x = i64::from(origin.x);
-    for column in columns {
-        if !seen.insert(column.id) {
-            return Err(LayoutError::DuplicateWindow(column.id));
-        }
-        let Chrome { bar, border } = column.chrome;
-        if bar < 0 || border < 0 {
-            return Err(LayoutError::InvalidChrome);
-        }
-        let horizontal_chrome = 2 * i64::from(border);
-        let vertical_chrome = horizontal_chrome + i64::from(bar);
-        let width = match column.width {
-            ColumnWidth::Fixed(width) if width > 0 => i64::from(width),
-            ColumnWidth::Proportion(fraction) if fraction.is_finite() && fraction > 0.0 => {
-                let width = (f64::from(usable_size.w) * fraction).round();
-                if !width.is_finite() || width > f64::from(i32::MAX) {
-                    return Err(LayoutError::CoordinateOverflow);
-                }
-                (width as i64).max(1)
+    let horizontal_chrome = 2 * i64::from(border);
+    let vertical_chrome = horizontal_chrome + i64::from(bar);
+    let width = match width_policy {
+        ColumnWidth::Fixed(width) if width > 0 => i64::from(width),
+        ColumnWidth::Proportion(fraction) if fraction.is_finite() && fraction > 0.0 => {
+            let width = (f64::from(usable_size.w) * fraction).round();
+            if !width.is_finite() || width > f64::from(i32::MAX) {
+                return Err(LayoutError::CoordinateOverflow);
             }
-            _ => return Err(LayoutError::InvalidWidth),
-        };
-        let constraints = column.constraints;
-        let content_width = constrained(
-            width - horizontal_chrome,
-            constraints.min.w,
-            constraints.max.w,
-        )?;
-        let content_height = constrained(
-            i64::from(usable_size.h) - vertical_chrome,
-            constraints.min.h,
-            constraints.max.h,
-        )?;
-        let frame_width = content_width + horizontal_chrome;
-        let frame_height = content_height + vertical_chrome;
-        let frame = rectangle(x, i64::from(origin.y), frame_width, frame_height)?;
-        let content = rectangle(
-            x + i64::from(border),
-            i64::from(origin.y) + i64::from(bar) + i64::from(border),
-            content_width,
-            content_height,
-        )?;
-        placements.push(Placement {
-            id: column.id,
-            frame,
-            content,
-        });
-        x += frame_width + i64::from(gap);
-    }
-    Ok(placements)
+            (width as i64).max(1)
+        }
+        _ => return Err(LayoutError::InvalidWidth),
+    };
+    let constraints = tile.constraints;
+    let content_width = constrained(
+        width - horizontal_chrome,
+        constraints.min.w,
+        constraints.max.w,
+    )?;
+    let content_height = constrained(
+        i64::from(usable_size.h) - vertical_chrome,
+        constraints.min.h,
+        constraints.max.h,
+    )?;
+    let frame_width = content_width + horizontal_chrome;
+    let frame_height = content_height + vertical_chrome;
+    let frame = rectangle(x, i64::from(origin.y), frame_width, frame_height)?;
+    let content = rectangle(
+        x + i64::from(border),
+        i64::from(origin.y) + i64::from(bar) + i64::from(border),
+        content_width,
+        content_height,
+    )?;
+    Ok(Placement {
+        id: tile.id,
+        frame,
+        content,
+    })
 }
 
 /// Minimal camera movement to reveal a frame at zoom 1. Oversized frames align

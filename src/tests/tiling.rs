@@ -490,3 +490,25 @@ fn reference_consume_and_expel_keep_keyboard_focus_in_the_source_column() {
     assert!(last_configured(&mut f, client, &a).1 > size_a.1);
     assert!(f.state().tiling_view.is_some());
 }
+
+#[test]
+fn empty_tiling_keeps_its_layout_identity_until_toggle_off() {
+    let mut f = Fixture::new();
+    f.add_output(1, (1200, 800));
+    let client = f.add_client();
+    f.state().execute_action(&Action::ToggleTiling);
+    let first = f.state().stage.tiling_layout_id().unwrap();
+    let a = map_window(&mut f, client, "a", (400, 200));
+    assert_eq!(f.state().stage.tiling_layout_id(), Some(first));
+    f.client(client).window(&a).destroy();
+    f.double_roundtrip(client);
+    assert!(f.state().stage.tiled_columns().is_empty());
+    assert!(f.state().tiling_view.is_some());
+    assert_eq!(f.state().stage.tiling_layout_id(), Some(first));
+    map_window(&mut f, client, "b", (400, 200));
+    assert_eq!(f.state().stage.tiling_layout_id(), Some(first));
+    f.state().execute_action(&Action::ToggleTiling);
+    assert_eq!(f.state().stage.tiling_layout_id(), None);
+    f.state().execute_action(&Action::ToggleTiling);
+    assert_ne!(f.state().stage.tiling_layout_id(), Some(first));
+}

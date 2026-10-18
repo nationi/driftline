@@ -4,13 +4,14 @@ use smithay::utils::{Logical, Point, SERIAL_COUNTER};
 use smithay::wayland::seat::WaylandFocus;
 
 use driftwm::config::Direction;
-use driftwm::layout::scrolling::{self, Column, Constraints};
+use driftwm::layout::scrolling::{self, Column, Constraints, Tile};
 use driftwm::window_ext::WindowExt;
 
 use super::{DriftWm, StageWindow, configured_window_size, output_state, visual_frame_center};
 use crate::grabs::SizeConstraints;
 
 pub(crate) struct TilingView {
+    layout_id: driftwm::stage::TilingLayoutId,
     output: Output,
     camera: Point<f64, Logical>,
     zoom: f64,
@@ -53,7 +54,9 @@ impl DriftWm {
             return;
         };
         let origin = Point::from((x, y));
+        let layout_id = self.stage.begin_tiling();
         self.tiling_view = Some(TilingView {
+            layout_id,
             output,
             camera,
             zoom,
@@ -196,7 +199,8 @@ impl DriftWm {
         let Some(view) = self.tiling_view.as_ref() else {
             return;
         };
-        if self.space.outputs().count() != 1
+        if self.stage.tiling_layout_id() != Some(view.layout_id)
+            || self.space.outputs().count() != 1
             || self.active_output().as_ref() != Some(&view.output)
             || self.zoom() != 1.0
         {
@@ -227,21 +231,21 @@ impl DriftWm {
         {
             self.stage.select_tile(id);
         }
-        let columns: Vec<Vec<Column>> = self
+        let columns: Vec<Column> = self
             .stage
             .tiled_columns()
             .iter()
-            .map(|column| {
-                column
+            .map(|column| Column {
+                width: column.width,
+                tiles: column
                     .windows
                     .iter()
                     .filter_map(|tile| {
                         let element = self.stage.window_by_id(tile.id)?;
                         let window = element.client()?;
                         let constraints = SizeConstraints::for_window(window);
-                        Some(Column {
+                        Some(Tile {
                             id: tile.id,
-                            width: column.width,
                             constraints: Constraints {
                                 min: constraints.min,
                                 max: constraints.max,
@@ -249,7 +253,7 @@ impl DriftWm {
                             chrome: self.element_chrome(element),
                         })
                     })
-                    .collect()
+                    .collect(),
             })
             .collect();
         let usable = self.get_usable_area();
@@ -267,8 +271,8 @@ impl DriftWm {
         let mut extra_x = 0i64;
         let mut start = 0;
         for column in &columns {
-            let group = &mut placements[start..start + column.len()];
-            start += column.len();
+            let group = &mut placements[start..start + column.tiles.len()];
+            start += column.tiles.len();
             let desired_width = group
                 .iter()
                 .map(|p| i64::from(p.frame.size.w))
