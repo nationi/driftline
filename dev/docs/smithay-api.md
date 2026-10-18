@@ -587,3 +587,14 @@ driftwm drives per-window `wl_surface.enter`/`leave` itself (`DriftWm::refresh_w
   checks the committed cached serial and actual geometry separately.
 - `smithay::utils::Serial` comparisons handle protocol wraparound; compare these
   values directly rather than casting them to `u32` and using numeric order.
+
+
+### Commit barriers (pinned Smithay 4cf0b62)
+
+`wayland::compositor::Blocker::state(&self) -> BlockerState` returns `Pending`,
+`Released` or `Cancelled`. `Barrier::new(signaled: bool) -> Barrier` is cloneable;
+`Barrier::signal(&self)` releases every clone. Dropping the last compositor-side
+owner does not signal outstanding clones automatically. Use `Released` to allow
+queued commits on layout cancellation; `Cancelled` discards changes. Signalling
+alone does not dispatch queued commits: notify the affected client's compositor
+state with `blocker_cleared(data, &display_handle)` on the event-loop thread.

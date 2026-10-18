@@ -302,7 +302,7 @@ cover the preserve/invalidation paths.
 For the latest implementation batch:
 
 - `dev/scripts/ci-local` passed every stage, including ignored tests and isolated soak.
-- `PROPTEST_CASES=4000 cargo test --lib --quiet` passed all 361 library tests.
+- `PROPTEST_CASES=4000 cargo test --lib --quiet` passed all 366 library tests.
 - The headless tiling/session coverage includes 38 scenarios, including direct
   operation restoration, reorder and
   preservation of camera/pointer coordinates and camera targets.
@@ -344,3 +344,28 @@ current binding examples; use explicit `--backend winit` for a nested test.
 
 The initial proposal is historical context. The parity roadmap and this status
 are the continuation sources; keep them consistent as milestones are delivered.
+
+## Pre-commit group foundation
+
+`src/layout/scrolling/commit_group.rs` adds a separate barrier owner for immutable
+configure groups. All participants share one 300 ms deadline. A new-buffer
+pre-commit with the current generation and a sufficiently recent ack removes
+that participant; client-selected geometry does not hold up the group. Removal,
+cancellation and owner drop release existing blockers without discarding client
+commits. Completion is terminal and only the transition reports a wake-up.
+Five deterministic library tests cover peer coordination, timeout, cleanup,
+generation rejection, wraparound and isolation.
+
+This is infrastructure only: reflow still applies positions immediately and no
+tiling blocker is installed on surfaces. Next integrate with mapped-toplevel
+pre-commit hooks, associate configure serials with group participants, register
+the common deadline, and notify each affected client through
+`CompositorClientState::blocker_cleared` after releasing the barrier. Do not wait
+for the existing post-commit `ConfigureBatch` to complete a blocked group.
+Ensure mode exit, supersession, unmap and disconnect release and wake clients;
+`CommitGroup` drop signals its barrier but does not itself dispatch wake-ups.
+Add real-client tests before claiming atomic commit/rendering behavior.
+
+Validation for this foundation: `PROPTEST_CASES=4000 cargo test --lib --quiet`
+passed all 366 tests; `dev/scripts/ci-local` passed all stages, including ignored
+tests and the isolated soak. No new graphical/headless atomicity claim is made.

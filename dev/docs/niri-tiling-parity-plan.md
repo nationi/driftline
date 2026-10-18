@@ -183,7 +183,13 @@ mode-exit cleanup and terminal timeout. Ordinary windows now receive their initi
 column size before the first buffer, with resolved chrome and constraints; the
 issued serial/deadline transfers into the batch on actual enrollment. Exclusions
 keep their initial policies and exit-before-buffer cancels the offer.
-Mapped-window grouped atomic commit handling and rendering transactions
+A standalone pre-commit `CommitGroup` now provides a Smithay barrier for an
+immutable set of generation/serial requests, one shared 300 ms deadline,
+participant removal and release on cancellation/drop. Its deterministic tests
+cover peer waiting, exact timeout, stale generations, serial wraparound and
+independent groups. It accepts client-chosen geometry, unlike the existing
+exact-size post-commit diagnostic tracker. It is not installed in surface hooks:
+mapped-window grouped atomic commit handling and rendering transactions
 remain outstanding. A pinned source audit confirms that unbuffered windows
 remain outside the scrolling layout until mapping; do not reserve phantom
 columns or initial-configure order. First-buffer order and mapping-time focus
