@@ -16,7 +16,7 @@ mod tests;
 mod tiling;
 
 pub use element::StageElement;
-pub use tiling::{TiledColumn, TiledWindow};
+pub use tiling::{ColumnId, TiledColumn, TiledWindow};
 
 use crate::layout::snap::SnapRect;
 use smithay::utils::{Logical, Point, Size};
@@ -690,10 +690,12 @@ impl<W: StageElement> Stage<W> {
     /// destroy handler runs.
     pub fn verify_invariants(&self) {
         let mut tiled_ids = std::collections::HashSet::new();
+        let mut column_ids = std::collections::HashSet::new();
         for column in &self.tiling.columns {
+            assert!(column_ids.insert(column.id), "duplicate column ID");
             assert!(!column.windows.is_empty(), "empty tiled column");
             assert!(
-                column.windows.iter().any(|w| w.id == column.id),
+                column.windows.iter().any(|w| w.id == column.selected),
                 "selected tile missing from column"
             );
             for window in &column.windows {
@@ -706,7 +708,10 @@ impl<W: StageElement> Stage<W> {
         }
         assert_eq!(self.tiling.active.is_none(), self.tiling.columns.is_empty());
         if let Some(id) = self.tiling.active {
-            assert!(self.is_tiled(id), "active column missing from tiling");
+            assert!(
+                self.column(id).is_some(),
+                "active column missing from tiling"
+            );
             assert!(
                 self.tiling.columns.iter().any(|c| c.id == id),
                 "active tile differs from column selection"

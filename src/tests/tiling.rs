@@ -115,13 +115,13 @@ fn focus_and_width_actions_follow_columns() {
     f.state()
         .execute_action(&Action::FocusColumn(Direction::Left));
     let aid = f.state().stage.id_of(&wa).unwrap();
-    assert_eq!(f.state().stage.active_column(), Some(aid));
+    assert_eq!(f.state().stage.active_tile(), Some(aid));
     let half = last_configured(&mut f, client, &a).0;
     f.state().execute_action(&Action::CycleColumnWidth);
     assert!(last_configured(&mut f, client, &a).0 > half);
     f.state()
         .execute_action(&Action::CenterNearest(Direction::Right));
-    assert_ne!(f.state().stage.active_column(), Some(aid));
+    assert_ne!(f.state().stage.active_tile(), Some(aid));
 }
 
 #[test]
@@ -144,7 +144,7 @@ fn new_windows_join_after_the_focused_column_and_close_prunes_membership() {
             .stage
             .tiled_columns()
             .iter()
-            .map(|c| c.id)
+            .map(|c| c.selected)
             .collect::<Vec<_>>(),
         expected
     );
@@ -259,16 +259,16 @@ fn grouped_windows_share_height_navigate_and_restore_their_original_rectangles()
     f.state()
         .execute_action(&Action::FocusColumn(Direction::Up));
     let bid = f.state().stage.id_of(&wb).unwrap();
-    assert_eq!(f.state().stage.active_column(), Some(bid));
+    assert_eq!(f.state().stage.active_tile(), Some(bid));
     f.state()
         .execute_action(&Action::FocusColumn(Direction::Left));
     f.state()
         .execute_action(&Action::FocusColumn(Direction::Right));
-    assert_eq!(f.state().stage.active_column(), Some(bid));
+    assert_eq!(f.state().stage.active_tile(), Some(bid));
     f.state()
         .execute_action(&Action::CenterNearest(Direction::Down));
     let cid = f.state().stage.id_of(&wc).unwrap();
-    assert_eq!(f.state().stage.active_column(), Some(cid));
+    assert_eq!(f.state().stage.active_tile(), Some(cid));
     f.state().execute_action(&Action::ToggleTiling);
     for (surface, window, expected) in [
         (&a, &wa, (400, 200)),
@@ -309,7 +309,7 @@ fn expelling_and_closing_grouped_windows_keeps_membership_consistent() {
     assert_eq!(f.state().stage.tiled_windows().count(), 1);
     let b = window_by_app_id(&mut f, "b").unwrap();
     let id = f.state().stage.id_of(&b).unwrap();
-    assert_eq!(f.state().stage.active_column(), Some(id));
+    assert_eq!(f.state().stage.active_tile(), Some(id));
     let c = map_window(&mut f, client, "c", (400, 200));
     assert_eq!(f.state().stage.tiled_columns().len(), 2);
     assert!(last_configured(&mut f, client, &c).1 > 700);
@@ -344,4 +344,70 @@ fn a_delayed_vertical_resize_reserves_live_height_without_repeated_requests() {
     f.double_roundtrip(client);
     adopt_last_configure(&mut f, client, &b);
     assert!(window_position(&mut f, &wb).y < window_position(&mut f, &wa).y + 700);
+}
+
+#[test]
+fn removing_a_left_column_preserves_the_active_column_screen_position_and_flight() {
+    let mut f = Fixture::new();
+    f.add_output(1, (1200, 800));
+    let client = f.add_client();
+    let a = map_window(&mut f, client, "a", (400, 200));
+    map_window(&mut f, client, "b", (400, 200));
+    map_window(&mut f, client, "c", (400, 200));
+    let wc = window_by_app_id(&mut f, "c").unwrap();
+    f.state().execute_action(&Action::ToggleTiling);
+    f.state().cancel_animations_everywhere();
+    let column = f.state().stage.active_column().unwrap();
+    let before = window_position(&mut f, &wc);
+    f.state()
+        .set_camera((f64::from(before.x) - 100.0, 0.0).into());
+    let camera = f.state().camera();
+    let target = camera + smithay::utils::Point::from((40.0, 0.0));
+    f.state().set_camera_target(Some(target));
+    let pointer_before = f.state().seat.get_pointer().unwrap().current_location();
+    f.client(client).window(&a).destroy();
+    f.double_roundtrip(client);
+    let after = window_position(&mut f, &wc);
+    let delta = f64::from(after.x) - f64::from(before.x);
+    assert!(delta < 0.0);
+    assert_eq!(f.state().stage.active_column(), Some(column));
+    assert_eq!(f.state().camera().x, camera.x + delta);
+    assert_eq!(f.state().camera_target().unwrap().x, target.x + delta);
+    assert_eq!(
+        f.state().seat.get_pointer().unwrap().current_location().x,
+        pointer_before.x + delta
+    );
+    f.state().refresh_tiling();
+    assert_eq!(f.state().camera().x, camera.x + delta);
+}
+
+#[test]
+fn reorder_actions_keep_the_focused_window_and_column_identity() {
+    let mut f = Fixture::new();
+    f.add_output(1, (1200, 800));
+    let client = f.add_client();
+    map_window(&mut f, client, "a", (400, 200));
+    map_window(&mut f, client, "b", (400, 200));
+    map_window(&mut f, client, "c", (400, 200));
+    let wc = window_by_app_id(&mut f, "c").unwrap();
+    let id = f.state().stage.id_of(&wc).unwrap();
+    f.state().execute_action(&Action::ToggleTiling);
+    let column = f.state().stage.column_of(id).unwrap();
+    f.state()
+        .execute_action(&Action::MoveColumn(Direction::Left));
+    assert_eq!(f.state().stage.tiled_columns()[1].id, column);
+    assert_eq!(f.state().stage.active_tile(), Some(id));
+    f.state()
+        .execute_action(&Action::MoveIntoColumn(Direction::Right));
+    let target = f.state().stage.active_column().unwrap();
+    f.state()
+        .execute_action(&Action::MoveTiledWindow(Direction::Up));
+    assert_eq!(f.state().stage.column(target).unwrap().windows[0].id, id);
+    f.state()
+        .execute_action(&Action::MoveTiledWindow(Direction::Down));
+    assert_eq!(f.state().stage.column(target).unwrap().windows[1].id, id);
+    assert_eq!(f.state().stage.active_tile(), Some(id));
+    let focused = f.state().focused_element().unwrap();
+    assert_eq!(f.state().stage.id_of(&focused), Some(id));
+    assert!(f.state().tiling_view.is_some());
 }

@@ -198,6 +198,20 @@ pub fn parse_action(s: &str) -> Result<Action, String> {
             Ok(Action::MoveIntoColumn(dir))
         }
         "expel-from-column" => Ok(Action::ExpelFromColumn),
+        "move-column" => {
+            let dir = parse_direction(arg.ok_or("move-column requires left or right")?)?;
+            if !matches!(dir, Direction::Left | Direction::Right) {
+                return Err("move-column requires left or right".to_string());
+            }
+            Ok(Action::MoveColumn(dir))
+        }
+        "move-tiled-window" => {
+            let dir = parse_direction(arg.ok_or("move-tiled-window requires up or down")?)?;
+            if !matches!(dir, Direction::Up | Direction::Down) {
+                return Err("move-tiled-window requires up or down".to_string());
+            }
+            Ok(Action::MoveTiledWindow(dir))
+        }
         "fit-window-snapped" => Ok(Action::FitWindowSnapped),
         "fill-window" => Ok(Action::FillWindow),
         "send-to-output" => {
@@ -253,6 +267,8 @@ pub const ACTION_NAMES: &[(&str, &str)] = &[
     ("cycle-column-width", "cycle-column-width"),
     ("move-into-column", "move-into-column left"),
     ("expel-from-column", "expel-from-column"),
+    ("move-column", "move-column left"),
+    ("move-tiled-window", "move-tiled-window up"),
     ("center-nearest", "center-nearest up"),
     ("center-window", "center-window"),
     ("close-window", "close-window"),
@@ -630,6 +646,8 @@ mod tests {
             Action::CycleColumnWidth => "cycle-column-width",
             Action::MoveIntoColumn(_) => "move-into-column",
             Action::ExpelFromColumn => "expel-from-column",
+            Action::MoveColumn(_) => "move-column",
+            Action::MoveTiledWindow(_) => "move-tiled-window",
             Action::Exec(_) => "exec",
             Action::ExecTerminal => "exec-terminal",
             Action::ExecLauncher => "exec-launcher",

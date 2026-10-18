@@ -53,6 +53,8 @@ pub enum Action {
     CycleColumnWidth,
     MoveIntoColumn(Direction),
     ExpelFromColumn,
+    MoveColumn(Direction),
+    MoveTiledWindow(Direction),
     Exec(String),
     ExecTerminal,
     ExecLauncher,
@@ -108,6 +110,8 @@ impl Action {
             self,
             Action::ZoomIn
                 | Action::FocusColumn(_)
+                | Action::MoveColumn(_)
+                | Action::MoveTiledWindow(_)
                 | Action::ZoomOut
                 | Action::NudgeWindow(_)
                 | Action::GrowWindow(_)

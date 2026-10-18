@@ -18,6 +18,10 @@ Add bindings to `~/.config/driftwm/config.toml`:
 "mod+alt+shift+left" = "move-into-column left"
 "mod+alt+shift+right" = "move-into-column right"
 "mod+alt+e" = "expel-from-column"
+"mod+ctrl+alt+left" = "move-column left"
+"mod+ctrl+alt+right" = "move-column right"
+"mod+ctrl+alt+up" = "move-tiled-window up"
+"mod+ctrl+alt+down" = "move-tiled-window down"
 ```
 
 Merge these entries into an existing `[keybindings]` table, then reload your
@@ -35,6 +39,13 @@ after its selected window. An empty source column disappears. `expel-from-column
 splits the focused window into a new column on the right, preserving column
 width and its original canvas rectangle; it does nothing for a single-window
 column. Moving past either end of the strip does nothing.
+
+`move-column left/right` reorders the focused column as a whole.
+`move-tiled-window up/down` reorders the focused window within its column.
+Both preserve selection and do nothing at a boundary. Column identity survives
+focus changes and reordering. Changes to columns on the left preserve the
+selected column's horizontal position relative to the camera, including during
+a camera animation; canvas restore positions remain unchanged.
 
 Windows share column height equally, subject to their content size limits and
 decorations. Space a maximum-limited window cannot use goes to the others. If

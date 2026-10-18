@@ -64,8 +64,8 @@ fit/fill, pin, snap clusters, bookmarks and suspended stand-ins.
 ## Current baseline and known differences
 
 Commits: `2b61c79` establishes the mode; `0fc1309` adds multi-window columns.
-Last implementation validation: full local CI, 348 library tests with 4000
-property cases, and 14 headless tiling/session scenarios. These validate the
+Last implementation validation: full local CI, 350 library tests with 4000
+property cases, and 16 headless tiling/session scenarios. These validate the
 implementation, not behavioral equivalence to niri.
 
 | Area | Current state | Remaining parity work |
@@ -101,8 +101,8 @@ Two concrete semantic traps must be captured before adding aliases:
 1. `Stage` remains the owner of membership, order, focus selection and saved
    geometry. No second authoritative window registry; no `Space` window APIs.
 2. Give columns and layout containers stable IDs independent of their selected
-   `ElementId`. Current `TiledColumn.id` names the selected window and cannot
-   safely identify an animation, drag target or persisted column.
+   `ElementId`. Stable `ColumnId` and separate per-column selection are now
+   implemented; layout-container identity remains outstanding.
 3. Pure layout consumes topology, constraints, settings and work area, producing
    geometry and view decisions. `state/tiling.rs` applies protocol effects.
 4. Distinguish desired layout, configured size, acknowledged configure and
@@ -126,6 +126,10 @@ Two concrete semantic traps must be captured before adding aliases:
 
 ### P0 — Freeze the behavioral contract
 
+The [source inventory](niri-tiling-inventory.md) indexes all 186 reference Action
+variants and 318 named schema fields. Its statuses are conservative; a complete
+custom-decoder audit and reference operation fixtures are still pending.
+
 Tasks:
 
 - Inventory every layout-related action and option at the pinned revision.
@@ -143,6 +147,11 @@ Done when: the inventory accounts for the entire pinned action/option surface;
 existing implemented behavior is labeled exact, partial or divergent with evidence.
 
 ### P1 — Stable topology and centralized transition policy
+
+Stable column IDs, separate selection, horizontal column/vertical tile reorder
+and horizontal view-anchor preservation are implemented with stage and headless
+tests. Container IDs, pure sizing API separation and centralized transition
+policy remain outstanding; this milestone is not yet complete.
 
 Depends on P0.
 
@@ -417,18 +426,17 @@ Only then describe the implementation as complete niri tiling parity.
 
 ## Concrete next implementation batch
 
-Start with P0 and the smallest P1 slice; do not jump directly to drag-and-drop.
+The source inventory, stable column IDs, structural reorder and horizontal
+anchor preservation have landed. Continue unfinished P0/P1 work before drag-and-drop.
 
-1. Create an action/option parity inventory from the pinned source, recording
-   exact consume/expel differences and current command compatibility.
-2. Add stable column IDs and separate selected-window state. Extend the stage
-   model with reorder/remove/merge/split identity traces.
-3. Preserve view anchors when columns before the active one change. Add traces
-   that expose the current jump behavior before changing it.
-4. Implement column left/right reorder and tile up/down reorder as a focused
-   behavioral commit, using the stable model and maintaining selection.
-5. Start P2 with generation/serial bookkeeping and deterministic late-commit tests.
-   Use that foundation for P3 settings and then P5 gesture snapping.
+1. Finish the inventory's custom-decoder audit and reference operation fixtures,
+   including exact consume/expel differences and current command compatibility.
+2. Add stable layout-container identity and separate tile/column sizing inputs.
+3. Centralize transition policy and test formerly implicit mode-exit behavior.
+4. Extend structural operations to first/last/index and swap with reference
+   semantics and evidence; current reorder is not full P4 completion.
+5. Start P2 generation/serial bookkeeping and deterministic late-commit tests.
+   Use that foundation for P3 settings and P5 gesture snapping.
 
 Suggested commit boundaries: inventory/docs; stable topology; structural actions;
 configure lifecycle; sizing configuration; gesture view model. Each commit must

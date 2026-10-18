@@ -42,6 +42,8 @@ impl DriftWm {
                     | Action::CycleColumnWidth
                     | Action::MoveIntoColumn(_)
                     | Action::ExpelFromColumn
+                    | Action::MoveColumn(_)
+                    | Action::MoveTiledWindow(_)
                     | Action::Exec(_)
                     | Action::ExecTerminal
                     | Action::ExecLauncher
@@ -84,6 +86,8 @@ impl DriftWm {
             Action::FocusColumn(direction) => self.focus_tiling_column(direction.clone()),
             Action::MoveIntoColumn(direction) => self.move_into_tiling_column(direction.clone()),
             Action::ExpelFromColumn => self.expel_tiling_window(),
+            Action::MoveColumn(direction) => self.move_tiling_column(direction.clone()),
+            Action::MoveTiledWindow(direction) => self.move_tiling_window(direction.clone()),
             Action::CycleColumnWidth => {
                 self.stage.cycle_column_width();
                 self.refresh_tiling();

@@ -782,6 +782,8 @@ Actions:
 - `cycle-column-width` — cycle the active column through 1/3, 1/2 and full usable width
 - `move-into-column <dir>` — move the focused tiled window into the neighboring column (left/right), after its selected window
 - `expel-from-column` — split the focused tiled window into a new column on the right, keeping the current column width
+- `move-column <dir>` — move the focused column left or right, keeping its windows and selection
+- `move-tiled-window <dir>` — reorder the focused window up or down inside its column
 - `fit-window-snapped` — fit-window for the focused window's whole snap cluster
 - `fill-window` — grow in place to fill free space, up to snap.outer_gap from the usable area's edge and snap.gap from a neighbour; edges past those pull back; clears maximize; press again to restore
 - `toggle-pin-to-screen` — pin/unpin the focused window to the screen (ignores pan/zoom, floats above)

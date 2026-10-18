@@ -26,6 +26,19 @@ working tree and history; update this file as implementation advances.
 | `2b61c79` | Experimental single-output mode; columns, focus, width cycle, mapping/close, canvas restoration and session fallback |
 | `0fc1309` | Multiple windows per column, merge/split actions, vertical navigation, selection memory, height constraints and live-frame reservation |
 
+The subsequent implementation adds stable `ColumnId` values, separate selected
+windows and active column identity, column left/right and tile up/down reordering,
+and horizontal view-anchor preservation. Merge retains the destination column ID;
+split allocates a fresh ID. Selection, reorder and replacement preserve identity;
+clearing the layout does not recycle IDs. Camera, in-flight target and pointer
+coordinates translate together when left-side structure changes.
+
+[The reference inventory](niri-tiling-inventory.md) indexes all 186 Action
+variants and 318 named schema fields. Regenerate it with
+`python3 dev/scripts/niri-parity-inventory.py /tmp/niri`; the generator refuses a
+different reference revision. This is a source index with conservative statuses,
+not completion of the semantic audit.
+
 Implementation locations:
 
 - `src/layout/scrolling/` — pure single/grouped geometry and reveal calculations.
@@ -42,24 +55,25 @@ fullscreen are missing. These exits are temporary fallbacks, not parity.
 
 Current action names: `toggle-tiling`, `focus-column left/right/up/down`,
 `cycle-column-width`, `move-into-column left/right`, `expel-from-column`.
+Structural actions: `move-column left/right`, `move-tiled-window up/down`.
 Cardinal `center-nearest` also follows the tiling structure while in this mode.
 
-## Next work: P0 and the first P1 slice
+## Next work: finish P0/P1 before expanding interaction
 
-No parity inventory has been implemented yet. Do these next:
-
-1. Create a complete action/option inventory from pinned niri sources. For each
-   entry record its reference symbol, driftwm equivalent, exact/partial/missing
-   status, behavioral differences and test evidence. Include ID-targeted forms.
-2. Add stable `ColumnId` identity independent of selected-window `ElementId`;
-   separate column identity from per-column selection. Currently `TiledColumn.id`
-   is the selected window, so it must not become a drag/animation/persistence ID.
-3. Add model traces for identity and selection through merge, split, reorder,
-   close/crash and replacement. Preserve saved canvas geometry through all of them.
-4. Preserve the visible anchor when columns to the left change. Then implement
-   column left/right reorder and window up/down reorder as focused changes.
-5. Continue P2 configure-generation/serial handling, followed by sizing settings
-   and the P5 gesture view model. Follow dependencies in the roadmap.
+1. Audit inventory fields against custom decoders and public option names,
+   nested values, defaults and ID-targeted action availability. Do not infer
+   exact compatibility from the generated schema index.
+2. Add a hermetic reference operation-trace corpus for map/focus/close/group/
+   split/reorder/resize. Include geometry, focus and view outcomes, not only
+   driftwm structural invariants.
+3. Finish P1: stable layout-container identity, clean tile/column sizing inputs,
+   and centralized canvas/tiling/floating/fullscreen transition policy. Broad
+   mode-exit fallbacks still exist.
+4. Complete P2 generation/serial and bounded configure-lifecycle handling before
+   layout-native interactive resizing. Then P3 settings and P5 gesture physics.
+5. Preserve current command semantics while adding distinct niri-compatible
+   consume/expel variants. First/last/index, swap, animation and fullscreen/tab
+   contexts of structural operations remain outstanding.
 
 Important differences to preserve explicitly while adding reference actions:
 
@@ -76,13 +90,15 @@ Do not break documented existing actions merely to reuse reference names.
 
 ## Validation evidence
 
-For the implementation at `0fc1309`:
+For the latest implementation batch:
 
 - `dev/scripts/ci-local` passed every stage, including ignored tests and isolated soak.
-- `PROPTEST_CASES=4000 cargo test --lib --quiet` passed all 348 library tests.
-- The headless tiling/session filter passed 14 scenarios.
+- `PROPTEST_CASES=4000 cargo test --lib --quiet` passed all 350 library tests.
+- The headless tiling/session filter passed 16 scenarios, including reorder and
+  preservation of camera/pointer coordinates and camera targets.
+- The reference inventory regenerates byte-for-byte from the pinned checkout.
 - The user tried the initial single-window-column version nested and reported
-  that it worked. Multi-window-column behavior has headless coverage; real
+  that it worked. Multi-window/reorder behavior has headless coverage; real
   trackpad feel and current graphical behavior still need manual validation.
 
 Documentation-only handoff changes do not constitute a new runtime validation.
@@ -98,7 +114,7 @@ At this handoff, the following changes predate tiling and are unrelated:
 - The `mod output_management;` addition in `src/tests/mod.rs`
 
 Preserve them. Do not stage the entire tree or include them in tiling commits.
-The two tiling commits above excluded them; the full working-tree CI included
+Tiling commits exclude them; the full working-tree CI includes
 them. Recheck the current diff rather than assuming this list is exhaustive.
 
 User fork: `https://github.com/nationi/driftwm`. At this handoff `origin` still

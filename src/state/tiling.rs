@@ -16,6 +16,7 @@ pub(crate) struct TilingView {
     zoom: f64,
     origin: Point<i32, Logical>,
     last_usable: Option<smithay::utils::Rectangle<i32, Logical>>,
+    anchor: Option<(driftwm::stage::ColumnId, i32)>,
     revealed: Option<(
         driftwm::stage::ElementId,
         smithay::utils::Rectangle<i32, Logical>,
@@ -58,6 +59,7 @@ impl DriftWm {
             zoom,
             origin,
             last_usable: None,
+            anchor: None,
             revealed: None,
         });
         self.set_zoom(1.0);
@@ -113,7 +115,7 @@ impl DriftWm {
         if let Some(id) = target
             && let Some(element) = self.stage.window_by_id(id).cloned()
         {
-            self.stage.select_column(id);
+            self.stage.select_tile(id);
             self.raise_and_focus_element(&element, SERIAL_COUNTER.next_serial());
             self.refresh_tiling();
         }
@@ -131,13 +133,25 @@ impl DriftWm {
         }
     }
 
+    pub(crate) fn move_tiling_column(&mut self, direction: Direction) {
+        if self.select_focused_tile() && self.stage.move_column(direction == Direction::Left) {
+            self.refresh_tiling();
+        }
+    }
+
+    pub(crate) fn move_tiling_window(&mut self, direction: Direction) {
+        if self.select_focused_tile() && self.stage.move_tile(direction == Direction::Up) {
+            self.refresh_tiling();
+        }
+    }
+
     fn select_focused_tile(&mut self) -> bool {
         let Some(element) = self.focused_element() else {
             return false;
         };
         self.stage
             .id_of(&element)
-            .is_some_and(|id| self.stage.select_column(id))
+            .is_some_and(|id| self.stage.select_tile(id))
     }
 
     fn tiling_eligible(&self, element: &StageWindow) -> bool {
@@ -191,7 +205,7 @@ impl DriftWm {
         if let Some(element) = self.focused_element()
             && let Some(id) = self.stage.id_of(&element)
         {
-            self.stage.select_column(id);
+            self.stage.select_tile(id);
         }
         let columns: Vec<Vec<Column>> = self
             .stage
@@ -294,13 +308,47 @@ impl DriftWm {
         }
         let selected = placements
             .iter()
-            .find(|p| Some(p.id) == self.stage.active_column())
+            .find(|p| Some(p.id) == self.stage.active_tile())
             .map(|p| (p.id, p.frame));
+        let anchor = self
+            .stage
+            .active_column()
+            .zip(selected.map(|(_, frame)| frame.loc.x));
+        let translated = if let Some((column, x)) = anchor
+            && let Some((previous_column, previous_x)) =
+                self.tiling_view.as_ref().and_then(|v| v.anchor)
+            && column == previous_column
+            && x != previous_x
+        {
+            // Structural changes before the selected column must not scroll
+            // its content under a stationary viewport, including mid-flight.
+            let delta = f64::from(x) - f64::from(previous_x);
+            self.with_output_state(|os| {
+                os.camera.x += delta;
+                if let Some(target) = &mut os.camera_target {
+                    target.x += delta;
+                }
+            });
+            self.update_output_from_camera();
+            if let Some(pointer) = self.seat.get_pointer() {
+                self.warp_pointer(pointer.current_location() + Point::from((delta, 0.0)));
+            }
+            true
+        } else {
+            false
+        };
         if let Some((id, frame)) = selected
-            && self
-                .tiling_view
-                .as_ref()
-                .is_some_and(|v| v.revealed != Some((id, frame)) || v.last_usable != Some(usable))
+            && self.tiling_view.as_ref().is_some_and(|v| {
+                let translation_only = translated
+                    && v.last_usable == Some(usable)
+                    && v.revealed.is_some_and(|(previous_id, previous_frame)| {
+                        previous_id == id
+                            && previous_frame.size == frame.size
+                            && previous_frame.loc.y == frame.loc.y
+                    });
+                !translation_only
+                    && (v.revealed != Some((id, frame)) || v.last_usable != Some(usable))
+            })
             && let Ok(target) = scrolling::reveal(frame, usable, self.camera().to_i32_round())
         {
             self.set_camera_target(Some(target.to_f64()));
@@ -308,6 +356,7 @@ impl DriftWm {
         if let Some(view) = &mut self.tiling_view {
             view.revealed = selected;
             view.last_usable = Some(usable);
+            view.anchor = anchor;
         }
         if added {
             self.session_store_mark_dirty();
