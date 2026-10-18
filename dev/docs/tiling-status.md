@@ -459,12 +459,11 @@ comparison is exact. The shadow case allows one byte of rounding error from the
 additional offscreen composition. GL scenarios take `gl::lock()` and self-skip
 only when EGL/GLES is unavailable, following the existing pixel-suite convention.
 
-Limits: windows with requested background blur or active window animations use
-live rendering, since a root-tree bake cannot reproduce those effects. Popup
-trees are now included by the follow-up below. Capture is limited to currently drawable windows; moving the view
+Limits: windows with active window animations use live rendering. Popup trees
+and background blur are included by the follow-ups below. Capture is limited to currently drawable windows; moving the view
 can reveal uncaptured windows. Isolated capture paths still capture live content.
 This is a best-effort frozen presentation foundation, not the complete niri
-render/animation model or a guarantee across all rendering paths. Extend blur/animation integration, fractional-scale tiling pixel cases, supersession and
+render/animation model or a guarantee across all rendering paths. Extend animation integration, fractional-scale tiling pixel cases, supersession and
 remap traces before closing P2 or P13. Input continues to use stage/client
 geometry, as with the existing compositor animation policy.
 
@@ -501,9 +500,10 @@ The fixture Popup type can now attach real SHM pixels using the same format and
 lifetime rules as its existing window/layer helpers. Comparisons of unchanged
 popup scenes are exact byte comparisons on the complete live frame.
 
-Blur and active window animations remain on live rendering. Popup movement uses
+Active window animations remain on live rendering. Blur integration follows
+below. Popup movement uses
 a safe live fallback rather than animated/rebased snapshot transitions. Further
-P2/P13 work still needs blur/animation integration, fractional-scale tiling scenes
+P2/P13 work still needs animation integration, fractional-scale tiling scenes
 and broader rapid supersession/remap tests; this does not complete niri parity.
 
 Validation for popup presentations: all 12 GLES pixel scenarios passed on Mesa,
@@ -511,3 +511,43 @@ including five new popup cases. `dev/scripts/ci-local` passed every stage after
 the final changes, including strict all-target clippy, ignored tests and the
 isolated soak. The pure layout library was unchanged. Interactive session and
 fractional-scale popup-presentation validation remain outstanding.
+
+
+## Live frost beneath frozen tiling images
+
+Blurred tiled windows now participate in frozen presentations. `SnapshotBlur`
+retains their canvas position, client geometry, optional SSD bar height, effective
+window blur policy and client-supplied regions. It converts those saved inputs
+into a normal-layer blur request at the current camera/zoom/output scale. Region
+clipping and whole-window fallback follow the live path, including suppressing
+client-only blur when every region clips out. The backdrop remains live; it is
+not captured into the frozen window image.
+
+The composer submits snapshot elements to the existing blur pipeline with measured
+bucket ranges. Shadows of blurred snapshots are drawn separately at their saved
+geometry, below the frost, and excluded from the alpha-mask element range. Baking
+shadow into the foreground would both pollute the rounded-corner mask and darken
+frost with shadow above it. Nonblurred snapshots retain their existing baked
+shadow. This does not allocate an extra mask snapshot. When images are released,
+the blur geometry generation advances even if no window moved, so a refused
+resize cannot leave an old alpha mask behind after the snapshot disappears.
+
+Three deterministic renderer unit tests cover client-region clipping, CSD geometry
+offsets, SSD bar offsets and HiDPI mask coordinates. Two new GLES scenarios at 2x
+compare the complete live frame before and during a delayed presentation: one
+plain translucent window and one with border, rounded corners and shadow. An
+independent blocker holds another participant while the frosted window's new
+buffer has already applied. Comparisons allow one/two byte rounding respectively;
+after release the snapshot disappears and the new picture is shown.
+
+Next: integrate active window animations with the frozen presentation, extend
+fractional-scale and client-protocol blur-region pixel scenarios, and broaden
+supersession/remap/cancellation traces. The existing blur engine's documented
+alpha-only mask invalidation policy otherwise remains unchanged. No unconditional
+frame-atomic rendering or complete niri animation parity is claimed.
+
+Validation for frozen blur: three new renderer unit tests and both new GLES
+scenarios passed. `dev/scripts/ci-local` passed every stage after the final
+shadow-order and mask-invalidation changes, including all ignored pixel tests,
+strict all-target clippy and the isolated soak. The pure layout library was
+unchanged; no interactive hardware/nested-session validation was performed.

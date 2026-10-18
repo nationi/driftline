@@ -453,6 +453,7 @@ impl ClosingSnapshot {
 /// here is still resolvable at teardown (the capture runs before
 /// `cleanup_surface_state`). Fullscreen windows pass `None`: they have no
 /// rounding, border, shadow, or bar live either.
+#[derive(Clone, Copy)]
 pub(crate) struct CloseChrome<'a> {
     /// Window geometry rect in surface-origin-local logical coords — the clip
     /// reference and the border's inner rect.

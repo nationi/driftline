@@ -985,6 +985,96 @@ pub(crate) struct BlurRequestData {
     pub region_rects: Option<Arc<Vec<Rectangle<i32, Physical>>>>,
 }
 
+/// Frozen mask geometry and policy; the backdrop continues through live blur.
+pub(crate) struct SnapshotBlur {
+    pub surface_id: smithay::reexports::wayland_server::backend::ObjectId,
+    pub position: Point<i32, Logical>,
+    pub geometry: Rectangle<i32, Logical>,
+    pub bar_height: Option<i32>,
+    pub window_blur: bool,
+    pub client_regions: Option<Arc<Vec<Rectangle<i32, Logical>>>>,
+}
+
+impl SnapshotBlur {
+    pub fn request(
+        &self,
+        camera: Point<f64, Logical>,
+        zoom: f64,
+        output_scale: f64,
+        elem_count: usize,
+    ) -> Option<BlurRequestData> {
+        let client_blur = self.client_regions.as_ref().is_some_and(|r| !r.is_empty());
+        if !self.window_blur && !client_blur {
+            return None;
+        }
+        let origin = self.position.to_f64() - self.geometry.loc.to_f64() - camera;
+        let bar = self.bar_height.unwrap_or(0);
+        let screen_loc = if self.bar_height.is_some() {
+            Point::from((
+                (origin.x * zoom) as i32,
+                (origin.y * zoom) as i32 - (f64::from(bar) * zoom) as i32,
+            ))
+        } else {
+            let loc = self.position.to_f64() - camera;
+            Point::from(((loc.x * zoom) as i32, (loc.y * zoom) as i32))
+        };
+        let size = Size::from((
+            (f64::from(self.geometry.size.w) * zoom).ceil() as i32,
+            ((f64::from(self.geometry.size.h) + f64::from(bar)) * zoom).ceil() as i32,
+        ));
+        let screen_rect = super::painted_rect(
+            Rectangle::new(screen_loc, size).to_f64(),
+            output_scale.into(),
+        );
+        let region_rects = if client_blur {
+            let offset: Point<f64, Logical> = if self.bar_height.is_some() {
+                Point::from((0.0, f64::from(bar)))
+            } else {
+                Point::from((
+                    -f64::from(self.geometry.loc.x),
+                    -f64::from(self.geometry.loc.y),
+                ))
+            };
+            let scale = zoom * output_scale;
+            let bounds = Rectangle::from_size(screen_rect.size);
+            let regions: Vec<_> = self
+                .client_regions
+                .as_ref()
+                .unwrap()
+                .iter()
+                .filter_map(|r| {
+                    let x1 = ((f64::from(r.loc.x) + offset.x) * scale).round() as i32;
+                    let y1 = ((f64::from(r.loc.y) + offset.y) * scale).round() as i32;
+                    let x2 = ((f64::from(r.loc.x) + f64::from(r.size.w) + offset.x) * scale).round()
+                        as i32;
+                    let y2 = ((f64::from(r.loc.y) + f64::from(r.size.h) + offset.y) * scale).round()
+                        as i32;
+                    Rectangle::from_extremities((x1, y1), (x2, y2)).intersection(bounds)
+                })
+                .collect();
+            if regions.is_empty() {
+                if !self.window_blur {
+                    return None;
+                }
+                None
+            } else {
+                Some(Arc::new(regions))
+            }
+        } else {
+            None
+        };
+        Some(BlurRequestData {
+            surface_id: self.surface_id.clone(),
+            screen_rect,
+            elem_start: 0,
+            elem_count,
+            trailing_chrome: 0,
+            layer: BlurLayer::Normal,
+            region_rects,
+        })
+    }
+}
+
 /// Commit counters of the elements a mask is rendered from: the signal for
 /// whether the client has painted since the mask was captured.
 fn surface_commits(
@@ -1928,6 +2018,75 @@ pub(crate) fn process_blur_requests(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn snapshot_blur() -> SnapshotBlur {
+        SnapshotBlur {
+            surface_id: smithay::reexports::wayland_server::backend::ObjectId::null(),
+            position: (100, 150).into(),
+            geometry: Rectangle::new((7, 9).into(), (200, 100).into()),
+            bar_height: None,
+            window_blur: false,
+            client_regions: None,
+        }
+    }
+
+    #[test]
+    fn snapshot_blur_client_mask_keeps_surface_geometry_offsets_at_hidpi() {
+        let mut source = snapshot_blur();
+        source.client_regions = Some(Arc::new(vec![Rectangle::new(
+            (17, 19).into(),
+            (40, 30).into(),
+        )]));
+        let req = source.request((20.0, 30.0).into(), 1.0, 2.0, 3).unwrap();
+        assert_eq!(req.screen_rect, rect(160, 240, 400, 200));
+        assert_eq!(
+            req.region_rects.as_ref().unwrap().as_slice(),
+            &[rect(20, 20, 80, 60)]
+        );
+        assert_eq!(req.elem_count, 3);
+        assert_eq!(req.trailing_chrome, 0);
+        let moved = source.request((40.0, 60.0).into(), 1.0, 2.0, 3).unwrap();
+        assert_eq!(moved.screen_rect.loc, (120, 180).into());
+        assert_eq!(moved.region_rects, req.region_rects);
+    }
+
+    #[test]
+    fn snapshot_blur_ssd_mask_includes_the_title_bar_offset() {
+        let mut source = snapshot_blur();
+        source.geometry.loc = (0, 0).into();
+        source.bar_height = Some(25);
+        source.client_regions = Some(Arc::new(vec![Rectangle::new(
+            (10, 10).into(),
+            (30, 20).into(),
+        )]));
+        let req = source.request((20.0, 30.0).into(), 1.0, 2.0, 1).unwrap();
+        assert_eq!(req.screen_rect, rect(160, 190, 400, 250));
+        assert_eq!(
+            req.region_rects.as_ref().unwrap().as_slice(),
+            &[rect(20, 70, 60, 40)]
+        );
+    }
+
+    #[test]
+    fn snapshot_blur_does_not_turn_clipped_client_regions_into_whole_window_blur() {
+        let mut source = snapshot_blur();
+        source.client_regions = Some(Arc::new(vec![Rectangle::new(
+            (1000, 1000).into(),
+            (10, 10).into(),
+        )]));
+        assert!(source.request((0.0, 0.0).into(), 1.0, 1.0, 1).is_none());
+        source.window_blur = true;
+        assert!(
+            source
+                .request((0.0, 0.0).into(), 1.0, 1.0, 1)
+                .unwrap()
+                .region_rects
+                .is_none()
+        );
+        source.window_blur = false;
+        source.client_regions = Some(Arc::new(vec![]));
+        assert!(source.request((0.0, 0.0).into(), 1.0, 1.0, 1).is_none());
+    }
 
     fn rect(x: i32, y: i32, w: i32, h: i32) -> Rectangle<i32, Physical> {
         Rectangle::new((x, y).into(), (w, h).into())

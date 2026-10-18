@@ -601,3 +601,124 @@ fn two_bars_that_pay_for_the_shared_backdrop_slice_their_frost_out_of_it() {
 
     uninstall_with_blur(&mut f, &output);
 }
+
+fn check_tiling_frost(framed: bool) {
+    use super::{last_configured, map_window_shm, window_by_app_id};
+    use driftwm::config::Action;
+    use smithay::reexports::wayland_server::Resource;
+    use smithay::wayland::compositor::{
+        Barrier, add_blocker, add_pre_commit_hook, remove_pre_commit_hook,
+    };
+    use smithay::wayland::seat::WaylandFocus;
+
+    let Some(renderer) = gl::surfaceless_renderer("tiling frost") else {
+        return;
+    };
+    let temp = TempDir::new();
+    let shader = temp.path().join("frozen_stripes.glsl");
+    std::fs::write(&shader, framed_stripes_shader(110.0)).unwrap();
+    let config = format!(
+        "{}\n[snap]\ngap = 0\n",
+        config_toml(shader.to_str().unwrap(), 3, 1.5)
+    );
+    let config = if framed {
+        config
+            .replace("border_width = 0", "border_width = 2")
+            .replace("corner_radius = 0", "corner_radius = 12")
+            .replace("shadow = false", "shadow = true")
+    } else {
+        config
+    };
+    let mut f = Fixture::with_config(super::config(&config));
+    let output = f.add_output_scaled(1, (OUTPUT.0 as u16, OUTPUT.1 as u16), SCALE);
+    install_with_blur(&mut f, renderer);
+    let first = f.add_client();
+    let second = f.add_client();
+    let pixels =
+        super::render_pixels::solid_bgra(WINDOW_PHYSICAL.0, WINDOW_PHYSICAL.1, GHOST_BGRA, false);
+    let a = map_window_shm(
+        &mut f,
+        first,
+        "frosted",
+        WINDOW_LOGICAL,
+        WINDOW_PHYSICAL,
+        &pixels,
+    );
+    let b_pixels = super::render_pixels::solid_bgra(200, 100, [0, 0, 255, 255], false);
+    let b = map_window_shm(&mut f, second, "normal", (200, 100), (200, 100), &b_pixels);
+    super::tick_until_settled(&mut f);
+    let wa = window_by_app_id(&mut f, "frosted").unwrap();
+    let wb = window_by_app_id(&mut f, "normal").unwrap();
+    f.state().stage.set_position(&wa, (250, 200).into());
+    f.state().stage.set_position(&wb, (650, 450).into());
+    f.state().set_camera((0.0, 0.0).into());
+    let before = live_frame(&mut f, &output);
+    let before_bounds = frost_bounds(&before);
+    f.state().execute_action(&Action::ToggleTiling);
+    assert_eq!(f.state().tiling_snapshot_count(), 2);
+    let size_a = last_configured(&mut f, first, &a);
+    let size_b = last_configured(&mut f, second, &b);
+    let surface = wb.wl_surface().unwrap().into_owned();
+    let barrier = Barrier::new(false);
+    let blocker = barrier.clone();
+    let hook = add_pre_commit_hook::<crate::state::DriftWm, _>(&surface, move |_, _, s| {
+        add_blocker(s, blocker.clone());
+    });
+    for (client, surface, size) in [(first, &a, size_a), (second, &b, size_b)] {
+        let pixels = super::render_pixels::solid_bgra(size.0, size.1, [0, 128, 0, 128], false);
+        let w = f.client(client).window(surface);
+        w.set_size(size.0 as u16, size.1 as u16);
+        w.attach_shm_buffer(size, &pixels);
+        w.ack_last_and_commit();
+        f.double_roundtrip(client);
+    }
+    f.double_roundtrip(first);
+    assert_eq!(wa.geometry().size, size_a.into());
+    let pending = live_frame(&mut f, &output);
+    assert_eq!(frost_bounds(&pending), before_bounds);
+    let max_delta = before
+        .as_raw()
+        .iter()
+        .zip(pending.as_raw())
+        .map(|(a, b)| a.abs_diff(*b))
+        .max()
+        .unwrap();
+    let differences: Vec<_> = before
+        .enumerate_pixels()
+        .zip(pending.pixels())
+        .filter(|((_, _, a), b)| a.0.iter().zip(b.0.iter()).any(|(a, b)| a.abs_diff(*b) > 2))
+        .take(8)
+        .map(|((x, y, a), b)| (x, y, a.0, b.0))
+        .collect();
+    assert!(
+        max_delta <= if framed { 2 } else { 1 },
+        "frozen frost differs by {max_delta} bytes: {differences:?}"
+    );
+    barrier.signal();
+    let owner = surface.client().unwrap();
+    let client_state = owner.get_data::<crate::state::ClientState>().unwrap();
+    let dh = f.state().display_handle.clone();
+    client_state
+        .compositor_state
+        .blocker_cleared(f.state(), &dh);
+    f.double_roundtrip(second);
+    assert_eq!(f.state().tiling_snapshot_count(), 0);
+    assert!(before != live_frame(&mut f, &output));
+    remove_pre_commit_hook(&surface, &hook);
+    f.state().execute_action(&Action::ToggleTiling);
+    uninstall_with_blur(&mut f, &output);
+}
+
+#[test]
+#[ignore = "needs Mesa surfaceless EGL; run with --include-ignored"]
+fn tiling_keeps_frost_under_frozen_content_until_buffers_apply() {
+    let _gl = gl::lock();
+    check_tiling_frost(false);
+}
+
+#[test]
+#[ignore = "needs Mesa surfaceless EGL; run with --include-ignored"]
+fn frozen_tiling_frost_excludes_shadows_in_rounded_corner_cutouts() {
+    let _gl = gl::lock();
+    check_tiling_frost(true);
+}

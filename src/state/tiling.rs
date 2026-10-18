@@ -38,7 +38,15 @@ pub(crate) struct TilingView {
 struct TilingSnapshot {
     image: crate::render::ClosingSnapshot,
     popups: Vec<TilingPopupSnapshot>,
+    blur: crate::render::SnapshotBlur,
+    shadow: Option<crate::render::SnapshotShadow>,
     opacity: f64,
+}
+
+pub(crate) struct TilingSnapshotElements {
+    pub elements: Vec<crate::render::OutputRenderElements>,
+    pub blur: Option<crate::render::BlurRequestData>,
+    pub shadow: Option<crate::render::SnapshotShadow>,
 }
 
 struct TilingPopupSnapshot {
@@ -743,6 +751,7 @@ impl DriftWm {
         view.presentation = None;
         if !view.snapshots.is_empty() {
             view.snapshots.clear();
+            self.render.blur_geometry_generation += 1;
             self.mark_all_dirty();
         }
         let close_return = self
@@ -857,17 +866,6 @@ impl DriftWm {
             let Some(surface) = window.wl_surface() else {
                 continue;
             };
-            // A root-tree bake cannot reproduce the live blurred backdrop.
-            if driftwm::config::effective_blur(
-                driftwm::config::applied_rule(&surface).as_ref(),
-                &self.config.decorations,
-                false,
-            ) || smithay::wayland::compositor::with_states(&surface, |s| {
-                crate::handlers::background_effect::get_cached_blur_region(s)
-                    .is_some_and(|r| !r.is_empty())
-            }) {
-                continue;
-            }
             let Some(position) = self.stage.position_of(element) else {
                 continue;
             };
@@ -884,9 +882,61 @@ impl DriftWm {
             ) else {
                 continue;
             };
+            let blur = crate::render::SnapshotBlur {
+                surface_id: surface.id(),
+                position,
+                geometry,
+                bar_height: self
+                    .decorations
+                    .contains_key(&crate::decorations::DecorationKey::Surface(surface.id()))
+                    .then_some(self.config.decorations.title_bar_height),
+                window_blur: driftwm::config::effective_blur(
+                    driftwm::config::applied_rule(&surface).as_ref(),
+                    &self.config.decorations,
+                    false,
+                ),
+                client_regions: smithay::wayland::compositor::with_states(
+                    &surface,
+                    crate::handlers::background_effect::get_cached_blur_region,
+                ),
+            };
             let chrome = self.snapshot_chrome(&surface, geometry, false);
             let origin = position.to_f64() - geometry.loc.to_f64();
             let scale = self.flatten_scale_for_canvas_rect(Rectangle::new(position, geometry.size));
+            let has_blur =
+                blur.window_blur || blur.client_regions.as_ref().is_some_and(|r| !r.is_empty());
+            let shadow = if has_blur {
+                chrome.and_then(|c| {
+                    c.shadow_shader.map(|_| {
+                        let border = f64::from(c.border_width.max(0));
+                        let bar = f64::from(blur.bar_height.unwrap_or(0));
+                        crate::render::SnapshotShadow {
+                            surface_id: surface.id(),
+                            body: Rectangle::new(
+                                position.to_f64() - Point::from((border, bar + border)),
+                                (
+                                    f64::from(geometry.size.w) + 2.0 * border,
+                                    f64::from(geometry.size.h) + bar + 2.0 * border,
+                                )
+                                    .into(),
+                            ),
+                            inner_radius: c.corner_radius[2],
+                            border_width: c.border_width,
+                            opacity,
+                        }
+                    })
+                })
+            } else {
+                None
+            };
+            // Frost must cover the shadow, as in the live composer. Keeping
+            // shadow in the flattened content would darken rounded cutouts.
+            let chrome = chrome.map(|mut c| {
+                if has_blur {
+                    c.shadow_shader = None;
+                }
+                c
+            });
             if let Some(image) = crate::render::snapshot_canvas(
                 backend.renderer(),
                 &pixels,
@@ -931,6 +981,8 @@ impl DriftWm {
                         TilingSnapshot {
                             image,
                             popups,
+                            blur,
+                            shadow,
                             opacity,
                         },
                     );
@@ -953,7 +1005,7 @@ impl DriftWm {
         camera: Point<f64, Logical>,
         zoom: f64,
         output_scale: f64,
-    ) -> Option<Vec<crate::render::OutputRenderElements>> {
+    ) -> Option<TilingSnapshotElements> {
         let snapshot = self.tiling_view.as_ref()?.snapshots.get(&id)?;
         let root = self.stage.window_by_id(id)?.wl_surface()?;
         let current = mapped_tiling_popups(&root)
@@ -986,7 +1038,14 @@ impl DriftWm {
             output_scale,
             snapshot.opacity,
         ));
-        Some(elements)
+        let blur = snapshot
+            .blur
+            .request(camera, zoom, output_scale, elements.len());
+        Some(TilingSnapshotElements {
+            elements,
+            blur,
+            shadow: snapshot.shadow.clone(),
+        })
     }
 
     fn tiling_presentation_ready(&self, now: std::time::Instant) -> bool {

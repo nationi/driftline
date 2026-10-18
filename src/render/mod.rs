@@ -49,10 +49,20 @@ pub(crate) use capture::render_elements_to_rgba;
 #[cfg(test)]
 pub(crate) use suspended::{ensure_body, ensure_label};
 
-use blur::{BlurLayer, BlurRequestData, process_blur_requests};
+use blur::{BlurLayer, process_blur_requests};
+pub(crate) use blur::{BlurRequestData, SnapshotBlur};
 use chrome::DrawnChrome;
 use layers::{build_canvas_layer_elements, build_layer_elements};
 use shaders::{outer_corner_radius, push_border_element, push_shadow_element};
+
+#[derive(Clone)]
+pub(crate) struct SnapshotShadow {
+    pub surface_id: smithay::reexports::wayland_server::backend::ObjectId,
+    pub body: Rectangle<f64, Logical>,
+    pub inner_radius: f32,
+    pub border_width: i32,
+    pub opacity: f64,
+}
 
 /// The per-window affine transform for an in-flight open/close/geometry
 /// animation, threaded through the chrome push helpers so the surface, border,
@@ -928,10 +938,34 @@ pub fn compose_frame(
             continue;
         }
         if let Some(id) = state.stage.id_of(window)
-            && let Some(snapshot) =
+            && let Some(mut snapshot) =
                 state.tiling_snapshot_elements(id, output, camera, zoom, output_scale)
         {
-            zoomed_normal.extend(snapshot);
+            let start = zoomed_normal.len();
+            zoomed_normal.extend(snapshot.elements);
+            let shadow_start = zoomed_normal.len();
+            if let Some(shadow) = snapshot.shadow
+                && let Some(shader) = state.render.shadow_shader.clone()
+            {
+                let body = Rectangle::new(shadow.body.loc - camera, shadow.body.size);
+                push_shadow_element(
+                    &mut zoomed_normal,
+                    &mut state.render.shadow_cache,
+                    shadow.surface_id.into(),
+                    &shader,
+                    body,
+                    outer_corner_radius(shadow.inner_radius, shadow.border_width as f32),
+                    shadow.opacity,
+                    scale,
+                    zoom,
+                    None,
+                );
+            }
+            if blur_enabled && let Some(mut blur) = snapshot.blur.take() {
+                blur.elem_start = start;
+                blur.trailing_chrome = zoomed_normal.len() - shadow_start;
+                blur_requests.push(blur);
+            }
             continue;
         }
         let geom_loc = window.geometry().loc;
