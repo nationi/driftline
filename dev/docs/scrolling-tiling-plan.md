@@ -1,5 +1,10 @@
 # Scrolling tiling: implementation proposal
 
+The full-parity goal and subsequent execution order now live in
+[Niri tiling parity: execution plan](niri-tiling-parity-plan.md). This document
+retains the initial proposal and implementation history; its original limited
+scope is not the completion criterion for full niri tiling parity.
+
 Status: initial single-output scrolling mode implemented. Existing canvas
 behavior remains the default. User instructions: [tiling](../../docs/tiling.md).
 

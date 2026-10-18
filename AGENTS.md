@@ -2,7 +2,7 @@
 
 ## Project
 
-driftwm — a trackpad-first infinite canvas Wayland compositor written in Rust. Windows float on an unbounded 2D plane navigated via trackpad gestures (pan, zoom, pinch). No workspaces, no tiling. Built on [smithay](https://github.com/Smithay/smithay).
+driftwm — a trackpad-first infinite canvas Wayland compositor written in Rust. Windows float on an unbounded 2D plane navigated via trackpad gestures (pan, zoom, pinch). The canvas remains the default; this fork also adds an experimental scrolling-tiling mode. Built on [smithay](https://github.com/Smithay/smithay).
 
 Actively developed and released — a public, multi-contributor project, so match existing conventions carefully. Guidelines live next to the code, read them before working:
 
@@ -10,6 +10,27 @@ Actively developed and released — a public, multi-contributor project, so matc
 - `dev/docs/caveats.md` — architectural rules and pitfalls (the big one: never touch `Space` window APIs — go through the stage; a clippy lint enforces it).
 - `dev/docs/testing.md` — the test-suite map and testing rules (config-reference workflow, proptest conventions).
 - `dev/docs/` also holds profiling setup, the `config.reference.toml` grammar, accumulated smithay API notes, and container build recipes.
+
+## Active development: niri tiling parity
+
+The user's objective for this fork is full behavioral parity with niri's tiling,
+while retaining driftwm's canvas mode. The current experimental implementation
+is a starting point, not completion of that objective.
+
+When continuing tiling work, read these before choosing the next change:
+
+- [`dev/docs/tiling-status.md`](dev/docs/tiling-status.md) — current progress,
+  next tasks, validation evidence and working-tree precautions.
+- [`dev/docs/niri-tiling-parity-plan.md`](dev/docs/niri-tiling-parity-plan.md) —
+  authoritative roadmap, pinned niri reference, dependencies and acceptance gates.
+- [`docs/tiling.md`](docs/tiling.md) — behavior currently available to users.
+
+Continue the next unfinished task in dependency order; do not restart the plan
+or mistake an existing partial feature for reference-compatible behavior. Check
+the code and Git history against the status before acting. Update the status
+after each delivered change with what passed, what remains and the next step.
+Keep detailed session context in the status file rather than growing this file.
+The roadmap alone does not authorize pushing, publishing or messaging others.
 
 ## Conventions
 
