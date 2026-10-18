@@ -329,6 +329,11 @@ impl DriftWm {
         time_ms: u32,
         output: &smithay::output::Output,
     ) -> Point<f64, Logical> {
+        let delta = if self.tiling_view.is_some() {
+            Point::from((delta.x, 0.0))
+        } else {
+            delta
+        };
         // Bypasses `set_camera_on`'s guard (this writes output_state directly),
         // so it needs its own: a pan in flight when fullscreen lands goes inert
         // rather than race that lock. `enter_fullscreen` already cleared the

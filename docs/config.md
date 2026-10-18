@@ -777,6 +777,9 @@ Actions:
 - `zoom-to-fit-snapped` — fit only the focused window's snap cluster
 - `toggle-fullscreen` — toggle focused window fullscreen
 - `fit-window` — toggle maximize: centers + resets zoom + fills viewport; restore only resizes back
+- `toggle-tiling` — experimental scrolling columns on one output; toggle again to restore canvas positions, sizes and view
+- `focus-column <dir>` — focus the adjacent scrolling column (left or right); center-nearest left/right also follows columns while tiling
+- `cycle-column-width` — cycle the active column through 1/3, 1/2 and full usable width
 - `fit-window-snapped` — fit-window for the focused window's whole snap cluster
 - `fill-window` — grow in place to fill free space, up to snap.outer_gap from the usable area's edge and snap.gap from a neighbour; edges past those pull back; clears maximize; press again to restore
 - `toggle-pin-to-screen` — pin/unpin the focused window to the screen (ignores pan/zoom, floats above)

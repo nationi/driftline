@@ -178,6 +178,15 @@ pub fn parse_action(s: &str) -> Result<Action, String> {
         "zoom-to-fit-snapped" => Ok(Action::ZoomToFitSnapped),
         "toggle-fullscreen" => Ok(Action::ToggleFullscreen),
         "fit-window" => Ok(Action::FitWindow),
+        "toggle-tiling" => Ok(Action::ToggleTiling),
+        "focus-column" => {
+            let dir = parse_direction(arg.ok_or("focus-column requires left or right")?)?;
+            if !matches!(dir, Direction::Left | Direction::Right) {
+                return Err("focus-column requires left or right".to_string());
+            }
+            Ok(Action::FocusColumn(dir))
+        }
+        "cycle-column-width" => Ok(Action::CycleColumnWidth),
         "fit-window-snapped" => Ok(Action::FitWindowSnapped),
         "fill-window" => Ok(Action::FillWindow),
         "send-to-output" => {
@@ -228,6 +237,9 @@ pub fn parse_action(s: &str) -> Result<Action, String> {
 /// value that must parse. The config-reference exhaustiveness test keeps this
 /// list and the documented `Actions:` catalog in lockstep.
 pub const ACTION_NAMES: &[(&str, &str)] = &[
+    ("toggle-tiling", "toggle-tiling"),
+    ("focus-column", "focus-column left"),
+    ("cycle-column-width", "cycle-column-width"),
     ("center-nearest", "center-nearest up"),
     ("center-window", "center-window"),
     ("close-window", "close-window"),
@@ -600,6 +612,9 @@ mod tests {
     /// it's named, and its name must join ACTION_NAMES.
     fn action_name(action: &Action) -> &'static str {
         match action {
+            Action::ToggleTiling => "toggle-tiling",
+            Action::FocusColumn(_) => "focus-column",
+            Action::CycleColumnWidth => "cycle-column-width",
             Action::Exec(_) => "exec",
             Action::ExecTerminal => "exec-terminal",
             Action::ExecLauncher => "exec-launcher",

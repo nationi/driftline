@@ -614,6 +614,11 @@ impl DriftWm {
     /// live in screen space, so use the geometry the stand-in would land at: the
     /// pre-fullscreen saved rect, or the unpin-to-canvas landing.
     fn live_window_rect(&self, window: &Window) -> (Point<i32, Logical>, Size<i32, Logical>) {
+        if let Some(id) = self.stage.id_of(window)
+            && let Some(column) = self.stage.tiled_columns().iter().find(|c| c.id == id)
+        {
+            return (column.restore.loc, column.restore.size);
+        }
         if let Some(output) = window
             .wl_surface()
             .and_then(|s| self.find_fullscreen_output_for_surface(&s))
@@ -644,11 +649,14 @@ impl DriftWm {
         let mut outputs = BTreeMap::new();
         for output in self.space.outputs() {
             let os = output_state(output);
+            let (camera, zoom) = self
+                .tiling_canvas_view(output)
+                .unwrap_or((os.camera, os.zoom));
             outputs.insert(
                 output.name(),
                 SessionOutput {
-                    camera: [os.camera.x, os.camera.y],
-                    zoom: os.zoom,
+                    camera: [camera.x, camera.y],
+                    zoom,
                 },
             );
         }

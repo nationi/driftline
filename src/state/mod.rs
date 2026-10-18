@@ -37,6 +37,7 @@ pub(crate) mod session_lock;
 mod session_store;
 mod stage_window;
 mod suspended;
+mod tiling;
 mod viewport;
 mod viewport_animation;
 pub(crate) mod window_animation;
@@ -607,6 +608,7 @@ pub struct DriftWm {
     /// through [`Self::map_window`] / [`Self::raise_window`] /
     /// [`Self::unmap_window`] and the stage-backed methods.
     pub stage: driftwm::stage::Stage<StageWindow>,
+    pub(crate) tiling_view: Option<tiling::TilingView>,
     /// Output registry only (`map_output` / `outputs` / `output_geometry`);
     /// holds no window elements. Per-window output membership
     /// (`wl_surface.enter`/`leave`) is driven by [`Self::refresh_window_outputs`],
@@ -1127,6 +1129,7 @@ impl DriftWm {
     /// is balanced by `disarm_interactive_move` on grab unset; the cancel is a
     /// one-way snapshot of the moment the grab took over.
     pub fn arm_interactive_move<T: Clone + Into<ClusterMember>>(&mut self, target: &T) {
+        self.exit_tiling();
         // The grab measures its delta against a frozen canvas anchor, and a
         // camera tick warps the pointer synchronously into it — so a flight the
         // grab did not cause would drag the window from a motionless mouse.
@@ -1288,9 +1291,10 @@ impl DriftWm {
             .retain_ids(|id| stage.window_by_id(id).is_some());
         self.resize_crossfades
             .retain(|id, _| stage.window_by_id(*id).is_some());
-        self.refresh_window_outputs();
         self.popups.cleanup();
         self.sweep_deferred_adoptions();
+        self.refresh_tiling();
+        self.refresh_window_outputs();
         self.refresh_pointer_focus();
         self.display_handle.flush_clients().ok();
     }
@@ -1306,6 +1310,7 @@ impl DriftWm {
     pub fn debug_counters(&self) -> BTreeMap<String, usize> {
         [
             ("stage_entries", self.stage.windows().len()),
+            ("stage_tiled_columns", self.stage.tiled_columns().len()),
             ("stage_focus_history", self.stage.focus_history().len()),
             ("stage_fullscreen", self.stage.fullscreen_entries().count()),
             ("stage_pinned", self.stage.pinned_windows().count()),

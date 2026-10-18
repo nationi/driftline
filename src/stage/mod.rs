@@ -13,8 +13,10 @@ mod element;
 mod mock;
 #[cfg(test)]
 mod tests;
+mod tiling;
 
 pub use element::StageElement;
+pub use tiling::TiledColumn;
 
 use crate::layout::snap::SnapRect;
 use smithay::utils::{Logical, Point, Size};
@@ -124,6 +126,7 @@ pub struct Stage<W: StageElement> {
     /// Fullscreen window per output, keyed by output name.
     fullscreen: BTreeMap<String, FullscreenEntry<W>>,
     next_id: u64,
+    tiling: tiling::Tiling,
 }
 
 impl<W: StageElement> Default for Stage<W> {
@@ -134,6 +137,7 @@ impl<W: StageElement> Default for Stage<W> {
             cycle_state: None,
             fullscreen: BTreeMap::new(),
             next_id: 0,
+            tiling: tiling::Tiling::default(),
         }
     }
 }
@@ -221,6 +225,7 @@ impl<W: StageElement> Stage<W> {
         W: PartialEq<Q>,
     {
         self.entries.retain(|e| &e.window != window);
+        self.prune_tiling();
         self.focus_history.retain(|w| w != window);
         self.clamp_cycle();
         self.fullscreen.retain(|_, fs| &fs.window != window);
@@ -231,6 +236,7 @@ impl<W: StageElement> Stage<W> {
     /// entries are purged by the destroy handlers.
     pub fn retain_alive(&mut self) {
         self.entries.retain(|e| e.window.is_alive());
+        self.prune_tiling();
     }
 
     /// Windows in z-order, bottom → top.
@@ -683,6 +689,22 @@ impl<W: StageElement> Stage<W> {
     /// windows: a dead window may linger in the focus history until its
     /// destroy handler runs.
     pub fn verify_invariants(&self) {
+        for (index, column) in self.tiling.columns.iter().enumerate() {
+            assert!(
+                self.window_by_id(column.id).is_some(),
+                "tiled window missing from stage"
+            );
+            assert!(
+                !self.tiling.columns[index + 1..]
+                    .iter()
+                    .any(|c| c.id == column.id),
+                "duplicate tiled window"
+            );
+        }
+        assert_eq!(self.tiling.active.is_none(), self.tiling.columns.is_empty());
+        if let Some(id) = self.tiling.active {
+            assert!(self.is_tiled(id), "active column missing from tiling");
+        }
         for (i, e) in self.entries.iter().enumerate() {
             assert!(
                 !self.entries[i + 1..].iter().any(|o| o.window == e.window),

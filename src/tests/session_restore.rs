@@ -58,6 +58,30 @@ fn inject_cache(f: &mut Fixture, tmp: &TempDir, stems: &[&str]) {
     f.state().desktop_entry_cache = Some(DesktopEntryCache::new(vec![tmp.path().to_path_buf()]));
 }
 
+#[test]
+fn tiling_saves_the_canvas_rectangle_and_view_instead_of_temporary_geometry() {
+    let tmp = TempDir::new();
+    let mut f = Fixture::with_config(config_restore(true));
+    let output = f.add_output(1, (1200, 800));
+    inject_cache(&mut f, &tmp, &["alpha"]);
+    let path = tmp.path().join("session.json");
+    f.state().session_store.path = Some(path.clone());
+    let client = f.add_client();
+    map_at(&mut f, client, "alpha", (400, 300), (100, 200));
+    f.state().set_camera((50.0, 75.0).into());
+    f.state().set_zoom(0.6);
+    f.state().session_store_write_now();
+    let before = session::read(&path);
+    f.state()
+        .execute_action(&driftwm::config::Action::ToggleTiling);
+    f.state().session_store_write_now();
+    let after = session::read(&path);
+    assert_eq!(after.entries[0].position, before.entries[0].position);
+    assert_eq!(after.entries[0].size, before.entries[0].size);
+    assert_eq!(after.outputs[&output.name()].camera, [50.0, 75.0]);
+    assert_eq!(after.outputs[&output.name()].zoom, 0.6);
+}
+
 /// Map a client at `app_id`/`size` parked at a known canvas position. Returns
 /// the client-side surface for later lookups.
 fn map_at(

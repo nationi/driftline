@@ -713,6 +713,7 @@ fn cmd_resize(
         );
     }
 
+    state.exit_tiling();
     // The request names a visual frame; the client's own min/max hints, and
     // everything downstream of here, are content-space. Deflate, clamp there, and
     // re-inflate for the echo.

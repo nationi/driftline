@@ -18,6 +18,7 @@ impl DriftWm {
     /// output showing it. No-op when it is already pinned; `Err` when there is
     /// no output to pin to.
     pub(crate) fn pin_window(&mut self, window: &Window) -> Result<(), String> {
+        self.exit_tiling();
         if self.stage.pin_of(window).is_some() {
             return Ok(());
         }

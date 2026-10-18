@@ -51,6 +51,13 @@ impl DriftWm {
         activate: bool,
     ) {
         let window = window.into();
+        if self
+            .stage
+            .id_of(&window)
+            .is_some_and(|id| self.stage.is_tiled(id))
+        {
+            self.exit_tiling();
+        }
         self.stage.map(window.clone(), pos);
         if activate {
             self.set_activated_exclusive(&window);

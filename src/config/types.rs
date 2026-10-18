@@ -48,6 +48,9 @@ impl Direction {
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum Action {
+    ToggleTiling,
+    FocusColumn(Direction),
+    CycleColumnWidth,
     Exec(String),
     ExecTerminal,
     ExecLauncher,
@@ -102,6 +105,7 @@ impl Action {
         matches!(
             self,
             Action::ZoomIn
+                | Action::FocusColumn(_)
                 | Action::ZoomOut
                 | Action::NudgeWindow(_)
                 | Action::GrowWindow(_)

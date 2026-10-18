@@ -28,6 +28,26 @@ impl DriftWm {
     }
 
     pub fn execute_action(&mut self, action: &Action) {
+        if self.tiling_view.is_some()
+            && !matches!(
+                action,
+                Action::ToggleTiling
+                    | Action::CenterNearest(
+                        driftwm::config::Direction::Left | driftwm::config::Direction::Right
+                    )
+                    | Action::FocusColumn(_)
+                    | Action::CycleColumnWidth
+                    | Action::Exec(_)
+                    | Action::ExecTerminal
+                    | Action::ExecLauncher
+                    | Action::Spawn(_)
+                    | Action::CloseWindow
+                    | Action::SwitchLayout(_)
+                    | Action::SetTrackpad(_)
+            )
+        {
+            self.exit_tiling();
+        }
         // A non-cycle action from any input source ends an in-progress Alt-Tab
         // cycle here, committing the selection before it runs. CycleWindows
         // itself is exempt so stepping deeper keeps working.
@@ -55,6 +75,12 @@ impl DriftWm {
 
         self.with_output_state(|os| os.momentum.stop());
         match action {
+            Action::ToggleTiling => self.toggle_tiling(),
+            Action::FocusColumn(direction) => self.focus_tiling_column(direction.clone()),
+            Action::CycleColumnWidth => {
+                self.stage.cycle_column_width();
+                self.refresh_tiling();
+            }
             Action::Exec(cmd) => self.exec_command(cmd),
             Action::ExecTerminal => self.exec_command(&detect_terminal()),
             Action::ExecLauncher => self.exec_command(&detect_launcher()),
@@ -179,6 +205,9 @@ impl DriftWm {
                 if let Some((element, _)) = self.topmost_under(pos, |_, _| true) {
                     self.navigate_to_element(&element, NavZoom::RestoreFillElseReset);
                 }
+            }
+            Action::CenterNearest(dir) if self.tiling_view.is_some() => {
+                self.focus_tiling_column(dir.clone());
             }
             Action::CenterNearest(dir) => {
                 #[derive(Clone, PartialEq)]

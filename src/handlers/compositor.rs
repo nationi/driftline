@@ -1370,6 +1370,13 @@ impl DriftWm {
         window: &smithay::desktop::Window,
         surface: &smithay::reexports::wayland_server::protocol::wl_surface::WlSurface,
     ) {
+        if self
+            .stage
+            .id_of(window)
+            .is_some_and(|id| self.stage.is_tiled(id))
+        {
+            return;
+        }
         let resize_state = with_states(surface, |states| {
             *states
                 .data_map
