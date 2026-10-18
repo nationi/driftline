@@ -471,9 +471,15 @@ impl DriftWm {
     /// keep suppressing their own chrome, and the explicit size keeps SCTK from
     /// reading "Tiled + None" as "hold current size".
     pub(crate) fn send_size_configure(&self, window: &Window, size: Size<i32, Logical>) {
-        let Some(toplevel) = window.toplevel() else {
-            return;
-        };
+        let _ = self.send_size_configure_serial(window, size);
+    }
+
+    pub(crate) fn send_size_configure_serial(
+        &self,
+        window: &Window,
+        size: Size<i32, Logical>,
+    ) -> Option<smithay::utils::Serial> {
+        let toplevel = window.toplevel()?;
         toplevel.with_pending_state(|state| {
             state.size = Some(size);
             // Load-bearing for `fill_window` and `resize_element_to`, which
@@ -485,6 +491,6 @@ impl DriftWm {
             // `set_fill` clears fit, so a filled window is never also a fit one.
             state.states.unset(xdg_toplevel::State::Maximized);
         });
-        toplevel.send_configure();
+        Some(toplevel.send_configure())
     }
 }

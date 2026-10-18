@@ -76,8 +76,9 @@ Cardinal `center-nearest` also follows the tiling structure while in this mode.
 3. P1 now has stable column/layout IDs, separate tile/column sizing inputs
    and a shared transition gate. Extend transitions as floating and retained
    fullscreen become supported; broad mode-exit fallbacks still exist.
-4. Complete P2 generation/serial and bounded configure-lifecycle handling before
-   layout-native interactive resizing. Then P3 settings and P5 gesture physics.
+4. Extend the P2 generation/serial foundation to pre-first-configure enrollment
+   and grouped bounded commit transactions before layout-native interactive
+   resizing. Then P3 settings and P5 gesture physics.
 5. Extend the new reference consume/expel topology subset. Existing focused
    move/split commands are preserved. First/last/index, swap, animation and fullscreen/tab
    contexts of structural operations remain outstanding.
@@ -158,6 +159,40 @@ stationary offsets, multiple newly enrolled windows in one reflow and complete
 reference animation timing. The JSON corpus remains fit probes; these lifecycle
 checks are in the compositor fixture, not recordings of niri.
 
+## P2 configure-lifecycle foundation
+
+`layout/scrolling/transaction.rs` tracks a generation keyed by the stable layout
+ID and a revision of the desired pure placements (before live-frame reservation).
+Each live tile retains only its latest tiling-issued serial, requested content
+size, original deadline and progress (`Pending`, `Applied`, `TimedOut`). A new
+layout drops incompatible/dead requests; unchanged requests keep their deadlines
+even when columns move. Exiting tiling drops the batch and cancels its timer.
+
+Reflow reads the committed cached xdg serial, separately from live geometry.
+Only the current generation, a matching-or-newer serial (wraparound aware) and
+matching geometry can complete a pending request. Ack-only and empty commits
+with old geometry do not complete it. A per-view calloop timer wakes reflow at
+the earliest deadline; waiting ends after 300 ms without requiring another
+client event. Timer callbacks are scoped to the layout ID, all-complete batches
+remove the timer, and timed-out requests do not reopen on late commits. The
+`tiling_pending_configures` debug counter exposes outstanding waits.
+
+This is bookkeeping and readiness protection, not atomic rendering or a commit
+blocker. Geometry is still applied immediately; live-frame reservation still
+protects against overlap, including after timeout. Client buffers are not rejected
+for being late, and unchanged desired sizes are not resent on timeout. Rounded
+or refused sizes currently time out; they are not treated as exact adoption.
+Smithay still owns its protocol configure history; bounding our records does not
+bound a client's unacknowledged protocol history.
+
+Pure tests cover superseded generations/serials, a different layout ID, serial
+wraparound, independent completion, exact deadlines, terminal timeout and pruning.
+Headless tests cover ack before commit/buffer, old-size commits after a newer
+request, unchanged-request suppression and late replies after mode exit. The
+next P2 steps are pre-first-configure enrollment, generation-bound completion
+integration and grouped bounded transactions/commit blockers. Extend the P0
+semantic audit and reference cases in parallel; do not mark P2 complete yet.
+
 ## Layout identity and sizing inputs
 
 `Stage::begin_tiling` returns an opaque `TilingLayoutId`, reused for the whole
@@ -211,8 +246,8 @@ cover the preserve/invalidation paths.
 For the latest implementation batch:
 
 - `dev/scripts/ci-local` passed every stage, including ignored tests and isolated soak.
-- `PROPTEST_CASES=4000 cargo test --lib --quiet` passed all 356 library tests.
-- The headless tiling/session coverage includes 27 scenarios, including direct
+- `PROPTEST_CASES=4000 cargo test --lib --quiet` passed all 361 library tests.
+- The headless tiling/session coverage includes 29 scenarios, including direct
   operation restoration, reorder and
   preservation of camera/pointer coordinates and camera targets.
 - The reference inventory regenerates byte-for-byte from the pinned checkout.

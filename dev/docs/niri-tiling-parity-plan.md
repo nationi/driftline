@@ -64,8 +64,8 @@ fit/fill, pin, snap clusters, bookmarks and suspended stand-ins.
 ## Current baseline and known differences
 
 Commits: `2b61c79` establishes the mode; `0fc1309` adds multi-window columns.
-Last implementation validation: full local CI, 356 library tests with 4000
-property cases, and 27 headless tiling/session scenarios. These validate the
+Last implementation validation: full local CI, 361 library tests with 4000
+property cases, and 29 headless tiling/session scenarios. These validate the
 implementation, not behavioral equivalence to niri.
 
 | Area | Current state | Remaining parity work |
@@ -174,6 +174,14 @@ Done when: operation histories retain valid IDs and selection, reflow does not
 raise windows, and deleting/replacing any tile cannot strand an anchor or grab.
 
 ### P2 — Configure lifecycle and bounded layout transactions
+
+Generation/serial readiness tracking now exists, scoped to layout identity and
+pure placement revisions. Reflow checks committed serial plus geometry; each
+request has a 300 ms deadline driven by a per-view event-loop timer. Tests cover
+stale generations, early acknowledgements, delayed buffers, serial wraparound,
+mode-exit cleanup and terminal timeout. This is the foundation only: pre-first-
+configure enrollment, grouped atomic commit handling and rendering transactions
+are still outstanding. Live-frame reservation is still independent of timeout.
 
 Depends on P1; required before advanced resize/drag/animations.
 
@@ -446,8 +454,9 @@ anchor preservation have landed. Continue unfinished P0/P1 work before drag-and-
    keep direct-call and action-dispatch regression coverage.
 4. Extend structural operations to first/last/index and swap with reference
    semantics and evidence; current reorder is not full P4 completion.
-5. Start P2 generation/serial bookkeeping and deterministic late-commit tests.
-   Use that foundation for P3 settings and P5 gesture snapping.
+5. Extend the implemented P2 generation/serial foundation with first-configure
+   enrollment and grouped bounded transactions. Use it for P3 settings and P5
+   gesture snapping after the remaining acceptance checks.
 
 Suggested commit boundaries: inventory/docs; stable topology; structural actions;
 configure lifecycle; sizing configuration; gesture view model. Each commit must

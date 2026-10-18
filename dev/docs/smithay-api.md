@@ -569,3 +569,21 @@ driftwm drives per-window `wl_surface.enter`/`leave` itself (`DriftWm::refresh_w
 - **`Space::refresh` semantics (replaced)** — retained alive elements, diffed each element's bbox against every mapped output's geometry (`output_geometry(o).unwrap_or_else(Rectangle::zero)`), sent `output_enter`/`output_leave` on change, called `SpaceElement::refresh` per element, then `Output::cleanup` per output.
 - **`Output::cleanup(&self)`** — prunes dead surfaces from the output's own enter tracking. **`Output::leave_all(&self)`** — sends `wl_surface.leave` for every surface currently entered on the output (used on placeholder-output teardown).
 - **`UserDataMap`** is a lock-free append-only boxed list: a `&T` from `get`/`get_or_insert` stays valid across a later `insert_if_missing` of a *different* type, so holding one userdata borrow while a `SpaceElement` method touches another userdata entry is sound.
+
+### Observing committed toplevel configures (rev `4cf0b620`)
+
+- `ToplevelSurface::send_configure(&self) -> Serial` always emits a configure and
+  returns its serial. `with_pending_state<F, T>(&self, f: F) -> T` takes
+  `F: FnOnce(&mut ToplevelState) -> T`; it edits server state, not client commits.
+- `ToplevelSurface::with_cached_state<F, T>(&self, f: F) -> T` takes
+  `F: FnOnce(&ToplevelCachedState) -> T`. `ToplevelCachedState::last_acked` is
+  `Option<ToplevelConfigure>`, whose `serial: Serial` identifies the ack applied
+  at the last commit. Copy the serial out of the closure before reading geometry
+  or making other surface-userdata calls.
+- Role userdata `XdgToplevelSurfaceData::last_acked` advances at the ack request;
+  it can be newer than committed cached state. `ack_configure` prunes older
+  entries in `pending_configures` immediately. Neither this pruning nor the role
+  ack implies a buffer of the requested size exists. Tiling readiness therefore
+  checks the committed cached serial and actual geometry separately.
+- `smithay::utils::Serial` comparisons handle protocol wraparound; compare these
+  values directly rather than casting them to `u32` and using numeric order.

@@ -1,6 +1,8 @@
 //! Scrolling-column geometry, independent of client commits and viewport motion.
 //! The caller supplies stage-owned column order; this module never owns windows.
 
+pub mod transaction;
+
 use std::collections::HashSet;
 
 use smithay::utils::{Logical, Point, Rectangle, Size};

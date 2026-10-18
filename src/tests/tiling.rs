@@ -734,3 +734,107 @@ fn switching_columns_cancels_the_saved_return_view() {
         Some(camera.to_i32_round::<i32>().to_f64())
     );
 }
+
+#[test]
+fn tiling_ack_and_empty_commit_do_not_complete_a_resize_without_matching_geometry() {
+    use driftwm::layout::scrolling::transaction::ConfigureProgress;
+    let mut f = Fixture::new();
+    f.add_output(1, (1200, 800));
+    let client = f.add_client();
+    let a = map_window(&mut f, client, "a", (400, 200));
+    let wa = window_by_app_id(&mut f, "a").unwrap();
+    let id = f.state().stage.id_of(&wa).unwrap();
+    f.state().execute_action(&Action::ToggleTiling);
+    let size = last_configured(&mut f, client, &a);
+    assert_eq!(
+        f.state().tiling_configure_progress(id),
+        Some(ConfigureProgress::Pending)
+    );
+    f.client(client).window(&a).ack_last();
+    f.double_roundtrip(client);
+    assert_eq!(
+        f.state().tiling_configure_progress(id),
+        Some(ConfigureProgress::Pending)
+    );
+    f.client(client).window(&a).commit();
+    f.double_roundtrip(client);
+    assert_eq!(
+        f.state().tiling_configure_progress(id),
+        Some(ConfigureProgress::Pending)
+    );
+    f.client(client)
+        .window(&a)
+        .set_size(size.0 as u16, size.1 as u16);
+    f.client(client).window(&a).attach_new_buffer();
+    f.client(client).window(&a).commit();
+    f.double_roundtrip(client);
+    assert_eq!(
+        f.state().tiling_configure_progress(id),
+        Some(ConfigureProgress::Applied)
+    );
+    assert_eq!(f.state().tiling_pending_configures(), 0);
+}
+
+#[test]
+fn an_old_tiling_reply_cannot_complete_the_latest_size_or_survive_mode_exit() {
+    use driftwm::layout::scrolling::transaction::ConfigureProgress;
+    let mut f = Fixture::new();
+    f.add_output(1, (1200, 800));
+    let client = f.add_client();
+    let a = map_window(&mut f, client, "a", (400, 200));
+    let wa = window_by_app_id(&mut f, "a").unwrap();
+    let id = f.state().stage.id_of(&wa).unwrap();
+    f.state().execute_action(&Action::ToggleTiling);
+    let first = last_configured(&mut f, client, &a);
+    let first_serial = f
+        .client(client)
+        .window(&a)
+        .configures_received
+        .last()
+        .unwrap()
+        .0;
+    f.state().execute_action(&Action::CycleColumnWidth);
+    let latest = last_configured(&mut f, client, &a);
+    assert_ne!(first, latest);
+    {
+        let window = f.client(client).window(&a);
+        window.xdg_surface.ack_configure(first_serial);
+        window.set_size(first.0 as u16, first.1 as u16);
+        window.attach_new_buffer();
+        window.commit();
+    }
+    f.double_roundtrip(client);
+    assert_eq!(
+        f.state().tiling_configure_progress(id),
+        Some(ConfigureProgress::Pending)
+    );
+    let count = configure_count(&mut f, client, &a);
+    f.state().refresh_and_flush_clients();
+    assert_eq!(configure_count(&mut f, client, &a), count);
+    adopt_last_configure(&mut f, client, &a);
+    assert_eq!(
+        f.state().tiling_configure_progress(id),
+        Some(ConfigureProgress::Applied)
+    );
+    f.state().execute_action(&Action::CycleColumnWidth);
+    let old = last_configured(&mut f, client, &a);
+    let serial = f
+        .client(client)
+        .window(&a)
+        .configures_received
+        .last()
+        .unwrap()
+        .0;
+    f.state().execute_action(&Action::ToggleTiling);
+    assert_eq!(f.state().tiling_pending_configures(), 0);
+    {
+        let window = f.client(client).window(&a);
+        window.xdg_surface.ack_configure(serial);
+        window.set_size(old.0 as u16, old.1 as u16);
+        window.attach_new_buffer();
+        window.commit();
+    }
+    f.double_roundtrip(client);
+    assert!(f.state().tiling_view.is_none());
+    assert_eq!(f.state().tiling_configure_progress(id), None);
+}

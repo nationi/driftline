@@ -19,6 +19,8 @@ pub(crate) struct TilingView {
     last_usable: Option<smithay::utils::Rectangle<i32, Logical>>,
     anchor: Option<(driftwm::stage::ColumnId, i32)>,
     close_return: Option<CloseReturnView>,
+    configures: scrolling::transaction::ConfigureBatch,
+    configure_timer: Option<smithay::reexports::calloop::RegistrationToken>,
     revealed: Option<(
         driftwm::stage::ElementId,
         smithay::utils::Rectangle<i32, Logical>,
@@ -72,6 +74,8 @@ impl DriftWm {
             last_usable: None,
             anchor: None,
             close_return: None,
+            configures: scrolling::transaction::ConfigureBatch::new(layout_id),
+            configure_timer: None,
             revealed: None,
         });
         self.set_zoom(1.0);
@@ -82,6 +86,9 @@ impl DriftWm {
         let Some(view) = self.tiling_view.take() else {
             return;
         };
+        if let Some(timer) = view.configure_timer {
+            self.loop_handle.remove(timer);
+        }
         self.cancel_animations_everywhere();
         for column in self.stage.clear_tiling() {
             let Some(element) = self.stage.window_by_id(column.id).cloned() else {
@@ -331,6 +338,13 @@ impl DriftWm {
                 return;
             }
         };
+        let generation = self
+            .tiling_view
+            .as_mut()
+            .unwrap()
+            .configures
+            .update_layout(&placements);
+        let now = std::time::Instant::now();
         // A client can delay or refuse a size. Reserve its current frame as
         // well as the requested one without feeding that size back into configures.
         let mut extra_x = 0i64;
@@ -387,10 +401,39 @@ impl DriftWm {
             if let Some(window) = element.client()
                 && configured_window_size(window) != placement.content.size
             {
-                self.send_size_configure(window, placement.content.size);
+                if let Some(serial) =
+                    self.send_size_configure_serial(window, placement.content.size)
+                {
+                    self.tiling_view
+                        .as_mut()
+                        .unwrap()
+                        .configures
+                        .record(placement.id, serial, now);
+                }
                 changed = true;
             }
         }
+        self.tiling_view.as_mut().unwrap().configures.advance(now);
+        for placement in &placements {
+            let Some(window) = self
+                .stage
+                .window_by_id(placement.id)
+                .and_then(|w| w.client())
+            else {
+                continue;
+            };
+            let serial = window
+                .toplevel()
+                .and_then(|t| t.with_cached_state(|s| s.last_acked.as_ref().map(|c| c.serial)));
+            if let Some(serial) = serial {
+                self.tiling_view
+                    .as_mut()
+                    .unwrap()
+                    .configures
+                    .observe_commit(generation, placement.id, serial, window.geometry().size);
+            }
+        }
+        self.arm_tiling_configure_deadline();
         if changed {
             self.render.blur_geometry_generation += 1;
             self.mark_all_dirty();
@@ -481,6 +524,51 @@ impl DriftWm {
         if added {
             self.session_store_mark_dirty();
         }
+    }
+
+    fn arm_tiling_configure_deadline(&mut self) {
+        use smithay::reexports::calloop::timer::{TimeoutAction, Timer};
+        let Some(view) = self.tiling_view.as_mut() else {
+            return;
+        };
+        let Some(deadline) = view.configures.next_deadline() else {
+            if let Some(timer) = view.configure_timer.take() {
+                self.loop_handle.remove(timer);
+            }
+            return;
+        };
+        if view.configure_timer.is_some() {
+            return;
+        }
+        let layout_id = view.layout_id;
+        match self
+            .loop_handle
+            .insert_source(Timer::from_deadline(deadline), move |_, _, state| {
+                if let Some(view) = state.tiling_view.as_mut()
+                    && view.layout_id == layout_id
+                {
+                    view.configure_timer = None;
+                    state.refresh_tiling();
+                }
+                TimeoutAction::Drop
+            }) {
+            Ok(token) => view.configure_timer = Some(token),
+            Err(error) => tracing::warn!(?error, "Cannot schedule tiling configure deadline"),
+        }
+    }
+
+    pub(crate) fn tiling_pending_configures(&self) -> usize {
+        self.tiling_view
+            .as_ref()
+            .map_or(0, |v| v.configures.pending_count())
+    }
+
+    #[cfg(test)]
+    pub(crate) fn tiling_configure_progress(
+        &self,
+        id: driftwm::stage::ElementId,
+    ) -> Option<scrolling::transaction::ConfigureProgress> {
+        self.tiling_view.as_ref()?.configures.progress(id)
     }
 
     pub(super) fn tiling_canvas_view(&self, output: &Output) -> Option<(Point<f64, Logical>, f64)> {

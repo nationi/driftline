@@ -1327,6 +1327,10 @@ impl DriftWm {
             ("stable_snap_rects", self.stable_snap_rects.len()),
             ("pending_adopt_settle", self.pending_adopt_settle.len()),
             ("pending_resizes", self.pending_resizes.len()),
+            (
+                "tiling_pending_configures",
+                self.tiling_pending_configures(),
+            ),
             ("suspend_marks", self.suspend_marks.len()),
             ("real_close_marks", self.real_close_marks.len()),
             ("window_animations", self.window_animations.len()),
