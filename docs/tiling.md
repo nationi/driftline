@@ -98,3 +98,9 @@ also leaves tiling. A zoom change leaves tiling and restores the saved view.
 This version does not provide independent strips on several monitors,
 drag-to-reorder, per-window detach to the canvas or configurable
 width presets. The fixed presets are one third, one half and full usable width.
+
+Related size requests now coordinate new buffer commits: an early reply waits
+for the other affected windows, for at most 300 ms. A window may choose a
+different size without holding up the group. Closing a participant or leaving
+tiling releases waiting buffers. Positions and view changes still apply
+immediately, so this is not yet a guarantee of a visually atomic layout change.

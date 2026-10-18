@@ -157,6 +157,10 @@ impl CompositorHandler for DriftWm {
             state.stash_resize_content(surface);
         });
 
+        add_pre_commit_hook::<DriftWm, _>(surface, |state, _dh, surface| {
+            state.tiling_pre_commit(surface);
+        });
+
         // DMA-BUF readiness blocker. Must inspect the *pending* buffer here
         // (not in commit()) so the blocker delays the commit it belongs to —
         // by commit() time pending has already merged into current.

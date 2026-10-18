@@ -178,8 +178,9 @@ client event. Timer callbacks are scoped to the layout ID, all-complete batches
 remove the timer, and timed-out requests do not reopen on late commits. The
 `tiling_pending_configures` debug counter exposes outstanding waits.
 
-This is bookkeeping and readiness protection, not atomic rendering or a commit
-blocker. Geometry is still applied immediately; live-frame reservation still
+This tracker is bookkeeping and readiness protection; the separate pre-commit
+group described below now blocks related buffer commits. Positions still apply
+immediately; live-frame reservation still
 protects against overlap, including after timeout. Client buffers are not rejected
 for being late, and unchanged desired sizes are not resent on timeout. Rounded
 or refused sizes currently time out; they are not treated as exact adoption.
@@ -190,8 +191,8 @@ Pure tests cover superseded generations/serials, a different layout ID, serial
 wraparound, independent completion, exact deadlines, terminal timeout and pruning.
 Headless tests cover ack before commit/buffer, old-size commits after a newer
 request, unchanged-request suppression and late replies after mode exit. The
-next P2 steps are generation-bound completion integration and grouped bounded
-transactions/commit blockers for mapped windows. Extend the P0
+next P2 steps are coordinating stage positions, camera and rendering with the
+group release, and extending supersession/reference coverage. Extend the P0
 semantic audit and reference cases in parallel; do not mark P2 complete yet.
 
 ## Initial sizing before the first buffer
@@ -246,8 +247,8 @@ records derivation and assumptions. New real-client tests cover reversed first-
 buffer arrival, focus changes while unbuffered and closure before the first
 buffer, including geometry, identity, selection, camera and waiter cleanup.
 This is a reference-conformance and roadmap correction; current runtime behavior
-already matched these controlled cases. Grouped mapped-window transactions are
-the next P2 implementation task.
+already matched these controlled cases. Mapped-window buffer grouping is now
+connected as described below; position/rendering coordination remains pending.
 
 ## Layout identity and sizing inputs
 
@@ -303,7 +304,7 @@ For the latest implementation batch:
 
 - `dev/scripts/ci-local` passed every stage, including ignored tests and isolated soak.
 - `PROPTEST_CASES=4000 cargo test --lib --quiet` passed all 366 library tests.
-- The headless tiling/session coverage includes 38 scenarios, including direct
+- The headless tiling/session coverage includes 44 scenarios, including direct
   operation restoration, reorder and
   preservation of camera/pointer coordinates and camera targets.
 - The reference inventory regenerates byte-for-byte from the pinned checkout.
@@ -356,16 +357,39 @@ commits. Completion is terminal and only the transition reports a wake-up.
 Five deterministic library tests cover peer coordination, timeout, cleanup,
 generation rejection, wraparound and isolation.
 
-This is infrastructure only: reflow still applies positions immediately and no
-tiling blocker is installed on surfaces. Next integrate with mapped-toplevel
-pre-commit hooks, associate configure serials with group participants, register
-the common deadline, and notify each affected client through
-`CompositorClientState::blocker_cleared` after releasing the barrier. Do not wait
-for the existing post-commit `ConfigureBatch` to complete a blocked group.
-Ensure mode exit, supersession, unmap and disconnect release and wake clients;
-`CommitGroup` drop signals its barrier but does not itself dispatch wake-ups.
-Add real-client tests before claiming atomic commit/rendering behavior.
+Mapped-toplevel pre-commit hooks now install the group's barrier for new-buffer
+commits whose acknowledged serial meets the participant request. Ack-only and
+empty commits cannot mark a participant ready. All arrivals, timeout, dead-stage
+participant removal, supersession and mode exit release queued buffers. Wake-ups
+use calloop idle callbacks and `CompositorClientState::blocker_cleared`, avoiding
+re-entrancy while Smithay constructs its transaction. Timer insertion failure
+also releases the group. The existing per-view timer includes the group deadline.
+Superseding groups carry only still-waiting requests, update replaced serials and
+keep the earliest inherited deadline rather than extending a stalled peer's wait.
+Initial unbuffered windows remain outside membership and these groups.
 
-Validation for this foundation: `PROPTEST_CASES=4000 cargo test --lib --quiet`
-passed all 366 tests; `dev/scripts/ci-local` passed all stages, including ignored
-tests and the isolated soak. No new graphical/headless atomicity claim is made.
+Six real-client scenarios cover cross-client waiting, completion, timeout without
+a peer commit, disconnect, mode exit, client-chosen sizes and supersession. The
+exact-size post-commit diagnostic tracker remains separate: a refused size can
+release a group while its diagnostic request eventually times out.
+
+Positions, camera and rendering still are not committed as one transaction.
+Reflow applies stage positions immediately and retains live-frame reservation.
+Supersession releases already queued older buffers, which can expose an interim
+size, as also noted in pinned niri's `take_pending_transaction` comments. Next
+coordinate placement/view changes and rendering with group completion and test
+rapid resize/structural changes; do not mark P2 complete or claim frame atomicity.
+
+## Progress estimate
+
+The user-facing estimate is roughly 15–20% of the complete behavioral goal.
+This is an engineering estimate, not a count of checked boxes: phases have very
+different sizes and the plan defines no weighted percentage. P1's single-container
+foundation is implemented; P0, P2, P3, P4 and P5 have partial evidence and behavior.
+P6–P15 still need their main implementations/audits. Baseline functionality and
+scaffolding in a phase do not satisfy that phase's completion criteria.
+
+Validation for pre-commit integration: `PROPTEST_CASES=4000 cargo test --lib --quiet`
+passed all 366 tests; the tiling-filtered binary run passed 44 tests, including
+six new group scenarios. `dev/scripts/ci-local` passed every stage, including
+ignored tests and the isolated soak. No graphical validation was performed.

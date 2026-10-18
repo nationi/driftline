@@ -36,6 +36,18 @@ impl CommitGroup {
         }
     }
 
+    pub fn pending_requests(&self) -> &HashMap<ElementId, Serial> {
+        &self.waiting
+    }
+
+    pub fn accepts(&self, id: ElementId, serial: Serial) -> bool {
+        !self.released
+            && self
+                .waiting
+                .get(&id)
+                .is_some_and(|expected| serial >= *expected)
+    }
+
     pub fn blocker(&self) -> Barrier {
         self.barrier.clone()
     }

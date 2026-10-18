@@ -20,6 +20,7 @@ pub(crate) struct TilingView {
     anchor: Option<(driftwm::stage::ColumnId, i32)>,
     close_return: Option<CloseReturnView>,
     configures: scrolling::transaction::ConfigureBatch,
+    commits: Option<TilingCommits>,
     configure_timer: Option<smithay::reexports::calloop::RegistrationToken>,
     initial_configures:
         std::collections::HashMap<driftwm::stage::ElementId, InitialTilingConfigure>,
@@ -27,6 +28,12 @@ pub(crate) struct TilingView {
         driftwm::stage::ElementId,
         smithay::utils::Rectangle<i32, Logical>,
     )>,
+}
+
+struct TilingCommits {
+    group: scrolling::commit_group::CommitGroup,
+    generation: scrolling::transaction::LayoutGeneration,
+    clients: Vec<smithay::reexports::wayland_server::Client>,
 }
 
 struct InitialTilingConfigure {
@@ -85,6 +92,7 @@ impl DriftWm {
             close_return: None,
             configures: scrolling::transaction::ConfigureBatch::new(layout_id),
             configure_timer: None,
+            commits: None,
             initial_configures: Default::default(),
             revealed: None,
         });
@@ -93,9 +101,13 @@ impl DriftWm {
     }
 
     pub(super) fn exit_tiling(&mut self) {
-        let Some(view) = self.tiling_view.take() else {
+        let Some(mut view) = self.tiling_view.take() else {
             return;
         };
+        if let Some(mut commits) = view.commits.take() {
+            commits.group.cancel();
+            self.wake_tiling_clients(commits.clients);
+        }
         if let Some(timer) = view.configure_timer {
             self.loop_handle.remove(timer);
         }
@@ -544,6 +556,8 @@ impl DriftWm {
             }
             extra_x += reserved_width - desired_width;
         }
+        self.expire_tiling_commits(now);
+        let mut requests = std::collections::HashMap::new();
         let mut changed = false;
         for placement in &placements {
             let Some(element) = self.stage.window_by_id(placement.id).cloned() else {
@@ -564,9 +578,38 @@ impl DriftWm {
                         .unwrap()
                         .configures
                         .record(placement.id, serial, now);
+                    requests.insert(placement.id, serial);
                 }
                 changed = true;
             }
+        }
+        if !requests.is_empty() {
+            let mut group_started_at = now;
+            if let Some(mut previous) = self.tiling_view.as_mut().unwrap().commits.take() {
+                for (&id, &serial) in previous.group.pending_requests() {
+                    if self.stage.is_tiled(id) {
+                        group_started_at = group_started_at.min(
+                            previous.group.deadline() - scrolling::transaction::CONFIGURE_TIMEOUT,
+                        );
+                        requests.entry(id).or_insert(serial);
+                    }
+                }
+                previous.group.cancel();
+                self.wake_tiling_clients(previous.clients);
+            }
+            let clients = requests
+                .keys()
+                .filter_map(|id| self.stage.window_by_id(*id)?.wl_surface()?.client())
+                .collect();
+            self.tiling_view.as_mut().unwrap().commits = Some(TilingCommits {
+                group: scrolling::commit_group::CommitGroup::new(
+                    generation,
+                    requests,
+                    group_started_at,
+                ),
+                generation,
+                clients,
+            });
         }
         self.tiling_view.as_mut().unwrap().configures.advance(now);
         for placement in &placements {
@@ -681,6 +724,100 @@ impl DriftWm {
         }
     }
 
+    fn wake_tiling_clients(&self, clients: Vec<smithay::reexports::wayland_server::Client>) {
+        // Pre-commit hooks run while Smithay is building a transaction. Dispatch
+        // released commits only after that stack has unwound.
+        self.loop_handle.insert_idle(move |state| {
+            for client in clients {
+                if let Some(client_state) = client.get_data::<super::ClientState>() {
+                    let dh = state.display_handle.clone();
+                    client_state.compositor_state.blocker_cleared(state, &dh);
+                }
+            }
+        });
+    }
+
+    fn expire_tiling_commits(&mut self, now: std::time::Instant) {
+        let Some(commits) = self.tiling_view.as_mut().and_then(|v| v.commits.as_mut()) else {
+            return;
+        };
+        let mut released = commits.group.expire(now);
+        let dead: Vec<_> = commits
+            .group
+            .pending_requests()
+            .keys()
+            .copied()
+            .filter(|id| !self.stage.is_tiled(*id) || self.stage.window_by_id(*id).is_none())
+            .collect();
+        for id in dead {
+            released |= commits.group.remove(id);
+        }
+        if released {
+            let commits = self.tiling_view.as_mut().unwrap().commits.take().unwrap();
+            self.wake_tiling_clients(commits.clients);
+        }
+    }
+
+    pub(crate) fn tiling_pre_commit(
+        &mut self,
+        surface: &smithay::reexports::wayland_server::protocol::wl_surface::WlSurface,
+    ) {
+        use smithay::wayland::compositor::{
+            BufferAssignment, SurfaceAttributes, add_blocker, with_states,
+        };
+        use smithay::wayland::shell::xdg::XdgToplevelSurfaceData;
+        if self
+            .tiling_view
+            .as_ref()
+            .is_none_or(|v| v.commits.is_none())
+        {
+            return;
+        }
+        let Some(id) = self
+            .stage
+            .windows()
+            .find(|w| w.wl_surface().as_deref() == Some(surface))
+            .and_then(|w| self.stage.id_of(w))
+        else {
+            return;
+        };
+        let serial = with_states(surface, |states| {
+            let new_buffer = matches!(
+                states
+                    .cached_state
+                    .get::<SurfaceAttributes>()
+                    .pending()
+                    .buffer,
+                Some(BufferAssignment::NewBuffer(_))
+            );
+            if !new_buffer {
+                return None;
+            }
+            states
+                .data_map
+                .get::<XdgToplevelSurfaceData>()?
+                .lock()
+                .unwrap()
+                .last_acked
+                .as_ref()
+                .map(|c| c.serial)
+        });
+        let Some(serial) = serial else { return };
+        let now = std::time::Instant::now();
+        self.expire_tiling_commits(now);
+        let Some(commits) = self.tiling_view.as_mut().and_then(|v| v.commits.as_mut()) else {
+            return;
+        };
+        if !commits.group.accepts(id, serial) {
+            return;
+        }
+        add_blocker(surface, commits.group.blocker());
+        if commits.group.arrive(commits.generation, id, serial, now) {
+            let commits = self.tiling_view.as_mut().unwrap().commits.take().unwrap();
+            self.wake_tiling_clients(commits.clients);
+        }
+    }
+
     fn arm_tiling_configure_deadline(&mut self) {
         use smithay::reexports::calloop::timer::{TimeoutAction, Timer};
         let Some(view) = self.tiling_view.as_mut() else {
@@ -697,6 +834,7 @@ impl DriftWm {
             .next_deadline()
             .into_iter()
             .chain(initial_deadline)
+            .chain(view.commits.as_ref().map(|c| c.group.deadline()))
             .min()
         else {
             if let Some(timer) = view.configure_timer.take() {
@@ -720,7 +858,13 @@ impl DriftWm {
                 TimeoutAction::Drop
             }) {
             Ok(token) => view.configure_timer = Some(token),
-            Err(error) => tracing::warn!(?error, "Cannot schedule tiling configure deadline"),
+            Err(error) => {
+                tracing::warn!(?error, "Cannot schedule tiling configure deadline");
+                if let Some(mut commits) = view.commits.take() {
+                    commits.group.cancel();
+                    self.wake_tiling_clients(commits.clients);
+                }
+            }
         }
     }
 

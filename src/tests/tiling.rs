@@ -1113,3 +1113,131 @@ fn closing_an_unbuffered_window_does_not_change_tiling_focus_or_camera() {
     assert_eq!(f.state().camera_target(), target);
     assert_eq!(f.state().tiling_pending_configures(), 0);
 }
+
+#[test]
+fn tiling_buffer_commits_wait_for_other_clients_in_the_same_group() {
+    let mut f = Fixture::new();
+    f.add_output(1, (1200, 800));
+    let first = f.add_client();
+    let second = f.add_client();
+    let a = map_window(&mut f, first, "a", (400, 300));
+    let b = map_window(&mut f, second, "b", (350, 250));
+    let wa = window_by_app_id(&mut f, "a").unwrap();
+    let wb = window_by_app_id(&mut f, "b").unwrap();
+    f.state().execute_action(&Action::ToggleTiling);
+    let target_a = last_configured(&mut f, first, &a);
+    let target_b = last_configured(&mut f, second, &b);
+    adopt_last_configure(&mut f, first, &a);
+    assert_eq!(wa.geometry().size, (400, 300).into());
+    assert_eq!(wb.geometry().size, (350, 250).into());
+    adopt_last_configure(&mut f, second, &b);
+    f.double_roundtrip(first);
+    assert_eq!(wa.geometry().size, target_a.into());
+    assert_eq!(wb.geometry().size, target_b.into());
+}
+
+#[test]
+fn exiting_tiling_releases_a_buffer_waiting_for_a_stalled_peer() {
+    let mut f = Fixture::new();
+    f.add_output(1, (1200, 800));
+    let first = f.add_client();
+    let second = f.add_client();
+    let a = map_window(&mut f, first, "a", (400, 300));
+    let b = map_window(&mut f, second, "b", (350, 250));
+    let wa = window_by_app_id(&mut f, "a").unwrap();
+    f.state().execute_action(&Action::ToggleTiling);
+    let target = last_configured(&mut f, first, &a);
+    last_configured(&mut f, second, &b);
+    adopt_last_configure(&mut f, first, &a);
+    assert_eq!(wa.geometry().size, (400, 300).into());
+    f.state().execute_action(&Action::ToggleTiling);
+    f.double_roundtrip(first);
+    assert!(f.state().tiling_view.is_none());
+    assert_eq!(wa.geometry().size, target.into());
+}
+
+#[test]
+fn disconnecting_a_group_participant_releases_the_ready_peer() {
+    let mut f = Fixture::new();
+    f.add_output(1, (1200, 800));
+    let first = f.add_client();
+    let second = f.add_client();
+    let a = map_window(&mut f, first, "a", (400, 300));
+    let b = map_window(&mut f, second, "b", (350, 250));
+    let wa = window_by_app_id(&mut f, "a").unwrap();
+    f.state().execute_action(&Action::ToggleTiling);
+    let target = last_configured(&mut f, first, &a);
+    last_configured(&mut f, second, &b);
+    adopt_last_configure(&mut f, first, &a);
+    assert_eq!(wa.geometry().size, (400, 300).into());
+    f.kill_client(second);
+    f.double_roundtrip(first);
+    f.double_roundtrip(first);
+    assert_eq!(wa.geometry().size, target.into());
+}
+
+#[test]
+fn a_group_deadline_releases_ready_buffers_without_a_peer_commit() {
+    let mut f = Fixture::new();
+    f.add_output(1, (1200, 800));
+    let first = f.add_client();
+    let second = f.add_client();
+    let a = map_window(&mut f, first, "a", (400, 300));
+    let b = map_window(&mut f, second, "b", (350, 250));
+    let wa = window_by_app_id(&mut f, "a").unwrap();
+    f.state().execute_action(&Action::ToggleTiling);
+    let target = last_configured(&mut f, first, &a);
+    last_configured(&mut f, second, &b);
+    adopt_last_configure(&mut f, first, &a);
+    assert_eq!(wa.geometry().size, (400, 300).into());
+    std::thread::sleep(std::time::Duration::from_millis(310));
+    f.pump(4);
+    f.double_roundtrip(first);
+    assert_eq!(wa.geometry().size, target.into());
+}
+
+#[test]
+fn a_client_chosen_buffer_size_does_not_stall_its_group() {
+    let mut f = Fixture::new();
+    f.add_output(1, (1200, 800));
+    let first = f.add_client();
+    let second = f.add_client();
+    let a = map_window(&mut f, first, "a", (400, 300));
+    let b = map_window(&mut f, second, "b", (350, 250));
+    let wa = window_by_app_id(&mut f, "a").unwrap();
+    let wb = window_by_app_id(&mut f, "b").unwrap();
+    f.state().execute_action(&Action::ToggleTiling);
+    let target = last_configured(&mut f, first, &a);
+    last_configured(&mut f, second, &b);
+    adopt_last_configure(&mut f, first, &a);
+    assert_eq!(wa.geometry().size, (400, 300).into());
+    ack_but_keep_size(&mut f, second, &b);
+    f.double_roundtrip(first);
+    assert_eq!(wa.geometry().size, target.into());
+    assert_eq!(wb.geometry().size, (350, 250).into());
+}
+
+#[test]
+fn superseding_a_group_releases_its_queued_buffer_and_keeps_pending_peers() {
+    let mut f = Fixture::new();
+    f.add_output(1, (1200, 800));
+    let first = f.add_client();
+    let second = f.add_client();
+    let a = map_window(&mut f, first, "a", (400, 300));
+    let b = map_window(&mut f, second, "b", (350, 250));
+    let wa = window_by_app_id(&mut f, "a").unwrap();
+    f.state().execute_action(&Action::ToggleTiling);
+    let target = last_configured(&mut f, first, &a);
+    last_configured(&mut f, second, &b);
+    adopt_last_configure(&mut f, first, &a);
+    assert_eq!(wa.geometry().size, (400, 300).into());
+    f.state().execute_action(&Action::CycleColumnWidth);
+    let next_b = last_configured(&mut f, second, &b);
+    f.double_roundtrip(first);
+    assert_eq!(wa.geometry().size, target.into());
+    adopt_last_configure(&mut f, second, &b);
+    assert_eq!(
+        window_by_app_id(&mut f, "b").unwrap().geometry().size,
+        next_b.into()
+    );
+}

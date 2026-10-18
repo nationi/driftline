@@ -188,9 +188,13 @@ immutable set of generation/serial requests, one shared 300 ms deadline,
 participant removal and release on cancellation/drop. Its deterministic tests
 cover peer waiting, exact timeout, stale generations, serial wraparound and
 independent groups. It accepts client-chosen geometry, unlike the existing
-exact-size post-commit diagnostic tracker. It is not installed in surface hooks:
-mapped-window grouped atomic commit handling and rendering transactions
-remain outstanding. A pinned source audit confirms that unbuffered windows
+exact-size post-commit diagnostic tracker. Mapped-toplevel pre-commit hooks now install the barrier on new-buffer replies;
+idle callbacks wake affected clients after all peers arrive, timeout, removal,
+supersession or mode exit. Supersession carries outstanding requests without
+extending their earliest deadline. Real-client tests cover cross-client waiting,
+completion, timeout, disconnect, exit, client-selected sizes and supersession.
+Stage positions still apply immediately; coordinated placement/view changes and
+rendering transactions remain outstanding. A pinned source audit confirms that unbuffered windows
 remain outside the scrolling layout until mapping; do not reserve phantom
 columns or initial-configure order. First-buffer order and mapping-time focus
 are now covered by headless reference scenarios. Live-frame reservation is
