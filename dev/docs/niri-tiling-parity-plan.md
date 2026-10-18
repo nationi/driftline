@@ -193,8 +193,14 @@ idle callbacks wake affected clients after all peers arrive, timeout, removal,
 supersession or mode exit. Supersession carries outstanding requests without
 extending their earliest deadline. Real-client tests cover cross-client waiting,
 completion, timeout, disconnect, exit, client-selected sizes and supersession.
-Stage positions still apply immediately; coordinated placement/view changes and
-rendering transactions remain outstanding. A pinned source audit confirms that unbuffered windows
+Stage positions, camera reveal and anchor/pointer translation now wait for the
+group's buffer commits to apply, or its deadline. Readiness checks actual
+new-buffer application even when an earlier empty commit acknowledged the same
+serial; other surface blockers therefore keep placement deferred too. Reflow
+recomputes the latest placements after client wake-ups. Supersession preserves
+outstanding presentation requests independently of pre-commit arrivals. Full
+render snapshots/animations and a frame-atomic rendering guarantee remain
+outstanding. A pinned source audit confirms that unbuffered windows
 remain outside the scrolling layout until mapping; do not reserve phantom
 columns or initial-configure order. First-buffer order and mapping-time focus
 are now covered by headless reference scenarios. Live-frame reservation is

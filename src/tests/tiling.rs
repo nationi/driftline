@@ -55,12 +55,13 @@ fn refusing_a_resize_reserves_the_live_width_without_configure_loops() {
     f.add_output(1, (1200, 800));
     let client = f.add_client();
     let a = map_window(&mut f, client, "a", (1000, 300));
-    map_window(&mut f, client, "b", (350, 250));
+    let b = map_window(&mut f, client, "b", (350, 250));
     let wa = window_by_app_id(&mut f, "a").unwrap();
     let wb = window_by_app_id(&mut f, "b").unwrap();
     f.state().execute_action(&Action::ToggleTiling);
     f.double_roundtrip(client);
     ack_but_keep_size(&mut f, client, &a);
+    ack_but_keep_size(&mut f, client, &b);
     let count = configure_count(&mut f, client, &a);
     for _ in 0..5 {
         f.state().refresh_and_flush_clients();
@@ -293,6 +294,7 @@ fn grouped_windows_share_height_navigate_and_restore_their_original_rectangles()
     assert!((b_size.1 - c_size.1).abs() <= 1);
     assert!(b_size.1 < 500);
     assert_eq!(b_size.0, c_size.0);
+    adopt_last_configure(&mut f, client, &a);
     adopt_last_configure(&mut f, client, &b);
     adopt_last_configure(&mut f, client, &c);
     assert_eq!(
@@ -374,6 +376,7 @@ fn a_delayed_vertical_resize_reserves_live_height_without_repeated_requests() {
         .execute_action(&Action::MoveIntoColumn(Direction::Left));
     f.double_roundtrip(client);
     ack_but_keep_size(&mut f, client, &a);
+    ack_but_keep_size(&mut f, client, &b);
     assert!(window_position(&mut f, &wb).y >= window_position(&mut f, &wa).y + 700);
     let count = configure_count(&mut f, client, &a);
     for _ in 0..5 {
@@ -386,7 +389,12 @@ fn a_delayed_vertical_resize_reserves_live_height_without_repeated_requests() {
     window.attach_new_buffer();
     window.commit();
     f.double_roundtrip(client);
-    adopt_last_configure(&mut f, client, &b);
+    let (width, height) = last_configured(&mut f, client, &b);
+    let window = f.client(client).window(&b);
+    window.set_size(width as u16, height as u16);
+    window.attach_new_buffer();
+    window.commit();
+    f.double_roundtrip(client);
     assert!(window_position(&mut f, &wb).y < window_position(&mut f, &wa).y + 700);
 }
 
@@ -396,10 +404,14 @@ fn removing_a_left_column_preserves_the_active_column_screen_position_and_flight
     f.add_output(1, (1200, 800));
     let client = f.add_client();
     let a = map_window(&mut f, client, "a", (400, 200));
-    map_window(&mut f, client, "b", (400, 200));
-    map_window(&mut f, client, "c", (400, 200));
+    let b = map_window(&mut f, client, "b", (400, 200));
+    let c = map_window(&mut f, client, "c", (400, 200));
     let wc = window_by_app_id(&mut f, "c").unwrap();
     f.state().execute_action(&Action::ToggleTiling);
+    f.double_roundtrip(client);
+    for surface in [&a, &b, &c] {
+        adopt_last_configure(&mut f, client, surface);
+    }
     f.state().cancel_animations_everywhere();
     let column = f.state().stage.active_column().unwrap();
     let before = window_position(&mut f, &wc);
@@ -533,6 +545,9 @@ fn grouped_configures_follow_reference_sequential_height_rounding() {
     assert_eq!(last_configured(&mut f, client, &a), (600, 201));
     assert_eq!(last_configured(&mut f, client, &b), (600, 202));
     assert_eq!(last_configured(&mut f, client, &c), (600, 201));
+    for surface in [&a, &b, &c] {
+        adopt_last_configure(&mut f, client, surface);
+    }
     let first = window_by_app_id(&mut f, "a").unwrap();
     let origin = window_position(&mut f, &first);
     for (name, y) in [("a", 0), ("b", 201), ("c", 403)] {
@@ -662,9 +677,13 @@ fn closing_a_new_column_restores_the_stationary_view_target_once() {
         f.add_output(1, (1200, 800));
         let client = f.add_client();
         let a = map_window(&mut f, client, "a", (400, 200));
-        map_window(&mut f, client, "b", (400, 200));
+        let b = map_window(&mut f, client, "b", (400, 200));
         let wa = window_by_app_id(&mut f, "a").unwrap();
         f.state().execute_action(&Action::ToggleTiling);
+        f.double_roundtrip(client);
+        for surface in [&a, &b] {
+            adopt_last_configure(&mut f, client, surface);
+        }
         f.state()
             .execute_action(&Action::FocusColumn(Direction::Left));
         let x = f64::from(window_position(&mut f, &wa).x);
@@ -687,6 +706,10 @@ fn closing_a_new_column_restores_the_stationary_view_target_once() {
         } else {
             f.client(opening).window(&c).destroy();
             f.double_roundtrip(opening);
+        }
+        if resized {
+            last_configured(&mut f, client, &a);
+            adopt_last_configure(&mut f, client, &a);
         }
         assert_eq!(f.state().stage.tiled_columns().len(), 2);
         assert_eq!(f.state().camera(), in_flight);
@@ -714,9 +737,13 @@ fn switching_columns_cancels_the_saved_return_view() {
     let mut f = Fixture::with_config(config);
     f.add_output(1, (1200, 800));
     let client = f.add_client();
-    map_window(&mut f, client, "a", (400, 200));
-    map_window(&mut f, client, "b", (400, 200));
+    let a = map_window(&mut f, client, "a", (400, 200));
+    let b = map_window(&mut f, client, "b", (400, 200));
     f.state().execute_action(&Action::ToggleTiling);
+    f.double_roundtrip(client);
+    for surface in [&a, &b] {
+        adopt_last_configure(&mut f, client, surface);
+    }
     f.state()
         .execute_action(&Action::FocusColumn(Direction::Left));
     let camera = f.state().camera();
@@ -1124,16 +1151,30 @@ fn tiling_buffer_commits_wait_for_other_clients_in_the_same_group() {
     let b = map_window(&mut f, second, "b", (350, 250));
     let wa = window_by_app_id(&mut f, "a").unwrap();
     let wb = window_by_app_id(&mut f, "b").unwrap();
+    let positions = [window_position(&mut f, &wa), window_position(&mut f, &wb)];
+    let camera = f.state().camera();
     f.state().execute_action(&Action::ToggleTiling);
+    let target = f.state().camera_target();
     let target_a = last_configured(&mut f, first, &a);
     let target_b = last_configured(&mut f, second, &b);
+    assert_eq!(window_position(&mut f, &wa), positions[0]);
+    assert_eq!(window_position(&mut f, &wb), positions[1]);
     adopt_last_configure(&mut f, first, &a);
+    assert_eq!(window_position(&mut f, &wa), positions[0]);
+    assert_eq!(window_position(&mut f, &wb), positions[1]);
+    assert_eq!(f.state().camera(), camera);
+    assert_eq!(f.state().camera_target(), target);
     assert_eq!(wa.geometry().size, (400, 300).into());
     assert_eq!(wb.geometry().size, (350, 250).into());
     adopt_last_configure(&mut f, second, &b);
     f.double_roundtrip(first);
     assert_eq!(wa.geometry().size, target_a.into());
     assert_eq!(wb.geometry().size, target_b.into());
+    assert!(window_position(&mut f, &wb).x > window_position(&mut f, &wa).x);
+    assert_eq!(
+        window_position(&mut f, &wb).y,
+        window_position(&mut f, &wa).y
+    );
 }
 
 #[test]
@@ -1185,15 +1226,18 @@ fn a_group_deadline_releases_ready_buffers_without_a_peer_commit() {
     let a = map_window(&mut f, first, "a", (400, 300));
     let b = map_window(&mut f, second, "b", (350, 250));
     let wa = window_by_app_id(&mut f, "a").unwrap();
+    let before = window_position(&mut f, &wa);
     f.state().execute_action(&Action::ToggleTiling);
     let target = last_configured(&mut f, first, &a);
     last_configured(&mut f, second, &b);
     adopt_last_configure(&mut f, first, &a);
     assert_eq!(wa.geometry().size, (400, 300).into());
+    assert_eq!(window_position(&mut f, &wa), before);
     std::thread::sleep(std::time::Duration::from_millis(310));
     f.pump(4);
     f.double_roundtrip(first);
     assert_eq!(wa.geometry().size, target.into());
+    assert_ne!(window_position(&mut f, &wa), before);
 }
 
 #[test]
@@ -1226,6 +1270,7 @@ fn superseding_a_group_releases_its_queued_buffer_and_keeps_pending_peers() {
     let a = map_window(&mut f, first, "a", (400, 300));
     let b = map_window(&mut f, second, "b", (350, 250));
     let wa = window_by_app_id(&mut f, "a").unwrap();
+    let before = window_position(&mut f, &wa);
     f.state().execute_action(&Action::ToggleTiling);
     let target = last_configured(&mut f, first, &a);
     last_configured(&mut f, second, &b);
@@ -1235,9 +1280,122 @@ fn superseding_a_group_releases_its_queued_buffer_and_keeps_pending_peers() {
     let next_b = last_configured(&mut f, second, &b);
     f.double_roundtrip(first);
     assert_eq!(wa.geometry().size, target.into());
+    assert_eq!(window_position(&mut f, &wa), before);
     adopt_last_configure(&mut f, second, &b);
+    assert_ne!(window_position(&mut f, &wa), before);
     assert_eq!(
         window_by_app_id(&mut f, "b").unwrap().geometry().size,
         next_b.into()
     );
+}
+
+#[test]
+fn a_pending_merge_preserves_positions_until_both_buffers_arrive() {
+    let config = driftwm::config::Config::from_toml("[snap]\ngap = 0\n").unwrap();
+    let mut f = Fixture::with_config(config);
+    f.add_output(1, (1200, 800));
+    let client = f.add_client();
+    let a = map_window(&mut f, client, "a", (400, 200));
+    let b = map_window(&mut f, client, "b", (400, 200));
+    let wa = window_by_app_id(&mut f, "a").unwrap();
+    let wb = window_by_app_id(&mut f, "b").unwrap();
+    f.state().execute_action(&Action::ToggleTiling);
+    f.double_roundtrip(client);
+    adopt_last_configure(&mut f, client, &a);
+    adopt_last_configure(&mut f, client, &b);
+    let before = [window_position(&mut f, &wa), window_position(&mut f, &wb)];
+    let target = f.state().camera_target();
+    f.state()
+        .execute_action(&Action::MoveIntoColumn(Direction::Left));
+    assert_eq!(f.state().stage.tiled_columns().len(), 1);
+    last_configured(&mut f, client, &a);
+    adopt_last_configure(&mut f, client, &a);
+    assert_eq!(window_position(&mut f, &wa), before[0]);
+    assert_eq!(window_position(&mut f, &wb), before[1]);
+    assert_eq!(f.state().camera_target(), target);
+    adopt_last_configure(&mut f, client, &b);
+    let after_a = window_position(&mut f, &wa);
+    let after_b = window_position(&mut f, &wb);
+    assert_eq!(after_b.x, after_a.x);
+    assert_eq!(after_b.y, after_a.y + 400);
+    assert_eq!(wa.geometry().size, (600, 400).into());
+    assert_eq!(wb.geometry().size, (600, 400).into());
+}
+
+#[test]
+fn tiling_anchor_translation_waits_for_other_surface_blockers_too() {
+    use smithay::reexports::wayland_server::Resource;
+    use smithay::wayland::compositor::{Barrier, add_blocker, add_pre_commit_hook};
+    use smithay::wayland::seat::WaylandFocus;
+
+    let config = driftwm::config::Config::from_toml("[snap]\ngap = 0\n").unwrap();
+    let mut f = Fixture::with_config(config);
+    f.add_output(1, (1200, 800));
+    let client = f.add_client();
+    let a = map_window(&mut f, client, "a", (400, 200));
+    let b = map_window(&mut f, client, "b", (400, 200));
+    let c = map_window(&mut f, client, "c", (400, 200));
+    let wa = window_by_app_id(&mut f, "a").unwrap();
+    let wc = window_by_app_id(&mut f, "c").unwrap();
+    f.state().execute_action(&Action::ToggleTiling);
+    f.double_roundtrip(client);
+    for surface in [&a, &b, &c] {
+        adopt_last_configure(&mut f, client, surface);
+    }
+    let before = window_position(&mut f, &wc);
+    f.state().cancel_animations_everywhere();
+    let camera = (f64::from(before.x) - 100.0, 0.0).into();
+    f.state().set_camera(camera);
+    let target = camera + smithay::utils::Point::from((40.0, 0.0));
+    f.state().set_camera_target(Some(target));
+    let pointer = f.state().seat.get_pointer().unwrap().current_location();
+    f.client(client).window(&a).set_min_size(900, 0);
+    f.client(client).window(&a).commit();
+    assert_eq!(last_configured(&mut f, client, &a), (900, 800));
+    f.client(client).window(&a).ack_last_and_commit();
+    f.double_roundtrip(client);
+    let surface = wa.wl_surface().unwrap().into_owned();
+    let barrier = Barrier::new(false);
+    let blocker = barrier.clone();
+    let hook = add_pre_commit_hook::<crate::state::DriftWm, _>(&surface, move |_, _, s| {
+        add_blocker(s, blocker.clone());
+    });
+    let window = f.client(client).window(&a);
+    window.set_size(900, 800);
+    window.attach_new_buffer();
+    window.commit();
+    f.double_roundtrip(client);
+    assert_eq!(wa.geometry().size, (600, 800).into());
+    assert_eq!(window_position(&mut f, &wc), before);
+    assert_eq!(f.state().camera(), camera);
+    assert_eq!(f.state().camera_target(), Some(target));
+    assert_eq!(
+        f.state().seat.get_pointer().unwrap().current_location(),
+        pointer
+    );
+    f.client(client).window(&b).set_min_size(700, 0);
+    f.client(client).window(&b).commit();
+    assert_eq!(last_configured(&mut f, client, &b), (700, 800));
+    adopt_last_configure(&mut f, client, &b);
+    assert_eq!(window_position(&mut f, &wc), before);
+    assert_eq!(f.state().camera(), camera);
+    assert_eq!(f.state().camera_target(), Some(target));
+    barrier.signal();
+    let owner = surface.client().unwrap();
+    let client_state = owner.get_data::<crate::state::ClientState>().unwrap();
+    let dh = f.state().display_handle.clone();
+    client_state
+        .compositor_state
+        .blocker_cleared(f.state(), &dh);
+    f.double_roundtrip(client);
+    let after = window_position(&mut f, &wc);
+    assert_eq!(after.x - before.x, 400);
+    assert_eq!(wa.geometry().size, (900, 800).into());
+    assert_eq!(f.state().camera().x, camera.x + 400.0);
+    assert_eq!(f.state().camera_target().unwrap().x, target.x + 400.0);
+    assert_eq!(
+        f.state().seat.get_pointer().unwrap().current_location(),
+        pointer + smithay::utils::Point::from((400.0, 0.0))
+    );
+    smithay::wayland::compositor::remove_pre_commit_hook(&surface, &hook);
 }

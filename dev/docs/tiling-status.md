@@ -179,8 +179,8 @@ remove the timer, and timed-out requests do not reopen on late commits. The
 `tiling_pending_configures` debug counter exposes outstanding waits.
 
 This tracker is bookkeeping and readiness protection; the separate pre-commit
-group described below now blocks related buffer commits. Positions still apply
-immediately; live-frame reservation still
+group described below now blocks related buffer commits. Positions and view updates now wait for buffer application or the deadline
+as described below; live-frame reservation still
 protects against overlap, including after timeout. Client buffers are not rejected
 for being late, and unchanged desired sizes are not resent on timeout. Rounded
 or refused sizes currently time out; they are not treated as exact adoption.
@@ -191,8 +191,8 @@ Pure tests cover superseded generations/serials, a different layout ID, serial
 wraparound, independent completion, exact deadlines, terminal timeout and pruning.
 Headless tests cover ack before commit/buffer, old-size commits after a newer
 request, unchanged-request suppression and late replies after mode exit. The
-next P2 steps are coordinating stage positions, camera and rendering with the
-group release, and extending supersession/reference coverage. Extend the P0
+next P2 steps are rendering/snapshot coordination and extending
+supersession/reference coverage. Extend the P0
 semantic audit and reference cases in parallel; do not mark P2 complete yet.
 
 ## Initial sizing before the first buffer
@@ -304,7 +304,7 @@ For the latest implementation batch:
 
 - `dev/scripts/ci-local` passed every stage, including ignored tests and isolated soak.
 - `PROPTEST_CASES=4000 cargo test --lib --quiet` passed all 366 library tests.
-- The headless tiling/session coverage includes 44 scenarios, including direct
+- The headless tiling/session coverage includes 46 scenarios, including direct
   operation restoration, reorder and
   preservation of camera/pointer coordinates and camera targets.
 - The reference inventory regenerates byte-for-byte from the pinned checkout.
@@ -373,12 +373,10 @@ a peer commit, disconnect, mode exit, client-chosen sizes and supersession. The
 exact-size post-commit diagnostic tracker remains separate: a refused size can
 release a group while its diagnostic request eventually times out.
 
-Positions, camera and rendering still are not committed as one transaction.
-Reflow applies stage positions immediately and retains live-frame reservation.
-Supersession releases already queued older buffers, which can expose an interim
-size, as also noted in pinned niri's `take_pending_transaction` comments. Next
-coordinate placement/view changes and rendering with group completion and test
-rapid resize/structural changes; do not mark P2 complete or claim frame atomicity.
+Positions and view updates now wait as described below. Supersession releases
+already queued older buffers, which can expose an interim size, as also noted
+in pinned niri's `take_pending_transaction` comments. Rendering snapshots and
+animations remain outstanding; do not mark P2 complete or claim frame atomicity.
 
 ## Progress estimate
 
@@ -393,3 +391,44 @@ Validation for pre-commit integration: `PROPTEST_CASES=4000 cargo test --lib --q
 passed all 366 tests; the tiling-filtered binary run passed 44 tests, including
 six new group scenarios. `dev/scripts/ci-local` passed every stage, including
 ignored tests and the isolated soak. No graphical validation was performed.
+
+
+## Deferred placement and view application
+
+Reflow still changes stage topology/focus and sends configures immediately, but
+now defers all tile positions, camera reveal/close return, anchor translation and
+pointer compensation while the group or its wake-up callbacks are pending.
+Presentation requests separately track new-buffer commits actually applied by
+Smithay, before `on_commit_buffer_handler` consumes the current buffer assignment.
+An ack or empty commit with the same serial cannot satisfy this check. Thus a
+second blocker (for example DMA-BUF readiness) cannot make positions apply early.
+Presentation shares the group's deadline, including when a later group supersedes
+it, and retains outstanding applied-buffer waits independently of pre-commit
+arrivals. Expiry uses live-frame reservation to avoid overlap with refused or
+still-delayed geometry. Mode exit discards deferred placement with the view.
+
+After all client wake-ups unwind, reflow recomputes current placements rather
+than replaying an obsolete saved rectangle list. Wake-up counters are scoped to
+the layout lifetime, so old callbacks cannot settle a newly entered mode.
+Logical selection is tracked separately from the last presented tile: closing
+or crashing the selected window still restores structural focus while placement
+is pending. Deferred close-return intent survives until placement is applied,
+and a focus change cancels incompatible return intent.
+
+Two additional real-client scenarios cover a pending merge and anchor/camera/
+pointer preservation through another surface blocker, an earlier ack-only commit
+and a superseding resize. Existing group tests now also assert unchanged positions
+while waiting, application after timeout, and latest placement after supersession.
+Earlier geometry/camera tests explicitly deliver replies before asserting settled
+coordinates; refusal tests release all participants before checking reservation.
+
+Next implement rendering/snapshot coordination and broaden rapid supersession,
+remap and cancellation traces. The current change defers compositor geometry;
+it does not freeze imported textures, implement niri animation physics, or prove
+frame-atomic rendering with several asynchronous renderer blockers.
+
+Validation for deferred placement: all 46 tiling-filtered binary tests passed.
+`dev/scripts/ci-local` passed fmt, locked check, strict all-target clippy, all
+regular/ignored tests and the isolated soak after the final supersession fix.
+The library was unchanged in this batch; the previous 4000-case property evidence
+still applies. Graphical/rendered-frame validation remains outstanding.

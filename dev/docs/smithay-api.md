@@ -598,3 +598,19 @@ owner does not signal outstanding clones automatically. Use `Released` to allow
 queued commits on layout cancellation; `Cancelled` discards changes. Signalling
 alone does not dispatch queued commits: notify the affected client's compositor
 state with `blocker_cleared(data, &display_handle)` on the event-loop thread.
+
+
+### Observing applied buffer assignments
+
+`SurfaceAttributes` in `with_states(surface, ...)` exposes `current().buffer` as
+`Option<BufferAssignment>`. Inspect `NewBuffer` at the start of the compositor
+commit callback, after blockers release and xdg cached state applies, before
+`on_commit_buffer_handler` runs: the renderer's `update_buffer` consumes this
+assignment with `attrs.buffer.take()`. Reading the cached xdg serial alone also
+accepts earlier empty/ack-only commits, so it does not prove a new buffer applied.
+Copy values out before re-entering other surface userdata APIs.
+
+`remove_pre_commit_hook(surface: &WlSurface, hook_id: &HookId)` unregisters a hook;
+`add_pre_commit_hook::<D, _>` returns its `HookId`. The synthetic surface blocker
+in the tiling headless test uses this to exercise deferred buffer application
+without requiring a GPU or DMA-BUF.

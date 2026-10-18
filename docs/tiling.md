@@ -102,5 +102,7 @@ width presets. The fixed presets are one third, one half and full usable width.
 Related size requests now coordinate new buffer commits: an early reply waits
 for the other affected windows, for at most 300 ms. A window may choose a
 different size without holding up the group. Closing a participant or leaving
-tiling releases waiting buffers. Positions and view changes still apply
-immediately, so this is not yet a guarantee of a visually atomic layout change.
+tiling releases waiting buffers. Window positions and view adjustments wait
+until the corresponding buffers apply or the deadline expires. Refused sizes
+still reserve enough space for the visible window. Rendering animations and
+complete visual atomicity are not implemented yet.

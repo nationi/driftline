@@ -204,6 +204,7 @@ impl CompositorHandler for DriftWm {
         &mut self,
         surface: &smithay::reexports::wayland_server::protocol::wl_surface::WlSurface,
     ) {
+        self.tiling_buffer_committed(surface);
         self.commits_since_render = self.commits_since_render.wrapping_add(1);
 
         // Per-surface damage; global dirty would force every CRTC to redraw

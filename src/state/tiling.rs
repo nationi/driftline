@@ -21,6 +21,10 @@ pub(crate) struct TilingView {
     close_return: Option<CloseReturnView>,
     configures: scrolling::transaction::ConfigureBatch,
     commits: Option<TilingCommits>,
+    commit_wakeups: usize,
+    presentation: Option<TilingPresentation>,
+    pending_close_return: Option<CloseReturnView>,
+    selected: Option<driftwm::stage::ElementId>,
     configure_timer: Option<smithay::reexports::calloop::RegistrationToken>,
     initial_configures:
         std::collections::HashMap<driftwm::stage::ElementId, InitialTilingConfigure>,
@@ -28,6 +32,11 @@ pub(crate) struct TilingView {
         driftwm::stage::ElementId,
         smithay::utils::Rectangle<i32, Logical>,
     )>,
+}
+
+struct TilingPresentation {
+    requests: std::collections::HashMap<driftwm::stage::ElementId, smithay::utils::Serial>,
+    deadline: std::time::Instant,
 }
 
 struct TilingCommits {
@@ -93,6 +102,10 @@ impl DriftWm {
             configures: scrolling::transaction::ConfigureBatch::new(layout_id),
             configure_timer: None,
             commits: None,
+            commit_wakeups: 0,
+            presentation: None,
+            pending_close_return: None,
+            selected: None,
             initial_configures: Default::default(),
             revealed: None,
         });
@@ -377,8 +390,8 @@ impl DriftWm {
         let previous_active = self.stage.active_column();
 
         let selected_closed = view
-            .revealed
-            .is_some_and(|(id, _)| self.stage.window_by_id(id).is_none());
+            .selected
+            .is_some_and(|id| self.stage.window_by_id(id).is_none());
         let recover_focus = selected_closed
             && !self.suppress_auto_anchor
             && self.focused_anchor_element().is_none();
@@ -563,10 +576,6 @@ impl DriftWm {
             let Some(element) = self.stage.window_by_id(placement.id).cloned() else {
                 continue;
             };
-            if self.stage.position_of(&element) != Some(placement.content.loc) {
-                self.stage.set_position(&element, placement.content.loc);
-                changed = true;
-            }
             if let Some(window) = element.client()
                 && configured_window_size(window) != placement.content.size
             {
@@ -595,12 +604,28 @@ impl DriftWm {
                     }
                 }
                 previous.group.cancel();
-                self.wake_tiling_clients(previous.clients);
+                self.settle_tiling_commits(previous.clients);
+            }
+            let mut presentation_requests = requests.clone();
+            if let Some(previous) = self.tiling_view.as_mut().unwrap().presentation.take() {
+                if !previous.requests.is_empty() {
+                    group_started_at = group_started_at
+                        .min(previous.deadline - scrolling::transaction::CONFIGURE_TIMEOUT);
+                }
+                for (id, serial) in previous.requests {
+                    if self.stage.is_tiled(id) {
+                        presentation_requests.entry(id).or_insert(serial);
+                    }
+                }
             }
             let clients = requests
                 .keys()
                 .filter_map(|id| self.stage.window_by_id(*id)?.wl_surface()?.client())
                 .collect();
+            self.tiling_view.as_mut().unwrap().presentation = Some(TilingPresentation {
+                requests: presentation_requests,
+                deadline: group_started_at + scrolling::transaction::CONFIGURE_TIMEOUT,
+            });
             self.tiling_view.as_mut().unwrap().commits = Some(TilingCommits {
                 group: scrolling::commit_group::CommitGroup::new(
                     generation,
@@ -633,6 +658,63 @@ impl DriftWm {
         }
         self.arm_tiling_configure_deadline();
         if changed {
+            self.render.blur_geometry_generation += 1;
+            self.mark_all_dirty();
+        }
+        let return_pair = self
+            .stage
+            .active_column()
+            .zip(self.stage.close_return_column());
+        let new_return = if added {
+            return_pair.and_then(|(opened, previous)| {
+                previous_anchor
+                    .filter(|(column, _)| Some(*column) == previous_active && *column == previous)
+                    .map(|(_, x)| CloseReturnView {
+                        opened,
+                        previous,
+                        offset: stationary_x - f64::from(x),
+                    })
+            })
+        } else {
+            None
+        };
+        if let Some(view) = &mut self.tiling_view {
+            view.selected = self.stage.active_tile();
+            view.close_return = new_return
+                .or(saved_return)
+                .filter(|saved| return_pair == Some((saved.opened, saved.previous)));
+            view.pending_close_return = close_return
+                .or(view.pending_close_return)
+                .filter(|saved| self.stage.active_column() == Some(saved.previous));
+        }
+        if added {
+            self.session_store_mark_dirty();
+        }
+        if self
+            .tiling_view
+            .as_ref()
+            .is_some_and(|v| v.commits.is_some() || v.commit_wakeups != 0)
+            || !self.tiling_presentation_ready(now)
+        {
+            return;
+        }
+        self.tiling_view.as_mut().unwrap().presentation = None;
+        let close_return = self
+            .tiling_view
+            .as_mut()
+            .unwrap()
+            .pending_close_return
+            .take();
+        let mut moved = false;
+        for placement in &placements {
+            if let Some(element) = self.stage.window_by_id(placement.id).cloned()
+                && self.stage.position_of(&element) != Some(placement.content.loc)
+            {
+                self.stage.set_position(&element, placement.content.loc);
+                moved = true;
+            }
+        }
+        if moved {
             self.render.blur_geometry_generation += 1;
             self.mark_all_dirty();
         }
@@ -694,33 +776,81 @@ impl DriftWm {
         {
             self.set_camera_target(Some(target.to_f64()));
         }
-        let return_pair = self
-            .stage
-            .active_column()
-            .zip(self.stage.close_return_column());
-        let new_return = if added {
-            return_pair.and_then(|(opened, previous)| {
-                previous_anchor
-                    .filter(|(column, _)| Some(*column) == previous_active && *column == previous)
-                    .map(|(_, x)| CloseReturnView {
-                        opened,
-                        previous,
-                        offset: stationary_x - f64::from(x),
-                    })
-            })
-        } else {
-            None
-        };
         if let Some(view) = &mut self.tiling_view {
-            view.close_return = new_return
-                .or(saved_return)
-                .filter(|saved| return_pair == Some((saved.opened, saved.previous)));
             view.revealed = selected;
             view.last_usable = Some(usable);
             view.anchor = anchor;
         }
-        if added {
-            self.session_store_mark_dirty();
+    }
+
+    fn tiling_presentation_ready(&self, now: std::time::Instant) -> bool {
+        let Some(presentation) = self
+            .tiling_view
+            .as_ref()
+            .and_then(|v| v.presentation.as_ref())
+        else {
+            return true;
+        };
+        now >= presentation.deadline
+            || presentation
+                .requests
+                .keys()
+                .all(|id| !self.stage.is_tiled(*id))
+    }
+
+    pub(crate) fn tiling_buffer_committed(
+        &mut self,
+        surface: &smithay::reexports::wayland_server::protocol::wl_surface::WlSurface,
+    ) {
+        use smithay::wayland::compositor::{BufferAssignment, SurfaceAttributes, with_states};
+        if self
+            .tiling_view
+            .as_ref()
+            .is_none_or(|v| v.presentation.is_none())
+        {
+            return;
+        }
+        let Some(element) = self
+            .stage
+            .windows()
+            .find(|w| w.wl_surface().as_deref() == Some(surface))
+        else {
+            return;
+        };
+        let Some(id) = self.stage.id_of(element) else {
+            return;
+        };
+        let new_buffer = with_states(surface, |states| {
+            matches!(
+                states
+                    .cached_state
+                    .get::<SurfaceAttributes>()
+                    .current()
+                    .buffer,
+                Some(BufferAssignment::NewBuffer(_))
+            )
+        });
+        if !new_buffer {
+            return;
+        }
+        let serial = element
+            .client()
+            .and_then(|w| w.toplevel())
+            .and_then(|t| t.with_cached_state(|s| s.last_acked.as_ref().map(|c| c.serial)));
+        let Some(presentation) = self
+            .tiling_view
+            .as_mut()
+            .and_then(|v| v.presentation.as_mut())
+        else {
+            return;
+        };
+        if let Some(serial) = serial
+            && presentation
+                .requests
+                .get(&id)
+                .is_some_and(|expected| serial >= *expected)
+        {
+            presentation.requests.remove(&id);
         }
     }
 
@@ -733,6 +863,28 @@ impl DriftWm {
                     let dh = state.display_handle.clone();
                     client_state.compositor_state.blocker_cleared(state, &dh);
                 }
+            }
+        });
+    }
+
+    fn settle_tiling_commits(&mut self, clients: Vec<smithay::reexports::wayland_server::Client>) {
+        let Some(view) = self.tiling_view.as_mut() else {
+            return;
+        };
+        let layout_id = view.layout_id;
+        view.commit_wakeups += 1;
+        self.loop_handle.insert_idle(move |state| {
+            for client in clients {
+                if let Some(client_state) = client.get_data::<super::ClientState>() {
+                    let dh = state.display_handle.clone();
+                    client_state.compositor_state.blocker_cleared(state, &dh);
+                }
+            }
+            if let Some(view) = state.tiling_view.as_mut()
+                && view.layout_id == layout_id
+            {
+                view.commit_wakeups -= 1;
+                state.refresh_tiling();
             }
         });
     }
@@ -754,7 +906,7 @@ impl DriftWm {
         }
         if released {
             let commits = self.tiling_view.as_mut().unwrap().commits.take().unwrap();
-            self.wake_tiling_clients(commits.clients);
+            self.settle_tiling_commits(commits.clients);
         }
     }
 
@@ -814,7 +966,7 @@ impl DriftWm {
         add_blocker(surface, commits.group.blocker());
         if commits.group.arrive(commits.generation, id, serial, now) {
             let commits = self.tiling_view.as_mut().unwrap().commits.take().unwrap();
-            self.wake_tiling_clients(commits.clients);
+            self.settle_tiling_commits(commits.clients);
         }
     }
 
@@ -835,6 +987,12 @@ impl DriftWm {
             .into_iter()
             .chain(initial_deadline)
             .chain(view.commits.as_ref().map(|c| c.group.deadline()))
+            .chain(
+                view.presentation
+                    .as_ref()
+                    .filter(|p| p.deadline > std::time::Instant::now())
+                    .map(|p| p.deadline),
+            )
             .min()
         else {
             if let Some(timer) = view.configure_timer.take() {
@@ -860,9 +1018,10 @@ impl DriftWm {
             Ok(token) => view.configure_timer = Some(token),
             Err(error) => {
                 tracing::warn!(?error, "Cannot schedule tiling configure deadline");
+                view.presentation = None;
                 if let Some(mut commits) = view.commits.take() {
                     commits.group.cancel();
-                    self.wake_tiling_clients(commits.clients);
+                    self.settle_tiling_commits(commits.clients);
                 }
             }
         }
