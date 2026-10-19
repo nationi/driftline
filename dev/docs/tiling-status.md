@@ -1146,3 +1146,18 @@ replacement, native session restart, push or manual validation of this batch
 was performed. The user's prior successful TTY report covers `2f1e5b4`, not
 these menu/late-response changes. Unrelated output-management files remain
 outside this commit.
+
+## Native menu confirmation and preview reference (2026-10-19)
+
+After testing the updated direct TTY preview, the user reported that the menu
+stays in place without lag. This manually validates that popup scenario for
+`059556e`; it does not validate synthetic delayed-client cases, all chrome
+transitions or multi-output behavior. The earlier pending-native statements
+above describe the state at commit time.
+
+Added [a local TTY preview cheat sheet](tty-preview.md), verified against the
+existing launcher and preview config: startup, output selection, exact keys,
+return/exit and a short visual check. This is documentation only; no compositor
+code, installed binary, running session or user config was changed. Checked
+with `git diff --check`; no runtime tests were needed. Remaining work and the
+unfinished P0 gate above are unchanged.
