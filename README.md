@@ -11,7 +11,11 @@ https://github.com/user-attachments/assets/155511a6-0a6e-4681-9061-21be1e93e02a
 
 Traditional window managers arrange windows to fit your screen. Stacking compositors do so by piling windows on top of each other; tiling compositors do so by squeezing them to fit and utilizing workspaces.
 
-`driftwm` is an infinite-canvas compositor: windows live at their native size on an infinite 2D canvas, and your display is a camera viewing it. When two windows come close, they snap together, forming implicit groups that can be moved, resized, and viewed together. No tiling, no workspaces, window overlaps happen only on purpose.
+`driftwm` is an infinite-canvas compositor: windows live at their native size on an infinite 2D canvas, and your display is a camera viewing it. When two windows come close, they snap together, forming implicit groups that can be moved, resized, and viewed together. Canvas mode has no workspaces; window overlaps happen only on purpose.
+
+This fork also provides [experimental single-output scrolling tiling](docs/tiling.md).
+See [development status](dev/docs/tiling-status.md) for progress toward niri behavior
+and [the local TTY cheat sheet](dev/docs/tty-preview.md) for this checkout’s preview.
 
 Designed with laptops in mind: navigation and window management are trackpad-first; the infinite canvas makes the most of a small screen.
 

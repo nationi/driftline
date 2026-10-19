@@ -90,3 +90,12 @@ connector, including after hotplug. This is useful for the experimental
 single-output tiling mode. Omit the option for normal output discovery; it does
 not implement independent multi-output tiling. Run from a separate TTY and use
 an isolated config/session file to preserve the main desktop.
+
+For this checkout's isolated launcher, keys and return path, see
+[the local TTY guide](tty-preview.md). Direct udev is the visual acceptance
+environment for the current NVIDIA blur work; nested winit still has
+artifacts/lag. The surfaceless GLES helper self-skips without EGL; current local
+pixel evidence comes from NVIDIA RTX 3060, not an assumed Mesa software renderer.
+Record automated checks and manual observations separately in
+[the maintained status](tiling-status.md), with detailed logs in
+[history](tiling-history.md).

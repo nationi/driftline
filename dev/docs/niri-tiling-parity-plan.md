@@ -1,7 +1,8 @@
 # Niri tiling parity: execution plan
 
-Status: active roadmap; implementation is at the experimental multi-window-column
-stage. This document supersedes the remaining delivery sequence in
+Status (2026-10-19): active roadmap; single-container topology is established,
+with bounded commit groups and partial retained-rendering/animation support.
+This document supersedes the remaining delivery sequence in
 [the initial proposal](scrolling-tiling-plan.md). It does not claim parity today.
 For current handoff context and the next unfinished task, read
 [tiling development status](tiling-status.md).
@@ -63,10 +64,11 @@ fit/fill, pin, snap clusters, bookmarks and suspended stand-ins.
 
 ## Current baseline and known differences
 
-Commits: `2b61c79` establishes the mode; `0fc1309` adds multi-window columns.
-Last implementation validation: full local CI, 361 library tests with 4000
-property cases, and 38 headless tiling/session scenarios. These validate the
-implementation, not behavioral equivalence to niri.
+Implementation baseline: `059556e`. The latest full local CI passed 368 library
+and 1452 binary tests including isolated soak, plus integration suites; the
+release build passed. Direct TTY testing confirmed the latest menu scenario
+without lag. These checks validate controlled implementation cases, not niri
+parity. See [current evidence and limits](tiling-status.md#verified-evidence-and-its-limits).
 
 | Area | Current state | Remaining parity work |
 | --- | --- | --- |
@@ -75,8 +77,8 @@ implementation, not behavioral equivalence to niri.
 | Width | Hardcoded 1/3, 1/2, 1 presets; integer frame widths | Configurable forward/back presets, reference defaults, sizing units and gaps |
 | Height | Equal content-space allocation with min/max | Automatic weights, fixed/preset heights, frame-space weighting and reset |
 | View | Reveal focused rectangle; horizontal generic momentum | Column-relative anchoring, centering modes, snap physics and interruption |
-| Mapping | Canvas placement followed by enrollment during refresh | Tiling-aware initial configure and atomic placement |
-| Client response | Reserve live width/height while requesting target sizes | Serial/generation tracking, bounded transactions and reference response policy |
+| Mapping | Initial tiling size offer; enrollment after first buffer using mapping-time focus | Broader rule/context coverage; preserve no-phantom-column behavior |
+| Client response | Serial/generation tracking, 300 ms commit groups, deferred placement and retained images | Full rendering/transition acceptance and reference response policy |
 | Floating | Dialogs and special windows excluded from tiling | Stationary floating layer, explicit toggles and focus routing |
 | Fullscreen/fit/pin | Most conflicting operations leave the mode | Fullscreen/full-width/maximize transitions retaining topology |
 | Input | Focus four directions, width cycle, merge/split | Full action surface, interactive resize, drag insertion, touch and tablet |
@@ -205,14 +207,15 @@ applies; output composition replaces their live trees in the normal z-order.
 Completion, timeout, mode exit and dead IDs release these images. GLES pixel
 scenarios cover an independent buffer blocker, normal release, timeout, exit and
 shadow placement. Popup trees now have separate unclipped images, preserving manager order and
-surface/geometry offsets. Popup membership/geometry changes fall back to live
-rendering so newly opened or dismissed menus are not hidden or stranded. Frozen windows now retain blur requests using saved geometry and client regions,
+surface/geometry offsets. Popup membership/geometry/content changes switch only
+popups to live rendering; the parent image remains held. Frozen windows retain
+blur requests using saved geometry and client regions,
 while the backdrop continues through the live blur pipeline. Their shadows draw
-below the frost rather than inside the flattened content. Animated windows and
-failed captures still retain live rendering. Starting a size/frame-conversion
-animation releases previously captured parent/popup images
-for that window and invalidates its saved blur geometry; unaffected peers stay
-frozen. Opening scale/opacity started after capture now uses the retained picture,
+below the frost rather than inside the flattened content. Failed captures and
+unsupported animation/frame-conversion states use live fallback; supported
+opening, translation and resize states retain or transfer their saved pictures
+as described below. Unaffected peers stay frozen. Opening scale/opacity started
+after capture now uses the retained picture,
 including a fade inherited by a subsequent position chase. Position-only
 canvas chases started after capture now preserve the old textures and translate
 parent, popups, shadow and frost together using output-space transforms.
@@ -511,30 +514,21 @@ Only then describe the implementation as complete niri tiling parity.
 
 ## Concrete next implementation batch
 
-The source inventory, stable column IDs, structural reorder and horizontal
-anchor preservation have landed. Continue unfinished P0/P1 work before drag-and-drop.
+The single-container P1 foundation and mapped-window bounded transactions have
+landed. Do not reimplement them from older history entries. Current priority:
 
-1. Finish the inventory's custom-decoder audit and extend
-   [reference operation fixtures](niri-reference-traces.md) beyond the controlled
-   geometry/fit/closure subset. Extend selection histories and cover gaps,
-   constraints, gesture/batched-enrollment return offsets and complete camera
-   lifecycle. Static and animation-target close-return restoration now has
-   headless coverage, including resized columns and client crashes.
-2. Stable layout identity and separate tile/column sizing inputs have landed;
-   preserve empty-layout lifetime and per-window constraints in later changes.
-3. Extend the shared transition policy when retained floating/fullscreen lands;
-   keep direct-call and action-dispatch regression coverage.
-4. Extend structural operations to first/last/index and swap with reference
-   semantics and evidence; current reorder is not full P4 completion.
-5. Extend the implemented P2 generation/serial and initial-size-offer foundation
-   with grouped bounded transactions for mapped windows. Mapping-time column
-   ownership is intentional and reference-tested. Use it for P3 settings and P5
-   gesture snapping after the remaining acceptance checks.
+1. Finish P0 custom-decoder/public-option/default and ID-action audit; extend
+   [reference fixtures](niri-reference-traces.md) beyond the controlled subset.
+2. Complete focused P2/P13 acceptance: SSD/border/shadow continuity on release,
+   degraded capped capture, changing scale/view/output, and motion-time lifecycle.
+   Keep direct TTY visual checks separate from the unresolved nested NVIDIA bug.
+3. Follow P3 sizing/settings and P5 view-model dependencies after those gates;
+   extend P4 reference operations with explicit semantics and fixtures.
 
-Suggested commit boundaries: inventory/docs; stable topology; structural actions;
-configure lifecycle; sizing configuration; gesture view model. Each commit must
-be reviewable and build independently. Keep pre-existing output-management work
-out of tiling commits unless its owner explicitly joins it to this task.
+Use [the maintained status](tiling-status.md) for current evidence and
+[the TTY guide](tty-preview.md) for local test keys. Keep commits focused and
+exclude the pre-existing output-management work. This roadmap supplies no
+weighted completion percentage; partial tests do not close a milestone.
 
 ## Working rules for continuing agents
 

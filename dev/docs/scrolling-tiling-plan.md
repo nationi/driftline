@@ -1,4 +1,8 @@
-# Scrolling tiling: implementation proposal
+# Scrolling tiling: historical implementation proposal
+
+Archived proposal, not the current task queue. Its validation suggestions and
+implementation notes reflect the initial feature. Use [current status](tiling-status.md)
+and [the TTY guide](tty-preview.md) for today’s evidence and local workflow.
 
 The full-parity goal and subsequent execution order now live in
 [Niri tiling parity: execution plan](niri-tiling-parity-plan.md). This document
@@ -206,4 +210,5 @@ follow the initial feature. They need not block a usable scrolling mode.
   property-test pass from `dev/docs/testing.md`.
 
 The mode is covered by the headless compositor fixture; gesture feel and visual
-behavior still need manual validation in a nested compositor session.
+behavior were originally intended for nested manual validation. Current visual
+acceptance uses direct udev TTY: nested NVIDIA blur remains unreliable.

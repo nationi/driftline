@@ -6,6 +6,12 @@ the inert resize band — lives in [caveats.md](caveats.md); do not re-file it
 here. Line numbers drift; re-verify on pickup. Profiling tooling:
 [profiling.md](profiling.md).
 
+## Tiling fork
+
+Track tiling work in [the current status](tiling-status.md) and
+[parity roadmap](niri-tiling-parity-plan.md), with local keys in
+[the TTY guide](tty-preview.md). Avoid a second tiling task list here.
+
 ## Pointer focus
 
 - **One hit test, not two.** `focus_under` (`src/state/viewport_animation.rs`)

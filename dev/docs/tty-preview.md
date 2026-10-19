@@ -4,6 +4,10 @@ These commands describe nationi's local isolated preview, not default driftwm
 bindings. The launcher uses the current `target/release/driftwm` binary, a
 separate config, runtime directory and session file.
 
+Current implementation baseline: `059556e` (2026-10-19). See
+[status and remaining work](tiling-status.md) or [the general user guide](../../docs/tiling.md).
+The launcher/config are local files outside Git; a fresh clone does not include them.
+
 ## Start and return
 
 1. Press **Ctrl+Alt+F3** and log in as `nationi`.
@@ -52,6 +56,15 @@ not pin the binary to that commit.
 The user confirmed the menu scenario stays in place without lag on the direct
 udev backend. Artificially delayed clients still rely on automated coverage.
 Nested NVIDIA presentation remains unsuitable for visual acceptance of blur.
+
+## If only F1 works
+
+Check that you launched with `run-tty.sh`, which restricts the preview to one
+connector. Tiling requires exactly one output; a run enrolling both monitors
+rejects F2 and its dependent layout commands. This does not explain failures of
+F12 or the quit binding, which work independently of tiling.
+
+## Log
 
 Launcher output is saved to
 `~/driftwm-previews/7e32bf5/tty-preview.log` (overwritten on each launch).

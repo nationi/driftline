@@ -5,6 +5,11 @@ contain several windows stacked vertically. It currently supports a single
 connected output. The canvas remains the default; no keybindings change until
 you configure them.
 
+For this checkout’s isolated test session and F1–F12 keys, use the
+[local TTY cheat sheet](../dev/docs/tty-preview.md). The bindings below are
+configuration examples, not that preview’s keys. Development scope and remaining
+work are tracked in [the current status](../dev/docs/tiling-status.md).
+
 Add bindings to `~/.config/driftwm/config.toml`:
 
 ```toml
