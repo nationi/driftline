@@ -150,7 +150,7 @@ impl ViewStamp {
     }
 }
 
-/// Extent of the padded ping-pong pair: the live window extent grown by the
+/// Extent of the padded blur pyramid: the live window extent grown by the
 /// blur reach on every side.
 ///
 /// Deliberately not quantized, unlike the textures the result is kept in. The
@@ -197,18 +197,18 @@ impl MaskStamp {
     }
 }
 
-/// Per-window cached textures for Kawase blur ping-pong passes.
+/// Per-window cached textures for Dual Kawase blur.
 pub struct BlurCache {
     pub texture: GlesTexture,
     pub mask: GlesTexture,
-    /// Padded ping-pong pair for the exact per-window blur path. Blurring
+    /// Padded blur pyramid for the exact per-window blur path. Blurring
     /// exactly the window rect makes edge samples clamp to the border
     /// pixels, smearing the backdrop inward as a bevel-like band, so the
     /// blur runs on a padded crop and only the centre is kept.
     /// Lazy: the shared path never needs them, and allocating them eagerly
     /// wastes ~10 MB per frosted window.
-    pub pads: Option<(GlesTexture, GlesTexture)>,
-    /// Extent of the pad pair. Exactly [`pad_extent`], never quantized — see
+    pub pads: Option<(GlesTexture, Vec<GlesTexture>)>,
+    /// Extent of the pyramid root. Exactly [`pad_extent`], never quantized — see
     /// there for why.
     pub pad_alloc: Size<i32, Physical>,
     /// Consecutive frames this window has not run the per-window path. The pads
@@ -299,8 +299,8 @@ impl BlurCache {
         })
     }
 
-    /// Create the padded ping-pong pair at `pad_live` — on first use of the
-    /// exact path, and again whenever the live extent moves, since these two
+    /// Create the padded blur pyramid at `pad_live` — on first use of the
+    /// exact path, and again whenever the live extent moves, since the root
     /// may not be sized to anything but the extent being blurred.
     pub fn ensure_pads(
         &mut self,
@@ -314,15 +314,13 @@ impl BlurCache {
         }
         let pad_buf_size = pad_live.to_logical(1).to_buffer(1, Transform::Normal);
         let a = Offscreen::<GlesTexture>::create_buffer(renderer, Fourcc::Abgr8888, pad_buf_size);
-        let b = Offscreen::<GlesTexture>::create_buffer(renderer, Fourcc::Abgr8888, pad_buf_size);
-        if let (Ok(a), Ok(b)) = (a, b) {
+        if let Ok(a) = a {
             // The blur passes sample past these textures' edges; the results land
             // in the padding ring and are cropped away, but the wrap mode still
             // has to be a legal one — an NPOT texture left at the GL default
             // REPEAT is incomplete on GLES 2 and samples black everywhere.
             set_wrap_mode(renderer, &a, wrap);
-            set_wrap_mode(renderer, &b, wrap);
-            self.pads = Some((a, b));
+            self.pads = Some((a, Vec::new()));
             self.pad_alloc = pad_live;
             true
         } else {
@@ -331,7 +329,7 @@ impl BlurCache {
         }
     }
 
-    /// Age the pad pair, freeing it once this window has gone `keep_frames`
+    /// Age the pyramid, freeing it once this window has gone `keep_frames`
     /// without the per-window path. The next frame that needs it re-allocates
     /// through `ensure_pads`.
     fn age_pads(&mut self, keep_frames: u32) {
@@ -365,7 +363,7 @@ impl BlurCache {
     }
 }
 
-/// Per-output shared blurred-background state: the ping-pong pair every
+/// Per-output shared blurred-background state: the blur pyramid every
 /// unoccluded window slices its frost out of, plus the refresh cadence. Keyed
 /// per output in `RenderCache` — outputs differ in size and render on their own
 /// vblanks, so one global entry would thrash (recreate + full re-blur on every
@@ -375,11 +373,11 @@ pub struct SharedBlur {
     /// windows that *don't* sample the texture: one that overlaps something
     /// lower renders its own backdrop, and a frame where every blurred window
     /// does that must not pay a full-output blur nobody reads.
-    pub textures: Option<(GlesTexture, GlesTexture)>,
+    pub textures: Option<(GlesTexture, Vec<GlesTexture>)>,
     /// The textures predate the view/content stamped below, because the beat
     /// ticked on a frame where nothing sampled them. Keeping them around
     /// unrendered — rather than dropping them — is what stops a window sliding
-    /// in and out of occlusion from reallocating a full-output pair per frame.
+    /// in and out of occlusion from reallocating a full-output pyramid per frame.
     pub stale: bool,
     pub size: Size<i32, Physical>,
     pub refreshed_at: Option<std::time::Instant>,
@@ -390,7 +388,7 @@ pub struct SharedBlur {
     /// Consecutive frames the backdrop has not been worth rendering. The
     /// decision is per frame; the allocation deliberately is not, so a window
     /// sliding in and out of occlusion doesn't free and re-allocate a
-    /// full-output pair every frame. Starts unpaid: a lone window has to clear
+    /// full-output pyramid every frame. Starts unpaid: a lone window has to clear
     /// the high threshold to claim the shared path in the first place.
     pub unpaid_frames: u32,
 }
@@ -413,7 +411,7 @@ impl SharedBlur {
 
 /// Retry pacing for the shared backdrop's capture. A failure there is usually
 /// persistent — a lost context, an exhausted GPU — and the retry drops and
-/// re-allocates two output-sized textures, so retrying every frame turns one
+/// re-allocates the output-sized blur pyramid, so retrying every frame turns one
 /// broken renderer into a per-frame allocation storm.
 #[derive(Default)]
 pub struct RenderBackoff {
@@ -458,7 +456,7 @@ impl RenderBackoff {
 /// output-sized allocations back promptly.
 const SHARED_KEEP_FRAMES: u32 = 60;
 
-/// Frames a window's padded ping-pong pair survives without the per-window
+/// Frames a window's padded blur pyramid survives without the per-window
 /// path. Same reasoning as [`SHARED_KEEP_FRAMES`] from the other side: the pads
 /// are the largest per-window allocation, and a window that settles onto the
 /// shared slice — or simply stops changing — would otherwise hold them for its
@@ -846,113 +844,97 @@ pub(crate) fn compile_blur_shaders(
     }
 }
 
-/// Run dual Kawase blur passes (downscale then upscale) between two textures.
-/// After completion, `tex_a` contains the blurred result.
-///
-/// The mip chain is derived from the textures' own extent, so the passes always
-/// cover every texel of them. Running over a sub-rect of a larger allocation
-/// instead leaves the remainder as `create_buffer` handed it over — undefined —
-/// and the taps at the sub-rect's edge read straight into it, because the
-/// mirror wrap reflects about the allocation edge and not the sub-rect's.
+/// Dual Kawase pyramid adapted from niri's render_helpers/blur.rs at
+/// 12de51d6a60baad8896366920278a24f17921f52 (GPL-3.0-or-later).
+/// Each level owns its full texture, so filtering cannot sample stale pixels
+/// outside a mip subrectangle. Smithay owns the GL state for each pass here.
 fn render_blur(
     renderer: &mut GlesRenderer,
     down_shader: &GlesTexProgram,
     up_shader: &GlesTexProgram,
-    tex_a: &mut GlesTexture,
-    tex_b: &mut GlesTexture,
+    output: &mut GlesTexture,
+    levels: &mut Vec<GlesTexture>,
     offset: f32,
     passes: usize,
 ) -> Result<(), GlesError> {
-    use smithay::backend::renderer::Texture;
+    use smithay::backend::renderer::gles::ffi;
+    use smithay::backend::renderer::{Offscreen, Texture};
 
-    let alloc = tex_a.size();
-
+    let passes = passes.clamp(1, 31);
+    let mut size = output.size();
     for i in 0..passes {
-        blur_pass(
-            renderer,
-            down_shader,
-            tex_a,
-            tex_b,
-            alloc,
-            offset,
-            i,
-            passes,
-            true,
-        )?;
-        std::mem::swap(tex_a, tex_b);
+        size = ((size.w / 2).max(1), (size.h / 2).max(1)).into();
+        if levels.get(i).is_some_and(|texture| texture.size() != size) {
+            levels.truncate(i);
+        }
+        if levels.len() == i {
+            let texture =
+                Offscreen::<GlesTexture>::create_buffer(renderer, Fourcc::Abgr8888, size)?;
+            set_wrap_mode(renderer, &texture, ffi::CLAMP_TO_EDGE as i32);
+            levels.push(texture);
+        }
     }
-
+    levels.truncate(passes);
     for i in 0..passes {
-        blur_pass(
-            renderer, up_shader, tex_a, tex_b, alloc, offset, i, passes, false,
-        )?;
-        std::mem::swap(tex_a, tex_b);
+        let source = if i == 0 {
+            output.clone()
+        } else {
+            levels[i - 1].clone()
+        };
+        blur_pass(renderer, down_shader, &source, &mut levels[i], offset, true)?;
     }
-
-    // 2*passes swaps (even) → tex_a has the result
+    for i in (0..passes).rev() {
+        let source = levels[i].clone();
+        let destination = if i == 0 {
+            &mut *output
+        } else {
+            &mut levels[i - 1]
+        };
+        blur_pass(renderer, up_shader, &source, destination, offset, false)?;
+    }
     Ok(())
 }
 
-/// Single blur pass: render src (tex_a) into target (tex_b) with the given shader.
-#[allow(clippy::too_many_arguments)]
 fn blur_pass(
     renderer: &mut GlesRenderer,
     shader: &GlesTexProgram,
-    tex_a: &GlesTexture,
-    tex_b: &mut GlesTexture,
-    alloc: Size<i32, smithay::utils::Buffer>,
+    source: &GlesTexture,
+    destination: &mut GlesTexture,
     offset: f32,
-    i: usize,
-    passes: usize,
     downscale: bool,
 ) -> Result<(), GlesError> {
-    use smithay::backend::renderer::{Bind, Color32F, Frame, Renderer};
+    use smithay::backend::renderer::{Bind, Color32F, Frame, Renderer, Texture};
 
-    let (src_shift, dst_shift) = if downscale {
-        (i, i + 1)
+    let source_size = source.size();
+    let destination_size = destination.size();
+    // niri measures downsample taps in destination pixels, upsample taps in
+    // source pixels. Keep the offset constant throughout the pyramid.
+    let sample_size = if downscale {
+        destination_size
     } else {
-        (passes - i, passes - i - 1)
+        source_size
     };
-
-    let src_w = (alloc.w >> src_shift).max(1);
-    let src_h = (alloc.h >> src_shift).max(1);
-    let dst_w = (alloc.w >> dst_shift).max(1);
-    let dst_h = (alloc.h >> dst_shift).max(1);
-
-    // Standard Kawase: the tap distance is a UV offset, and UV is normalized
-    // over the whole texture, so one texel of this mip is `1 / (alloc >> shift)`.
-    let half_pixel = if downscale {
-        [1.0 / src_w as f32, 1.0 / src_h as f32]
-    } else {
-        [0.5 / src_w as f32, 0.5 / src_h as f32]
-    };
-    let pass_offset = offset / (1 << src_shift) as f32;
-
-    let dst_phys: Size<i32, Physical> = (dst_w, dst_h).into();
-    let src_buf: Rectangle<f64, smithay::utils::Buffer> =
-        Rectangle::from_size((src_w as f64, src_h as f64).into());
-
-    let src = tex_a.clone();
-    {
-        let mut target = renderer.bind(tex_b)?;
-        let mut frame = renderer.render(&mut target, dst_phys, Transform::Normal)?;
-        frame.clear(Color32F::TRANSPARENT, &[Rectangle::from_size(dst_phys)])?;
-        frame.render_texture_from_to(
-            &src,
-            src_buf,
-            Rectangle::from_size(dst_phys),
-            &[Rectangle::from_size(dst_phys)],
-            &[],
-            Transform::Normal,
-            1.0,
-            Some(shader),
-            &[
-                Uniform::new("u_halfpixel", half_pixel),
-                Uniform::new("u_offset", pass_offset),
-            ],
-        )?;
-        let _ = frame.finish()?;
-    }
+    let half_pixel = [0.5 / sample_size.w as f32, 0.5 / sample_size.h as f32];
+    let destination_size: Size<i32, Physical> = (destination_size.w, destination_size.h).into();
+    let full = Rectangle::from_size(destination_size);
+    let mut target = renderer.bind(destination)?;
+    let mut frame = renderer.render(&mut target, destination_size, Transform::Normal)?;
+    frame.clear(Color32F::TRANSPARENT, &[full])?;
+    frame.render_texture_from_to(
+        source,
+        Rectangle::from_size(source_size.to_f64()),
+        full,
+        &[full],
+        &[],
+        Transform::Normal,
+        1.0,
+        Some(shader),
+        &[
+            Uniform::new("u_halfpixel", half_pixel),
+            Uniform::new("u_offset", offset),
+        ],
+    )?;
+    let _ = frame.finish()?;
     Ok(())
 }
 
@@ -1305,18 +1287,12 @@ pub(crate) fn process_blur_requests(
                     Fourcc::Abgr8888,
                     out_buf_size,
                 );
-                let b = Offscreen::<GlesTexture>::create_buffer(
-                    renderer,
-                    Fourcc::Abgr8888,
-                    out_buf_size,
-                );
-                if let (Ok(a), Ok(b)) = (a, b) {
+                if let Ok(a) = a {
                     // The Kawase passes sample past these edges at every mip; an
                     // NPOT texture left at the GL default REPEAT is incomplete on
                     // GLES 2 and samples black everywhere.
                     set_wrap_mode(renderer, &a, wrap);
-                    set_wrap_mode(renderer, &b, wrap);
-                    shared.textures = Some((a, b));
+                    shared.textures = Some((a, Vec::new()));
                 }
             }
             match shared.textures.as_mut() {
@@ -1585,7 +1561,7 @@ pub(crate) fn process_blur_requests(
         // than retry: a slice that later has content hashes differently, and
         // leaving fullscreen moves the camera, so either one dirties the cache
         // again.
-        // Before `ensure_pads`, so the padded pair is not allocated for a
+        // Before `ensure_pads`, so the padded pyramid is not allocated for a
         // capture that will not happen.
         if relocated.is_empty() {
             tracing::debug!(
@@ -1609,7 +1585,7 @@ pub(crate) fn process_blur_requests(
             tracing::debug!(
                 surface = %req.surface_id,
                 ?pad_live,
-                "frost left unrendered: the padded ping-pong pair could not be allocated"
+                "frost left unrendered: the padded blur pyramid could not be allocated"
             );
             continue;
         }
@@ -1783,7 +1759,7 @@ pub(crate) fn process_blur_requests(
             if !cropped {
                 tracing::debug!(
                     surface = %req.surface_id,
-                    "frost cleared but unrendered: the crop back out of the padded pair failed"
+                    "frost cleared but unrendered: the crop back out of the padded pyramid failed"
                 );
             }
             rebuilt[i] = cropped;
@@ -2946,7 +2922,7 @@ mod tests {
         }
     }
 
-    /// Each retry re-allocates two output-sized textures, so a renderer that is
+    /// Each retry re-allocates the output-sized blur pyramid, so a renderer that is
     /// failing persistently must not be asked every frame.
     #[test]
     fn repeated_failures_back_off_further_each_time() {
