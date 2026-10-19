@@ -470,6 +470,8 @@ enum TilingFinish {
     Buffers,
     ReleaseAnimation,
     ReleaseTranslucent,
+    ReleasePixelAlpha,
+    ReleaseRetarget,
     Deadline,
     Exit,
     OpenAnimation,
@@ -551,7 +553,12 @@ fn check_pending_tiling_capture(
         return;
     };
     let config = format!("{}\n[snap]\ngap = 0\n", config_toml(shadow));
-    let config = if matches!(finish, TilingFinish::ReleaseTranslucent) {
+    let config = if matches!(
+        finish,
+        TilingFinish::ReleaseTranslucent
+            | TilingFinish::ReleasePixelAlpha
+            | TilingFinish::ReleaseRetarget
+    ) {
         config.replace(
             "[decorations]",
             "[decorations]\nopacity = 0.6\nopacity_focused = 0.6",
@@ -561,7 +568,10 @@ fn check_pending_tiling_capture(
     };
     let config = if matches!(
         finish,
-        TilingFinish::ReleaseAnimation | TilingFinish::ReleaseTranslucent
+        TilingFinish::ReleaseAnimation
+            | TilingFinish::ReleaseTranslucent
+            | TilingFinish::ReleasePixelAlpha
+            | TilingFinish::ReleaseRetarget
     ) {
         config.replace("default_mode = \"client\"", "default_mode = \"none\"")
     } else {
@@ -572,7 +582,15 @@ fn check_pending_tiling_capture(
     gl::install(&mut f, renderer);
     let first = f.add_client();
     let second = f.add_client();
-    let old = solid_bgra(200, 100, CONTENT_BGRA, false);
+    let old_color = if matches!(
+        finish,
+        TilingFinish::ReleasePixelAlpha | TilingFinish::ReleaseRetarget
+    ) {
+        [0, 0, 96, 96]
+    } else {
+        CONTENT_BGRA
+    };
+    let old = solid_bgra(200, 100, old_color, false);
     let a = map_window_shm(&mut f, first, "a", (200, 100), (200, 100), &old);
     let b = map_window_shm(&mut f, second, "b", (200, 100), (200, 100), &old);
     if matches!(
@@ -700,7 +718,15 @@ fn check_pending_tiling_capture(
         add_blocker(s, blocker.clone());
     });
     for (client, surface, size) in [(first, &a, target_a), (second, &b, target_b)] {
-        let pixels = solid_bgra(size.0, size.1, [0, 255, 0, 255], false);
+        let color = if matches!(
+            finish,
+            TilingFinish::ReleasePixelAlpha | TilingFinish::ReleaseRetarget
+        ) {
+            [0, 160, 0, 160]
+        } else {
+            [0, 255, 0, 255]
+        };
+        let pixels = solid_bgra(size.0, size.1, color, false);
         let w = f.client(client).window(surface);
         w.set_size(size.0 as u16, size.1 as u16);
         w.attach_shm_buffer(size, &pixels);
@@ -755,7 +781,9 @@ fn check_pending_tiling_capture(
     match finish {
         TilingFinish::Buffers
         | TilingFinish::ReleaseAnimation
-        | TilingFinish::ReleaseTranslucent => {}
+        | TilingFinish::ReleaseTranslucent
+        | TilingFinish::ReleasePixelAlpha
+        | TilingFinish::ReleaseRetarget => {}
         TilingFinish::Supersede => {
             f.state().execute_action(&Action::CycleColumnWidth);
             assert_eq!(f.state().tiling_snapshot_count(), images);
@@ -971,7 +999,10 @@ fn check_pending_tiling_capture(
     let released = tiling_live_frame(&mut f, &output);
     if matches!(
         finish,
-        TilingFinish::ReleaseAnimation | TilingFinish::ReleaseTranslucent
+        TilingFinish::ReleaseAnimation
+            | TilingFinish::ReleaseTranslucent
+            | TilingFinish::ReleasePixelAlpha
+            | TilingFinish::ReleaseRetarget
     ) {
         let id = f.state().stage.id_of(&wa).unwrap();
         let visual = f
@@ -981,16 +1012,17 @@ fn check_pending_tiling_capture(
             .unwrap();
         assert_eq!(visual.loc, (50.0, 50.0).into());
         assert_eq!(visual.size, (200.0, 100.0).into());
-        assert_eq!(
-            f.state().resize_crossfades.contains_key(&id),
-            matches!(finish, TilingFinish::ReleaseAnimation)
-        );
+        assert!(f.state().resize_crossfades.contains_key(&id));
         let x = (100.0 * scale) as usize;
         let y = (90.0 * scale) as usize;
         let sample = (y * 1200 + x) * 4;
-        if matches!(finish, TilingFinish::ReleaseAnimation) {
-            assert_eq!(&released[sample..sample + 4], &before[sample..sample + 4]);
-        } else {
+        assert_eq!(&released[sample..sample + 4], &before[sample..sample + 4]);
+        if matches!(
+            finish,
+            TilingFinish::ReleaseTranslucent
+                | TilingFinish::ReleasePixelAlpha
+                | TilingFinish::ReleaseRetarget
+        ) {
             assert_eq!(
                 released[sample + 3],
                 before[sample + 3],
@@ -1006,7 +1038,94 @@ fn check_pending_tiling_capture(
                 .unwrap(),
             visual
         );
-        assert!(released != tiling_live_frame(&mut f, &output));
+        let advanced = tiling_live_frame(&mut f, &output);
+        assert!(released != advanced);
+        if matches!(finish, TilingFinish::ReleasePixelAlpha) {
+            let old_weight = (1.0_f64 - 0.5).powf(0.016 * 60.0).powi(2);
+            let expected = [
+                96.0 * old_weight * 0.6,
+                160.0 * (1.0 - old_weight) * 0.6,
+                0.0,
+                (96.0 * old_weight + 160.0 * (1.0 - old_weight)) * 0.6,
+            ];
+            for (actual, expected) in advanced[sample..sample + 4].iter().zip(expected) {
+                assert!(
+                    actual.abs_diff(expected.round() as u8) <= 2,
+                    "premultiplied blend {actual} != {expected}"
+                );
+            }
+            let w = f.client(first).window(&a);
+            let blue = solid_bgra(target_a.0, target_a.1, [160, 0, 0, 160], false);
+            w.attach_shm_buffer(target_a, &blue);
+            w.commit();
+            f.double_roundtrip(first);
+            let updated = tiling_live_frame(&mut f, &output);
+            assert!(
+                updated[sample + 1] <= 1,
+                "new client pixels must invalidate the cached bake"
+            );
+            assert!(updated[sample + 2] > 60);
+            assert!(updated[sample + 3].abs_diff(advanced[sample + 3]) <= 1);
+        }
+        if matches!(finish, TilingFinish::ReleaseRetarget) {
+            f.state().execute_action(&Action::CycleColumnWidth);
+            assert_eq!(f.state().tiling_snapshot_count(), 2);
+            assert!(
+                f.state()
+                    .window_animations
+                    .geometry_visual_rect(id)
+                    .is_none()
+            );
+            let held = tiling_live_frame(&mut f, &output);
+            let delta = held
+                .iter()
+                .zip(&advanced)
+                .map(|(a, b)| a.abs_diff(*b))
+                .max()
+                .unwrap();
+            assert!(
+                delta <= 2,
+                "retarget capture differs by {delta} at {scale}x"
+            );
+            f.state()
+                .tick_window_animations(std::time::Duration::from_millis(16));
+            assert!(
+                held == tiling_live_frame(&mut f, &output),
+                "the transaction holds its captured picture"
+            );
+            {
+                let (client, surface) = (second, &b);
+                let size = last_configured(&mut f, client, surface);
+                let w = f.client(client).window(surface);
+                w.set_size(size.0 as u16, size.1 as u16);
+                let pixels = solid_bgra(size.0, size.1, [255, 0, 255, 255], false);
+                w.attach_shm_buffer(size, &pixels);
+                w.ack_last_and_commit();
+                f.double_roundtrip(client);
+            }
+            f.double_roundtrip(first);
+            assert_eq!(f.state().tiling_snapshot_count(), 0);
+            let resumed = tiling_live_frame(&mut f, &output);
+            let delta = resumed
+                .iter()
+                .zip(&held)
+                .map(|(a, b)| a.abs_diff(*b))
+                .max()
+                .unwrap();
+            assert!(
+                delta <= 2,
+                "retarget release differs by {delta} at {scale}x"
+            );
+            f.state().execute_action(&Action::CycleColumnWidth);
+            assert_eq!(f.state().tiling_snapshot_count(), 2);
+            let expired = std::time::Instant::now() + std::time::Duration::from_secs(1);
+            f.state().refresh_tiling_at(expired);
+            f.pump(4);
+            f.state().refresh_tiling_at(expired);
+            assert_eq!(f.state().tiling_snapshot_count(), 0);
+            f.state().execute_action(&Action::ToggleTiling);
+            assert!(f.state().resize_crossfades.is_empty());
+        }
         for _ in 0..30 {
             f.state()
                 .tick_window_animations(std::time::Duration::from_millis(16));
@@ -1296,4 +1415,34 @@ fn tiling_release_does_not_stack_translucent_content() {
         1.25,
         None,
     );
+}
+
+#[test]
+#[ignore = "needs surfaceless EGL; run with --include-ignored"]
+fn tiling_resize_blends_pixel_alpha_before_window_opacity() {
+    let _gl = gl::lock();
+    for scale in [1.0, 1.25, 1.5] {
+        check_pending_tiling_capture(
+            TilingFinish::ReleasePixelAlpha,
+            false,
+            TilingPopupScene::None,
+            scale,
+            None,
+        );
+    }
+}
+
+#[test]
+#[ignore = "needs surfaceless EGL; run with --include-ignored"]
+fn repeated_tiling_resize_holds_and_resumes_the_blended_picture() {
+    let _gl = gl::lock();
+    for scale in [1.0, 1.25, 1.5] {
+        check_pending_tiling_capture(
+            TilingFinish::ReleaseRetarget,
+            false,
+            TilingPopupScene::None,
+            scale,
+            None,
+        );
+    }
 }

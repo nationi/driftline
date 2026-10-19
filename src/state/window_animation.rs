@@ -780,6 +780,30 @@ impl WindowAnimations {
         )
     }
 
+    /// A resolved canvas resize can be flattened at its current visual rect.
+    pub(crate) fn can_capture_canvas_geometry(&self, id: ElementId) -> bool {
+        matches!(self.animations.get(&id), Some(WindowAnimation {
+            kind: AnimationKind::Geometry {
+                space: AnimSpace::Canvas, requested_size: None,
+                buffer_stale: false, start_hold: StartHold::Off,
+                role: GeometryRole::Normal, pending_view: None, waits_for: None, picture, ..
+            }
+        }) if !picture.bare && !picture.pinned)
+    }
+
+    pub(crate) fn stop_geometry_keep_open(&mut self, id: ElementId) {
+        let fade = self.open_progress(id);
+        self.remove(id);
+        if let Some(progress) = fade {
+            self.animations.insert(
+                id,
+                WindowAnimation {
+                    kind: AnimationKind::Open { progress },
+                },
+            );
+        }
+    }
+
     /// The current visual rect of a geometry entry in its own space, if any.
     pub fn geometry_visual_rect(&self, id: ElementId) -> Option<Rectangle<f64, Logical>> {
         match self.animations.get(&id) {

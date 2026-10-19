@@ -6405,6 +6405,7 @@ fn only_unscaled_canvas_chases_allow_tiling_capture() {
     assert!(f.state().window_animations.is_canvas_translation(id, size));
     f.state().tick_window_animations(TICK);
     assert!(f.state().window_animations.is_canvas_translation(id, size));
+    assert!(f.state().window_animations.can_capture_canvas_geometry(id));
     assert!(
         !f.state()
             .window_animations
@@ -6413,6 +6414,7 @@ fn only_unscaled_canvas_chases_allow_tiling_capture() {
     f.state()
         .animate_window_geometry(&window, (size.w + 100, size.h).into(), None);
     assert!(!f.state().window_animations.is_canvas_translation(id, size));
+    assert!(!f.state().window_animations.can_capture_canvas_geometry(id));
     f.state().cancel_window_animation(&window);
     f.state().begin_geometry_animation_seeded(
         &window,
@@ -6424,6 +6426,7 @@ fn only_unscaled_canvas_chases_allow_tiling_capture() {
         None,
     );
     assert!(!f.state().window_animations.is_canvas_translation(id, size));
+    assert!(f.state().window_animations.can_capture_canvas_geometry(id));
     f.state().cancel_window_animation(&window);
     f.state().begin_geometry_animation_seeded(
         &window,
@@ -6435,4 +6438,5 @@ fn only_unscaled_canvas_chases_allow_tiling_capture() {
         None,
     );
     assert!(!f.state().window_animations.is_canvas_translation(id, size));
+    assert!(!f.state().window_animations.can_capture_canvas_geometry(id));
 }

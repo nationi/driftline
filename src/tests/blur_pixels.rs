@@ -618,6 +618,7 @@ enum TilingFrostAnimation {
     PureFade,
     ActiveOpen,
     ActiveFade,
+    RepeatResize,
 }
 
 fn check_tiling_frost_scene(framed: bool, scale: f64, translate: bool) {
@@ -911,7 +912,33 @@ fn check_tiling_frost_capture(
         .blocker_cleared(f.state(), &dh);
     f.double_roundtrip(second);
     assert_eq!(f.state().tiling_snapshot_count(), 0);
+    // The release frame intentionally retains the old content. The following
+    // animation tick, rather than release itself, must advance the picture.
+    f.state()
+        .tick_window_animations(std::time::Duration::from_millis(16));
     assert!(before != live_frame(&mut f, &output));
+    if matches!(animation, TilingFrostAnimation::RepeatResize) {
+        f.state()
+            .tick_window_animations(std::time::Duration::from_millis(16));
+        let current = live_frame(&mut f, &output);
+        f.state().execute_action(&Action::CycleColumnWidth);
+        assert_eq!(f.state().tiling_snapshot_count(), 2);
+        let held = live_frame(&mut f, &output);
+        let delta = current
+            .as_raw()
+            .iter()
+            .zip(held.as_raw())
+            .map(|(a, b)| a.abs_diff(*b))
+            .max()
+            .unwrap();
+        assert!(
+            delta <= 2,
+            "resizing frost capture differs by {delta} at {scale}x"
+        );
+        f.state()
+            .tick_window_animations(std::time::Duration::from_millis(16));
+        assert_eq!(held, live_frame(&mut f, &output));
+    }
     remove_pre_commit_hook(&surface, &hook);
     f.state().execute_action(&Action::ToggleTiling);
     uninstall_with_blur(&mut f, &output);
@@ -1127,5 +1154,14 @@ fn tiling_captures_frost_during_an_active_open_or_fade() {
         ] {
             check_tiling_frost_capture(true, scale, animation, false);
         }
+    }
+}
+
+#[test]
+#[ignore = "needs surfaceless EGL; run with --include-ignored"]
+fn repeated_tiling_resize_preserves_frost_and_chrome() {
+    let _gl = gl::lock();
+    for scale in [1.0, 1.25, 1.5] {
+        check_tiling_frost_capture(true, scale, TilingFrostAnimation::RepeatResize, false);
     }
 }

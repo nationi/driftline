@@ -11,9 +11,13 @@ use smithay::backend::renderer::element::{Element as _, Kind, RenderElement};
 use smithay::backend::renderer::gles::{
     GlesPixelProgram, GlesRenderer, GlesTexProgram, GlesTexture, Uniform, UniformValue,
 };
-use smithay::backend::renderer::utils::{RendererSurfaceStateUserData, import_surface};
+use smithay::backend::renderer::utils::{
+    CommitCounter, RendererSurfaceStateUserData, SurfaceView, import_surface,
+};
 use smithay::backend::renderer::{Bind as _, Color32F, Frame as _, Offscreen, Renderer as _};
-use smithay::reexports::wayland_server::protocol::wl_surface::WlSurface;
+use smithay::reexports::wayland_server::{
+    Resource, backend::ObjectId, protocol::wl_surface::WlSurface,
+};
 use smithay::utils::user_data::UserDataMap;
 use smithay::utils::{Logical, Physical, Point, Rectangle, Scale, Size, Transform};
 use smithay::wayland::compositor::{TraversalAction, with_surface_tree_downward};
@@ -110,6 +114,26 @@ pub(crate) struct ClosePixels {
     pub geometry: Rectangle<i32, Logical>,
     /// When these pixels were cloned, so a stale capture can be discarded.
     pub captured_at: Instant,
+}
+
+impl ClosePixels {
+    pub(crate) fn from_resize_content(
+        buffer: TextureBuffer<GlesTexture>,
+        texels: Size<i32, Physical>,
+        geometry: Rectangle<i32, Logical>,
+    ) -> Self {
+        Self {
+            surfaces: vec![BakedSurface {
+                buffer,
+                location: geometry.loc.to_f64(),
+                src: super::texel_src(texels),
+                dst: geometry.size,
+            }],
+            bounds: geometry.to_f64(),
+            geometry,
+            captured_at: Instant::now(),
+        }
+    }
 }
 
 /// How long captured close pixels stay usable.
@@ -223,7 +247,7 @@ impl ClosePixels {
 /// `bare` windows (fullscreen, or `decoration = "none"`) get no rounding at all,
 /// the rest are clipped to `corner_radius` — bottom corners only under an SSD
 /// bar, which covers the top edge.
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub(crate) struct BakeChrome {
     pub bare: bool,
     pub corner_radius: [f32; 4],
@@ -292,10 +316,12 @@ impl ResizeCaptures {
     }
 }
 
-/// A resized window's old content, fading out over its live new content while
-/// the geometry leg plays. Both are drawn into the same interpolated rect, so
-/// the exchange reads as one morph rather than a stale stretch and a pop.
+/// A resized window's old content and reusable targets for blending it with
+/// live content. Both pictures share one premultiplied composite, so translucent
+/// pixels keep their alpha while the geometry leg plays.
 pub(crate) struct ResizeCrossfade {
+    current: Option<ResizeCurrent>,
+    mixed: Option<GlesTexture>,
     buffer: TextureBuffer<GlesTexture>,
     /// Texel extent of `buffer`, which is wrapped at scale 1 — see [`texel_src`].
     texels: Size<i32, Physical>,
@@ -309,7 +335,172 @@ pub(crate) struct ResizeCrossfade {
     progress: f64,
 }
 
+#[derive(PartialEq)]
+pub(crate) struct ResizeContentStamp {
+    commits: Vec<(ObjectId, CommitCounter, SurfaceView, i32, Transform)>,
+    pub geometry: Rectangle<i32, Logical>,
+    pub scale: f64,
+    pub chrome: BakeChrome,
+}
+
+impl ResizeContentStamp {
+    pub(crate) fn for_surface(
+        surface: &WlSurface,
+        geometry: Rectangle<i32, Logical>,
+        scale: f64,
+        chrome: BakeChrome,
+    ) -> Self {
+        let mut commits = Vec::new();
+        with_surface_tree_downward(
+            surface,
+            (),
+            |_, states, _| {
+                if states
+                    .data_map
+                    .get::<RendererSurfaceStateUserData>()
+                    .is_some_and(|data| data.lock().unwrap().view().is_some())
+                {
+                    TraversalAction::DoChildren(())
+                } else {
+                    TraversalAction::SkipChildren
+                }
+            },
+            |surface, states, _| {
+                if let Some(data) = states.data_map.get::<RendererSurfaceStateUserData>() {
+                    let data = data.lock().unwrap();
+                    if let Some(view) = data.view() {
+                        commits.push((
+                            surface.id(),
+                            data.current_commit(),
+                            view,
+                            data.buffer_scale(),
+                            data.buffer_transform(),
+                        ));
+                    }
+                }
+            },
+            |_, _, _| true,
+        );
+        Self {
+            commits,
+            geometry,
+            scale,
+            chrome,
+        }
+    }
+}
+
+struct ResizeCurrent {
+    stamp: ResizeContentStamp,
+    buffer: TextureBuffer<GlesTexture>,
+    texels: Size<i32, Physical>,
+}
+
 impl ResizeCrossfade {
+    /// Blend premultiplied contents before applying window opacity. Drawing the
+    /// two pictures over one another would accumulate their transparency.
+    pub(crate) fn blended_buffer(
+        &mut self,
+        renderer: &mut GlesRenderer,
+        surface: &WlSurface,
+        stamp: ResizeContentStamp,
+        clip: Option<&GlesTexProgram>,
+    ) -> Option<(TextureBuffer<GlesTexture>, Size<i32, Physical>)> {
+        use smithay::backend::renderer::Texture;
+        if self
+            .current
+            .as_ref()
+            .is_none_or(|current| current.stamp != stamp)
+        {
+            let pixels = capture_close_pixels(renderer, surface, stamp.geometry, Instant::now())?;
+            let current = resize_crossfade(
+                renderer,
+                &pixels,
+                stamp.geometry.size,
+                stamp.scale,
+                clip,
+                stamp.chrome,
+            )?;
+            self.current = Some(ResizeCurrent {
+                stamp,
+                buffer: current.buffer,
+                texels: current.texels,
+            });
+        }
+        let current = self.current.as_ref()?;
+        let size = current.texels;
+        if self
+            .mixed
+            .as_ref()
+            .is_none_or(|texture| texture.size().w != size.w || texture.size().h != size.h)
+        {
+            self.mixed = Some(
+                Offscreen::<GlesTexture>::create_buffer(
+                    renderer,
+                    Fourcc::Abgr8888,
+                    size.to_logical(1).to_buffer(1, Transform::Normal),
+                )
+                .ok()?,
+            );
+        }
+        let mixed = self.mixed.as_mut()?;
+        let mut target = renderer.bind(mixed).ok()?;
+        let mut frame = renderer.render(&mut target, size, Transform::Normal).ok()?;
+        frame
+            .clear(Color32F::TRANSPARENT, &[Rectangle::from_size(size)])
+            .ok()?;
+        frame
+            .with_context(|gl| unsafe {
+                gl.BlendFunc(
+                    smithay::backend::renderer::gles::ffi::ONE,
+                    smithay::backend::renderer::gles::ffi::ONE,
+                );
+            })
+            .ok()?;
+        let old_weight = crossfade_out_alpha(self.progress, self.grew);
+        let result = (|| {
+            for (buffer, texels, weight) in [
+                (&self.buffer, self.texels, old_weight),
+                (&current.buffer, current.texels, 1.0 - old_weight),
+            ] {
+                let element = TextureRenderElement::from_texture_buffer(
+                    Point::default(),
+                    buffer,
+                    Some(weight),
+                    Some(super::texel_src(texels)),
+                    Some(size.to_logical(1)),
+                    Kind::Unspecified,
+                );
+                <TextureRenderElement<GlesTexture> as RenderElement<GlesRenderer>>::draw(
+                    &element,
+                    &mut frame,
+                    element.src(),
+                    Rectangle::from_size(size),
+                    &[Rectangle::from_size(size)],
+                    &[],
+                    None,
+                )?;
+            }
+            Ok::<_, smithay::backend::renderer::gles::GlesError>(())
+        })();
+        // Restore Smithay's premultiplied source-over even on a failed draw.
+        frame
+            .with_context(|gl| unsafe {
+                gl.BlendFunc(
+                    smithay::backend::renderer::gles::ffi::ONE,
+                    smithay::backend::renderer::gles::ffi::ONE_MINUS_SRC_ALPHA,
+                );
+            })
+            .ok()?;
+        result.ok()?;
+        let _ = frame.finish().ok()?;
+        drop(target);
+        Some((
+            TextureBuffer::from_texture(renderer, mixed.clone(), 1, Transform::Normal, None),
+            size,
+        ))
+    }
+
     pub(crate) fn set_resize_direction(
         &mut self,
         old_size: Size<i32, Logical>,
@@ -326,14 +517,11 @@ impl ResizeCrossfade {
         1.0 - self.progress <= DONE_EPSILON
     }
 
-    /// The overlay element for a window whose live geometry rect starts at
-    /// `loc` (fully zoomed physical) and spans `size` (zoomed logical), wrapped
-    /// in that window's own animation transform so the old content lands on the
-    /// interpolated visual rect exactly as the live content does. `opacity` is
-    /// the opacity the window is drawn at — the fade starts from the density
-    /// the old picture actually had, not from full.
-    pub fn render_element(
-        &self,
+    /// Place the combined content in the window's animated geometry, applying
+    /// compositor opacity once after the premultiplied blend.
+    pub(crate) fn render_blended_element(
+        buffer: &TextureBuffer<GlesTexture>,
+        texels: Size<i32, Physical>,
         loc: Point<f64, Physical>,
         size: Size<i32, Logical>,
         animation: Option<WindowRenderAnimation>,
@@ -341,9 +529,9 @@ impl ResizeCrossfade {
     ) -> OutputRenderElements {
         let texture = TextureRenderElement::from_texture_buffer(
             loc,
-            &self.buffer,
-            Some(crossfade_out_alpha(self.progress, self.grew) * opacity as f32),
-            Some(super::texel_src(self.texels)),
+            buffer,
+            Some(opacity as f32),
+            Some(super::texel_src(texels)),
             Some(size),
             Kind::Unspecified,
         );
@@ -408,6 +596,8 @@ pub(crate) fn resize_crossfade(
         }
     };
     Some(ResizeCrossfade {
+        current: None,
+        mixed: None,
         buffer,
         texels,
         grew: leg_grew(pixels.geometry.size, new_size),

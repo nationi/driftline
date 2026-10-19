@@ -37,7 +37,7 @@ pub(crate) struct TilingView {
 
 struct TilingSnapshot {
     image: crate::render::ClosingSnapshot,
-    // An opaque content-only bake; transparent pictures must not be stacked.
+    held_geometry: Option<smithay::utils::Rectangle<f64, Logical>>,
     resize: Option<crate::render::ResizeCrossfade>,
     popups: Vec<TilingPopupSnapshot>,
     blur: crate::render::SnapshotBlur,
@@ -200,6 +200,7 @@ impl DriftWm {
             };
             self.drop_owed_recenter(&element);
             if let Some(window) = element.client() {
+                self.cancel_window_animation(window);
                 self.send_size_configure(window, column.restore.size);
             }
             let center = visual_frame_center(
@@ -852,12 +853,17 @@ impl DriftWm {
             }
             let old_size = snapshot.blur.geometry.size;
             let new_size = window.geometry().size;
-            let mut seed = self.geometry_seed(id, snapshot.blur.position, old_size);
+            let mut seed = snapshot
+                .held_geometry
+                .unwrap_or_else(|| self.geometry_seed(id, snapshot.blur.position, old_size));
             if translated {
                 seed.loc.x += anchor_translation;
             }
             let destination = self.stage.position_of(&window).unwrap_or_default();
-            if seed == smithay::utils::Rectangle::new(destination.to_f64(), new_size.to_f64()) {
+            let content_changed = old_size != new_size || snapshot.held_geometry.is_some();
+            if seed == smithay::utils::Rectangle::new(destination.to_f64(), new_size.to_f64())
+                && !content_changed
+            {
                 continue;
             }
             self.begin_geometry_animation_seeded(
@@ -869,11 +875,8 @@ impl DriftWm {
                 super::window_animation::ContentPolicy::Stretch,
                 Some(destination),
             );
-            if old_size != new_size
+            if content_changed
                 && !self.window_animations.has_open_fade(id)
-                && window
-                    .wl_surface()
-                    .is_some_and(|surface| tiling_content_opaque(&surface, window.geometry()))
                 && self.window_animations.generation_of(id).is_some()
                 && let Some(mut resize) = snapshot.resize.take()
             {
@@ -949,10 +952,19 @@ impl DriftWm {
                 .window_animations
                 .is_canvas_translation(id, geometry.size)
                 && !self.resize_crossfades.contains_key(&id);
-            if self.window_animations.generation_of(id).is_some() && !translating {
+            let has_geometry = self.window_animations.generation_of(id).is_some();
+            if has_geometry && !self.window_animations.can_capture_canvas_geometry(id) {
                 continue;
             }
-            let visible = if translating {
+            let crossfading = self.resize_crossfades.contains_key(&id);
+            let held_geometry = ((has_geometry && !translating) || crossfading).then(|| {
+                self.window_animations
+                    .geometry_visual_rect(id)
+                    .unwrap_or_else(|| Rectangle::new(position.to_f64(), geometry.size.to_f64()))
+            });
+            let visible = if let Some(held) = held_geometry {
+                held.to_i32_round()
+            } else if translating {
                 self.window_animations
                     .geometry_visual_rect(id)
                     .unwrap()
@@ -970,12 +982,31 @@ impl DriftWm {
                 continue;
             }
             let opacity = self.effective_opacity_of(window, focused.as_ref());
-            let Some(pixels) = crate::render::capture_close_pixels(
-                backend.renderer(),
-                &surface,
-                geometry,
-                std::time::Instant::now(),
-            ) else {
+            let scale = self.flatten_scale_for_canvas_rect(visible);
+            let pixels = if crossfading {
+                let stamp = crate::render::ResizeContentStamp::for_surface(
+                    &surface,
+                    geometry,
+                    scale.max(1.0),
+                    self.baked_chrome_policy(&surface, false),
+                );
+                let clip = self.render.corner_clip_shader.clone();
+                self.resize_crossfades
+                    .get_mut(&id)
+                    .unwrap()
+                    .blended_buffer(backend.renderer(), &surface, stamp, clip.as_ref())
+                    .map(|(buffer, texels)| {
+                        crate::render::ClosePixels::from_resize_content(buffer, texels, geometry)
+                    })
+            } else {
+                crate::render::capture_close_pixels(
+                    backend.renderer(),
+                    &surface,
+                    geometry,
+                    std::time::Instant::now(),
+                )
+            };
+            let Some(pixels) = pixels else {
                 continue;
             };
             let blur = crate::render::SnapshotBlur {
@@ -998,7 +1029,6 @@ impl DriftWm {
             };
             let chrome = self.snapshot_chrome(&surface, geometry, false);
             let origin = position.to_f64() - geometry.loc.to_f64();
-            let scale = self.flatten_scale_for_canvas_rect(visible);
             let shadow = chrome.and_then(|c| {
                 c.shadow_shader.map(|_| {
                     let border = f64::from(c.border_width.max(0));
@@ -1041,6 +1071,9 @@ impl DriftWm {
             let chrome = chrome.map(|mut c| {
                 c.shadow_shader = None;
                 c.border_shader = None;
+                if crossfading {
+                    c.corner_clip = None;
+                }
                 c
             });
             if let Some(image) = crate::render::snapshot_canvas(
@@ -1084,24 +1117,30 @@ impl DriftWm {
                 if let Some(popups) = popups {
                     // Bake while the original client textures are still valid:
                     // an early peer's new buffer can apply before group release.
-                    let resize = (self.config.effects.animation_speed < 1.0
-                        && opacity >= 1.0
-                        && tiling_content_opaque(&surface, geometry))
-                    .then(|| {
-                        crate::render::resize_crossfade(
-                            backend.renderer(),
-                            &pixels,
-                            geometry.size,
-                            scale,
-                            self.render.corner_clip_shader.as_ref(),
-                            self.baked_chrome_policy(&surface, false),
-                        )
-                    })
-                    .flatten();
+                    let resize = (self.config.effects.animation_speed < 1.0)
+                        .then(|| {
+                            crate::render::resize_crossfade(
+                                backend.renderer(),
+                                &pixels,
+                                geometry.size,
+                                scale,
+                                self.render.corner_clip_shader.as_ref(),
+                                if crossfading {
+                                    crate::render::BakeChrome {
+                                        bare: true,
+                                        corner_radius: [0.0; 4],
+                                    }
+                                } else {
+                                    self.baked_chrome_policy(&surface, false)
+                                },
+                            )
+                        })
+                        .flatten();
                     self.tiling_view.as_mut().unwrap().snapshots.insert(
                         id,
                         TilingSnapshot {
                             image,
+                            held_geometry,
                             resize,
                             popups,
                             blur,
@@ -1110,6 +1149,10 @@ impl DriftWm {
                             opacity,
                         },
                     );
+                    if held_geometry.is_some() {
+                        self.window_animations.stop_geometry_keep_open(id);
+                        self.drop_resize_crossfade(id);
+                    }
                 }
             }
         }
@@ -1181,7 +1224,9 @@ impl DriftWm {
         );
         let visual = self.window_animations.opening_visual(
             id,
-            smithay::utils::Rectangle::new(base.loc + displacement, base.size),
+            snapshot.held_geometry.unwrap_or_else(|| {
+                smithay::utils::Rectangle::new(base.loc + displacement, base.size)
+            }),
             self.config.effects.animation_scale,
         );
         let physical_scale = zoom * output_scale;
@@ -1525,16 +1570,4 @@ impl DriftWm {
             .filter(|view| &view.output == output)
             .map(|view| (view.camera, view.zoom))
     }
-}
-
-fn tiling_content_opaque(
-    surface: &smithay::reexports::wayland_server::protocol::wl_surface::WlSurface,
-    geometry: smithay::utils::Rectangle<i32, Logical>,
-) -> bool {
-    smithay::backend::renderer::utils::with_renderer_surface_state(surface, |state| {
-        state
-            .opaque_regions()
-            .is_some_and(|regions| geometry.subtract_rects(regions.iter().copied()).is_empty())
-    })
-    .unwrap_or(false)
 }

@@ -22,9 +22,9 @@ pub(crate) use blur::compile_blur_shaders;
 pub use blur::{BlurCache, BlurScratchPool, SharedBlur};
 pub use capture::{render_capture_frames, render_screencopy, render_toplevel_captures};
 pub(crate) use closing::{
-    BakeChrome, CloseChrome, ClosePixels, ClosingSnapshot, ResizeCaptures, ResizeCrossfade,
-    StandInFade, capture_close_pixels, close_pixels_fresh, resize_crossfade, snapshot_canvas,
-    snapshot_screen,
+    BakeChrome, CloseChrome, ClosePixels, ClosingSnapshot, ResizeCaptures, ResizeContentStamp,
+    ResizeCrossfade, StandInFade, capture_close_pixels, close_pixels_fresh, resize_crossfade,
+    snapshot_canvas, snapshot_screen,
 };
 pub use cursor::build_cursor_elements;
 pub use elements::{
@@ -1257,24 +1257,6 @@ pub fn compose_frame(
         // own opacity; `chrome_alpha` is 1 for every other window.
         let chrome_opacity = opacity * chrome_alpha as f64;
 
-        // A resize crossfade rides the window's own transform, so the old content
-        // lands on the interpolated visual rect for Canvas and Screen entries
-        // alike. Positioned at the *live* geometry rect, which that transform
-        // then maps exactly as it maps the live content.
-        let resize_overlay = element_id
-            .and_then(|id| state.resize_crossfades.get(&id))
-            .map(|crossfade| {
-                let geometry_phys: Point<f64, Physical> = Point::from((
-                    (render_loc.x + geom_loc.x as f64) * zoom * output_scale,
-                    (render_loc.y + geom_loc.y as f64) * zoom * output_scale,
-                ));
-                let geometry_size: Size<i32, Logical> = Size::from((
-                    (geom_size.w as f64 * zoom).round() as i32,
-                    (geom_size.h as f64 * zoom).round() as i32,
-                ));
-                crossfade.render_element(geometry_phys, geometry_size, window_animation, opacity)
-            });
-
         // Split elements: toplevel + subsurfaces get corner-clipped, popups
         // don't (they can legitimately extend outside the parent's geometry —
         // GTK menus, tooltips, autocomplete, etc). smithay's
@@ -1317,6 +1299,46 @@ pub fn compose_frame(
             (elems, Vec::new())
         };
 
+        let resize_content = if let Some(id) = element_id
+            && state.resize_crossfades.contains_key(&id)
+        {
+            let stamp = closing::ResizeContentStamp::for_surface(
+                &wl_surface,
+                window.geometry(),
+                (output_scale * zoom).max(1.0),
+                state.baked_chrome_policy(&wl_surface, fullscreen_exempt),
+            );
+            let clip = state.render.corner_clip_shader.clone();
+            state
+                .resize_crossfades
+                .get_mut(&id)
+                .unwrap()
+                .blended_buffer(renderer, &wl_surface, stamp, clip.as_ref())
+        } else {
+            None
+        };
+        let resize_content_element = resize_content.map(|(buffer, texels)| {
+            ResizeCrossfade::render_blended_element(
+                &buffer,
+                texels,
+                Point::from((
+                    (render_loc.x + geom_loc.x as f64) * zoom * output_scale,
+                    (render_loc.y + geom_loc.y as f64) * zoom * output_scale,
+                )),
+                Size::from((
+                    (geom_size.w as f64 * zoom).round() as i32,
+                    (geom_size.h as f64 * zoom).round() as i32,
+                )),
+                window_animation,
+                opacity,
+            )
+        });
+        let elems = if resize_content_element.is_some() {
+            Vec::new()
+        } else {
+            elems
+        };
+
         // Test pinned BEFORE `is_widget`: a pinned *widget* must land in the
         // pinned bucket (above normal), not `zoomed_widgets` (below normal).
         let target = if bucket_pinned {
@@ -1332,10 +1354,9 @@ pub fn compose_frame(
         // Popups push first (earlier in vec = on-top in smithay z-order) so
         // they sit above the title bar and clipped window content.
         push_plain_elements(target, popup_elems, zoom, window_animation);
-        // Where a resize crossfade goes: above the live content, below the SSD
-        // bar and popups. Spliced in at the end so the branches below stay one
-        // content push each.
-        let mut overlay_at = target.len();
+        // Mixed resize content occupies the live body's slot, below the SSD
+        // bar and popups. Chrome still follows the ordinary composition path.
+        let mut content_at = target.len();
 
         if has_ssd {
             let bar_height = state.config.decorations.title_bar_height;
@@ -1414,7 +1435,7 @@ pub fn compose_frame(
                     }
                 }
             }
-            overlay_at = target.len();
+            content_at = target.len();
 
             // Only bottom corners round (title bar covers the top edge).
             if let Some(ref shader) = state.render.corner_clip_shader {
@@ -1594,8 +1615,8 @@ pub fn compose_frame(
 
         // In-bucket, ahead of the trailing shadow, so the blur element counts
         // below stay valid.
-        if let Some(overlay) = resize_overlay {
-            target.insert(overlay_at, overlay);
+        if let Some(content) = resize_content_element {
+            target.insert(content_at, content);
         }
 
         if wants_blur && (target.len() - elem_start - shadow_count) > 0 {

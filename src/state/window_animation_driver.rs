@@ -1118,7 +1118,7 @@ impl DriftWm {
     /// `decoration = "none"` hard-vetoes it) and the per-corner radius the live
     /// clip applies. Under an SSD bar only the bottom corners round — the bar
     /// covers the top edge.
-    pub(super) fn baked_chrome_policy(
+    pub(crate) fn baked_chrome_policy(
         &self,
         surface: &WlSurface,
         fullscreen: bool,

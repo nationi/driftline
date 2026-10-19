@@ -1002,3 +1002,78 @@ this enables the existing single-output tiling, not roadmap P11 ownership.
 
 Single-connector batch validation completed: full ci-local passed, release build
 succeeded, launcher shell syntax/config checks passed. Installed binary unchanged.
+
+## Premultiplied resize blending and repeated resize capture (2026-10-19)
+
+The user confirmed the previous direct-udev single-connector preview looked good
+and authorized the next batch. Installed compositor/session remain unchanged.
+
+Replaced source-over resize overlays with one mixed content element. Old and
+current surface-tree bakes are rendered into a reusable ABGR8888 target with
+additive premultiplied weights summing to one; compositor/opening opacity is
+applied once on presentation. This supports arbitrary pixel alpha, compositor
+opacity and corner-trimmed/undeclared opaque regions; the previous opaque-only
+guard is removed. GL blend state is restored to Smithay source-over even when
+a draw fails. Failed blends retain live rendering instead of stacking alpha.
+The current content bake is cached by mapped tree order, surface IDs, commit
+counters, viewports, subsurface offsets, buffer scale/transform, geometry,
+flatten scale and clip policy. Client content changes invalidate it; progress
+changes reuse both current bake and mixed allocation. Popups and chrome retain
+their own z-order/opacity; mixed content replaces only the body tree. Like the
+existing resize bake, this crops to geometry even for bare clients' overhangs.
+
+Resolved normal canvas geometry chases (no pending size request, stale buffer,
+start hold, waiter, pending view or fullscreen/pin picture) can now be captured
+mid-resize/crossfade. Capture uses the currently mixed pixels, avoids applying
+corner clipping twice, stores the unrounded current visual geometry, and stops
+the old geometry/crossfade after the new picture is safely baked. Any inherited
+opening fade keeps its progress. Superseding transactions hold that picture;
+release seeds geometry and content from it, even for a peer whose native size
+was unchanged. Live translations retain the prior moving-picture behavior.
+Unresolved resize holds and screen/fullscreen/pinned conversions still use
+live fallback. Popup membership changes keep the prior live fallback policy.
+
+The repeated-resize cleanup test exposed stale window animations/crossfades
+surviving tiling exit: viewport cancellation was not window cancellation.
+Exit now cancels each tiled client's window animation/crossfade before restoring
+canvas size and placement. This also drops the new cached textures promptly.
+
+New/expanded GPU evidence on NVIDIA RTX 3060:
+- Pixel alpha 96 -> 160 with compositor opacity 0.6 is checked against explicit
+  premultiplied RGBA values at 1x/1.25x/1.5x, both at release and mid-transition.
+  A further blue buffer commit verifies current-bake cache invalidation.
+- Repeated translucent resize compares capture and release frames (max 2 bytes),
+  verifies a stable held frame, a third transaction's timeout, then exit cleanup.
+- Rounded frost/shadow/border capture during resize matches the live frame at
+  1x/1.25x/1.5x without widening the existing two-byte tolerance.
+- All 29 render-pixel tests passed before the final timeout/exit additions;
+  strict all-target clippy passed before the final policy assertions.
+
+Final gates: `/tmp/driftwm-premultiplied-resize-ci-verified.log`, release build:
+`/tmp/driftwm-premultiplied-resize-build.log`. Targeted logs:
+`/tmp/driftwm-alpha-blend-pixels.log`,
+`/tmp/driftwm-repeated-translucent-resize.log`, `/tmp/driftwm-repeated-frost.log`.
+Manual direct-udev validation of THIS batch is pending; use run-tty.sh with the
+single-connector filter, and do not substitute the broken nested NVIDIA preview.
+
+Scope remains partial P2/P13, not niri parity. Next acceptance work: already
+active unresolved resize/degrade paths, inherited opening during resize
+supersession, popup resizing and live fallback, SSD/release chrome continuity,
+changing view/scale/output and motion-time remap/disconnect. The P0 semantic
+inventory/custom-decoder audit remains an unfinished gate before expanding
+interaction. No push or installed binary replacement is authorized by this log.
+
+All 17 blur pixel tests now pass (`/tmp/driftwm-premultiplied-frost-suite.log`).
+Five existing blur assertions expected content to change instantaneously on
+release; they now check advancement on the next explicit animation tick, which
+is the new intended behavior. Existing byte tolerances are unchanged. Final CI
+uses the verified log above; the first CI log contains these stale assertion
+failures and must not be reported as a pass.
+
+Final verified gate exited 0: fmt, locked check, strict all-target clippy,
+366 library tests, 1447 regular/ignored binary tests plus isolated soak (1448
+total), and all integration suites. Release build succeeded (48.85 s).
+No installed binary replacement, session restart, push or native validation of
+this batch was performed. Existing run-tty.sh selects the updated release build;
+close any older preview before restarting it to test repeated F5 and mid-resize
+F2. User-owned output-management files remain unstaged.

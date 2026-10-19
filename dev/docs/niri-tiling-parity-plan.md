@@ -222,11 +222,14 @@ fullscreen/pinned pictures or live resize-crossfade overlays. Capture visibility
 and rasterization scale follow the current visual rather than its destination.
 Capture during an already active opening fade is supported, including a fade
 inherited by an unscaled canvas translation. On group release, retained geometry
-seeds a chase to the committed placements; fully declared opaque content can
-crossfade from a pre-baked old picture. Translucent content uses geometry-only
-animation to avoid stacking opacity. Capture during active resize/crossfade,
-general transparent content blending and complete release-time continuity
-remain outstanding. Retained opening chrome uses separate live border/shadow
+seeds a chase to the committed placements. Old and current content now blend
+in premultiplied RGBA before applying compositor opacity. Current surface-tree
+bakes are commit/view keyed and the mixed render target is reused. A resolved
+canvas resize/crossfade can be captured at its current blended picture and
+geometry, held by a superseding transaction, and resumed from that picture.
+Unresolved resize holds, fullscreen/pinned conversions and complete release-time
+continuity across popup/view/output changes remain outstanding.
+Retained opening chrome uses separate live border/shadow
 composition, and opacity-only ticks invalidate its mask even at constant scale.
 Motion-time supersession, timeout and exit now have controlled renderer tests.
 Full animation integration and an

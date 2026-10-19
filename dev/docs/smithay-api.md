@@ -639,3 +639,24 @@ A live `PopupKind`/`WlSurface` does not prove the popup is mapped. For pending
 presentation image validation, read `RendererSurfaceStateUserData` in the popup's
 surface data and test `buffer().is_some()` after the compositor buffer handler.
 This distinguishes a null-buffer unmap from an unchanged, live protocol role.
+
+For a premultiplied offscreen crossfade on pinned Smithay `4cf0b62`,
+`GlesFrame::with_context(&mut self, FnOnce(&ffi::Gles2) -> R)` returns
+`Result<R, GlesError>` and does not restore GL state. Set additive
+`BlendFunc(ONE, ONE)` only after `Frame::clear`, which resets blending to
+`ONE, ONE_MINUS_SRC_ALPHA`. Render ABGR textures without opaque regions so
+`render_texture_from_to` follows its non-opaque branch; that branch preserves
+custom blend state, whereas its opaque branch disables/re-enables blending
+and resets the function. Restore source-over even if a draw fails. Two
+premultiplied texture draws with weights `a` and `1-a` then produce a linear
+RGBA mixture; apply compositor opacity when presenting the result, not to each
+source. `RenderElement<GlesRenderer>::draw` takes the optional `UserDataMap`
+argument after opaque regions; a fully-qualified call disambiguates the
+renderer for `TextureRenderElement<GlesTexture>`. Drop a bound target before
+cloning its mutably borrowed texture handle.
+
+`RendererSurfaceState::current_commit()`, `view()`, `buffer_scale()` and
+`buffer_transform()` can key an imported content bake. `SurfaceView` is Copy
+and PartialEq and records logical source crop, destination size and subsurface
+offset. Include mapped surface IDs/tree order and geometry/clip/scale policy;
+a root-only commit counter misses child commits or reordered/moved subsurfaces.

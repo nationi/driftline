@@ -112,7 +112,10 @@ clipping them to the window. Opening, closing or moving a popup restores live
 rendering for its window so menus remain responsive. Opening fades and ordinary
 position animations can continue on the saved picture. When the group releases,
 windows animate from the saved geometry to their new positions and sizes.
-Fully opaque content can fade from its saved image into the new buffer;
-transparent content changes without stacking two translucent images. Starting
-another transaction during an active resize still uses live rendering.
+Old and new content blend before window opacity is applied, including
+translucent pixels. If another transaction starts during a resolved canvas
+resize, its current geometry and blended image are held until the new buffers
+apply or the deadline expires, then the transition resumes from that picture.
+Resizes still waiting for their own client reply and fullscreen/pinned
+transitions retain their live-rendering fallback.
 Complete visual atomicity and all animation transitions are not implemented yet.
