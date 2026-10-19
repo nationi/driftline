@@ -209,7 +209,11 @@ surface/geometry offsets. Popup membership/geometry changes fall back to live
 rendering so newly opened or dismissed menus are not hidden or stranded. Frozen windows now retain blur requests using saved geometry and client regions,
 while the backdrop continues through the live blur pipeline. Their shadows draw
 below the frost rather than inside the flattened content. Animated windows and
-failed captures still retain live rendering. Full animation integration and an
+failed captures still retain live rendering. Starting an open or geometry animation
+now releases any previously captured parent/popup images for that window and
+invalidates its saved blur geometry; unaffected peers stay frozen. This is an
+explicit live fallback, not continuity of the frozen texture through animation.
+Full animation integration and an
 unconditional frame-atomic rendering
 guarantee remain outstanding. Controlled GLES regressions now cover stationary
 1.25x/1.5x content, nested popups, live shadows and frost. Their frame comparisons

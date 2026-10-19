@@ -139,6 +139,7 @@ impl DriftWm {
         // can remap mid-resize — so the crossfade halves of the geometry entry it
         // replaces go with it, rather than fading over the opening window.
         self.drop_resize_crossfade(id);
+        self.release_tiling_snapshot_for_animation(id);
         self.window_animations.start_open(id);
     }
 
@@ -304,6 +305,7 @@ impl DriftWm {
         if carries_request {
             self.window_animations.clear_waits_for(id);
         }
+        self.release_tiling_snapshot_for_animation(id);
         self.window_animations.start_geometry(
             id,
             seed,

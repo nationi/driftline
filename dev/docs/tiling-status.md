@@ -596,3 +596,39 @@ binary was not replaced and the running session was not restarted.
 
 Next: integrate active window animations with frozen presentations, expand
 supersession/remap/cancellation traces, and continue the P0 semantic audit.
+
+
+## Animation start after frozen capture
+
+Open and geometry animation entry points now release an existing tiling snapshot
+only after their visibility/grab eligibility checks accept the animation. The
+parent and all its popup images are dropped together; other windows' snapshots
+and the pending configure/presentation group remain in place. Releasing the
+picture invalidates blur geometry and marks outputs dirty, so the saved frost
+mask cannot outlive the switch to animated live content. Ending/cancelling the
+animation does not resurrect the removed picture.
+
+Two GLES regression scenarios start an open fade or a position chase after a
+new buffer has already applied while another client's buffer remains blocked.
+Both include nested popup images and shadows. They failed before the fix with
+all four images retained; after the fix only the peer's image remains. Complete
+frame comparisons show the animation immediately and show further motion after
+an injected 16 ms tick. Cancellation keeps the peer frozen, and releasing its
+buffer still drains the presentation normally.
+
+This closes an inconsistency in the existing live fallback: previously only
+animations active at capture time were excluded, while a later animation was
+hidden by the captured picture. It does not animate the frozen texture or
+preserve old-buffer continuity when switching to live content. Full P2/P13
+animation integration still needs a shared transform/content model (including
+popups, shadow, blur and geometry freezes), interruption/supersession traces,
+and manual validation. The running compositor binary remains unchanged.
+
+Validation: both new GLES scenarios passed on Mesa. `dev/scripts/ci-local`
+passed fmt, locked check, strict all-target clippy, all regular/ignored tests
+(366 library and 1425 binary cases plus integration suites), and the isolated
+soak test. The pure layout library was unchanged. Existing output-management
+changes remain outside this commit; no push or compositor restart was performed.
+
+Next: preserve frozen-content continuity through active animations, then expand
+rapid supersession/remap/cancellation traces and continue the P0 semantic audit.

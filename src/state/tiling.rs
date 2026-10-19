@@ -984,6 +984,18 @@ impl DriftWm {
         self.backend = Some(backend);
     }
 
+    pub(crate) fn release_tiling_snapshot_for_animation(&mut self, id: driftwm::stage::ElementId) {
+        if self
+            .tiling_view
+            .as_mut()
+            .is_some_and(|view| view.snapshots.remove(&id).is_some())
+        {
+            // Live animation geometry must replace the saved frost mask too.
+            self.render.blur_geometry_generation += 1;
+            self.mark_all_dirty();
+        }
+    }
+
     pub(crate) fn tiling_snapshot_count(&self) -> usize {
         self.tiling_view.as_ref().map_or(0, |v| {
             v.snapshots.values().map(|s| 1 + s.popups.len()).sum()

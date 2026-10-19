@@ -470,6 +470,8 @@ enum TilingFinish {
     Buffers,
     Deadline,
     Exit,
+    OpenAnimation,
+    MoveAnimation,
 }
 
 #[derive(Clone, Copy)]
@@ -643,6 +645,40 @@ fn check_pending_tiling_pixels_at_scale(
     }
     match finish {
         TilingFinish::Buffers => {}
+        TilingFinish::OpenAnimation | TilingFinish::MoveAnimation => {
+            let generation = f.state().render.blur_geometry_generation;
+            match finish {
+                TilingFinish::OpenAnimation => f.state().start_window_open_animation(&wa),
+                TilingFinish::MoveAnimation => {
+                    f.state()
+                        .animate_window_move_from(&wa, (100, 150).into(), None)
+                }
+                _ => unreachable!(),
+            }
+            assert_eq!(
+                f.state().tiling_snapshot_count(),
+                1,
+                "only the peer stays frozen"
+            );
+            assert!(f.state().render.blur_geometry_generation > generation);
+            let animated = tiling_live_frame(&mut f, &output);
+            assert_ne!(animated, pending, "the new animation must be visible");
+            f.state()
+                .tick_window_animations(std::time::Duration::from_millis(16));
+            assert_ne!(
+                tiling_live_frame(&mut f, &output),
+                animated,
+                "animation advances while waiting"
+            );
+            f.state().cancel_window_animation(&wa);
+            f.pump(2);
+            assert_eq!(
+                f.state().tiling_snapshot_count(),
+                1,
+                "the invalidated picture must not return"
+            );
+            assert!(f.state().tiling_view.is_some());
+        }
         TilingFinish::Deadline => {
             std::thread::sleep(std::time::Duration::from_millis(310));
             f.pump(4);
@@ -777,4 +813,18 @@ fn pending_tiling_preserves_shadows_at_fractional_output_scales() {
             scale,
         );
     }
+}
+
+#[test]
+#[ignore = "needs Mesa surfaceless EGL; run with --include-ignored"]
+fn opening_animation_releases_a_pending_tiling_picture_and_its_popups() {
+    let _gl = gl::lock();
+    check_pending_tiling_pixels(TilingFinish::OpenAnimation, true, TilingPopupScene::Nested);
+}
+
+#[test]
+#[ignore = "needs Mesa surfaceless EGL; run with --include-ignored"]
+fn geometry_animation_releases_a_pending_tiling_picture_and_its_popups() {
+    let _gl = gl::lock();
+    check_pending_tiling_pixels(TilingFinish::MoveAnimation, true, TilingPopupScene::Nested);
 }
