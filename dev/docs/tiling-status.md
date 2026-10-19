@@ -684,3 +684,60 @@ Next: extend the retained-picture model to capture during active translations
 and test timeout/exit/supersession during motion, before implementing frozen
 resize/open/fade transforms and release-time continuity. P0 semantic audit and
 broader remap/cancellation traces remain unfinished roadmap work.
+
+
+## Capture during an active translation and motion-time cleanup
+
+An already moving window can now join a frozen tiling presentation. The
+animation state exposes a narrow eligibility query: canvas space, normal role,
+no pending size request, stale buffer, start hold or open fade; the visual size
+must equal the committed client size and the frozen picture must be neither
+bare fullscreen nor pinned. Capture additionally excludes live resize-crossfade
+overlays. Unsupported animation pictures keep the live fallback.
+
+The retained texture is still baked at its stationary stage coordinates, then
+receives the current render translation through the previous batch's shared
+physical transform. Thus capture does not cancel/reseed the chase or bake its
+current displacement into the picture twice. Visibility and flattening scale
+use the animated visual rectangle. A window still visible while moving toward
+an offscreen destination therefore remains eligible and bakes at the visible
+output's scale. Tiling entry continues to cancel canvas animations as before;
+the new coverage exercises a later grouped reflow while tiling is already active.
+
+Five new GLES scenes cover capture mid-chase with nested popup trees and shadow
+at 1x/1.25x/1.5x, a visible chase with an offscreen destination, a superseding
+width request with another applied buffer, deadline release and mode exit.
+A sixth scene covers mid-chase frost capture with/without rounded chrome/shadow
+at 2x/1.25x/1.5x. Complete pre/post-capture frames keep the existing exact or
+one/two-byte offscreen tolerances. An independent surface blocker keeps the peer
+pending after the moving client's new buffer applies. Supersession retains the
+first picture even after a newer buffer applies, and release drains all images.
+A headless policy test rejects opening, resize, scaled-seed and screen-space
+entries while accepting a plain canvas chase before/after a tick.
+
+`refresh_tiling_at` provides the reflow's transaction clock, with ordinary calls
+using `Instant::now()`. Deadline pixel tests now advance that clock and drain
+normal client wakeups instead of sleeping. Renderer capture timestamps and the
+real calloop timer keep their existing clock paths; this does not introduce a
+second production clock or change the shared deadline policy.
+
+Limits remain: frozen resize/open/fade transforms, release-time size continuity,
+SSD, view/zoom/scale transitions, popup-only visibility outside the parent,
+remapping/disconnect amid motion and hardware motion quality. The new traces
+cover controlled scenes and do not close P2/P13 or the broader parity roadmap.
+
+Validation: the 23-case GLES render-pixel suite passed, including the five new
+motion/capture/cleanup scenarios; the new frost scene passed all six scale/chrome
+combinations. The final `dev/scripts/ci-local` passed fmt, locked check, strict
+all-target clippy, all regular/ignored tests (366 library and 1434 binary cases,
+plus integration suites), and isolated soak. An initial clippy pass requested
+`if let` instead of checking `Option::is_some()` then unwrapping in the new
+fixture helper; the final gate includes that correction. The pure layout
+library is unchanged. No installed binary replacement, session restart, push or
+manual nested/hardware validation was performed. Existing output-management
+edits remain outside the commit.
+
+Next: implement frozen resize/open/fade transforms and release-time geometry
+continuity, with interrupted/superseding requests and refused sizes. Extend
+motion-time remap/disconnect and changing-view/scale cases; continue the P0
+semantic audit before treating any renderer subset as complete niri parity.

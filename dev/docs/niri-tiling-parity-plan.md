@@ -214,8 +214,12 @@ animation releases any previously captured parent/popup images for that window
 and invalidates its saved blur geometry; unaffected peers stay frozen. Position-only
 canvas chases started after capture now preserve the old textures and translate
 parent, popups, shadow and frost together using output-space transforms; an
-inherited fade or resize still takes the live fallback. Capture during an
-already active animation and release-time geometry continuity remain outstanding.
+inherited fade or resize still takes the live fallback. Capture now also accepts
+already active unscaled canvas chases without stale buffers, resize holds,
+fullscreen/pinned pictures or live resize-crossfade overlays. Capture visibility
+and rasterization scale follow the current visual rather than its destination.
+Resize/fade capture and release-time geometry continuity remain outstanding.
+Motion-time supersession, timeout and exit now have controlled renderer tests.
 Full animation integration and an
 unconditional frame-atomic rendering
 guarantee remain outstanding. Controlled GLES regressions now cover stationary

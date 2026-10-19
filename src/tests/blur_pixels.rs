@@ -611,6 +611,10 @@ fn check_tiling_frost_at_scale(framed: bool, scale: f64) {
 }
 
 fn check_tiling_frost_scene(framed: bool, scale: f64, translate: bool) {
+    check_tiling_frost_capture(framed, scale, translate, false);
+}
+
+fn check_tiling_frost_capture(framed: bool, scale: f64, translate: bool, moving_capture: bool) {
     use super::{last_configured, map_window_shm, window_by_app_id};
     use driftwm::config::Action;
     use smithay::reexports::wayland_server::Resource;
@@ -660,6 +664,28 @@ fn check_tiling_frost_scene(framed: bool, scale: f64, translate: bool) {
     f.state().stage.set_position(&wa, (250, 200).into());
     f.state().stage.set_position(&wb, (650, 450).into());
     f.state().set_camera((0.0, 0.0).into());
+    if moving_capture {
+        f.state().execute_action(&Action::ToggleTiling);
+        for (client, surface, size, data) in [
+            (first, &a, WINDOW_PHYSICAL, &pixels),
+            (second, &b, (200, 100), &b_pixels),
+        ] {
+            last_configured(&mut f, client, surface);
+            let w = f.client(client).window(surface);
+            w.attach_shm_buffer(size, data);
+            w.ack_last_and_commit();
+            f.double_roundtrip(client);
+        }
+        f.double_roundtrip(first);
+        assert_eq!(f.state().tiling_snapshot_count(), 0);
+        f.state().stage.set_position(&wa, (250, 200).into());
+        f.state().stage.set_position(&wb, (650, 450).into());
+        f.state().set_camera((0.0, 0.0).into());
+        f.state()
+            .animate_window_move_from(&wa, (300, 250).into(), None);
+        f.state()
+            .tick_window_animations(std::time::Duration::from_millis(16));
+    }
     let translated_before = if translate {
         f.state()
             .animate_window_move_from(&wa, (300, 250).into(), None);
@@ -671,7 +697,12 @@ fn check_tiling_frost_scene(framed: bool, scale: f64, translate: bool) {
     };
     let before = live_frame(&mut f, &output);
     let before_bounds = frost_bounds(&before);
-    f.state().execute_action(&Action::ToggleTiling);
+    if moving_capture {
+        f.state()
+            .execute_action(&Action::MoveIntoColumn(driftwm::config::Direction::Left));
+    } else {
+        f.state().execute_action(&Action::ToggleTiling);
+    }
     assert_eq!(f.state().tiling_snapshot_count(), 2);
     let size_a = last_configured(&mut f, first, &a);
     let size_b = last_configured(&mut f, second, &b);
@@ -808,6 +839,17 @@ fn position_animation_moves_frozen_tiling_frost_and_shadow_together() {
     for scale in [SCALE, 1.25, 1.5] {
         for framed in [false, true] {
             check_tiling_frost_scene(framed, scale, true);
+        }
+    }
+}
+
+#[test]
+#[ignore = "needs Mesa surfaceless EGL; run with --include-ignored"]
+fn tiling_captures_frost_during_an_active_translation() {
+    let _gl = gl::lock();
+    for scale in [SCALE, 1.25, 1.5] {
+        for framed in [false, true] {
+            check_tiling_frost_capture(framed, scale, false, true);
         }
     }
 }

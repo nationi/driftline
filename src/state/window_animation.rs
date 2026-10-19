@@ -760,6 +760,27 @@ impl WindowAnimations {
         }
     }
 
+    /// Whether the current picture can use unscaled captured canvas content.
+    pub fn is_canvas_translation(&self, id: ElementId, committed: Size<i32, Logical>) -> bool {
+        matches!(
+            self.animations.get(&id),
+            Some(WindowAnimation {
+                kind: AnimationKind::Geometry {
+                    visual,
+                    space: AnimSpace::Canvas,
+                    requested_size: None,
+                    buffer_stale: false,
+                    start_hold: StartHold::Off,
+                    role: GeometryRole::Normal,
+                    open_fade: None,
+                    picture,
+                    ..
+                }
+            }) if visual.size == committed.to_f64()
+                && !picture.bare && !picture.pinned
+        )
+    }
+
     /// The current visual rect of a geometry entry in its own space, if any.
     pub fn geometry_visual_rect(&self, id: ElementId) -> Option<Rectangle<f64, Logical>> {
         match self.animations.get(&id) {

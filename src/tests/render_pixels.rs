@@ -473,6 +473,7 @@ enum TilingFinish {
     OpenAnimation,
     MoveAnimation,
     ResizeAnimation,
+    Supersede,
 }
 
 #[derive(Clone, Copy)]
@@ -523,6 +524,16 @@ fn check_pending_tiling_pixels_at_scale(
     scene: TilingPopupScene,
     scale: f64,
 ) {
+    check_pending_tiling_capture(finish, shadow, scene, scale, None);
+}
+
+fn check_pending_tiling_capture(
+    finish: TilingFinish,
+    shadow: bool,
+    scene: TilingPopupScene,
+    scale: f64,
+    moving_before_capture: Option<i32>,
+) {
     use super::{last_configured, window_by_app_id};
     use driftwm::config::Action;
     use smithay::reexports::wayland_server::Resource;
@@ -569,6 +580,26 @@ fn check_pending_tiling_pixels_at_scale(
             [255, 0, 255, 255],
         );
     }
+    if let Some(destination) = moving_before_capture {
+        f.state().execute_action(&Action::ToggleTiling);
+        for (client, surface) in [(first, &a), (second, &b)] {
+            last_configured(&mut f, client, surface);
+            let w = f.client(client).window(surface);
+            w.attach_shm_buffer((200, 100), &old);
+            w.ack_last_and_commit();
+            f.double_roundtrip(client);
+        }
+        f.double_roundtrip(first);
+        assert_eq!(f.state().tiling_snapshot_count(), 0);
+        f.state().stage.set_position(&wa, (destination, 50).into());
+        f.state().stage.set_position(&wb, (350, 50).into());
+        f.state().set_camera((0.0, 0.0).into());
+        let seed_x = if destination < 0 { 600 } else { 100 };
+        f.state()
+            .animate_window_move_from(&wa, (seed_x, 150).into(), None);
+        f.state()
+            .tick_window_animations(std::time::Duration::from_millis(16));
+    }
     let translated_before = if matches!(finish, TilingFinish::MoveAnimation) {
         f.state()
             .animate_window_move_from(&wa, (100, 150).into(), None);
@@ -585,7 +616,12 @@ fn check_pending_tiling_pixels_at_scale(
             "popup is visible outside the parent"
         );
     }
-    f.state().execute_action(&Action::ToggleTiling);
+    if moving_before_capture.is_some() {
+        f.state()
+            .execute_action(&Action::MoveIntoColumn(driftwm::config::Direction::Left));
+    } else {
+        f.state().execute_action(&Action::ToggleTiling);
+    }
     let images = match scene {
         TilingPopupScene::None | TilingPopupScene::Appears => 2,
         TilingPopupScene::Nested => 4,
@@ -655,6 +691,28 @@ fn check_pending_tiling_pixels_at_scale(
     }
     match finish {
         TilingFinish::Buffers => {}
+        TilingFinish::Supersede => {
+            f.state().execute_action(&Action::CycleColumnWidth);
+            assert_eq!(f.state().tiling_snapshot_count(), images);
+            assert!(
+                tiling_live_frame(&mut f, &output) == pending,
+                "supersession preserves the first picture"
+            );
+            for (client, surface) in [(first, &a), (second, &b)] {
+                let size = last_configured(&mut f, client, surface);
+                let pixels = solid_bgra(size.0, size.1, [255, 255, 0, 255], false);
+                let w = f.client(client).window(surface);
+                w.set_size(size.0 as u16, size.1 as u16);
+                w.attach_shm_buffer(size, &pixels);
+                w.ack_last_and_commit();
+                f.double_roundtrip(client);
+            }
+            f.double_roundtrip(first);
+            assert!(
+                tiling_live_frame(&mut f, &output) == pending,
+                "newer applied buffers stay hidden too"
+            );
+        }
         TilingFinish::OpenAnimation
         | TilingFinish::MoveAnimation
         | TilingFinish::ResizeAnimation => {
@@ -734,8 +792,10 @@ fn check_pending_tiling_pixels_at_scale(
             assert!(f.state().tiling_view.is_some());
         }
         TilingFinish::Deadline => {
-            std::thread::sleep(std::time::Duration::from_millis(310));
+            let expired = std::time::Instant::now() + std::time::Duration::from_secs(1);
+            f.state().refresh_tiling_at(expired);
             f.pump(4);
+            f.state().refresh_tiling_at(expired);
             f.double_roundtrip(first);
             assert_eq!(f.state().tiling_snapshot_count(), 0);
             assert!(before != tiling_live_frame(&mut f, &output));
@@ -754,6 +814,7 @@ fn check_pending_tiling_pixels_at_scale(
         .compositor_state
         .blocker_cleared(f.state(), &dh);
     f.double_roundtrip(second);
+    f.double_roundtrip(first);
     assert_eq!(f.state().tiling_snapshot_count(), 0);
     assert!(before != tiling_live_frame(&mut f, &output));
     remove_pre_commit_hook(&surface, &hook);
@@ -901,4 +962,71 @@ fn position_animation_preserves_pending_tiling_content_and_popups() {
             );
         }
     }
+}
+
+#[test]
+#[ignore = "needs Mesa surfaceless EGL; run with --include-ignored"]
+fn tiling_captures_content_and_popups_during_an_active_translation() {
+    let _gl = gl::lock();
+    for scale in [1.0, 1.25, 1.5] {
+        check_pending_tiling_capture(
+            TilingFinish::Buffers,
+            true,
+            TilingPopupScene::Nested,
+            scale,
+            Some(50),
+        );
+    }
+}
+
+#[test]
+#[ignore = "needs Mesa surfaceless EGL; run with --include-ignored"]
+fn tiling_supersession_preserves_an_active_translation_picture() {
+    let _gl = gl::lock();
+    check_pending_tiling_capture(
+        TilingFinish::Supersede,
+        false,
+        TilingPopupScene::Nested,
+        1.0,
+        Some(50),
+    );
+}
+
+#[test]
+#[ignore = "needs Mesa surfaceless EGL; run with --include-ignored"]
+fn a_deadline_releases_the_picture_captured_during_motion() {
+    let _gl = gl::lock();
+    check_pending_tiling_capture(
+        TilingFinish::Deadline,
+        false,
+        TilingPopupScene::Nested,
+        1.25,
+        Some(50),
+    );
+}
+
+#[test]
+#[ignore = "needs Mesa surfaceless EGL; run with --include-ignored"]
+fn exiting_tiling_releases_the_picture_captured_during_motion() {
+    let _gl = gl::lock();
+    check_pending_tiling_capture(
+        TilingFinish::Exit,
+        false,
+        TilingPopupScene::Nested,
+        1.5,
+        Some(50),
+    );
+}
+
+#[test]
+#[ignore = "needs Mesa surfaceless EGL; run with --include-ignored"]
+fn tiling_captures_a_visible_translation_with_an_offscreen_destination() {
+    let _gl = gl::lock();
+    check_pending_tiling_capture(
+        TilingFinish::Buffers,
+        true,
+        TilingPopupScene::Nested,
+        1.5,
+        Some(-1000),
+    );
 }

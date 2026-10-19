@@ -409,6 +409,10 @@ impl DriftWm {
     }
 
     pub(crate) fn refresh_tiling(&mut self) {
+        self.refresh_tiling_at(std::time::Instant::now());
+    }
+
+    pub(crate) fn refresh_tiling_at(&mut self, now: std::time::Instant) {
         let Some(view) = self.tiling_view.as_ref() else {
             return;
         };
@@ -540,7 +544,6 @@ impl DriftWm {
             .unwrap()
             .configures
             .update_layout(&placements);
-        let now = std::time::Instant::now();
         if let Some(view) = self.tiling_view.as_mut() {
             view.initial_configures.retain(|id, initial| {
                 let Some(element) = self.stage.window_by_id(*id) else {
@@ -854,7 +857,6 @@ impl DriftWm {
                 .snapshots
                 .contains_key(&id)
                 || self.window_animations.open_progress(id).is_some()
-                || self.window_animations.generation_of(id).is_some()
             {
                 continue;
             }
@@ -871,7 +873,22 @@ impl DriftWm {
                 continue;
             };
             let geometry = window.geometry();
-            if !self.canvas_rect_drawable(Rectangle::new(position, geometry.size)) {
+            let translating = self
+                .window_animations
+                .is_canvas_translation(id, geometry.size)
+                && !self.resize_crossfades.contains_key(&id);
+            if self.window_animations.generation_of(id).is_some() && !translating {
+                continue;
+            }
+            let visible = if translating {
+                self.window_animations
+                    .geometry_visual_rect(id)
+                    .unwrap()
+                    .to_i32_round()
+            } else {
+                Rectangle::new(position, geometry.size)
+            };
+            if !self.canvas_rect_drawable(visible) {
                 continue;
             }
             let opacity = self.effective_opacity_of(window, focused.as_ref());
@@ -903,7 +920,7 @@ impl DriftWm {
             };
             let chrome = self.snapshot_chrome(&surface, geometry, false);
             let origin = position.to_f64() - geometry.loc.to_f64();
-            let scale = self.flatten_scale_for_canvas_rect(Rectangle::new(position, geometry.size));
+            let scale = self.flatten_scale_for_canvas_rect(visible);
             let shadow = chrome.and_then(|c| {
                 c.shadow_shader.map(|_| {
                     let border = f64::from(c.border_width.max(0));
