@@ -310,6 +310,14 @@ pub(crate) struct ResizeCrossfade {
 }
 
 impl ResizeCrossfade {
+    pub(crate) fn set_resize_direction(
+        &mut self,
+        old_size: Size<i32, Logical>,
+        new_size: Size<i32, Logical>,
+    ) {
+        self.grew = leg_grew(old_size, new_size);
+    }
+
     pub fn tick(&mut self, frame_factor: f64) {
         self.progress += (1.0 - self.progress) * frame_factor;
     }

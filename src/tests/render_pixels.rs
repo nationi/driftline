@@ -468,9 +468,12 @@ fn tiling_live_frame(f: &mut Fixture, output: &smithay::output::Output) -> Vec<u
 #[derive(Clone, Copy)]
 enum TilingFinish {
     Buffers,
+    ReleaseAnimation,
+    ReleaseTranslucent,
     Deadline,
     Exit,
     OpenAnimation,
+    ActiveOpen,
     OpenDeadline,
     OpenExit,
     MoveAnimation,
@@ -548,6 +551,22 @@ fn check_pending_tiling_capture(
         return;
     };
     let config = format!("{}\n[snap]\ngap = 0\n", config_toml(shadow));
+    let config = if matches!(finish, TilingFinish::ReleaseTranslucent) {
+        config.replace(
+            "[decorations]",
+            "[decorations]\nopacity = 0.6\nopacity_focused = 0.6",
+        )
+    } else {
+        config
+    };
+    let config = if matches!(
+        finish,
+        TilingFinish::ReleaseAnimation | TilingFinish::ReleaseTranslucent
+    ) {
+        config.replace("default_mode = \"client\"", "default_mode = \"none\"")
+    } else {
+        config
+    };
     let mut f = Fixture::with_config(super::config(&config));
     let output = f.add_output_scaled(1, (1200, 800), scale);
     gl::install(&mut f, renderer);
@@ -556,6 +575,20 @@ fn check_pending_tiling_capture(
     let old = solid_bgra(200, 100, CONTENT_BGRA, false);
     let a = map_window_shm(&mut f, first, "a", (200, 100), (200, 100), &old);
     let b = map_window_shm(&mut f, second, "b", (200, 100), (200, 100), &old);
+    if matches!(
+        finish,
+        TilingFinish::ReleaseAnimation | TilingFinish::ReleaseTranslucent
+    ) {
+        for (client, surface) in [(first, &a), (second, &b)] {
+            f.client(client)
+                .set_opaque_region(surface, &[(0, 0, 10000, 10000)]);
+            f.client(client)
+                .window(surface)
+                .attach_shm_buffer((200, 100), &old);
+            f.client(client).window(surface).commit();
+            f.double_roundtrip(client);
+        }
+    }
     super::tick_until_settled(&mut f);
     let wa = window_by_app_id(&mut f, "a").unwrap();
     let wb = window_by_app_id(&mut f, "b").unwrap();
@@ -593,6 +626,8 @@ fn check_pending_tiling_capture(
         }
         f.double_roundtrip(first);
         assert_eq!(f.state().tiling_snapshot_count(), 0);
+        f.state().cancel_window_animation(&wa);
+        f.state().cancel_window_animation(&wb);
         f.state().stage.set_position(&wa, (destination, 50).into());
         f.state().stage.set_position(&wb, (350, 50).into());
         f.state().set_camera((0.0, 0.0).into());
@@ -611,8 +646,16 @@ fn check_pending_tiling_capture(
     } else {
         None
     };
-    let opening_frames = if matches!(finish, TilingFinish::OpenAnimation) {
+    let opaque_before = tiling_live_frame(&mut f, &output);
+    let opening_frames = if matches!(
+        finish,
+        TilingFinish::OpenAnimation | TilingFinish::ActiveOpen
+    ) {
         f.state().start_window_open_animation(&wa);
+        if matches!(finish, TilingFinish::ActiveOpen) {
+            f.state()
+                .tick_window_animations(std::time::Duration::from_millis(16));
+        }
         let mut frames = vec![tiling_live_frame(&mut f, &output)];
         for _ in 0..2 {
             f.state()
@@ -624,8 +667,13 @@ fn check_pending_tiling_capture(
     } else {
         None
     };
+    if matches!(finish, TilingFinish::ActiveOpen) {
+        f.state().start_window_open_animation(&wa);
+        f.state()
+            .tick_window_animations(std::time::Duration::from_millis(16));
+    }
     let before = tiling_live_frame(&mut f, &output);
-    if popup.is_some() {
+    if popup.is_some() && !matches!(finish, TilingFinish::ActiveOpen) {
         assert!(
             before.as_chunks::<4>().0.contains(&[0, 0, 255, 255]),
             "popup is visible outside the parent"
@@ -705,7 +753,9 @@ fn check_pending_tiling_capture(
         );
     }
     match finish {
-        TilingFinish::Buffers => {}
+        TilingFinish::Buffers
+        | TilingFinish::ReleaseAnimation
+        | TilingFinish::ReleaseTranslucent => {}
         TilingFinish::Supersede => {
             f.state().execute_action(&Action::CycleColumnWidth);
             assert_eq!(f.state().tiling_snapshot_count(), images);
@@ -729,11 +779,13 @@ fn check_pending_tiling_capture(
             );
         }
         TilingFinish::OpenAnimation
+        | TilingFinish::ActiveOpen
         | TilingFinish::MoveAnimation
         | TilingFinish::ResizeAnimation => {
             let generation = f.state().render.blur_geometry_generation;
             match finish {
                 TilingFinish::OpenAnimation => f.state().start_window_open_animation(&wa),
+                TilingFinish::ActiveOpen => {}
                 TilingFinish::MoveAnimation => {
                     f.state()
                         .animate_window_move_from(&wa, (100, 150).into(), None)
@@ -752,7 +804,14 @@ fn check_pending_tiling_capture(
                 assert!(f.state().render.blur_geometry_generation > generation);
             }
             let animated = tiling_live_frame(&mut f, &output);
-            assert_ne!(animated, pending, "the new animation must be visible");
+            if matches!(finish, TilingFinish::ActiveOpen) {
+                assert!(
+                    animated == pending,
+                    "capture preserves the active animation"
+                );
+            } else {
+                assert!(animated != pending, "the new animation must be visible");
+            }
             if let Some(frames) = &opening_frames {
                 assert!(
                     animated == frames[0],
@@ -812,7 +871,10 @@ fn check_pending_tiling_capture(
                     !interrupted.as_chunks::<4>().0.contains(&[0, 255, 0, 255]),
                     "new green buffers must stay hidden"
                 );
-                let seed = if matches!(finish, TilingFinish::OpenAnimation) {
+                let seed = if matches!(
+                    finish,
+                    TilingFinish::OpenAnimation | TilingFinish::ActiveOpen
+                ) {
                     (50, 50)
                 } else {
                     (150, 200)
@@ -840,7 +902,10 @@ fn check_pending_tiling_capture(
                 }
             }
             f.state().cancel_window_animation(&wa);
-            if !matches!(finish, TilingFinish::OpenAnimation) {
+            if !matches!(
+                finish,
+                TilingFinish::OpenAnimation | TilingFinish::ActiveOpen
+            ) {
                 f.pump(2);
             }
             assert_eq!(f.state().tiling_snapshot_count(), expected_images);
@@ -848,7 +913,11 @@ fn check_pending_tiling_capture(
                 let restored = tiling_live_frame(&mut f, &output);
                 let max_delta = restored
                     .iter()
-                    .zip(&before)
+                    .zip(if matches!(finish, TilingFinish::ActiveOpen) {
+                        &opaque_before
+                    } else {
+                        &before
+                    })
                     .map(|(a, b)| a.abs_diff(*b))
                     .max()
                     .unwrap();
@@ -899,7 +968,59 @@ fn check_pending_tiling_capture(
     f.double_roundtrip(second);
     f.double_roundtrip(first);
     assert_eq!(f.state().tiling_snapshot_count(), 0);
-    assert!(before != tiling_live_frame(&mut f, &output));
+    let released = tiling_live_frame(&mut f, &output);
+    if matches!(
+        finish,
+        TilingFinish::ReleaseAnimation | TilingFinish::ReleaseTranslucent
+    ) {
+        let id = f.state().stage.id_of(&wa).unwrap();
+        let visual = f
+            .state()
+            .window_animations
+            .geometry_visual_rect(id)
+            .unwrap();
+        assert_eq!(visual.loc, (50.0, 50.0).into());
+        assert_eq!(visual.size, (200.0, 100.0).into());
+        assert_eq!(
+            f.state().resize_crossfades.contains_key(&id),
+            matches!(finish, TilingFinish::ReleaseAnimation)
+        );
+        let x = (100.0 * scale) as usize;
+        let y = (90.0 * scale) as usize;
+        let sample = (y * 1200 + x) * 4;
+        if matches!(finish, TilingFinish::ReleaseAnimation) {
+            assert_eq!(&released[sample..sample + 4], &before[sample..sample + 4]);
+        } else {
+            assert_eq!(
+                released[sample + 3],
+                before[sample + 3],
+                "release must not increase opacity"
+            );
+        }
+        f.state()
+            .tick_window_animations(std::time::Duration::from_millis(16));
+        assert_ne!(
+            f.state()
+                .window_animations
+                .geometry_visual_rect(id)
+                .unwrap(),
+            visual
+        );
+        assert!(released != tiling_live_frame(&mut f, &output));
+        for _ in 0..30 {
+            f.state()
+                .tick_window_animations(std::time::Duration::from_millis(16));
+        }
+        assert!(!f.state().resize_crossfades.contains_key(&id));
+        assert!(
+            f.state()
+                .window_animations
+                .geometry_visual_rect(id)
+                .is_none()
+        );
+    } else {
+        assert!(before != released);
+    }
     remove_pre_commit_hook(&surface, &hook);
     if f.state().tiling_view.is_some() {
         f.state().execute_action(&Action::ToggleTiling);
@@ -1130,4 +1251,49 @@ fn opening_tiling_pictures_release_on_deadline_and_exit() {
     for finish in [TilingFinish::OpenDeadline, TilingFinish::OpenExit] {
         check_pending_tiling_pixels_at_scale(finish, false, TilingPopupScene::Nested, 1.25);
     }
+}
+
+#[test]
+#[ignore = "needs surfaceless EGL; run with --include-ignored"]
+fn tiling_captures_an_already_opening_window_and_its_popups() {
+    let _gl = gl::lock();
+    for scale in [1.0, 1.25, 1.5] {
+        for shadow in [false, true] {
+            check_pending_tiling_capture(
+                TilingFinish::ActiveOpen,
+                shadow,
+                TilingPopupScene::Nested,
+                scale,
+                None,
+            );
+        }
+    }
+}
+
+#[test]
+#[ignore = "needs surfaceless EGL; run with --include-ignored"]
+fn tiling_release_animates_from_the_retained_size_and_old_content() {
+    let _gl = gl::lock();
+    for scale in [1.0, 1.25, 1.5] {
+        check_pending_tiling_capture(
+            TilingFinish::ReleaseAnimation,
+            false,
+            TilingPopupScene::None,
+            scale,
+            None,
+        );
+    }
+}
+
+#[test]
+#[ignore = "needs surfaceless EGL; run with --include-ignored"]
+fn tiling_release_does_not_stack_translucent_content() {
+    let _gl = gl::lock();
+    check_pending_tiling_capture(
+        TilingFinish::ReleaseTranslucent,
+        true,
+        TilingPopupScene::None,
+        1.25,
+        None,
+    );
 }

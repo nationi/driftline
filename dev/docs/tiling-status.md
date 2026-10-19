@@ -918,3 +918,62 @@ remaining P2 retained-picture lifecycle: capture during active open/fade,
 supersession and client blur regions, then resize/crossfade/release continuity.
 P0 custom-decoder/reference fixture audit remains an earlier unfinished gate;
 finish that evidence before claiming parity or expanding advanced interactions.
+
+## Retained opening capture and release geometry animation (2026-10-19)
+
+Checkpointed the GPU investigation independently: `2016574` adapts niri's
+Dual Kawase pyramid; `5a122bb` restores the winit EGL target and records the
+regression/evidence. Neither claims to fix nested NVIDIA presentation. User
+confirmed direct-udev TTY runs well. Unrelated output-management edits remain
+outside these commits and the current batch.
+
+This batch accepts captures during already active opening scale/fade, including
+an inherited fade on a safe, unscaled canvas translation. Drawability follows
+the current opening visual. Retained parent/popups/chrome/frost continue the
+same animation after an early peer applies its new buffer. Pixel comparisons
+exercise nested menus, shadows and 1x/1.25x/1.5x; frost tests also cover a pure
+opacity fade. Existing resize/stale-buffer/frame-conversion exclusions remain.
+
+On grouped presentation release, Stage gets the new placements atomically;
+render geometry is seeded from each retained picture (or its active chase) and
+animates toward the committed live size/position without issuing another size
+configure. Structural anchor compensation translates the seed with the camera,
+keeping screen-space continuity. Full-speed effects skip this animation.
+Opaque old content is baked before any early peer can replace its textures, then
+handed to the existing resize crossfade at release. The overlay direction is
+resolved against the actual committed size, including client-chosen sizes.
+Only compositor opacity 1 plus complete declared opaque-region coverage at both
+ends allows that overlay; undeclared/translucent content uses geometry animation
+without stacking two pictures and increasing opacity. A general premultiplied
+old/new texture blend for transparent content is still missing. Some CSD opaque
+regions are deliberately corner-trimmed, so these conservatively skip the
+content overlay too. Opening fades retain their progress and skip the overlay.
+
+New controlled regressions check old content and old visual geometry on the
+release frame, movement on the next tick, overlay/animation cleanup, and stable
+opacity for a translucent release. Capture regressions cover already active
+opening/fade. Existing motion tests now explicitly cancel the new release leg
+before installing their independently controlled translation setup.
+
+Scope is partial P2/P13: capture during an already active resize/crossfade still
+falls back to live rendering, and popup resize behavior, SSD/fractional view
+transitions, motion-time remap/disconnect, client-protocol blur regions and full
+frame atomicity remain. P0 custom-decoder/reference fixture audit is still an
+unfinished gate before broadening interaction or claiming parity.
+
+Validation logs: `/tmp/driftwm-active-captures.log` (five capture tests),
+`/tmp/driftwm-release-blur.log` (16 blur pixel tests), and final full gate
+`/tmp/driftwm-tiling-release-ci-final.log`. Final release build:
+`/tmp/driftwm-tiling-release-build-verified.log`. Do not substitute the earlier CI
+log, which predates the final opaque-region safeguards. Manual validation of
+this new release transition has not yet been performed; use the existing TTY
+launcher after the final build succeeds. Installed binary/session are untouched.
+
+Final validation completed successfully: `dev/scripts/ci-local` exited 0 with
+366 library and 1445 binary cases plus integration suites and isolated soak.
+Final release build succeeded (43.77 s). Changed popup membership also prevents
+release-time resurrection of a snapshot that had already fallen back to live
+rendering. No manual test of this transition batch or installed binary update
+was performed. Next: direct-udev checks of F2/F5, then capture and continuity
+across an already active resize/crossfade; transparent content blending remains
+a separate requirement rather than an accepted approximation.

@@ -37,6 +37,8 @@ pub(crate) struct TilingView {
 
 struct TilingSnapshot {
     image: crate::render::ClosingSnapshot,
+    // An opaque content-only bake; transparent pictures must not be stacked.
+    resize: Option<crate::render::ResizeCrossfade>,
     popups: Vec<TilingPopupSnapshot>,
     blur: crate::render::SnapshotBlur,
     shadow: Option<crate::render::SnapshotShadow>,
@@ -50,6 +52,20 @@ pub(crate) struct TilingSnapshotElements {
     pub blur: Option<crate::render::BlurRequestData>,
     pub shadow: Option<crate::render::SnapshotShadow>,
     pub border: Option<crate::render::SnapshotBorder>,
+}
+
+impl TilingSnapshot {
+    fn matches_popups(
+        &self,
+        root: &smithay::reexports::wayland_server::protocol::wl_surface::WlSurface,
+    ) -> bool {
+        mapped_tiling_popups(root)
+            .map(|(popup, offset)| (popup.wl_surface().clone(), offset, popup.geometry()))
+            .eq(self
+                .popups
+                .iter()
+                .map(|p| (p.surface.clone(), p.offset, p.geometry)))
+    }
 }
 
 struct TilingPopupSnapshot {
@@ -755,8 +771,8 @@ impl DriftWm {
         }
         let view = self.tiling_view.as_mut().unwrap();
         view.presentation = None;
-        if !view.snapshots.is_empty() {
-            view.snapshots.clear();
+        let snapshots = std::mem::take(&mut view.snapshots);
+        if !snapshots.is_empty() {
             self.render.blur_geometry_generation += 1;
             self.mark_all_dirty();
         }
@@ -787,6 +803,7 @@ impl DriftWm {
             .stage
             .active_column()
             .zip(selected.map(|(_, frame)| frame.loc.x));
+        let mut anchor_translation = 0.0;
         let translated = if let Some((column, x)) = anchor
             && let Some((previous_column, previous_x)) =
                 self.tiling_view.as_ref().and_then(|v| v.anchor)
@@ -796,6 +813,7 @@ impl DriftWm {
             // Structural changes before the selected column must not scroll
             // its content under a stationary viewport, including mid-flight.
             let delta = f64::from(x) - f64::from(previous_x);
+            anchor_translation = delta;
             self.with_output_state(|os| {
                 os.camera.x += delta;
                 if let Some(target) = &mut os.camera_target {
@@ -810,6 +828,59 @@ impl DriftWm {
         } else {
             false
         };
+        // Placement remains atomic in Stage; the renderer chases from the
+        // picture held by the completed transaction without another configure.
+        for (id, mut snapshot) in snapshots {
+            if self.config.effects.animation_speed >= 1.0 {
+                continue;
+            }
+            let Some(window) = self
+                .stage
+                .window_by_id(id)
+                .and_then(|w| w.client())
+                .cloned()
+            else {
+                continue;
+            };
+            if !window
+                .wl_surface()
+                .is_some_and(|root| snapshot.matches_popups(&root))
+            {
+                // Menus changed while waiting, so this window already resumed
+                // live rendering. Do not resurrect its retired picture.
+                continue;
+            }
+            let old_size = snapshot.blur.geometry.size;
+            let new_size = window.geometry().size;
+            let mut seed = self.geometry_seed(id, snapshot.blur.position, old_size);
+            if translated {
+                seed.loc.x += anchor_translation;
+            }
+            let destination = self.stage.position_of(&window).unwrap_or_default();
+            if seed == smithay::utils::Rectangle::new(destination.to_f64(), new_size.to_f64()) {
+                continue;
+            }
+            self.begin_geometry_animation_seeded(
+                &window,
+                seed,
+                super::window_animation::AnimSpace::Canvas,
+                None,
+                super::window_animation::GeometryRole::Normal,
+                super::window_animation::ContentPolicy::Stretch,
+                Some(destination),
+            );
+            if old_size != new_size
+                && !self.window_animations.has_open_fade(id)
+                && window
+                    .wl_surface()
+                    .is_some_and(|surface| tiling_content_opaque(&surface, window.geometry()))
+                && self.window_animations.generation_of(id).is_some()
+                && let Some(mut resize) = snapshot.resize.take()
+            {
+                resize.set_resize_direction(old_size, new_size);
+                self.resize_crossfades.insert(id, resize);
+            }
+        }
         if let Some(saved) = close_return
             && self.stage.active_column() == Some(saved.previous)
             && let Some((_, frame)) = selected
@@ -858,7 +929,6 @@ impl DriftWm {
                 .unwrap()
                 .snapshots
                 .contains_key(&id)
-                || self.window_animations.open_progress(id).is_some()
             {
                 continue;
             }
@@ -890,6 +960,12 @@ impl DriftWm {
             } else {
                 Rectangle::new(position, geometry.size)
             };
+            let visible = self.window_animations.opening_visual(
+                id,
+                visible.to_f64(),
+                self.config.effects.animation_scale,
+            );
+            let visible = Rectangle::new(visible.loc, visible.size).to_i32_round();
             if !self.canvas_rect_drawable(visible) {
                 continue;
             }
@@ -1006,10 +1082,27 @@ impl DriftWm {
                     })
                     .collect();
                 if let Some(popups) = popups {
+                    // Bake while the original client textures are still valid:
+                    // an early peer's new buffer can apply before group release.
+                    let resize = (self.config.effects.animation_speed < 1.0
+                        && opacity >= 1.0
+                        && tiling_content_opaque(&surface, geometry))
+                    .then(|| {
+                        crate::render::resize_crossfade(
+                            backend.renderer(),
+                            &pixels,
+                            geometry.size,
+                            scale,
+                            self.render.corner_clip_shader.as_ref(),
+                            self.baked_chrome_policy(&surface, false),
+                        )
+                    })
+                    .flatten();
                     self.tiling_view.as_mut().unwrap().snapshots.insert(
                         id,
                         TilingSnapshot {
                             image,
+                            resize,
                             popups,
                             blur,
                             shadow,
@@ -1070,13 +1163,7 @@ impl DriftWm {
     ) -> Option<TilingSnapshotElements> {
         let snapshot = self.tiling_view.as_ref()?.snapshots.get(&id)?;
         let root = self.stage.window_by_id(id)?.wl_surface()?;
-        let current = mapped_tiling_popups(&root)
-            .map(|(popup, offset)| (popup.wl_surface().clone(), offset, popup.geometry()));
-        if !current.eq(snapshot
-            .popups
-            .iter()
-            .map(|p| (p.surface.clone(), p.offset, p.geometry)))
-        {
+        if !snapshot.matches_popups(&root) {
             return None;
         }
         // Geometry chases contribute displacement; opening scales/fades the
@@ -1438,4 +1525,16 @@ impl DriftWm {
             .filter(|view| &view.output == output)
             .map(|view| (view.camera, view.zoom))
     }
+}
+
+fn tiling_content_opaque(
+    surface: &smithay::reexports::wayland_server::protocol::wl_surface::WlSurface,
+    geometry: smithay::utils::Rectangle<i32, Logical>,
+) -> bool {
+    smithay::backend::renderer::utils::with_renderer_surface_state(surface, |state| {
+        state
+            .opaque_regions()
+            .is_some_and(|regions| geometry.subtract_rects(regions.iter().copied()).is_empty())
+    })
+    .unwrap_or(false)
 }

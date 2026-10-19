@@ -616,6 +616,8 @@ enum TilingFrostAnimation {
     Move,
     Open,
     PureFade,
+    ActiveOpen,
+    ActiveFade,
 }
 
 fn check_tiling_frost_scene(framed: bool, scale: f64, translate: bool) {
@@ -655,7 +657,10 @@ fn check_tiling_frost_capture(
         "{}\n[snap]\ngap = 0\n",
         config_toml(shader.to_str().unwrap(), 3, 1.5)
     );
-    let config = if matches!(animation, TilingFrostAnimation::PureFade) {
+    let config = if matches!(
+        animation,
+        TilingFrostAnimation::PureFade | TilingFrostAnimation::ActiveFade
+    ) {
         config.replace("[effects]", "[effects]\nanimation_scale = 1.0")
     } else {
         config
@@ -705,6 +710,8 @@ fn check_tiling_frost_capture(
         }
         f.double_roundtrip(first);
         assert_eq!(f.state().tiling_snapshot_count(), 0);
+        f.state().cancel_window_animation(&wa);
+        f.state().cancel_window_animation(&wb);
         f.state().stage.set_position(&wa, (250, 200).into());
         f.state().stage.set_position(&wb, (650, 450).into());
         f.state().set_camera((0.0, 0.0).into());
@@ -722,11 +729,22 @@ fn check_tiling_frost_capture(
     } else {
         None
     };
+    let opaque_bounds = frost_bounds(&live_frame(&mut f, &output));
     let opening_frames = if matches!(
         animation,
-        TilingFrostAnimation::Open | TilingFrostAnimation::PureFade
+        TilingFrostAnimation::Open
+            | TilingFrostAnimation::PureFade
+            | TilingFrostAnimation::ActiveOpen
+            | TilingFrostAnimation::ActiveFade
     ) {
         f.state().start_window_open_animation(&wa);
+        if matches!(
+            animation,
+            TilingFrostAnimation::ActiveOpen | TilingFrostAnimation::ActiveFade
+        ) {
+            f.state()
+                .tick_window_animations(std::time::Duration::from_millis(16));
+        }
         let mut frames = vec![live_frame(&mut f, &output)];
         for _ in 0..2 {
             f.state()
@@ -741,6 +759,15 @@ fn check_tiling_frost_capture(
     } else {
         None
     };
+    if matches!(
+        animation,
+        TilingFrostAnimation::ActiveOpen | TilingFrostAnimation::ActiveFade
+    ) {
+        f.state().start_window_open_animation(&wa);
+        f.state()
+            .tick_window_animations(std::time::Duration::from_millis(16));
+        f.state().render.blur_geometry_generation += 1;
+    }
     let before = live_frame(&mut f, &output);
     let before_bounds = frost_bounds(&before);
     if moving_capture {
@@ -836,11 +863,16 @@ fn check_tiling_frost_capture(
         assert_eq!(animated_mask.size, resting_mask.size);
         f.state().cancel_window_animation(&wa);
         let restored = live_frame(&mut f, &output);
-        assert_eq!(frost_bounds(&restored), before_bounds);
+        assert_eq!(frost_bounds(&restored), opaque_bounds);
         assert_eq!(f.state().tiling_snapshot_count(), 2);
     }
     if let Some(frames) = opening_frames {
-        f.state().start_window_open_animation(&wa);
+        if !matches!(
+            animation,
+            TilingFrostAnimation::ActiveOpen | TilingFrostAnimation::ActiveFade
+        ) {
+            f.state().start_window_open_animation(&wa);
+        }
         assert_eq!(f.state().tiling_snapshot_count(), 2);
         for (tick, expected) in frames.iter().enumerate() {
             if tick != 0 {
@@ -867,7 +899,7 @@ fn check_tiling_frost_capture(
         }
         f.state().cancel_window_animation(&wa);
         let restored = live_frame(&mut f, &output);
-        assert_eq!(frost_bounds(&restored), before_bounds);
+        assert_eq!(frost_bounds(&restored), opaque_bounds);
         assert_eq!(f.state().tiling_snapshot_count(), 2);
     }
     barrier.signal();
@@ -1082,4 +1114,18 @@ fn incremental_frost_frames_match_full_redraw_with_output_flip() {
     }
     f.state().backend = Some(backend);
     uninstall_with_blur(&mut f, &output);
+}
+
+#[test]
+#[ignore = "needs surfaceless EGL; run with --include-ignored"]
+fn tiling_captures_frost_during_an_active_open_or_fade() {
+    let _gl = gl::lock();
+    for scale in [1.0, 1.25, 1.5] {
+        for animation in [
+            TilingFrostAnimation::ActiveOpen,
+            TilingFrostAnimation::ActiveFade,
+        ] {
+            check_tiling_frost_capture(true, scale, animation, false);
+        }
+    }
 }

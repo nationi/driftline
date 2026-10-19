@@ -104,10 +104,15 @@ for the other affected windows, for at most 300 ms. A window may choose a
 different size without holding up the group. Closing a participant or leaving
 tiling releases waiting buffers. Window positions and view adjustments wait
 until the corresponding buffers apply or the deadline expires. Refused sizes
-still reserve enough space for the visible window. Visible windows without
-active window animations keep a snapshot of their previous image while waiting,
+still reserve enough space for the visible window. Eligible visible windows
+keep a snapshot of their previous image while waiting,
 when capture is available. Background blur keeps updating beneath the saved
 window shape; its shadow remains below the blur. Popup menus are included without
 clipping them to the window. Opening, closing or moving a popup restores live
-rendering for its window so menus remain responsive. Full rendering
-animations and complete visual atomicity are not implemented yet.
+rendering for its window so menus remain responsive. Opening fades and ordinary
+position animations can continue on the saved picture. When the group releases,
+windows animate from the saved geometry to their new positions and sizes.
+Fully opaque content can fade from its saved image into the new buffer;
+transparent content changes without stacking two translucent images. Starting
+another transaction during an active resize still uses live rendering.
+Complete visual atomicity and all animation transitions are not implemented yet.

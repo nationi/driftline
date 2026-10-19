@@ -220,7 +220,12 @@ resize still takes the live fallback. Capture now also accepts
 already active unscaled canvas chases without stale buffers, resize holds,
 fullscreen/pinned pictures or live resize-crossfade overlays. Capture visibility
 and rasterization scale follow the current visual rather than its destination.
-Capture during an already active fade/resize and release-time geometry continuity
+Capture during an already active opening fade is supported, including a fade
+inherited by an unscaled canvas translation. On group release, retained geometry
+seeds a chase to the committed placements; fully declared opaque content can
+crossfade from a pre-baked old picture. Translucent content uses geometry-only
+animation to avoid stacking opacity. Capture during active resize/crossfade,
+general transparent content blending and complete release-time continuity
 remain outstanding. Retained opening chrome uses separate live border/shadow
 composition, and opacity-only ticks invalidate its mask even at constant scale.
 Motion-time supersession, timeout and exit now have controlled renderer tests.

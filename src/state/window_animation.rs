@@ -772,7 +772,6 @@ impl WindowAnimations {
                     buffer_stale: false,
                     start_hold: StartHold::Off,
                     role: GeometryRole::Normal,
-                    open_fade: None,
                     picture,
                     ..
                 }

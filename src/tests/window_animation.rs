@@ -6395,6 +6395,10 @@ fn only_unscaled_canvas_chases_allow_tiling_capture() {
     assert!(!f.state().window_animations.is_canvas_translation(id, size));
     f.state().start_window_open_animation(&window);
     assert!(!f.state().window_animations.is_canvas_translation(id, size));
+    f.state()
+        .animate_window_move_from(&window, (100, 150).into(), None);
+    assert!(f.state().window_animations.is_canvas_translation(id, size));
+    assert!(f.state().window_animations.has_open_fade(id));
     f.state().cancel_window_animation(&window);
     f.state()
         .animate_window_move_from(&window, (100, 150).into(), None);
