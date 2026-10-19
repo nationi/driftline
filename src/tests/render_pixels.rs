@@ -471,6 +471,8 @@ enum TilingFinish {
     Deadline,
     Exit,
     OpenAnimation,
+    OpenDeadline,
+    OpenExit,
     MoveAnimation,
     ResizeAnimation,
     Supersede,
@@ -609,6 +611,19 @@ fn check_pending_tiling_capture(
     } else {
         None
     };
+    let opening_frames = if matches!(finish, TilingFinish::OpenAnimation) {
+        f.state().start_window_open_animation(&wa);
+        let mut frames = vec![tiling_live_frame(&mut f, &output)];
+        for _ in 0..2 {
+            f.state()
+                .tick_window_animations(std::time::Duration::from_millis(16));
+            frames.push(tiling_live_frame(&mut f, &output));
+        }
+        f.state().cancel_window_animation(&wa);
+        Some(frames)
+    } else {
+        None
+    };
     let before = tiling_live_frame(&mut f, &output);
     if popup.is_some() {
         assert!(
@@ -730,7 +745,7 @@ fn check_pending_tiling_capture(
                 ),
                 _ => unreachable!(),
             }
-            let retained = matches!(finish, TilingFinish::MoveAnimation);
+            let retained = !matches!(finish, TilingFinish::ResizeAnimation);
             let expected_images = if retained { images } else { 1 };
             assert_eq!(f.state().tiling_snapshot_count(), expected_images);
             if !retained {
@@ -738,6 +753,12 @@ fn check_pending_tiling_capture(
             }
             let animated = tiling_live_frame(&mut f, &output);
             assert_ne!(animated, pending, "the new animation must be visible");
+            if let Some(frames) = &opening_frames {
+                assert!(
+                    animated == frames[0],
+                    "opening starts from the same transparent picture"
+                );
+            }
             if let Some(expected) = translated_before {
                 let max_delta = animated
                     .iter()
@@ -761,20 +782,67 @@ fn check_pending_tiling_capture(
             }
             if retained {
                 let interrupted = tiling_live_frame(&mut f, &output);
+                if let Some(frames) = &opening_frames {
+                    let delta = interrupted
+                        .iter()
+                        .zip(&frames[1])
+                        .map(|(a, b)| a.abs_diff(*b))
+                        .max()
+                        .unwrap();
+                    let differences: Vec<_> = interrupted
+                        .as_chunks::<4>()
+                        .0
+                        .iter()
+                        .zip(frames[1].as_chunks::<4>().0)
+                        .enumerate()
+                        .filter(|(_, (a, b))| {
+                            a.iter()
+                                .zip(*b)
+                                .any(|(a, b)| a.abs_diff(*b) > u8::from(shadow))
+                        })
+                        .take(8)
+                        .map(|(i, (a, b))| (i % 1200, i / 1200, a, b))
+                        .collect();
+                    assert!(
+                        delta <= u8::from(shadow),
+                        "{scale}x shadow={shadow} opening differs by {delta}: {differences:?}"
+                    );
+                }
                 assert!(
                     !interrupted.as_chunks::<4>().0.contains(&[0, 255, 0, 255]),
                     "new green buffers must stay hidden"
                 );
-                f.state()
-                    .animate_window_move_from(&wa, (150, 200).into(), None);
+                let seed = if matches!(finish, TilingFinish::OpenAnimation) {
+                    (50, 50)
+                } else {
+                    (150, 200)
+                };
+                f.state().animate_window_move_from(&wa, seed.into(), None);
                 assert_eq!(
                     tiling_live_frame(&mut f, &output),
                     interrupted,
                     "retargeting preserves the current picture"
                 );
+                if let Some(frames) = &opening_frames {
+                    f.state()
+                        .tick_window_animations(std::time::Duration::from_millis(16));
+                    let inherited = tiling_live_frame(&mut f, &output);
+                    let delta = inherited
+                        .iter()
+                        .zip(&frames[2])
+                        .map(|(a, b)| a.abs_diff(*b))
+                        .max()
+                        .unwrap();
+                    assert!(
+                        delta <= u8::from(shadow),
+                        "inherited opening differs by {delta}"
+                    );
+                }
             }
             f.state().cancel_window_animation(&wa);
-            f.pump(2);
+            if !matches!(finish, TilingFinish::OpenAnimation) {
+                f.pump(2);
+            }
             assert_eq!(f.state().tiling_snapshot_count(), expected_images);
             if retained {
                 let restored = tiling_live_frame(&mut f, &output);
@@ -790,6 +858,21 @@ fn check_pending_tiling_capture(
                 );
             }
             assert!(f.state().tiling_view.is_some());
+        }
+        TilingFinish::OpenDeadline | TilingFinish::OpenExit => {
+            f.state().start_window_open_animation(&wa);
+            f.state()
+                .tick_window_animations(std::time::Duration::from_millis(16));
+            assert_eq!(f.state().tiling_snapshot_count(), images);
+            if matches!(finish, TilingFinish::OpenExit) {
+                f.state().execute_action(&Action::ToggleTiling);
+            } else {
+                let expired = std::time::Instant::now() + std::time::Duration::from_secs(1);
+                f.state().refresh_tiling_at(expired);
+                f.pump(4);
+                f.state().refresh_tiling_at(expired);
+            }
+            assert_eq!(f.state().tiling_snapshot_count(), 0);
         }
         TilingFinish::Deadline => {
             let expired = std::time::Instant::now() + std::time::Duration::from_secs(1);
@@ -932,9 +1015,18 @@ fn pending_tiling_preserves_shadows_at_fractional_output_scales() {
 
 #[test]
 #[ignore = "needs Mesa surfaceless EGL; run with --include-ignored"]
-fn opening_animation_releases_a_pending_tiling_picture_and_its_popups() {
+fn opening_animation_preserves_a_pending_tiling_picture_and_its_popups() {
     let _gl = gl::lock();
-    check_pending_tiling_pixels(TilingFinish::OpenAnimation, true, TilingPopupScene::Nested);
+    for scale in [1.0, 1.25, 1.5] {
+        for shadow in [false, true] {
+            check_pending_tiling_pixels_at_scale(
+                TilingFinish::OpenAnimation,
+                shadow,
+                TilingPopupScene::Nested,
+                scale,
+            );
+        }
+    }
 }
 
 #[test]
@@ -1029,4 +1121,13 @@ fn tiling_captures_a_visible_translation_with_an_offscreen_destination() {
         1.5,
         Some(-1000),
     );
+}
+
+#[test]
+#[ignore = "needs Mesa surfaceless EGL; run with --include-ignored"]
+fn opening_tiling_pictures_release_on_deadline_and_exit() {
+    let _gl = gl::lock();
+    for finish in [TilingFinish::OpenDeadline, TilingFinish::OpenExit] {
+        check_pending_tiling_pixels_at_scale(finish, false, TilingPopupScene::Nested, 1.25);
+    }
 }

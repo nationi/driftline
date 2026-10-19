@@ -64,6 +64,17 @@ pub(crate) struct SnapshotShadow {
     pub opacity: f64,
 }
 
+#[derive(Clone)]
+pub(crate) struct SnapshotBorder {
+    pub surface_id: smithay::reexports::wayland_server::backend::ObjectId,
+    pub inner: Rectangle<f64, Logical>,
+    pub radius: f32,
+    pub width: i32,
+    pub color: [u8; 4],
+    pub focused: bool,
+    pub opacity: f64,
+}
+
 /// The per-window affine transform for an in-flight open/close/geometry
 /// animation, threaded through the chrome push helpers so the surface, border,
 /// shadow, and decoration all lerp together. Physical `origin`/`offset`; the
@@ -103,11 +114,17 @@ struct FadeRender {
 }
 
 impl WindowRenderAnimation {
-    pub(crate) fn translation(offset: Point<f64, Physical>) -> Self {
+    pub(crate) fn between_rects(
+        from: Rectangle<f64, Physical>,
+        to: Rectangle<f64, Physical>,
+    ) -> Self {
         Self {
-            origin: Point::default(),
-            offset,
-            scale: Scale::from(1.0),
+            origin: from.loc,
+            offset: to.loc - from.loc,
+            scale: Scale::from((
+                to.size.w / from.size.w.max(1.0),
+                to.size.h / from.size.h.max(1.0),
+            )),
         }
     }
 
@@ -954,6 +971,25 @@ pub fn compose_frame(
         {
             let start = zoomed_normal.len();
             zoomed_normal.extend(snapshot.elements);
+            if let Some(border) = snapshot.border
+                && let Some(shader) = state.render.border_shader.clone()
+            {
+                push_border_element(
+                    &mut zoomed_normal,
+                    &mut state.render.border_cache,
+                    border.surface_id.into(),
+                    &shader,
+                    Rectangle::new(border.inner.loc - camera, border.inner.size),
+                    border.radius,
+                    border.width,
+                    border.color,
+                    border.focused,
+                    border.opacity,
+                    scale,
+                    zoom,
+                    snapshot.animation,
+                );
+            }
             let shadow_start = zoomed_normal.len();
             if let Some(shadow) = snapshot.shadow
                 && let Some(shader) = state.render.shadow_shader.clone()
@@ -974,6 +1010,7 @@ pub fn compose_frame(
             }
             if blur_enabled && let Some(mut blur) = snapshot.blur.take() {
                 blur.elem_start = start;
+                blur.elem_count = shadow_start - start;
                 blur.trailing_chrome = zoomed_normal.len() - shadow_start;
                 blur_requests.push(blur);
             }

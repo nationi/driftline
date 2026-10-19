@@ -985,6 +985,27 @@ pub(crate) struct BlurRequestData {
     pub region_rects: Option<Arc<Vec<Rectangle<i32, Physical>>>>,
 }
 
+impl BlurRequestData {
+    pub(crate) fn apply_animation(&mut self, animation: super::WindowRenderAnimation) {
+        let old_origin = self.screen_rect.loc;
+        self.screen_rect = animation.transform_phys_rect(self.screen_rect);
+        if let Some(regions) = &self.region_rects {
+            let bounds = Rectangle::from_size(self.screen_rect.size);
+            let transformed = regions
+                .iter()
+                .filter_map(|region| {
+                    let absolute = Rectangle::new(old_origin + region.loc, region.size);
+                    let rect = animation.transform_phys_rect(absolute);
+                    Rectangle::new(rect.loc - self.screen_rect.loc, rect.size).intersection(bounds)
+                })
+                .collect();
+            // Keep an empty result explicit: a region shrinking below a pixel
+            // must not become whole-window frost.
+            self.region_rects = Some(Arc::new(transformed));
+        }
+    }
+}
+
 /// Frozen mask geometry and policy; the backdrop continues through live blur.
 pub(crate) struct SnapshotBlur {
     pub surface_id: smithay::reexports::wayland_server::backend::ObjectId,
@@ -2086,6 +2107,42 @@ mod tests {
         source.window_blur = false;
         source.client_regions = Some(Arc::new(vec![]));
         assert!(source.request((0.0, 0.0).into(), 1.0, 1.0, 1).is_none());
+    }
+
+    #[test]
+    fn frozen_mask_animation_scales_client_regions_with_the_window() {
+        let mut source = snapshot_blur();
+        source.client_regions = Some(Arc::new(vec![Rectangle::new(
+            (17, 19).into(),
+            (40, 30).into(),
+        )]));
+        let mut req = source.request((20.0, 30.0).into(), 1.0, 2.0, 1).unwrap();
+        let animation = super::super::WindowRenderAnimation::between_rects(
+            req.screen_rect.to_f64(),
+            rect(20, 30, 200, 100).to_f64(),
+        );
+        req.apply_animation(animation);
+        assert_eq!(req.screen_rect, rect(20, 30, 200, 100));
+        assert_eq!(
+            req.region_rects.as_ref().unwrap().as_slice(),
+            &[rect(10, 10, 40, 30)]
+        );
+    }
+
+    #[test]
+    fn frozen_mask_animation_keeps_subpixel_client_regions_empty() {
+        let mut source = snapshot_blur();
+        source.client_regions = Some(Arc::new(vec![Rectangle::new(
+            (17, 19).into(),
+            (1, 1).into(),
+        )]));
+        let mut req = source.request((20.0, 30.0).into(), 1.0, 1.0, 1).unwrap();
+        let animation = super::super::WindowRenderAnimation::between_rects(
+            req.screen_rect.to_f64(),
+            rect(0, 0, 1, 1).to_f64(),
+        );
+        req.apply_animation(animation);
+        assert!(req.region_rects.as_ref().unwrap().is_empty());
     }
 
     fn rect(x: i32, y: i32, w: i32, h: i32) -> Rectangle<i32, Physical> {

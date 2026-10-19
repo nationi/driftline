@@ -837,6 +837,31 @@ impl WindowAnimations {
             .collect()
     }
 
+    /// Apply only the entry's open fade to a retained picture's own geometry.
+    pub fn opening_visual(
+        &self,
+        id: ElementId,
+        rect: Rectangle<f64, Logical>,
+        amplitude: f64,
+    ) -> AnimatedVisual {
+        let (rect, alpha) = match self.open_progress(id) {
+            Some(p) => {
+                let p = p.clamp(0.0, 1.0);
+                (
+                    scaled_about_centre(rect, open_scale(amplitude, p)),
+                    open_alpha(p),
+                )
+            }
+            None => (rect, 1.0),
+        };
+        AnimatedVisual {
+            loc: rect.loc,
+            size: rect.size,
+            alpha,
+            cap_content: false,
+        }
+    }
+
     /// Render-time lookup: the animated stand-in for `id`, given the window's
     /// live target rect (canvas rect for a normal window, screen rect for a
     /// pinned one) and the configured open/close scale amplitude. Returns the
@@ -857,18 +882,8 @@ impl WindowAnimations {
             };
         };
         match &animation.kind {
-            AnimationKind::Open { progress } => {
-                let p = progress.clamp(0.0, 1.0);
-                let rect = scaled_about_centre(
-                    Rectangle::new(target_loc, target_size),
-                    open_scale(amplitude, p),
-                );
-                AnimatedVisual {
-                    loc: rect.loc,
-                    size: rect.size,
-                    alpha: open_alpha(p),
-                    cap_content: false,
-                }
+            AnimationKind::Open { .. } => {
+                self.opening_visual(id, Rectangle::new(target_loc, target_size), amplitude)
             }
             AnimationKind::Geometry {
                 visual,

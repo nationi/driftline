@@ -139,7 +139,7 @@ impl DriftWm {
         // can remap mid-resize — so the crossfade halves of the geometry entry it
         // replaces go with it, rather than fading over the opening window.
         self.drop_resize_crossfade(id);
-        self.release_tiling_snapshot_for_animation(id);
+        self.invalidate_tiling_snapshot_animation(id);
         self.window_animations.start_open(id);
     }
 
@@ -155,6 +155,7 @@ impl DriftWm {
         let Some(id) = self.stage.id_of(window) else {
             return;
         };
+        self.invalidate_tiling_snapshot_animation(id);
         self.window_animations.remove(id);
         self.drop_resize_crossfade(id);
     }
@@ -173,6 +174,7 @@ impl DriftWm {
         if let Some(pending) = self.window_animations.take_pending_view(id) {
             self.apply_pending_view(pending);
         }
+        self.invalidate_tiling_snapshot_animation(id);
         self.window_animations.remove(id);
         self.drop_resize_crossfade(id);
     }
@@ -305,14 +307,12 @@ impl DriftWm {
         if carries_request {
             self.window_animations.clear_waits_for(id);
         }
-        // A canvas translation can move the retained old picture without
-        // exposing a newly applied buffer. Resizes and fades still use live
-        // content until their transforms can share the frozen-content model.
+        // A translation, including an inherited opening fade, can keep the
+        // captured picture. Size and frame changes still require live content.
         let translation_only = !carries_request
             && matches!(space, AnimSpace::Canvas)
             && matches!(role, GeometryRole::Normal)
             && !replace_visual
-            && open_fade.is_none()
             && seed.size == committed.to_f64();
         if !translation_only {
             self.release_tiling_snapshot_for_animation(id);
@@ -727,6 +727,10 @@ impl DriftWm {
     pub(crate) fn tick_window_animations_at(&mut self, dt: Duration, now: Instant) {
         let speed = self.config.effects.animation_speed;
         let frame_factor = 1.0 - (1.0 - speed).powf(dt.as_secs_f64() * 60.0);
+        // A pure fade can change the frozen alpha mask without moving its rect.
+        if frame_factor > 0.0 && self.has_fading_tiling_snapshot() {
+            self.render.blur_geometry_generation += 1;
+        }
 
         // Mark the outputs that show a *moving* animation this tick, before
         // advancing, so the completing tick still presents the final resting

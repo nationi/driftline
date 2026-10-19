@@ -209,16 +209,20 @@ surface/geometry offsets. Popup membership/geometry changes fall back to live
 rendering so newly opened or dismissed menus are not hidden or stranded. Frozen windows now retain blur requests using saved geometry and client regions,
 while the backdrop continues through the live blur pipeline. Their shadows draw
 below the frost rather than inside the flattened content. Animated windows and
-failed captures still retain live rendering. Starting a size/fade/frame-conversion
-animation releases any previously captured parent/popup images for that window
-and invalidates its saved blur geometry; unaffected peers stay frozen. Position-only
+failed captures still retain live rendering. Starting a size/frame-conversion
+animation releases previously captured parent/popup images
+for that window and invalidates its saved blur geometry; unaffected peers stay
+frozen. Opening scale/opacity started after capture now uses the retained picture,
+including a fade inherited by a subsequent position chase. Position-only
 canvas chases started after capture now preserve the old textures and translate
-parent, popups, shadow and frost together using output-space transforms; an
-inherited fade or resize still takes the live fallback. Capture now also accepts
+parent, popups, shadow and frost together using output-space transforms;
+resize still takes the live fallback. Capture now also accepts
 already active unscaled canvas chases without stale buffers, resize holds,
 fullscreen/pinned pictures or live resize-crossfade overlays. Capture visibility
 and rasterization scale follow the current visual rather than its destination.
-Resize/fade capture and release-time geometry continuity remain outstanding.
+Capture during an already active fade/resize and release-time geometry continuity
+remain outstanding. Retained opening chrome uses separate live border/shadow
+composition, and opacity-only ticks invalidate its mask even at constant scale.
 Motion-time supersession, timeout and exit now have controlled renderer tests.
 Full animation integration and an
 unconditional frame-atomic rendering

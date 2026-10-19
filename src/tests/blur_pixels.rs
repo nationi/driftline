@@ -610,11 +610,33 @@ fn check_tiling_frost_at_scale(framed: bool, scale: f64) {
     check_tiling_frost_scene(framed, scale, false);
 }
 
-fn check_tiling_frost_scene(framed: bool, scale: f64, translate: bool) {
-    check_tiling_frost_capture(framed, scale, translate, false);
+#[derive(Clone, Copy)]
+enum TilingFrostAnimation {
+    None,
+    Move,
+    Open,
+    PureFade,
 }
 
-fn check_tiling_frost_capture(framed: bool, scale: f64, translate: bool, moving_capture: bool) {
+fn check_tiling_frost_scene(framed: bool, scale: f64, translate: bool) {
+    check_tiling_frost_capture(
+        framed,
+        scale,
+        if translate {
+            TilingFrostAnimation::Move
+        } else {
+            TilingFrostAnimation::None
+        },
+        false,
+    );
+}
+
+fn check_tiling_frost_capture(
+    framed: bool,
+    scale: f64,
+    animation: TilingFrostAnimation,
+    moving_capture: bool,
+) {
     use super::{last_configured, map_window_shm, window_by_app_id};
     use driftwm::config::Action;
     use smithay::reexports::wayland_server::Resource;
@@ -633,6 +655,11 @@ fn check_tiling_frost_capture(framed: bool, scale: f64, translate: bool, moving_
         "{}\n[snap]\ngap = 0\n",
         config_toml(shader.to_str().unwrap(), 3, 1.5)
     );
+    let config = if matches!(animation, TilingFrostAnimation::PureFade) {
+        config.replace("[effects]", "[effects]\nanimation_scale = 1.0")
+    } else {
+        config
+    };
     let config = if framed {
         config
             .replace("border_width = 0", "border_width = 2")
@@ -686,12 +713,31 @@ fn check_tiling_frost_capture(framed: bool, scale: f64, translate: bool, moving_
         f.state()
             .tick_window_animations(std::time::Duration::from_millis(16));
     }
-    let translated_before = if translate {
+    let translated_before = if matches!(animation, TilingFrostAnimation::Move) {
         f.state()
             .animate_window_move_from(&wa, (300, 250).into(), None);
         let expected = live_frame(&mut f, &output);
         f.state().cancel_window_animation(&wa);
         Some(expected)
+    } else {
+        None
+    };
+    let opening_frames = if matches!(
+        animation,
+        TilingFrostAnimation::Open | TilingFrostAnimation::PureFade
+    ) {
+        f.state().start_window_open_animation(&wa);
+        let mut frames = vec![live_frame(&mut f, &output)];
+        for _ in 0..2 {
+            f.state()
+                .tick_window_animations(std::time::Duration::from_millis(16));
+            // Rebuild the reference mask even for an opacity-only live frame.
+            f.state().render.blur_geometry_generation += 1;
+            frames.push(live_frame(&mut f, &output));
+        }
+        f.state().cancel_window_animation(&wa);
+        f.state().render.blur_geometry_generation += 1;
+        Some(frames)
     } else {
         None
     };
@@ -793,6 +839,37 @@ fn check_tiling_frost_capture(framed: bool, scale: f64, translate: bool, moving_
         assert_eq!(frost_bounds(&restored), before_bounds);
         assert_eq!(f.state().tiling_snapshot_count(), 2);
     }
+    if let Some(frames) = opening_frames {
+        f.state().start_window_open_animation(&wa);
+        assert_eq!(f.state().tiling_snapshot_count(), 2);
+        for (tick, expected) in frames.iter().enumerate() {
+            if tick != 0 {
+                let generation = f.state().render.blur_geometry_generation;
+                f.state()
+                    .tick_window_animations(std::time::Duration::from_millis(16));
+                assert!(
+                    f.state().render.blur_geometry_generation > generation,
+                    "fade must invalidate the mask even at constant size"
+                );
+            }
+            let actual = live_frame(&mut f, &output);
+            let delta = actual
+                .as_raw()
+                .iter()
+                .zip(expected.as_raw())
+                .map(|(a, b)| a.abs_diff(*b))
+                .max()
+                .unwrap();
+            assert!(
+                delta <= if framed { 2 } else { 1 },
+                "{scale}x framed={framed} opening frost tick {tick} differs by {delta}"
+            );
+        }
+        f.state().cancel_window_animation(&wa);
+        let restored = live_frame(&mut f, &output);
+        assert_eq!(frost_bounds(&restored), before_bounds);
+        assert_eq!(f.state().tiling_snapshot_count(), 2);
+    }
     barrier.signal();
     let owner = surface.client().unwrap();
     let client_state = owner.get_data::<crate::state::ClientState>().unwrap();
@@ -849,7 +926,25 @@ fn tiling_captures_frost_during_an_active_translation() {
     let _gl = gl::lock();
     for scale in [SCALE, 1.25, 1.5] {
         for framed in [false, true] {
-            check_tiling_frost_capture(framed, scale, false, true);
+            check_tiling_frost_capture(framed, scale, TilingFrostAnimation::None, true);
         }
     }
+}
+
+#[test]
+#[ignore = "needs Mesa surfaceless EGL; run with --include-ignored"]
+fn opening_frozen_tiling_content_preserves_frost_and_shadow() {
+    let _gl = gl::lock();
+    for scale in [SCALE, 1.25, 1.5] {
+        for framed in [false, true] {
+            check_tiling_frost_capture(framed, scale, TilingFrostAnimation::Open, false);
+        }
+    }
+}
+
+#[test]
+#[ignore = "needs Mesa surfaceless EGL; run with --include-ignored"]
+fn fading_frozen_tiling_content_refreshes_an_unchanged_blur_mask_rect() {
+    let _gl = gl::lock();
+    check_tiling_frost_capture(true, SCALE, TilingFrostAnimation::PureFade, false);
 }

@@ -841,24 +841,17 @@ impl ClosingSnapshot {
         output_scale: f64,
         opacity: f64,
     ) -> Option<OutputRenderElements> {
-        self.render_element_with_translation(
-            output_name,
-            camera,
-            zoom,
-            output_scale,
-            opacity,
-            Point::default(),
-        )
+        self.render_element_with_animation(output_name, camera, zoom, output_scale, opacity, None)
     }
 
-    pub(crate) fn render_element_with_translation(
+    pub(crate) fn render_element_with_animation(
         &self,
         output_name: &str,
         camera: Point<f64, Logical>,
         zoom: f64,
         output_scale: f64,
         opacity: f64,
-        translation: Point<f64, Logical>,
+        animation: Option<WindowRenderAnimation>,
     ) -> Option<OutputRenderElements> {
         let alpha = fade_out_alpha(self.progress) * opacity as f32;
         let close_scale = if self.alpha_only {
@@ -905,9 +898,9 @@ impl ClosingSnapshot {
         Some(OutputRenderElements::ClosingWindow(
             WindowTransformElement::new(
                 texture,
-                center,
-                translation.to_physical(output_scale * zoom),
-                Scale::from(close_scale),
+                animation.map_or(center, |a| a.origin),
+                animation.map_or_else(Point::default, |a| a.offset),
+                animation.map_or_else(|| Scale::from(close_scale), |a| a.scale),
             ),
         ))
     }

@@ -741,3 +741,71 @@ Next: implement frozen resize/open/fade transforms and release-time geometry
 continuity, with interrupted/superseding requests and refused sizes. Extend
 motion-time remap/disconnect and changing-view/scale cases; continue the P0
 semantic audit before treating any renderer subset as complete niri parity.
+
+
+## Opening scale and opacity over retained content
+
+An open animation started after a tiling snapshot exists now keeps the parent
+and popup images. Opening progress scales the captured content dimensions around
+their original centre and applies the same affine/alpha to parent, menus,
+saved border and shadow. A position-only chase can inherit the fade without
+unfreezing content or restarting progress. The committed live buffer can have a
+new size; opening still uses the retained picture's old dimensions. Cancellation
+returns to the retained resting picture, and the group/deadline/exit still own
+image lifetime. A size/frame-conversion animation keeps its existing live fallback.
+Capture while an open fade is already active remains unsupported.
+
+Snapshot chrome now saves the border separately and disables its baked shader,
+as was already done for the shadow. Pixel comparison exposed up to 14 bytes of
+alpha error when a border baked with opaque content was faded as one texture:
+the overlapping edge must blend each part independently, as in live rendering.
+The output composer draws the saved border using the same affine and counts it
+inside the frost-mask range, above the separately excluded shadow. Static and
+translation paths use the same border policy.
+
+The snapshot baker accepts an optional physical affine, keeping closing
+snapshots on their existing default path. Frost transforms its snapped bounds
+and client regions through that affine. Region coordinates are transformed in
+absolute output space then rebased to the new mask; a region shrinking below a
+physical pixel remains explicitly empty instead of enabling whole-window frost.
+Two deterministic unit tests cover scaling and the empty-region case.
+
+Opening start, cancel/end and nonzero ticks invalidate retained fade masks. This
+also covers `animation_scale = 1.0`, where alpha changes without a different mask
+rectangle. It does not change the general live blur engine's alpha-only cache
+policy: reference pixel scenes explicitly rebuild their live oracle masks at
+each tick to compare against fresh rendering. Output redraw scheduling continues
+to use the existing animation driver, with no extra focus or input mechanism.
+
+The upgraded opening pixel scene compares old live content before the batch
+against the retained picture at progress zero and two injected 16 ms ticks. It
+includes nested popups and tests inheritance into a chase without a frame jump,
+cancellation and normal buffer release at 1x/1.25x/1.5x, with/without shadow.
+Additional GLES cases cover opening-time deadline/exit cleanup, rounded frost
+with/without border/shadow at 2x/1.25x/1.5x, and constant-size opacity-only frost.
+The pending client's new buffer has applied while its peer is independently
+blocked. Comparisons retain the existing exact or one/two-byte tolerances.
+
+Scope remains stationary view, unit zoom and controlled CSD scenes. SSD, active
+fade capture before a batch, resize/crossfade integration, changing outputs/view,
+client-protocol region pixels, supersession during a fade and release-time size
+continuity still need work. This is partial P2/P13 integration, not parity.
+
+Validation: opening comparisons and cleanup passed on Mesa, including six
+scale/shadow combinations for nested popup content, six for frost, and a
+constant-scale fade. The final `dev/scripts/ci-local` passed fmt, locked check,
+strict all-target clippy, every regular/ignored test (366 library and 1439 binary
+cases plus integration suites), and isolated soak. The two new mask-region unit
+tests passed in that gate. The old opaque-bake alpha error was fixed by separate
+border composition rather than widening pixel tolerances. Cancellation assertions
+read synchronous state before pumping the real event loop so CPU readback time
+does not accidentally turn them into 300 ms deadline tests; explicit deadline
+cases continue to use the injected reflow clock. The pure layout library was
+unchanged. No installed binary replacement, session restart, push or manual
+nested/hardware validation was performed; unrelated output-management edits
+remain outside this batch.
+
+Next: capture during an already active open/fade, test fade supersession and
+client-protocol blur-region pixels, then integrate retained resize/crossfade and
+release-time geometry continuity. P0 semantic audit, motion-time remap/disconnect
+and view/scale transitions remain outstanding.

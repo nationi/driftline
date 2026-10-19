@@ -40,6 +40,7 @@ struct TilingSnapshot {
     popups: Vec<TilingPopupSnapshot>,
     blur: crate::render::SnapshotBlur,
     shadow: Option<crate::render::SnapshotShadow>,
+    border: Option<crate::render::SnapshotBorder>,
     opacity: f64,
 }
 
@@ -48,6 +49,7 @@ pub(crate) struct TilingSnapshotElements {
     pub elements: Vec<crate::render::OutputRenderElements>,
     pub blur: Option<crate::render::BlurRequestData>,
     pub shadow: Option<crate::render::SnapshotShadow>,
+    pub border: Option<crate::render::SnapshotBorder>,
 }
 
 struct TilingPopupSnapshot {
@@ -941,10 +943,28 @@ impl DriftWm {
                     }
                 })
             });
-            // Draw shadows at output coordinates to preserve fractional pixel
-            // rounding, and below frost rather than baking them over its mask.
+            let border = chrome.and_then(|c| {
+                c.border_shader.map(|_| {
+                    let bar = f64::from(blur.bar_height.unwrap_or(0));
+                    crate::render::SnapshotBorder {
+                        surface_id: surface.id(),
+                        inner: Rectangle::new(
+                            position.to_f64() - Point::from((0.0, bar)),
+                            (f64::from(geometry.size.w), f64::from(geometry.size.h) + bar).into(),
+                        ),
+                        radius: c.corner_radius[2],
+                        width: c.border_width,
+                        color: c.border_color,
+                        focused: c.focused,
+                        opacity,
+                    }
+                })
+            });
+            // Separate chrome preserves live alpha blending and output-space
+            // rounding. Shadows also stay below frost instead of in its mask.
             let chrome = chrome.map(|mut c| {
                 c.shadow_shader = None;
+                c.border_shader = None;
                 c
             });
             if let Some(image) = crate::render::snapshot_canvas(
@@ -993,6 +1013,7 @@ impl DriftWm {
                             popups,
                             blur,
                             shadow,
+                            border,
                             opacity,
                         },
                     );
@@ -1012,6 +1033,25 @@ impl DriftWm {
             self.render.blur_geometry_generation += 1;
             self.mark_all_dirty();
         }
+    }
+
+    pub(crate) fn invalidate_tiling_snapshot_animation(&mut self, id: driftwm::stage::ElementId) {
+        if self
+            .tiling_view
+            .as_ref()
+            .is_some_and(|v| v.snapshots.contains_key(&id))
+        {
+            self.render.blur_geometry_generation += 1;
+            self.mark_all_dirty();
+        }
+    }
+
+    pub(crate) fn has_fading_tiling_snapshot(&self) -> bool {
+        self.tiling_view.as_ref().is_some_and(|v| {
+            v.snapshots
+                .keys()
+                .any(|id| self.window_animations.open_progress(*id).is_some())
+        })
     }
 
     pub(crate) fn tiling_snapshot_count(&self) -> usize {
@@ -1039,9 +1079,8 @@ impl DriftWm {
         {
             return None;
         }
-        // Retained geometry animations are canvas translations only. Resolve
-        // their displacement against the live destination, while all captured
-        // content, popup offsets and chrome keep their old dimensions.
+        // Geometry chases contribute displacement; opening scales/fades the
+        // captured dimensions, even after the live client buffer changes size.
         let displacement = self
             .window_animations
             .geometry_visual_rect(id)
@@ -1049,6 +1088,29 @@ impl DriftWm {
             .map_or_else(Point::default, |(visual, target)| {
                 visual.loc - target.to_f64()
             });
+        let base = smithay::utils::Rectangle::new(
+            snapshot.blur.position.to_f64(),
+            snapshot.blur.geometry.size.to_f64(),
+        );
+        let visual = self.window_animations.opening_visual(
+            id,
+            smithay::utils::Rectangle::new(base.loc + displacement, base.size),
+            self.config.effects.animation_scale,
+        );
+        let physical_scale = zoom * output_scale;
+        let animation = (visual.loc != base.loc || visual.size != base.size).then(|| {
+            crate::render::WindowRenderAnimation::between_rects(
+                smithay::utils::Rectangle::new(
+                    (base.loc - camera).to_physical(physical_scale),
+                    base.size.to_physical(physical_scale),
+                ),
+                smithay::utils::Rectangle::new(
+                    (visual.loc - camera).to_physical(physical_scale),
+                    visual.size.to_physical(physical_scale),
+                ),
+            )
+        });
+        let opacity = snapshot.opacity * f64::from(visual.alpha);
         let name = output.name();
         let mut elements: Vec<_> = snapshot
             .popups
@@ -1067,38 +1129,32 @@ impl DriftWm {
                     .to_f64()
                     .to_logical(output_scale);
                 let correction = snapped - (root + offset.to_f64());
-                popup.image.render_element_with_translation(
+                popup.image.render_element_with_animation(
                     &name,
                     camera - correction,
                     zoom,
                     output_scale,
-                    snapshot.opacity,
-                    displacement,
+                    opacity,
+                    animation,
                 )
             })
             .collect();
-        elements.extend(snapshot.image.render_element_with_translation(
+        elements.extend(snapshot.image.render_element_with_animation(
             &name,
             camera,
             zoom,
             output_scale,
-            snapshot.opacity,
-            displacement,
+            opacity,
+            animation,
         ));
-        let animation = (displacement != Point::default()).then(|| {
-            crate::render::WindowRenderAnimation::translation(
-                displacement.to_physical(zoom * output_scale),
-            )
-        });
         let blur = snapshot
             .blur
             .request(camera, zoom, output_scale, elements.len())
             .map(|mut request| {
-                // Translate the already snapped mask in physical space, as
-                // live window animations do. Truncating a moving logical
-                // origin first makes frost lag behind fractional motion.
+                // Transform already snapped mask geometry and client regions
+                // with the same affine as the retained content.
                 if let Some(animation) = animation {
-                    request.screen_rect = animation.transform_phys_rect(request.screen_rect);
+                    request.apply_animation(animation);
                 }
                 request
             });
@@ -1106,7 +1162,14 @@ impl DriftWm {
             animation,
             elements,
             blur,
-            shadow: snapshot.shadow.clone(),
+            border: snapshot.border.clone().map(|mut border| {
+                border.opacity *= f64::from(visual.alpha);
+                border
+            }),
+            shadow: snapshot.shadow.clone().map(|mut shadow| {
+                shadow.opacity *= f64::from(visual.alpha);
+                shadow
+            }),
         })
     }
 
