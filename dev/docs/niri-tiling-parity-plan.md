@@ -215,8 +215,8 @@ for that window and invalidates its saved blur geometry; unaffected peers stay
 frozen. Opening scale/opacity started after capture now uses the retained picture,
 including a fade inherited by a subsequent position chase. Position-only
 canvas chases started after capture now preserve the old textures and translate
-parent, popups, shadow and frost together using output-space transforms;
-resize still takes the live fallback. Capture now also accepts
+parent, popups, shadow and frost together using output-space transforms.
+Capture now also accepts
 already active unscaled canvas chases without stale buffers, resize holds,
 fullscreen/pinned pictures or live resize-crossfade overlays. Capture visibility
 and rasterization scale follow the current visual rather than its destination.
@@ -227,8 +227,15 @@ in premultiplied RGBA before applying compositor opacity. Current surface-tree
 bakes are commit/view keyed and the mixed render target is reused. A resolved
 canvas resize/crossfade can be captured at its current blended picture and
 geometry, held by a superseding transaction, and resumed from that picture.
-Unresolved resize holds, fullscreen/pinned conversions and complete release-time
-continuity across popup/view/output changes remain outstanding.
+Normal canvas start holds can also transfer their picture into a grouped
+transaction before resolution, rejecting late superseded replies visually.
+Settled timed-out requests can arm one bounded late-response animation using
+the normal pre-commit capture/hold path without another configure or group.
+Popup tree changes now switch only popups to live rendering; the parent stays
+retained. Popup pixels keep their native dimensions during geometry resize,
+following root displacement and opening scale. Degraded stale/capped pictures,
+fullscreen/pinned conversions and complete release-time continuity across
+view/output changes remain outstanding.
 Retained opening chrome uses separate live border/shadow
 composition, and opacity-only ticks invalidate its mask even at constant scale.
 Motion-time supersession, timeout and exit now have controlled renderer tests.

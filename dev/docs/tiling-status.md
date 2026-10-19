@@ -1077,3 +1077,72 @@ No installed binary replacement, session restart, push or native validation of
 this batch was performed. Existing run-tty.sh selects the updated release build;
 close any older preview before restarting it to test repeated F5 and mid-resize
 F2. User-owned output-management files remain unstaged.
+
+## Menus and delayed resize responses (2026-10-19)
+
+User confirmed `2f1e5b4` works in the direct-udev preview and authorized this
+batch. Do not replace the installed compositor or use nested NVIDIA presentation
+as the acceptance environment.
+
+Popup changes previously discarded the whole retained rendering branch,
+revealing an early parent's new buffer. Retained popup stamps now include their
+mapped surface tree commits/views; membership, geometry, movement or content
+changes switch ONLY popup rendering to live at the saved parent origin. Parent
+content/chrome/frost stay held. Unchanged popup images retain their original
+identity/capture behavior. Removed the release-time skip that had assumed popup
+changes meant the parent had resumed live rendering. Menus are never resurrected
+when a group releases; current live popup membership is authoritative.
+
+Popup animation is separate from content resize stretching: it maps the live
+or captured content origin to its animated location, retaining native popup
+size, canvas zoom and opening scale/alpha. This applies to the normal live and
+retained branches. Popup updates/dismissal/new menus now have pixel checks that
+also assert the early green parent buffer remains hidden. Menu dimensions are
+checked through release and the next tick at 1x/1.25x/1.5x. Opening/translation
+and fractional popup capture regressions still pass without tolerance changes.
+
+Capture eligibility now includes a normal canvas resize still in its start hold
+(no parked view, waiter, fullscreen or pin). The group takes over the safely
+baked picture; the old geometry request/crossfade is cancelled while opening
+fade progress survives. A real stale reply for the superseded configure is
+allowed to commit but remains hidden until the latest group is ready. Degraded
+stale/capped content remains excluded: its body and frame need distinct capture
+geometry. Policy checks explicitly distinguish held from degraded state.
+
+Added a one-shot late response claim to ConfigureBatch. Only a matching/newer
+serial after TimedOut can claim its requested size; it never changes progress,
+adds a deadline or reopens a group, and a new request resets the claim. In the
+root pre-commit path, a settled tiled window with such a late new buffer arms
+the existing bounded normal resize hold before stash_resize_content captures
+its outgoing pixels. The existing commit resolver starts the crossfade on
+application; a blocked/refused buffer keeps the existing bounded hold/degrade
+cleanup. Active animations/opening/crossfades, full-speed effects and rendererless
+fixtures keep their original paths. No extra configure is sent. This is not a
+new indefinite late-buffer cache. A repaint after completion cannot restart it.
+
+Targeted evidence: `/tmp/driftwm-popup-parent-pixels.log` (31 render pixel tests
+before delayed-path additions), `/tmp/driftwm-delayed-held-pixels.log` (held
+resize plus stale serial and open menu), `/tmp/driftwm-late-buffer-pixels.log`
+(post-deadline commit geometry/content continuity). New pure tests cover
+pending/stale serial refusal, single consumption, no deadline reopening and
+replacement by a newer request. Strict all-target clippy passed.
+
+Final gate: `/tmp/driftwm-menus-delayed-ci.log`; release build:
+`/tmp/driftwm-menus-delayed-build.log`. Updated direct TTY release is selected
+by the existing single-connector run-tty.sh. Installed binary/session and
+unrelated output-management edits remain untouched. Native checks for this
+batch are pending. For a real popup test, Dolphin is installed; launch it from
+a terminal INSIDE the isolated TTY preview, open a context menu and use F5.
+
+Remaining P2/P13 acceptance includes degraded capped capture, mixed-scale/view
+and output changes, SSD/release chrome continuity and motion-time disconnect
+and remap. P0 decoder/fixture semantic audit remains an earlier unfinished gate;
+this batch does not claim niri parity or implement multi-output tiling.
+
+Verified final gate exited 0: fmt, locked check, strict all-target clippy,
+368 library tests, 1451 binary tests plus isolated soak (1452 total), and all
+integration suites. Release build succeeded (1 minute). No installed binary
+replacement, native session restart, push or manual validation of this batch
+was performed. The user's prior successful TTY report covers `2f1e5b4`, not
+these menu/late-response changes. Unrelated output-management files remain
+outside this commit.

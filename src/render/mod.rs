@@ -128,6 +128,24 @@ impl WindowRenderAnimation {
         }
     }
 
+    /// Menus follow the animated content origin without inheriting resize
+    /// stretching. Opening scale is the only scale applied to popup pixels.
+    pub(crate) fn for_popups(
+        self,
+        content_origin: Point<f64, Physical>,
+        opening_scale: f64,
+    ) -> Self {
+        let visual_origin = Point::from((
+            self.origin.x + (content_origin.x - self.origin.x) * self.scale.x + self.offset.x,
+            self.origin.y + (content_origin.y - self.origin.y) * self.scale.y + self.offset.y,
+        ));
+        Self {
+            origin: content_origin,
+            offset: visual_origin - content_origin,
+            scale: Scale::from(opening_scale),
+        }
+    }
+
     /// Apply the same affine the element decorator applies, so the frost rect
     /// follows the animated window instead of its (instant) logical position.
     pub(crate) fn transform_phys_rect(
@@ -970,6 +988,26 @@ pub fn compose_frame(
                 state.tiling_snapshot_elements(id, output, camera, zoom, output_scale)
         {
             let start = zoomed_normal.len();
+            if let Some(popups) = snapshot.live_popups.take() {
+                let root_phys: Point<i32, Physical> =
+                    (popups.origin - camera).to_physical_precise_round(scale);
+                for (popup, offset) in
+                    smithay::desktop::PopupManager::popups_for_surface(&popups.root)
+                {
+                    let offset: Point<i32, Physical> = (popups.geometry_loc + offset
+                        - popup.geometry().loc)
+                        .to_physical_precise_round(scale);
+                    let elements = smithay::backend::renderer::element::surface::render_elements_from_surface_tree::<
+                        _, WaylandSurfaceRenderElement<GlesRenderer>,
+                    >(renderer, popup.wl_surface(), root_phys + offset, scale, popups.opacity as f32, Kind::Unspecified);
+                    push_plain_elements(
+                        &mut zoomed_normal,
+                        elements,
+                        zoom,
+                        snapshot.popup_animation,
+                    );
+                }
+            }
             zoomed_normal.extend(snapshot.elements);
             if let Some(border) = snapshot.border
                 && let Some(shader) = state.render.border_shader.clone()
@@ -1353,7 +1391,20 @@ pub fn compose_frame(
 
         // Popups push first (earlier in vec = on-top in smithay z-order) so
         // they sit above the title bar and clipped window content.
-        push_plain_elements(target, popup_elems, zoom, window_animation);
+        let popup_animation = window_animation.map(|animation| {
+            animation.for_popups(
+                Point::from((
+                    (render_loc.x + geom_loc.x as f64) * zoom * output_scale,
+                    (render_loc.y + geom_loc.y as f64) * zoom * output_scale,
+                )),
+                element_id.map_or(1.0, |id| {
+                    state
+                        .window_animations
+                        .opening_scale(id, state.config.effects.animation_scale)
+                }),
+            )
+        });
+        push_plain_elements(target, popup_elems, zoom, popup_animation);
         // Mixed resize content occupies the live body's slot, below the SSD
         // bar and popups. Chrome still follows the ordinary composition path.
         let mut content_at = target.len();

@@ -154,6 +154,7 @@ impl CompositorHandler for DriftWm {
             // The mirror case: on a *new* buffer for a window frozen by a
             // compositor resize, clone the content it is replacing so the leg can
             // crossfade out of it.
+            state.arm_late_tiling_resize(surface);
             state.stash_resize_content(surface);
         });
 

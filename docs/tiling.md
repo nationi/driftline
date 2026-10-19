@@ -108,14 +108,19 @@ still reserve enough space for the visible window. Eligible visible windows
 keep a snapshot of their previous image while waiting,
 when capture is available. Background blur keeps updating beneath the saved
 window shape; its shadow remains below the blur. Popup menus are included without
-clipping them to the window. Opening, closing or moving a popup restores live
-rendering for its window so menus remain responsive. Opening fades and ordinary
+clipping them to the window. Opening, closing, moving or repainting a popup
+updates its live image without exposing the parent's pending buffer. Menus
+follow the animated window origin but keep their native size during resize;
+opening scale still applies. Opening fades and ordinary
 position animations can continue on the saved picture. When the group releases,
 windows animate from the saved geometry to their new positions and sizes.
 Old and new content blend before window opacity is applied, including
 translucent pixels. If another transaction starts during a resolved canvas
 resize, its current geometry and blended image are held until the new buffers
 apply or the deadline expires, then the transition resumes from that picture.
-Resizes still waiting for their own client reply and fullscreen/pinned
-transitions retain their live-rendering fallback.
+Canvas resizes still held for a client reply can also be captured before a new
+group takes over. A late buffer arriving after the group expires can start a
+bounded resize transition on an otherwise settled window without restarting
+the group or repeating the animation on subsequent repaints. Degraded stale
+resize content and fullscreen/pinned transitions retain their live fallback.
 Complete visual atomicity and all animation transitions are not implemented yet.

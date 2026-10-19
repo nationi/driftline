@@ -780,15 +780,18 @@ impl WindowAnimations {
         )
     }
 
-    /// A resolved canvas resize can be flattened at its current visual rect.
+    /// A normal canvas picture can be flattened while resolved or still held.
+    /// Degraded stale content may be capped inside a larger frame and needs a
+    /// different capture policy.
     pub(crate) fn can_capture_canvas_geometry(&self, id: ElementId) -> bool {
         matches!(self.animations.get(&id), Some(WindowAnimation {
             kind: AnimationKind::Geometry {
-                space: AnimSpace::Canvas, requested_size: None,
-                buffer_stale: false, start_hold: StartHold::Off,
+                space: AnimSpace::Canvas, requested_size,
+                buffer_stale, start_hold,
                 role: GeometryRole::Normal, pending_view: None, waits_for: None, picture, ..
             }
-        }) if !picture.bare && !picture.pinned)
+        }) if !picture.bare && !picture.pinned
+            && (start_hold.is_held() || (requested_size.is_none() && !buffer_stale)))
     }
 
     pub(crate) fn stop_geometry_keep_open(&mut self, id: ElementId) {
@@ -858,6 +861,11 @@ impl WindowAnimations {
                 }
             })
             .collect()
+    }
+
+    pub(crate) fn opening_scale(&self, id: ElementId, amplitude: f64) -> f64 {
+        self.open_progress(id)
+            .map_or(1.0, |p| open_scale(amplitude, p.clamp(0.0, 1.0)))
     }
 
     /// Apply only the entry's open fade to a retained picture's own geometry.

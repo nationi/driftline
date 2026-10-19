@@ -48,10 +48,34 @@ struct TilingSnapshot {
 
 pub(crate) struct TilingSnapshotElements {
     pub animation: Option<crate::render::WindowRenderAnimation>,
+    pub popup_animation: Option<crate::render::WindowRenderAnimation>,
+    pub live_popups: Option<TilingLivePopups>,
     pub elements: Vec<crate::render::OutputRenderElements>,
     pub blur: Option<crate::render::BlurRequestData>,
     pub shadow: Option<crate::render::SnapshotShadow>,
     pub border: Option<crate::render::SnapshotBorder>,
+}
+
+pub(crate) struct TilingLivePopups {
+    pub root: smithay::reexports::wayland_server::protocol::wl_surface::WlSurface,
+    pub origin: Point<f64, Logical>,
+    pub geometry_loc: Point<i32, Logical>,
+    pub opacity: f64,
+}
+
+fn popup_stamp(
+    surface: &smithay::reexports::wayland_server::protocol::wl_surface::WlSurface,
+    geometry: smithay::utils::Rectangle<i32, Logical>,
+) -> crate::render::ResizeContentStamp {
+    crate::render::ResizeContentStamp::for_surface(
+        surface,
+        geometry,
+        1.0,
+        crate::render::BakeChrome {
+            bare: true,
+            corner_radius: [0.0; 4],
+        },
+    )
 }
 
 impl TilingSnapshot {
@@ -59,12 +83,20 @@ impl TilingSnapshot {
         &self,
         root: &smithay::reexports::wayland_server::protocol::wl_surface::WlSurface,
     ) -> bool {
-        mapped_tiling_popups(root)
-            .map(|(popup, offset)| (popup.wl_surface().clone(), offset, popup.geometry()))
-            .eq(self
-                .popups
-                .iter()
-                .map(|p| (p.surface.clone(), p.offset, p.geometry)))
+        let mut saved = self.popups.iter();
+        for (popup, offset) in mapped_tiling_popups(root) {
+            let Some(previous) = saved.next() else {
+                return false;
+            };
+            if popup.wl_surface() != &previous.surface
+                || offset != previous.offset
+                || popup.geometry() != previous.geometry
+                || popup_stamp(popup.wl_surface(), popup.geometry()) != previous.stamp
+            {
+                return false;
+            }
+        }
+        saved.next().is_none()
     }
 }
 
@@ -73,6 +105,7 @@ struct TilingPopupSnapshot {
     offset: Point<i32, Logical>,
     geometry: smithay::utils::Rectangle<i32, Logical>,
     image: crate::render::ClosingSnapshot,
+    stamp: crate::render::ResizeContentStamp,
 }
 
 struct TilingPresentation {
@@ -843,14 +876,6 @@ impl DriftWm {
             else {
                 continue;
             };
-            if !window
-                .wl_surface()
-                .is_some_and(|root| snapshot.matches_popups(&root))
-            {
-                // Menus changed while waiting, so this window already resumed
-                // live rendering. Do not resurrect its retired picture.
-                continue;
-            }
             let old_size = snapshot.blur.geometry.size;
             let new_size = window.geometry().size;
             let mut seed = snapshot
@@ -1111,6 +1136,7 @@ impl DriftWm {
                             offset,
                             geometry,
                             image,
+                            stamp: popup_stamp(popup.wl_surface(), geometry),
                         })
                     })
                     .collect();
@@ -1206,9 +1232,7 @@ impl DriftWm {
     ) -> Option<TilingSnapshotElements> {
         let snapshot = self.tiling_view.as_ref()?.snapshots.get(&id)?;
         let root = self.stage.window_by_id(id)?.wl_surface()?;
-        if !snapshot.matches_popups(&root) {
-            return None;
-        }
+        let popups_match = snapshot.matches_popups(&root);
         // Geometry chases contribute displacement; opening scales/fades the
         // captured dimensions, even after the live client buffer changes size.
         let displacement = self
@@ -1242,11 +1266,19 @@ impl DriftWm {
                 ),
             )
         });
+        let popup_animation = animation.map(|animation| {
+            animation.for_popups(
+                (base.loc - camera).to_physical(physical_scale),
+                self.window_animations
+                    .opening_scale(id, self.config.effects.animation_scale),
+            )
+        });
         let opacity = snapshot.opacity * f64::from(visual.alpha);
         let name = output.name();
         let mut elements: Vec<_> = snapshot
             .popups
             .iter()
+            .filter(|_| popups_match)
             .filter_map(|popup| {
                 // The live composer snaps the root and popup offset separately.
                 // Snapping their sum moves menus by a pixel at fractional DPI.
@@ -1267,7 +1299,7 @@ impl DriftWm {
                     zoom,
                     output_scale,
                     opacity,
-                    animation,
+                    popup_animation,
                 )
             })
             .collect();
@@ -1292,6 +1324,13 @@ impl DriftWm {
             });
         Some(TilingSnapshotElements {
             animation,
+            popup_animation,
+            live_popups: (!popups_match).then(|| TilingLivePopups {
+                root: root.into_owned(),
+                origin: snapshot.blur.position.to_f64() - snapshot.blur.geometry.loc.to_f64(),
+                geometry_loc: snapshot.blur.geometry.loc,
+                opacity,
+            }),
             elements,
             blur,
             border: snapshot.border.clone().map(|mut border| {
@@ -1429,6 +1468,73 @@ impl DriftWm {
         if released {
             let commits = self.tiling_view.as_mut().unwrap().commits.take().unwrap();
             self.settle_tiling_commits(commits.clients);
+        }
+    }
+
+    pub(crate) fn arm_late_tiling_resize(
+        &mut self,
+        surface: &smithay::reexports::wayland_server::protocol::wl_surface::WlSurface,
+    ) {
+        use smithay::wayland::compositor::{BufferAssignment, SurfaceAttributes, with_states};
+        use smithay::wayland::shell::xdg::XdgToplevelSurfaceData;
+        if self.backend.is_none()
+            || self.config.effects.animation_speed >= 1.0
+            || self
+                .tiling_view
+                .as_ref()
+                .is_none_or(|v| v.commits.is_some() || v.presentation.is_some())
+        {
+            return;
+        }
+        let serial = with_states(surface, |states| {
+            if !matches!(
+                states
+                    .cached_state
+                    .get::<SurfaceAttributes>()
+                    .pending()
+                    .buffer,
+                Some(BufferAssignment::NewBuffer(_))
+            ) {
+                return None;
+            }
+            states
+                .data_map
+                .get::<XdgToplevelSurfaceData>()?
+                .lock()
+                .unwrap()
+                .last_acked
+                .as_ref()
+                .map(|c| c.serial)
+        });
+        let Some(serial) = serial else {
+            return;
+        };
+        let Some(window) = self.window_for_surface(surface) else {
+            return;
+        };
+        let Some(id) = self
+            .stage
+            .id_of(&window)
+            .filter(|id| self.stage.is_tiled(*id))
+        else {
+            return;
+        };
+        if self.window_animations.generation_of(id).is_some()
+            || self.window_animations.open_progress(id).is_some()
+            || self.resize_crossfades.contains_key(&id)
+        {
+            return;
+        }
+        if let Some(size) = self
+            .tiling_view
+            .as_mut()
+            .unwrap()
+            .configures
+            .take_late_resize(id, serial)
+        {
+            // This reuses the bounded start hold and pre-commit content capture;
+            // it sends no configure and never reopens the expired layout group.
+            self.animate_window_geometry(&window, size, None);
         }
     }
 
