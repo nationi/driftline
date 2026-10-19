@@ -1182,3 +1182,22 @@ checked local Markdown links/anchors and `git diff --check`. No runtime gate
 was rerun for these documentation-only changes. No compositor code, generated
 config/CLI references, user config, installed binary or running session changed.
 The unrelated output-management files remain outside the documentation commit.
+
+## Output-management checkpoint (2026-10-19)
+
+The user explicitly authorized reviewing, committing and pushing the previously
+separate output-management changes. Kept them as one focused fix with its three
+headless protocol regressions. Refresh-rate changes preserve head/mode objects;
+identical snapshots emit no update; mode-list changes replace modes while keeping
+the head; a late release of a disconnected head cannot remove its replacement.
+Ongoing configurations are cancelled on a real state change, and serial increment
+wraps safely. This does not add multi-output tiling ownership or output disabling.
+
+Full `dev/scripts/ci-local` passed (exit 0), including the three output-management
+regressions, strict all-target clippy, 368 library tests, 1451 binary cases plus
+isolated soak, and integration suites. Log:
+`/tmp/driftwm-output-management-ci.log`. The installed compositor and running
+session were not changed. Destination authorized by the user:
+`origin/nationi/development` in `nationi/driftwm`.
+
+`cargo build --locked` also passed; log: `/tmp/driftwm-output-management-build.log`.

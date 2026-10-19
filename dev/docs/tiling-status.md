@@ -106,15 +106,16 @@ on TTY2 in this setup; verify before relying on that in a later session. Do not
 replace the installed binary or restart the main desktop for ordinary testing.
 No installation or push was performed by this documentation update.
 
-Pre-existing unrelated changes currently remain in:
+The previously separate output-management changes were reviewed and authorized
+for their own commit/push on 2026-10-19: preserving monitor/mode resources on
+refresh changes, suppressing identical notifications, and protecting a reconnected
+head from a late release of its predecessor. They remain separate from tiling
+ownership work and do not implement P11. Check the current tree before edits;
+never assume historical uncommitted-file lists are still current.
 
-- `src/protocols/output_management.rs`
-- `src/tests/output_management.rs`
-- `src/tests/mod.rs` (`mod output_management;`)
-
-Recheck the tree and preserve these files; stage only owned paths. Current
-`origin` is `https://github.com/nationi/driftwm.git`; `upstream` is
-`https://github.com/malbiruk/driftwm.git`. Recheck before any authorized push.
+Current `origin` is `https://github.com/nationi/driftwm.git`; `upstream` is
+`https://github.com/malbiruk/driftwm.git`. The user authorized pushing the current
+work to `origin/nationi/development`; recheck destination before later pushes.
 Local implementation authorization does not authorize publishing or messaging.
 
 Read AGENTS.md, CONTRIBUTING.md, caveats and testing rules before code changes.

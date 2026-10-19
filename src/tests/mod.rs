@@ -48,6 +48,7 @@ mod layer_frame_gating;
 mod layer_popup_focus;
 mod opacity;
 mod outer_gap;
+mod output_management;
 mod pass_mouse;
 mod pin_ipc;
 mod pinned_phantom;
