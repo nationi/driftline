@@ -977,3 +977,28 @@ rendering. No manual test of this transition batch or installed binary update
 was performed. Next: direct-udev checks of F2/F5, then capture and continuity
 across an already active resize/crossfade; transparent content blending remains
 a separate requirement rather than an accepted approximation.
+
+## Direct TTY tiling binding diagnosis (2026-10-19)
+
+User reports only F1 works in the direct preview. The actual log explicitly
+rejects F2 because two outputs are active: HDMI-A-1 (GIGA-BYTE GS27FA) and
+HDMI-A-2 (Dell S2721HGF). Tiling currently requires exactly one output, so the
+F3–F11 layout commands cannot take effect. Do not call this a keyboard parsing
+failure or silently remove the multi-output safety guard. F12/quit are independent
+of tiling; the multi-output restriction alone does not explain those failing.
+
+Added optional `--drm-connector NAME` for isolated udev runs, filtering both initial
+connector enrollment and hotplug. No argument preserves normal multi-output
+behavior. Winit rejects the option; an unavailable connector fails startup.
+Updated the external `run-tty.sh` to select HDMI-A-1 by default; argument HDMI-A-2
+selects the Dell instead. The installed compositor and permanent output configs
+remain unchanged. Direct preview must restart to use the backend selection.
+
+Validation logs: `/tmp/driftwm-single-output-ci-verified.log`,
+`/tmp/driftwm-single-output-build.log`. CLI reference regenerated through
+`UPDATE_CLI_DOCS=1 cargo test docs_cli_md_is_up_to_date` and config validation
+passed. Native one-output validation is pending;
+this enables the existing single-output tiling, not roadmap P11 ownership.
+
+Single-connector batch validation completed: full ci-local passed, release build
+succeeded, launcher shell syntax/config checks passed. Installed binary unchanged.

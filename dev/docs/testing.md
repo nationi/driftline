@@ -83,3 +83,10 @@ do the same. Mark any future non-hermetic or genuinely slow test the same way.
 for). Never read or write `$XDG_RUNTIME_DIR/driftwm`; the test pump
 deliberately excludes the state-file writer. Don't set process env vars in
 tests — the harness is multi-threaded.
+
+For a direct udev test on a machine with multiple connected monitors, pass
+`--drm-connector HDMI-A-1` (using the actual connector name) to enroll only that
+connector, including after hotplug. This is useful for the experimental
+single-output tiling mode. Omit the option for normal output discovery; it does
+not implement independent multi-output tiling. Run from a separate TTY and use
+an isolated config/session file to preserve the main desktop.
