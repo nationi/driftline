@@ -211,7 +211,11 @@ while the backdrop continues through the live blur pipeline. Their shadows draw
 below the frost rather than inside the flattened content. Animated windows and
 failed captures still retain live rendering. Full animation integration and an
 unconditional frame-atomic rendering
-guarantee remain outstanding. A pinned source audit confirms that unbuffered windows
+guarantee remain outstanding. Controlled GLES regressions now cover stationary
+1.25x/1.5x content, nested popups, live shadows and frost. Their frame comparisons
+exposed and gate bake-uniform rebasing and independent popup-offset rounding;
+scale transitions, odd extents, SSD and moving-camera cases remain outstanding.
+A pinned source audit confirms that unbuffered windows
 remain outside the scrolling layout until mapping; do not reserve phantom
 columns or initial-configure order. First-buffer order and mapping-time focus
 are now covered by headless reference scenarios. Live-frame reservation is

@@ -903,38 +903,30 @@ impl DriftWm {
             let chrome = self.snapshot_chrome(&surface, geometry, false);
             let origin = position.to_f64() - geometry.loc.to_f64();
             let scale = self.flatten_scale_for_canvas_rect(Rectangle::new(position, geometry.size));
-            let has_blur =
-                blur.window_blur || blur.client_regions.as_ref().is_some_and(|r| !r.is_empty());
-            let shadow = if has_blur {
-                chrome.and_then(|c| {
-                    c.shadow_shader.map(|_| {
-                        let border = f64::from(c.border_width.max(0));
-                        let bar = f64::from(blur.bar_height.unwrap_or(0));
-                        crate::render::SnapshotShadow {
-                            surface_id: surface.id(),
-                            body: Rectangle::new(
-                                position.to_f64() - Point::from((border, bar + border)),
-                                (
-                                    f64::from(geometry.size.w) + 2.0 * border,
-                                    f64::from(geometry.size.h) + bar + 2.0 * border,
-                                )
-                                    .into(),
-                            ),
-                            inner_radius: c.corner_radius[2],
-                            border_width: c.border_width,
-                            opacity,
-                        }
-                    })
+            let shadow = chrome.and_then(|c| {
+                c.shadow_shader.map(|_| {
+                    let border = f64::from(c.border_width.max(0));
+                    let bar = f64::from(blur.bar_height.unwrap_or(0));
+                    crate::render::SnapshotShadow {
+                        surface_id: surface.id(),
+                        body: Rectangle::new(
+                            position.to_f64() - Point::from((border, bar + border)),
+                            (
+                                f64::from(geometry.size.w) + 2.0 * border,
+                                f64::from(geometry.size.h) + bar + 2.0 * border,
+                            )
+                                .into(),
+                        ),
+                        inner_radius: c.corner_radius[2],
+                        border_width: c.border_width,
+                        opacity,
+                    }
                 })
-            } else {
-                None
-            };
-            // Frost must cover the shadow, as in the live composer. Keeping
-            // shadow in the flattened content would darken rounded cutouts.
+            });
+            // Draw shadows at output coordinates to preserve fractional pixel
+            // rounding, and below frost rather than baking them over its mask.
             let chrome = chrome.map(|mut c| {
-                if has_blur {
-                    c.shadow_shader = None;
-                }
+                c.shadow_shader = None;
                 c
             });
             if let Some(image) = crate::render::snapshot_canvas(
@@ -1022,9 +1014,22 @@ impl DriftWm {
             .popups
             .iter()
             .filter_map(|popup| {
+                // The live composer snaps the root and popup offset separately.
+                // Snapping their sum moves menus by a pixel at fractional DPI.
+                let root =
+                    snapshot.blur.position.to_f64() - snapshot.blur.geometry.loc.to_f64() - camera;
+                let offset = snapshot.blur.geometry.loc + popup.offset - popup.geometry.loc;
+                let physical_root: Point<i32, smithay::utils::Physical> =
+                    root.to_physical_precise_round(output_scale);
+                let physical_offset: Point<i32, smithay::utils::Physical> =
+                    offset.to_physical_precise_round(output_scale);
+                let snapped = (physical_root + physical_offset)
+                    .to_f64()
+                    .to_logical(output_scale);
+                let correction = snapped - (root + offset.to_f64());
                 popup.image.render_element_with_opacity(
                     &name,
-                    camera,
+                    camera - correction,
                     zoom,
                     output_scale,
                     snapshot.opacity,

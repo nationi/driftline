@@ -551,3 +551,48 @@ scenarios passed. `dev/scripts/ci-local` passed every stage after the final
 shadow-order and mask-invalidation changes, including all ignored pixel tests,
 strict all-target clippy and the isolated soak. The pure layout library was
 unchanged; no interactive hardware/nested-session validation was performed.
+
+
+## Fractional-scale frozen presentation regression checks
+
+Four new GLES scenarios extend the pending-presentation comparisons to 1.25x
+and 1.5x. They cover plain content, unclipped nested popup trees with nonzero
+window geometry offsets, shadows, and translucent frost with/without rounded
+border chrome. One client's new buffer applies while an independent blocker
+holds its peer; the complete frame is compared with the pre-transaction frame,
+then snapshots must release when the last buffer applies.
+
+The tests exposed three differences absent at integral scales. The shared
+closing-image baker now expands its bounds to a logical grid whose translation
+is integral at the bake scale (when representable within the fractional-scale
+protocol's 120-step denominator), and rebuilds border/shadow uniforms in the
+rebased coordinate system. Merely translating a shader area kept uniforms made
+from negative half-pixel coordinates, whose rounding differs after translation.
+This shared baker correction also applies to closing images.
+
+Pending tiling shadows now always use the saved-geometry live shadow path,
+including nonblurred windows, preserving output-space rounding and avoiding an
+extra offscreen sampling pass. Popup placement rounds the saved root origin and
+popup offset independently, matching the live composer instead of rounding their
+sum. Parent geometry and popup identities remain checked before substitution.
+
+Coverage is controlled single-output, stationary-view, unit-zoom CSD content
+with the existing integer logical sizes. It does not establish parity for odd
+fractional buffer extents, SSD chrome, negative/fractional camera movement,
+output scale changes while pending, active window animations or every capture
+path. Client-protocol blur regions still need their own pixel scenarios. Do not
+mark P2/P13 or general fractional-scale parity complete.
+
+Validation: all four new GLES tests passed on the available Mesa renderer.
+`dev/scripts/ci-local` passed fmt, locked check, strict all-target clippy,
+all regular/ignored tests (1423 binary cases plus the library/integration suites)
+and the isolated soak. An initial run used stale output-management build
+artifacts and failed three existing protocol tests; baseline isolation and a
+forced rebuild of that unchanged module resolved the mismatch, and the complete
+fresh run passed without excluding tests. Existing unrelated output-management
+edits were verified byte-for-byte unchanged against the baseline copy and were
+not incorporated into this change. The installed compositor
+binary was not replaced and the running session was not restarted.
+
+Next: integrate active window animations with frozen presentations, expand
+supersession/remap/cancellation traces, and continue the P0 semantic audit.

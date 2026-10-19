@@ -112,7 +112,7 @@ fn live_frame(f: &mut Fixture, output: &Output) -> RgbaImage {
         crate::render::render_elements_to_rgba(
             renderer,
             Size::<i32, Physical>::from((OUTPUT.0 as i32, OUTPUT.1 as i32)),
-            Scale::from(SCALE),
+            Scale::from(output.current_scale().fractional_scale()),
             &refs,
         )
     };
@@ -603,6 +603,10 @@ fn two_bars_that_pay_for_the_shared_backdrop_slice_their_frost_out_of_it() {
 }
 
 fn check_tiling_frost(framed: bool) {
+    check_tiling_frost_at_scale(framed, SCALE);
+}
+
+fn check_tiling_frost_at_scale(framed: bool, scale: f64) {
     use super::{last_configured, map_window_shm, window_by_app_id};
     use driftwm::config::Action;
     use smithay::reexports::wayland_server::Resource;
@@ -630,7 +634,7 @@ fn check_tiling_frost(framed: bool) {
         config
     };
     let mut f = Fixture::with_config(super::config(&config));
-    let output = f.add_output_scaled(1, (OUTPUT.0 as u16, OUTPUT.1 as u16), SCALE);
+    let output = f.add_output_scaled(1, (OUTPUT.0 as u16, OUTPUT.1 as u16), scale);
     install_with_blur(&mut f, renderer);
     let first = f.add_client();
     let second = f.add_client();
@@ -721,4 +725,14 @@ fn tiling_keeps_frost_under_frozen_content_until_buffers_apply() {
 fn frozen_tiling_frost_excludes_shadows_in_rounded_corner_cutouts() {
     let _gl = gl::lock();
     check_tiling_frost(true);
+}
+
+#[test]
+#[ignore = "needs Mesa surfaceless EGL; run with --include-ignored"]
+fn frozen_tiling_frost_preserves_pixels_at_fractional_output_scales() {
+    let _gl = gl::lock();
+    for scale in [1.25, 1.5] {
+        check_tiling_frost_at_scale(false, scale);
+        check_tiling_frost_at_scale(true, scale);
+    }
 }

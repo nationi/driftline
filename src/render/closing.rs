@@ -610,14 +610,51 @@ fn flatten(
     if let Some((_, area)) = border_element {
         bounds = bounds.merge(area.to_f64());
     }
-    // Shader elements were built in surface-local coordinates; the framebuffer
-    // starts at bounds.loc, just like the content and bar offsets below.
-    for (element, area) in shadow_element.iter_mut().chain(border_element.iter_mut()) {
-        element.resize(
-            Rectangle::new(area.loc - bounds.loc.to_i32_round(), area.size),
-            None,
-        );
-    }
+    // Keep the bake's translation on the physical grid. Translating a shader
+    // by a fractional pixel changes its rounded origin without updating the
+    // geometry uniforms computed above.
+    let grid = (1..=120)
+        .find(|step| {
+            let physical = f64::from(*step) * flatten_scale;
+            (physical - physical.round()).abs() < 1e-6
+        })
+        .map_or(1.0, f64::from);
+    let end = bounds.loc + Point::from((bounds.size.w, bounds.size.h));
+    let start = Point::from((
+        (bounds.loc.x / grid).floor() * grid,
+        (bounds.loc.y / grid).floor() * grid,
+    ));
+    let end = Point::from(((end.x / grid).ceil() * grid, (end.y / grid).ceil() * grid));
+    bounds = Rectangle::new(start, (end - start).to_size());
+    // Rebuild shader uniforms after rebasing as well as moving their areas:
+    // rounding a negative half pixel is not translation invariant.
+    let local_body = Rectangle::new(body.loc - bounds.loc, body.size);
+    shadow_element = chrome.shadow_shader.map(|shader| {
+        let border = f64::from(chrome.border_width.max(0));
+        shaders::bake_shadow_element(
+            shader,
+            Rectangle::new(
+                local_body.loc - Point::from((border, border)),
+                Size::from((
+                    local_body.size.w + 2.0 * border,
+                    local_body.size.h + 2.0 * border,
+                )),
+            ),
+            shaders::outer_corner_radius(chrome.corner_radius[2], chrome.border_width as f32),
+            scale,
+        )
+    });
+    border_element = chrome.border_shader.and_then(|shader| {
+        shaders::bake_border_element(
+            shader,
+            local_body,
+            chrome.corner_radius[2],
+            chrome.border_width,
+            chrome.border_color,
+            chrome.focused,
+            scale,
+        )
+    });
     let phys_size = phys_size_of(bounds, flatten_scale);
     if phys_size.w <= 0 || phys_size.h <= 0 {
         return None;

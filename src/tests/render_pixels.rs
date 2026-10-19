@@ -456,8 +456,8 @@ fn tiling_live_frame(f: &mut Fixture, output: &smithay::output::Output) -> Vec<u
     let refs: Vec<_> = elements.iter().collect();
     let bytes = crate::render::render_elements_to_rgba(
         renderer,
-        Size::<i32, Physical>::from((1200, 800)),
-        Scale::from(1.0),
+        output.current_mode().expect("output mode").size,
+        Scale::from(output.current_scale().fractional_scale()),
         &refs,
     )
     .expect("render tiling frame");
@@ -511,6 +511,15 @@ fn colored_tiling_popup(
 }
 
 fn check_pending_tiling_pixels(finish: TilingFinish, shadow: bool, scene: TilingPopupScene) {
+    check_pending_tiling_pixels_at_scale(finish, shadow, scene, 1.0);
+}
+
+fn check_pending_tiling_pixels_at_scale(
+    finish: TilingFinish,
+    shadow: bool,
+    scene: TilingPopupScene,
+    scale: f64,
+) {
     use super::{last_configured, window_by_app_id};
     use driftwm::config::Action;
     use smithay::reexports::wayland_server::Resource;
@@ -524,7 +533,7 @@ fn check_pending_tiling_pixels(finish: TilingFinish, shadow: bool, scene: Tiling
     };
     let config = format!("{}\n[snap]\ngap = 0\n", config_toml(shadow));
     let mut f = Fixture::with_config(super::config(&config));
-    let output = f.add_output(1, (1200, 800));
+    let output = f.add_output_scaled(1, (1200, 800), scale);
     gl::install(&mut f, renderer);
     let first = f.add_client();
     let second = f.add_client();
@@ -605,7 +614,10 @@ fn check_pending_tiling_pixels(finish: TilingFinish, shadow: bool, scene: Tiling
         .take(8)
         .map(|(i, (a, b))| (i % 1200, i / 1200, a, b))
         .collect();
-    assert!(differences.is_empty(), "changed pixels: {differences:?}");
+    assert!(
+        differences.is_empty(),
+        "{scale}x changed pixels: {differences:?}"
+    );
     if matches!(scene, TilingPopupScene::Dismiss | TilingPopupScene::Unmap) {
         let menu = f.client(first).popup(popup.as_ref().unwrap());
         if matches!(scene, TilingPopupScene::Unmap) {
@@ -723,4 +735,46 @@ fn an_unmapped_popup_is_not_kept_by_the_tiling_snapshot() {
 fn a_popup_opened_while_tiling_waits_is_visible() {
     let _gl = gl::lock();
     check_pending_tiling_pixels(TilingFinish::Buffers, false, TilingPopupScene::Appears);
+}
+
+#[test]
+#[ignore = "needs Mesa surfaceless EGL; run with --include-ignored"]
+fn pending_tiling_preserves_pixels_at_fractional_output_scales() {
+    let _gl = gl::lock();
+    for scale in [1.25, 1.5] {
+        check_pending_tiling_pixels_at_scale(
+            TilingFinish::Buffers,
+            false,
+            TilingPopupScene::None,
+            scale,
+        );
+    }
+}
+
+#[test]
+#[ignore = "needs Mesa surfaceless EGL; run with --include-ignored"]
+fn pending_tiling_preserves_popup_trees_at_fractional_output_scales() {
+    let _gl = gl::lock();
+    for scale in [1.25, 1.5] {
+        check_pending_tiling_pixels_at_scale(
+            TilingFinish::Buffers,
+            false,
+            TilingPopupScene::Nested,
+            scale,
+        );
+    }
+}
+
+#[test]
+#[ignore = "needs Mesa surfaceless EGL; run with --include-ignored"]
+fn pending_tiling_preserves_shadows_at_fractional_output_scales() {
+    let _gl = gl::lock();
+    for scale in [1.25, 1.5] {
+        check_pending_tiling_pixels_at_scale(
+            TilingFinish::Buffers,
+            true,
+            TilingPopupScene::None,
+            scale,
+        );
+    }
 }
