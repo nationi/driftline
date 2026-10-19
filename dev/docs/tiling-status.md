@@ -632,3 +632,55 @@ changes remain outside this commit; no push or compositor restart was performed.
 
 Next: preserve frozen-content continuity through active animations, then expand
 rapid supersession/remap/cancellation traces and continue the P0 semantic audit.
+
+
+## Translating frozen content during a pending presentation
+
+Position-only canvas chases started after capture now retain the old tiling
+picture. Eligibility is deliberately narrow: no size request (including one
+later discarded by the resize threshold), fullscreen role, explicit frame seed,
+or inherited open fade; the seed must match the current client dimensions.
+Other animation starts keep the explicit live fallback described above.
+
+The captured parent and popup textures receive the existing render-element
+translation after their stationary output-space rounding. The saved shadow
+uses the same physical affine through the live shadow composer. Frost translates
+its already snapped mask rectangle in physical pixels; translating a logical
+origin before truncating it made the mask trail fractional animation motion.
+The backdrop itself remains live. The stage, configure group, input geometry
+and sizing authority are unchanged, and old texture dimensions remain fixed
+even after the client's newly sized buffer has applied.
+
+The new regression scenes compare against the same position animation rendered
+with old live content before the configure batch. They include nested popup
+trees, border/shadow chrome, translucent frost and rounded corners. They also
+check an injected motion tick, retained old pixels after a new buffer applied,
+interruption without a frame jump, cancellation back to the saved resting
+picture, and release when the independently blocked peer finally commits.
+Resize/open regression cases retain their live fallback checks.
+
+Scope remains a stationary camera and unit zoom. This does not yet capture
+windows already animating before the batch, animate frozen resize/open/fade
+content, provide release-time geometry continuity, or establish full P2/P13
+parity. Popup changes still use the existing live fallback. Additional scale,
+geometry-freeze, mode-exit/timeout, remap and rapid-supersession combinations need
+further coverage before that guarantee can expand.
+
+Validation: two new GLES scenarios passed with/without shadow/rounded chrome.
+Parent/popup comparisons cover 1x, 1.25x and 1.5x; frost comparisons cover 2x,
+1.25x and 1.5x. Exact comparisons are used without shadow; existing one/two-byte
+offscreen tolerances apply to shadow/frost. The fractional-motion tick also
+checks mask displacement and unchanged mask size directly. An initial full gate
+found that the updated resize fallback test incorrectly expected immediate
+motion during its intentional size hold; only move/open cases now require an
+immediate animated tick. The complete final `dev/scripts/ci-local` run passed
+fmt, locked check, strict all-target clippy, regular/ignored tests (366 library
+and 1427 binary cases plus integration suites), and isolated soak. The pure
+layout library was unchanged. No manual nested/hardware validation, installed
+binary replacement, session restart or push was performed. Existing unrelated
+output-management changes remain outside this batch.
+
+Next: extend the retained-picture model to capture during active translations
+and test timeout/exit/supersession during motion, before implementing frozen
+resize/open/fade transforms and release-time continuity. P0 semantic audit and
+broader remap/cancellation traces remain unfinished roadmap work.

@@ -305,7 +305,18 @@ impl DriftWm {
         if carries_request {
             self.window_animations.clear_waits_for(id);
         }
-        self.release_tiling_snapshot_for_animation(id);
+        // A canvas translation can move the retained old picture without
+        // exposing a newly applied buffer. Resizes and fades still use live
+        // content until their transforms can share the frozen-content model.
+        let translation_only = !carries_request
+            && matches!(space, AnimSpace::Canvas)
+            && matches!(role, GeometryRole::Normal)
+            && !replace_visual
+            && open_fade.is_none()
+            && seed.size == committed.to_f64();
+        if !translation_only {
+            self.release_tiling_snapshot_for_animation(id);
+        }
         self.window_animations.start_geometry(
             id,
             seed,

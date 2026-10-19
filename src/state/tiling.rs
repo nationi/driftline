@@ -44,6 +44,7 @@ struct TilingSnapshot {
 }
 
 pub(crate) struct TilingSnapshotElements {
+    pub animation: Option<crate::render::WindowRenderAnimation>,
     pub elements: Vec<crate::render::OutputRenderElements>,
     pub blur: Option<crate::render::BlurRequestData>,
     pub shadow: Option<crate::render::SnapshotShadow>,
@@ -1021,6 +1022,16 @@ impl DriftWm {
         {
             return None;
         }
+        // Retained geometry animations are canvas translations only. Resolve
+        // their displacement against the live destination, while all captured
+        // content, popup offsets and chrome keep their old dimensions.
+        let displacement = self
+            .window_animations
+            .geometry_visual_rect(id)
+            .zip(self.stage.position_of(self.stage.window_by_id(id)?))
+            .map_or_else(Point::default, |(visual, target)| {
+                visual.loc - target.to_f64()
+            });
         let name = output.name();
         let mut elements: Vec<_> = snapshot
             .popups
@@ -1039,26 +1050,43 @@ impl DriftWm {
                     .to_f64()
                     .to_logical(output_scale);
                 let correction = snapped - (root + offset.to_f64());
-                popup.image.render_element_with_opacity(
+                popup.image.render_element_with_translation(
                     &name,
                     camera - correction,
                     zoom,
                     output_scale,
                     snapshot.opacity,
+                    displacement,
                 )
             })
             .collect();
-        elements.extend(snapshot.image.render_element_with_opacity(
+        elements.extend(snapshot.image.render_element_with_translation(
             &name,
             camera,
             zoom,
             output_scale,
             snapshot.opacity,
+            displacement,
         ));
+        let animation = (displacement != Point::default()).then(|| {
+            crate::render::WindowRenderAnimation::translation(
+                displacement.to_physical(zoom * output_scale),
+            )
+        });
         let blur = snapshot
             .blur
-            .request(camera, zoom, output_scale, elements.len());
+            .request(camera, zoom, output_scale, elements.len())
+            .map(|mut request| {
+                // Translate the already snapped mask in physical space, as
+                // live window animations do. Truncating a moving logical
+                // origin first makes frost lag behind fractional motion.
+                if let Some(animation) = animation {
+                    request.screen_rect = animation.transform_phys_rect(request.screen_rect);
+                }
+                request
+            });
         Some(TilingSnapshotElements {
+            animation,
             elements,
             blur,
             shadow: snapshot.shadow.clone(),

@@ -607,6 +607,10 @@ fn check_tiling_frost(framed: bool) {
 }
 
 fn check_tiling_frost_at_scale(framed: bool, scale: f64) {
+    check_tiling_frost_scene(framed, scale, false);
+}
+
+fn check_tiling_frost_scene(framed: bool, scale: f64, translate: bool) {
     use super::{last_configured, map_window_shm, window_by_app_id};
     use driftwm::config::Action;
     use smithay::reexports::wayland_server::Resource;
@@ -656,6 +660,15 @@ fn check_tiling_frost_at_scale(framed: bool, scale: f64) {
     f.state().stage.set_position(&wa, (250, 200).into());
     f.state().stage.set_position(&wb, (650, 450).into());
     f.state().set_camera((0.0, 0.0).into());
+    let translated_before = if translate {
+        f.state()
+            .animate_window_move_from(&wa, (300, 250).into(), None);
+        let expected = live_frame(&mut f, &output);
+        f.state().cancel_window_animation(&wa);
+        Some(expected)
+    } else {
+        None
+    };
     let before = live_frame(&mut f, &output);
     let before_bounds = frost_bounds(&before);
     f.state().execute_action(&Action::ToggleTiling);
@@ -698,6 +711,57 @@ fn check_tiling_frost_at_scale(framed: bool, scale: f64) {
         max_delta <= if framed { 2 } else { 1 },
         "frozen frost differs by {max_delta} bytes: {differences:?}"
     );
+    if let Some(expected) = translated_before {
+        let id = f.state().stage.id_of(&wa).unwrap();
+        let resting_mask = f
+            .state()
+            .tiling_snapshot_elements(id, &output, (0.0, 0.0).into(), 1.0, scale)
+            .unwrap()
+            .blur
+            .unwrap()
+            .screen_rect;
+        f.state()
+            .animate_window_move_from(&wa, (300, 250).into(), None);
+        assert_eq!(f.state().tiling_snapshot_count(), 2);
+        let moved = live_frame(&mut f, &output);
+        assert_eq!(frost_bounds(&moved), frost_bounds(&expected));
+        let delta = moved
+            .as_raw()
+            .iter()
+            .zip(expected.as_raw())
+            .map(|(a, b)| a.abs_diff(*b))
+            .max()
+            .unwrap();
+        assert!(
+            delta <= if framed { 2 } else { 1 },
+            "translated frost differs by {delta}"
+        );
+        f.state()
+            .tick_window_animations(std::time::Duration::from_millis(16));
+        let advanced = live_frame(&mut f, &output);
+        assert_ne!(frost_bounds(&advanced), frost_bounds(&moved));
+        let visual = f
+            .state()
+            .window_animations
+            .geometry_visual_rect(id)
+            .unwrap();
+        let delta = visual.loc - f.state().stage.position_of(&wa).unwrap().to_f64();
+        let physical_delta: smithay::utils::Point<i32, smithay::utils::Physical> =
+            delta.to_physical_precise_round(scale);
+        let animated_mask = f
+            .state()
+            .tiling_snapshot_elements(id, &output, (0.0, 0.0).into(), 1.0, scale)
+            .unwrap()
+            .blur
+            .unwrap()
+            .screen_rect;
+        assert_eq!(animated_mask.loc, resting_mask.loc + physical_delta);
+        assert_eq!(animated_mask.size, resting_mask.size);
+        f.state().cancel_window_animation(&wa);
+        let restored = live_frame(&mut f, &output);
+        assert_eq!(frost_bounds(&restored), before_bounds);
+        assert_eq!(f.state().tiling_snapshot_count(), 2);
+    }
     barrier.signal();
     let owner = surface.client().unwrap();
     let client_state = owner.get_data::<crate::state::ClientState>().unwrap();
@@ -734,5 +798,16 @@ fn frozen_tiling_frost_preserves_pixels_at_fractional_output_scales() {
     for scale in [1.25, 1.5] {
         check_tiling_frost_at_scale(false, scale);
         check_tiling_frost_at_scale(true, scale);
+    }
+}
+
+#[test]
+#[ignore = "needs Mesa surfaceless EGL; run with --include-ignored"]
+fn position_animation_moves_frozen_tiling_frost_and_shadow_together() {
+    let _gl = gl::lock();
+    for scale in [SCALE, 1.25, 1.5] {
+        for framed in [false, true] {
+            check_tiling_frost_scene(framed, scale, true);
+        }
     }
 }

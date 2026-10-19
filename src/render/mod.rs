@@ -69,7 +69,7 @@ pub(crate) struct SnapshotShadow {
 /// shadow, and decoration all lerp together. Physical `origin`/`offset`; the
 /// `scale` is the visual stretch relative to the live rect.
 #[derive(Clone, Copy)]
-pub(super) struct WindowRenderAnimation {
+pub(crate) struct WindowRenderAnimation {
     origin: Point<f64, Physical>,
     offset: Point<f64, Physical>,
     scale: Scale<f64>,
@@ -103,9 +103,20 @@ struct FadeRender {
 }
 
 impl WindowRenderAnimation {
+    pub(crate) fn translation(offset: Point<f64, Physical>) -> Self {
+        Self {
+            origin: Point::default(),
+            offset,
+            scale: Scale::from(1.0),
+        }
+    }
+
     /// Apply the same affine the element decorator applies, so the frost rect
     /// follows the animated window instead of its (instant) logical position.
-    fn transform_phys_rect(&self, rect: Rectangle<i32, Physical>) -> Rectangle<i32, Physical> {
+    pub(crate) fn transform_phys_rect(
+        &self,
+        rect: Rectangle<i32, Physical>,
+    ) -> Rectangle<i32, Physical> {
         let x0 = self.origin.x + (rect.loc.x as f64 - self.origin.x) * self.scale.x + self.offset.x;
         let y0 = self.origin.y + (rect.loc.y as f64 - self.origin.y) * self.scale.y + self.offset.y;
         let x1 = self.origin.x
@@ -958,7 +969,7 @@ pub fn compose_frame(
                     shadow.opacity,
                     scale,
                     zoom,
-                    None,
+                    snapshot.animation,
                 );
             }
             if blur_enabled && let Some(mut blur) = snapshot.blur.take() {

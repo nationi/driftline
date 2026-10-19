@@ -472,6 +472,7 @@ enum TilingFinish {
     Exit,
     OpenAnimation,
     MoveAnimation,
+    ResizeAnimation,
 }
 
 #[derive(Clone, Copy)]
@@ -568,6 +569,15 @@ fn check_pending_tiling_pixels_at_scale(
             [255, 0, 255, 255],
         );
     }
+    let translated_before = if matches!(finish, TilingFinish::MoveAnimation) {
+        f.state()
+            .animate_window_move_from(&wa, (100, 150).into(), None);
+        let frame = tiling_live_frame(&mut f, &output);
+        f.state().cancel_window_animation(&wa);
+        Some(frame)
+    } else {
+        None
+    };
     let before = tiling_live_frame(&mut f, &output);
     if popup.is_some() {
         assert!(
@@ -645,7 +655,9 @@ fn check_pending_tiling_pixels_at_scale(
     }
     match finish {
         TilingFinish::Buffers => {}
-        TilingFinish::OpenAnimation | TilingFinish::MoveAnimation => {
+        TilingFinish::OpenAnimation
+        | TilingFinish::MoveAnimation
+        | TilingFinish::ResizeAnimation => {
             let generation = f.state().render.blur_geometry_generation;
             match finish {
                 TilingFinish::OpenAnimation => f.state().start_window_open_animation(&wa),
@@ -653,30 +665,72 @@ fn check_pending_tiling_pixels_at_scale(
                     f.state()
                         .animate_window_move_from(&wa, (100, 150).into(), None)
                 }
+                TilingFinish::ResizeAnimation => f.state().animate_window_geometry(
+                    &wa,
+                    (target_a.0 + 50, target_a.1 + 50).into(),
+                    None,
+                ),
                 _ => unreachable!(),
             }
-            assert_eq!(
-                f.state().tiling_snapshot_count(),
-                1,
-                "only the peer stays frozen"
-            );
-            assert!(f.state().render.blur_geometry_generation > generation);
+            let retained = matches!(finish, TilingFinish::MoveAnimation);
+            let expected_images = if retained { images } else { 1 };
+            assert_eq!(f.state().tiling_snapshot_count(), expected_images);
+            if !retained {
+                assert!(f.state().render.blur_geometry_generation > generation);
+            }
             let animated = tiling_live_frame(&mut f, &output);
             assert_ne!(animated, pending, "the new animation must be visible");
+            if let Some(expected) = translated_before {
+                let max_delta = animated
+                    .iter()
+                    .zip(&expected)
+                    .map(|(a, b)| a.abs_diff(*b))
+                    .max()
+                    .unwrap();
+                assert!(
+                    max_delta <= u8::from(shadow),
+                    "translated chrome/popups differ by {max_delta}"
+                );
+            }
             f.state()
                 .tick_window_animations(std::time::Duration::from_millis(16));
-            assert_ne!(
-                tiling_live_frame(&mut f, &output),
-                animated,
-                "animation advances while waiting"
-            );
+            if !matches!(finish, TilingFinish::ResizeAnimation) {
+                assert_ne!(
+                    tiling_live_frame(&mut f, &output),
+                    animated,
+                    "animation advances while waiting"
+                );
+            }
+            if retained {
+                let interrupted = tiling_live_frame(&mut f, &output);
+                assert!(
+                    !interrupted.as_chunks::<4>().0.contains(&[0, 255, 0, 255]),
+                    "new green buffers must stay hidden"
+                );
+                f.state()
+                    .animate_window_move_from(&wa, (150, 200).into(), None);
+                assert_eq!(
+                    tiling_live_frame(&mut f, &output),
+                    interrupted,
+                    "retargeting preserves the current picture"
+                );
+            }
             f.state().cancel_window_animation(&wa);
             f.pump(2);
-            assert_eq!(
-                f.state().tiling_snapshot_count(),
-                1,
-                "the invalidated picture must not return"
-            );
+            assert_eq!(f.state().tiling_snapshot_count(), expected_images);
+            if retained {
+                let restored = tiling_live_frame(&mut f, &output);
+                let max_delta = restored
+                    .iter()
+                    .zip(&before)
+                    .map(|(a, b)| a.abs_diff(*b))
+                    .max()
+                    .unwrap();
+                assert!(
+                    max_delta <= u8::from(shadow),
+                    "cancelled picture differs by {max_delta}"
+                );
+            }
             assert!(f.state().tiling_view.is_some());
         }
         TilingFinish::Deadline => {
@@ -826,5 +880,25 @@ fn opening_animation_releases_a_pending_tiling_picture_and_its_popups() {
 #[ignore = "needs Mesa surfaceless EGL; run with --include-ignored"]
 fn geometry_animation_releases_a_pending_tiling_picture_and_its_popups() {
     let _gl = gl::lock();
-    check_pending_tiling_pixels(TilingFinish::MoveAnimation, true, TilingPopupScene::Nested);
+    check_pending_tiling_pixels(
+        TilingFinish::ResizeAnimation,
+        true,
+        TilingPopupScene::Nested,
+    );
+}
+
+#[test]
+#[ignore = "needs Mesa surfaceless EGL; run with --include-ignored"]
+fn position_animation_preserves_pending_tiling_content_and_popups() {
+    let _gl = gl::lock();
+    for scale in [1.0, 1.25, 1.5] {
+        for shadow in [false, true] {
+            check_pending_tiling_pixels_at_scale(
+                TilingFinish::MoveAnimation,
+                shadow,
+                TilingPopupScene::Nested,
+                scale,
+            );
+        }
+    }
 }
