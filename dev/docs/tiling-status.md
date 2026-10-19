@@ -809,3 +809,112 @@ Next: capture during an already active open/fade, test fade supersession and
 client-protocol blur-region pixels, then integrate retained resize/crossfade and
 release-time geometry continuity. P0 semantic audit, motion-time remap/disconnect
 and view/scale transitions remain outstanding.
+
+
+## Paused native NVIDIA preview investigation (2026-10-19)
+
+The user explicitly paused work to continue later. Do not infer that the native
+rendering problem was fixed. Installed compositor/session were not replaced.
+The isolated preview was closed and its clean config restored on pause.
+
+User observation: severe artifacts immediately after preview startup, before
+entering tiling. Controlled live reloads confirmed: opaque/no-effects clean
+preview works; compositor opacity 0.88 without blur works; enabling blur alone
+with shadows off reproduces artifacts. This is not evidence against only the
+new tiling snapshots: it reproduces in canvas before F2.
+
+Uncommitted investigation edits: `src/backend/winit.rs` and
+`dev/docs/smithay-api.md` (plus this handoff). Preserve unrelated existing
+output-management changes. Composition now occurs before window buffer age
+acquisition. Smithay pinned GLES `Bind<EGLSurface>` only creates a target;
+`Renderer::render` makes it current. `make_window_current` starts/finishes an
+empty frame to restore the window before age query and again before swap after
+capture passes. This removes repeated `EGL_BAD_SURFACE` errors on the user's
+NVIDIA RTX 3060 / driver 615.78.08, but the user explicitly confirmed that visible
+blur artifacts STILL REMAIN. Calling backend.bind() alone had not fixed either.
+Do not present these edits as a fix for the user's visible problem.
+
+The final investigation build and `dev/scripts/ci-local` passed all stages:
+log `/tmp/driftwm-ci-winit-current-20261019.log` (1439 binary tests plus suites
+and isolated soak). No new automated backend test was added; the native bug is
+outside the surfaceless Mesa coverage. No investigation commit/push was made.
+
+Preview launchers/configs are in `/home/nationi/driftwm-previews/7e32bf5/`:
+`run.sh` takes an optional config path; `run-clean.sh` selects config-clean.toml
+(opaque kitty --config NONE, no shadow/blur, normal animation). Default run.sh
+still selects original blur-heavy config. Runtime and D-Bus are isolated per
+launch. Latest preview socket was
+`/run/user/1000/driftwm-preview.8xv31z/driftwm/ipc-wayland-1.sock` and is now closed;
+do not reuse it. Never issue quit to the real desktop's socket.
+
+Evidence files: `preview-before-egl-fix.log`,
+`preview-blur-before-current-fix.log`, latest `preview.log` in that preview dir;
+`/tmp/driftwm-host-visible.png` and `/tmp/driftwm-nested-visible.png`. The host
+screenshot includes private desktop content; keep local and do not publish.
+A fresh screencopy from the nested compositor looks substantially cleaner than
+the presented host window, whose top contains stale/fragmented decorations.
+This suggests investigating window presentation/damage versus fresh offscreen
+composition, but that cause remains UNCONFIRMED. Next experiment considered:
+force full redraw for the nested blur scene to test buffer-age/damage history,
+while preserving idle behavior in the final solution. Do not silently disable
+blur and claim the renderer fixed. Resume troubleshooting before extending
+features or asking the user to replace the installed compositor.
+
+## Resumed blur investigation: niri pyramid (2026-10-19)
+
+User resumed and requested an existing blur implementation. A forced full redraw
+was very slow and still showed artifacts; release mode with normal damage was
+also unusable. Neither is an accepted fix. Normal buffer age is restored.
+
+Adapted the Dual Kawase texture pyramid and tap coordinates from official niri,
+`src/render_helpers/blur.rs` at the pinned reference commit. Each downsample
+level now has its own half-size texture, reused until size/pass count changes;
+upsampling writes back through those levels to the root. Unlike the previous
+full-size ping-pong subrectangles, texture filtering cannot reach stale storage
+outside a mip. Constant per-level offset and destination-based downsample taps
+match niri. Smithay still owns framebuffer/program state; existing driftwm mask,
+crop, backdrop and cache integration remain. This is an adaptation, not niri's
+complete framebuffer-effects pipeline or its wallpaper-only xray mode.
+
+All 15 blur pixel tests passed on the actual NVIDIA RTX 3060, including the new
+incremental/full-frame equivalence test for normal/flipped output transforms.
+Log: `/tmp/driftwm-niri-blur-pixels.log`. Surfaceless coverage does not establish
+native winit presentation correctness or interactive performance. User validation
+of this pyramid remains pending; do not claim the native artifacts fixed.
+Full gate log: `/tmp/driftwm-niri-blur-ci.log`; release build log:
+`/tmp/driftwm-niri-blur-build.log`. Preview launcher now selects target/release.
+Installed compositor remains untouched; unrelated output-management edits are
+still outside this investigation. Next: validate the isolated blur-only preview
+before proceeding with tiling features or installing a compositor binary.
+
+Validation completed: full `dev/scripts/ci-local` passed all stages, including
+strict all-target clippy, included GL tests and isolated soak. Release build
+succeeded. Opened blur-only isolated preview runtime `driftwm-preview.D01Wnu`;
+startup has no EGL_BAD_SURFACE or bind/submit errors. Nested screencopy
+`/tmp/driftwm-niri-blur-nested.png` shows three terminals with blur; host-visible
+motion/artifacts still require the user's reply to the pending feedback question.
+No investigation commit made before that validation.
+
+## Direct TTY validation confirmed (2026-10-19)
+
+The user reports the latest release runs excellently when launched directly
+with `--backend udev` from another TTY. The same release's nested winit blur
+preview still has severe artifacts/lag. Treat this as a backend-dependent
+reproduction; the precise nested presentation defect remains unresolved. Do not
+attribute success solely to the pyramid: the old blur was not compared under
+identical direct-udev conditions. The TTY probe is not full tiling parity or a
+complete manual acceptance pass for every animation/scale case.
+
+Prepared `/home/nationi/driftwm-previews/7e32bf5/run-tty.sh` and
+`config-tty-blur.toml`; launcher isolates runtime, D-Bus and durable session file,
+uses logind and refuses desktop terminals/root. Current main desktop is on TTY2;
+Ctrl+Shift+F8 quits the probe, Ctrl+Alt+F2 returns. Config and shell syntax pass.
+Installed binary remains unchanged. Prefer direct TTY for further visual checks;
+track nested rendering separately rather than blocking tiling on it.
+
+Next delivery: review and checkpoint the blur adaptation/backend changes in
+separate focused commits, preserving unrelated output-management work. Resume
+remaining P2 retained-picture lifecycle: capture during active open/fade,
+supersession and client blur regions, then resize/crossfade/release continuity.
+P0 custom-decoder/reference fixture audit remains an earlier unfinished gate;
+finish that evidence before claiming parity or expanding advanced interactions.

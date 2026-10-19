@@ -457,7 +457,7 @@ driftwm's synthetic backend for tests lives in `src/tests/input_backend.rs`.
 - **WAYLAND_DISPLAY must NOT be set before `winit::init()`** — winit connects to the parent compositor; setting our socket first causes a deadlock.
 - **Backend on state** — winit backend stored as `Option<WinitGraphicsBackend<GlesRenderer>>` on DriftWm. Timer closure uses take/put pattern to split borrows. Required for DmabufHandler to access renderer.
 - **DMA-BUF v3 (create_global)** sufficient for winit backend — advertises formats, no device info. v4 (create_global_with_default_feedback) adds render device hints for multi-GPU. `ImportDma::dmabuf_formats()` on GlesRenderer gets formats from EGL.
-- Benign `EGL BAD_SURFACE` error on first frame is from `buffer_age()` before the surface is ready; `unwrap_or(0)` handles it.
+- `WinitGraphicsBackend::buffer_age(&self) -> Option<usize>` needs the window backbuffer current. In pinned Smithay `4cf0b620`, `Bind<EGLSurface> for GlesRenderer` only creates a `GlesTarget`; `Renderer::render` actually calls `target.make_current`. An empty finished window frame makes it current without clearing/drawing pixels, and dropping a window target does not unbind it. Compose offscreen blur before acquiring/querying the window buffer, and restore the window after capture passes before `submit()`. Merely calling `backend.bind()` is insufficient after surfaceless work. Verified in `backend/winit/mod.rs` and `renderer/gles/mod.rs`.
 
 - **This smithay rev needs winit `0.31.0-beta.2`**; cargo's `^0.31.0-beta.2` resolves to beta.3, against which smithay's winit backend does not compile (`WindowEvent::DragMoved` gone, new `Axis` arms). `Cargo.lock` pins beta.2; smithay master `73f2570c` moves to beta.3.
 ### Input / Keycodes

@@ -948,3 +948,138 @@ fn fading_frozen_tiling_content_refreshes_an_unchanged_blur_mask_rect() {
     let _gl = gl::lock();
     check_tiling_frost_capture(true, SCALE, TilingFrostAnimation::PureFade, false);
 }
+
+#[test]
+#[ignore = "needs surfaceless EGL; run with --include-ignored"]
+fn incremental_frost_frames_match_full_redraw_with_output_flip() {
+    use super::{map_window_shm, window_by_app_id};
+    use smithay::backend::allocator::Fourcc;
+    use smithay::backend::renderer::damage::OutputDamageTracker;
+    use smithay::backend::renderer::gles::GlesTexture;
+    use smithay::backend::renderer::{Bind, ExportMem, Offscreen};
+    use smithay::utils::{Rectangle, Transform};
+
+    let _gl = gl::lock();
+    let Some(renderer) = gl::surfaceless_renderer("incremental frost") else {
+        return;
+    };
+    let temp = TempDir::new();
+    let shader = temp.path().join("incremental-stripes.glsl");
+    std::fs::write(&shader, framed_stripes_shader(110.0)).unwrap();
+    let config = config_toml(shader.to_str().unwrap(), 2, 1.1)
+        .replace("[decorations]", "[decorations]\nblur = true");
+    let mut f = Fixture::with_config(super::config(&config));
+    let output = f.add_output_scaled(1, (OUTPUT.0 as u16, OUTPUT.1 as u16), SCALE);
+    install_with_blur(&mut f, renderer);
+    let client = f.add_client();
+    let pixels =
+        super::render_pixels::solid_bgra(WINDOW_PHYSICAL.0, WINDOW_PHYSICAL.1, GHOST_BGRA, false);
+    for name in ["frosted", "middle", "front"] {
+        map_window_shm(
+            &mut f,
+            client,
+            name,
+            WINDOW_LOGICAL,
+            WINDOW_PHYSICAL,
+            &pixels,
+        );
+    }
+    super::tick_until_settled(&mut f);
+    let windows: Vec<_> = ["frosted", "middle", "front"]
+        .into_iter()
+        .map(|name| window_by_app_id(&mut f, name).unwrap())
+        .collect();
+    for (i, window) in windows.iter().enumerate() {
+        f.state()
+            .stage
+            .set_position(window, (100 + 60 * i as i32, 90 + 45 * i as i32).into());
+    }
+    f.state().set_camera((0.0, 0.0).into());
+    let size: Size<i32, Physical> = (OUTPUT.0 as i32, OUTPUT.1 as i32).into();
+    let mut backend = f.state().backend.take().unwrap();
+    {
+        let renderer = backend.renderer();
+        let gpu = renderer
+            .with_context(|gl| unsafe {
+                std::ffi::CStr::from_ptr(
+                    gl.GetString(smithay::backend::renderer::gles::ffi::RENDERER)
+                        .cast(),
+                )
+                .to_string_lossy()
+                .into_owned()
+            })
+            .unwrap();
+        eprintln!("incremental frost renderer: {gpu}");
+        for transform in [Transform::Normal, Transform::Flipped180] {
+            let mut incremental = Offscreen::<GlesTexture>::create_buffer(
+                renderer,
+                Fourcc::Abgr8888,
+                size.to_logical(1).to_buffer(1, Transform::Normal),
+            )
+            .unwrap();
+            let mut reference = Offscreen::<GlesTexture>::create_buffer(
+                renderer,
+                Fourcc::Abgr8888,
+                size.to_logical(1).to_buffer(1, Transform::Normal),
+            )
+            .unwrap();
+            let mut tracker = OutputDamageTracker::new(size, SCALE, transform);
+            for step in 0..6 {
+                let window = &windows[step % windows.len()];
+                f.state().stage.set_position(
+                    window,
+                    (100 + 25 * step as i32, 80 + 17 * step as i32).into(),
+                );
+                f.state().render.blur_geometry_generation += 1;
+                let elements =
+                    crate::render::compose_frame(f.state(), renderer, &output, Vec::new());
+                let mut results = Vec::new();
+                for full in [false, true] {
+                    let texture = if full {
+                        &mut reference
+                    } else {
+                        &mut incremental
+                    };
+                    let mut fresh = OutputDamageTracker::new(size, SCALE, transform);
+                    let dt = if full { &mut fresh } else { &mut tracker };
+                    let mapping = {
+                        let mut target = renderer.bind(texture).unwrap();
+                        dt.render_output(
+                            renderer,
+                            &mut target,
+                            if full || step == 0 { 0 } else { 1 },
+                            &elements,
+                            [0.0, 0.0, 0.0, 1.0],
+                        )
+                        .unwrap()
+                        .sync
+                        .wait()
+                        .unwrap();
+                        renderer
+                            .copy_framebuffer(
+                                &target,
+                                Rectangle::from_size(
+                                    size.to_logical(1).to_buffer(1, Transform::Normal),
+                                ),
+                                Fourcc::Abgr8888,
+                            )
+                            .unwrap()
+                    };
+                    results.push(renderer.map_texture(&mapping).unwrap().to_vec());
+                }
+                let delta = results[0]
+                    .iter()
+                    .zip(&results[1])
+                    .map(|(a, b)| a.abs_diff(*b))
+                    .max()
+                    .unwrap();
+                assert_eq!(
+                    delta, 0,
+                    "{transform:?} step {step}: incremental rendering differs"
+                );
+            }
+        }
+    }
+    f.state().backend = Some(backend);
+    uninstall_with_blur(&mut f, &output);
+}
