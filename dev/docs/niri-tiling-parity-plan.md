@@ -1,7 +1,8 @@
 # Niri tiling parity: execution plan
 
-Status (2026-10-19): active roadmap; single-container topology is established,
-with bounded commit groups and partial retained-rendering/animation support.
+Status (2026-10-20): implementation checkpoint `e6eda19`. Single-container
+topology and bounded commit groups are established; reference semantics and
+rendering acceptance remain partial.
 This document supersedes the remaining delivery sequence in
 [the initial proposal](scrolling-tiling-plan.md). It does not claim parity today.
 For current handoff context and the next unfinished task, read
@@ -64,11 +65,10 @@ fit/fill, pin, snap clusters, bookmarks and suspended stand-ins.
 
 ## Current baseline and known differences
 
-Implementation baseline: `059556e`. The latest full local CI passed 368 library
-and 1452 binary tests including isolated soak, plus integration suites; the
-release build passed. Direct TTY testing confirmed the latest menu scenario
-without lag. These checks validate controlled implementation cases, not niri
-parity. See [current evidence and limits](tiling-status.md#verified-evidence-and-its-limits).
+Implementation checkpoint: `e6eda19`. Current automated/manual evidence and its
+limits live only in [the maintained status](tiling-status.md#verified-evidence-and-its-limits).
+A passed CI suite is not a parity verdict. Release-build and TTY observations
+from older entries do not validate later commits automatically.
 
 | Area | Current state | Remaining parity work |
 | --- | --- | --- |
@@ -154,7 +154,8 @@ existing implemented behavior is labeled exact, partial or divergent with eviden
 Stable column IDs, separate selection, horizontal column/vertical tile reorder
 and horizontal view-anchor preservation are implemented with stage and headless
 tests. A shared transition gate now covers actions, direct operations, IPC and
-layout invalidation, with an explicit compatibility table in the handoff.
+layout invalidation, with the current fallback behavior documented in the user guide. A complete
+action-by-action compatibility table still belongs to the semantic audit.
 Stable layout-container identity and separate `Column`/`Tile` sizing inputs
 are now implemented. The single-container P1 foundation is in place. Retained
 floating/fullscreen transitions remain with their feature milestones; this does
@@ -177,99 +178,28 @@ raise windows, and deleting/replacing any tile cannot strand an anchor or grab.
 
 ### P2 — Configure lifecycle and bounded layout transactions
 
-Generation/serial readiness tracking now exists, scoped to layout identity and
-pure placement revisions. Reflow checks committed serial plus geometry; each
-request has a 300 ms deadline driven by a per-view event-loop timer. Tests cover
-stale generations, early acknowledgements, delayed buffers, serial wraparound,
-mode-exit cleanup and terminal timeout. Ordinary windows now receive their initial
-column size before the first buffer, with resolved chrome and constraints; the
-issued serial/deadline transfers into the batch on actual enrollment. Exclusions
-keep their initial policies and exit-before-buffer cancels the offer.
-A standalone pre-commit `CommitGroup` now provides a Smithay barrier for an
-immutable set of generation/serial requests, one shared 300 ms deadline,
-participant removal and release on cancellation/drop. Its deterministic tests
-cover peer waiting, exact timeout, stale generations, serial wraparound and
-independent groups. It accepts client-chosen geometry, unlike the existing
-exact-size post-commit diagnostic tracker. Mapped-toplevel pre-commit hooks now
-install the barrier on new-buffer replies;
-idle callbacks wake affected clients after all peers arrive, timeout, removal,
-supersession or mode exit. Supersession carries outstanding requests without
-extending their earliest deadline. Real-client tests cover cross-client waiting,
-completion, timeout, disconnect, exit, client-selected sizes and supersession.
-Stage positions, camera reveal and anchor/pointer translation now wait for the
-group's buffer commits to apply, or its deadline. Readiness checks actual
-new-buffer application even when an earlier empty commit acknowledged the same
-serial; other surface blockers therefore keep placement deferred too. Reflow
-recomputes the latest placements after client wake-ups. Supersession preserves
-outstanding presentation requests independently of pre-commit arrivals. Visible
-eligible windows now retain baked old pixels until deferred placement
-applies; output composition replaces their live trees in the normal z-order.
-Completion, timeout, mode exit and dead IDs release these images. GLES pixel
-scenarios cover an independent buffer blocker, normal release, timeout, exit and
-shadow placement. Popup trees now have separate unclipped images, preserving manager order and
-surface/geometry offsets. Popup membership/geometry/content changes switch only
-popups to live rendering; the parent image remains held. Frozen windows retain
-blur requests using saved geometry and client regions,
-while the backdrop continues through the live blur pipeline. Their shadows draw
-below the frost rather than inside the flattened content. Failed captures and
-unsupported animation/frame-conversion states use live fallback; supported
-opening, translation and resize states retain or transfer their saved pictures
-as described below. Unaffected peers stay frozen. Opening scale/opacity started
-after capture now uses the retained picture,
-including a fade inherited by a subsequent position chase. Position-only
-canvas chases started after capture now preserve the old textures and translate
-parent, popups, shadow and frost together using output-space transforms.
-Capture now also accepts
-already active unscaled canvas chases without stale buffers, resize holds,
-fullscreen/pinned pictures or live resize-crossfade overlays. Capture visibility
-and rasterization scale follow the current visual rather than its destination.
-Capture during an already active opening fade is supported, including a fade
-inherited by an unscaled canvas translation. On group release, retained geometry
-seeds a chase to the committed placements. Old and current content now blend
-in premultiplied RGBA before applying compositor opacity. Current surface-tree
-bakes are commit/view keyed and the mixed render target is reused. A resolved
-canvas resize/crossfade can be captured at its current blended picture and
-geometry, held by a superseding transaction, and resumed from that picture.
-Normal canvas start holds can also transfer their picture into a grouped
-transaction before resolution, rejecting late superseded replies visually.
-Settled timed-out requests can arm one bounded late-response animation using
-the normal pre-commit capture/hold path without another configure or group.
-Popup tree changes now switch only popups to live rendering; the parent stays
-retained. Popup pixels keep their native dimensions during geometry resize,
-following root displacement and opening scale. Degraded stale/capped pictures,
-fullscreen/pinned conversions and complete release-time continuity across
-view/output changes remain outstanding.
-Retained opening chrome uses separate live border/shadow
-composition, and opacity-only ticks invalidate its mask even at constant scale.
-Motion-time supersession, timeout and exit now have controlled renderer tests.
-Full animation integration and an
-unconditional frame-atomic rendering
-guarantee remain outstanding. Controlled GLES regressions now cover stationary
-1.25x/1.5x content, nested popups, live shadows and frost. Their frame comparisons
-exposed and gate bake-uniform rebasing and independent popup-offset rounding;
-Normal unblurred release now has complete SSD/CSD frame comparisons at
-1x/1.25x/1.5x and native title/ring geometry checks during resize. Three successive
-normal resize captures preserve the mixed texel grid and stable rasterized
-bounds, including window-rule blur, with full-frame capture/hold/release checks
-for SSD/CSD at these scales. Tiled work-area coverage retains configured frames.
-Unblurred inherited opening now survives successive resize releases/recaptures
-in SSD/CSD scenes, preserving progress and opacity while opening wraps native
-chrome independently of resize. Controlled window-blur/opening scenes and
-first rounded-opening capture now share a cached raster grid with complete
-frame comparisons. Client blur regions now follow native frames through opening,
-motion, canvas-resize entry and grouped capture/release at static scales, with
-committed protocol-state gates. Changed client-only region shapes now blend
-independent source alpha with the content weights; mixed coverage survives
-recapture, immediate supersession, disable and inherited opening in controlled
-SSD/CSD scenes. Mixed window-rule/client-region policies with native SSD title
-bands, general framed canvas-resize entry,
-scale transitions, odd extents/geometry offsets and moving-camera cases remain
-outstanding.
-A pinned source audit confirms that unbuffered windows
-remain outside the scrolling layout until mapping; do not reserve phantom
-columns or initial-configure order. First-buffer order and mapping-time focus
-are now covered by headless reference scenarios. Live-frame reservation is
-still independent of timeout.
+Implemented foundation (partial acceptance):
+
+- Layout generations, configure serials, pre-commit barriers and one bounded
+  300 ms deadline coordinate new-buffer replies. Early acknowledgements do not
+  count as applied buffers. Supersession preserves the earliest deadline;
+  timeout, participant removal and mode exit release waiters.
+- Ordinary initial size offers precede the first buffer. Enrollment and neighbor
+  selection happen at mapping time; no phantom columns preserve configure order.
+- Placement and view changes wait for buffer application or timeout. Retained
+  parent content, separate live popup updates, native frames and live backdrop
+  blur preserve supported transitions. Failed/degraded captures retain fallback.
+- Old/new content blends in premultiplied RGBA. Native SSD/CSD chrome, inherited
+  opening, repeated recapture and client-only mask blending have controlled
+  static-scale pixel gates. Late responses can start one bounded transition.
+
+Remaining acceptance includes mixed whole-window/client blur policies, general
+frame conversions, stale/capped images, changing views/output scales and
+motion-time lifecycle changes. The actionable checks are in the queue below;
+[test evidence](tiling-status.md#verified-evidence-and-its-limits) and
+[historical investigations](tiling-history.md) stay outside the roadmap.
+No unconditional frame-atomicity or complete reference response-policy claim is
+made by these implementation tests.
 
 Depends on P1; required before advanced resize/drag/animations.
 
@@ -529,24 +459,50 @@ Done when: every in-scope baseline item passes its evidence gate, canvas behavio
 still passes regression tests and the remaining differences are explicitly accepted.
 Only then describe the implementation as complete niri tiling parity.
 
-## Concrete next implementation batch
+## Execution queue and acceptance gates
 
-The single-container P1 foundation and mapped-window bounded transactions have
-landed. Do not reimplement them from older history entries. Current priority:
+Existing P2/P13 stabilization may continue while P0 is incomplete. P0 is the
+semantic prerequisite before expanding sizing, interactions or ownership; the
+implemented P1/P2 subsets do not waive milestone dependencies. Do not keep adding
+renderer work without closing a named remaining gate.
 
-1. Finish P0 custom-decoder/public-option/default and ID-action audit; extend
-   [reference fixtures](niri-reference-traces.md) beyond the controlled subset.
-2. Continue P2/P13 acceptance beyond the delivered normal SSD/CSD release gate:
-   mixed whole-window-rule/client-region masks (including native SSD title bands),
-   general framed canvas resize entry, degraded capped capture, changing scale/view/output, and motion-time lifecycle.
-   Keep direct TTY visual checks separate from the unresolved nested NVIDIA bug.
-3. Follow P3 sizing/settings and P5 view-model dependencies after those gates;
-   extend P4 reference operations with explicit semantics and fixtures.
+| Order | Task | Completion evidence |
+| --- | --- | --- |
+| B1 — next implementation | Mixed window-rule/client blur policies, including native SSD title bands | Controlled pixel matrix below; retain existing client-only and window-rule gates |
+| B2 | General framed canvas resize entry, odd extents and nonzero geometry offsets | SSD/CSD capture/hold/release/recapture with grow/shrink, popup anchors and fractional rounding |
+| B3 | Degraded stale/capped captures and changing view/scale/output | Explicit fallback/retention policy plus bounded-resource, continuity and cleanup tests |
+| B4 | Motion-time remap, disconnect, supersession and output removal | No stale IDs/images/transactions, no duplicate animation, correct surviving focus/output membership |
+| A0 — semantic prerequisite | Finish P0 custom decoders, defaults, public options and ID-addressed actions | Inventory rows cite pinned source, driftwm behavior and exact/partial/divergent evidence; extend reference traces beyond the zero-gap subset |
+| Feature expansion | P3 sizing/settings, then dependency-ready P4/P5 work | Source-derived size/topology/view fixtures and documented public settings; retain canvas regressions |
 
-Use [the maintained status](tiling-status.md) for current evidence and
-[the TTY guide](tty-preview.md) for local test keys. Keep commits focused and
-keep output-management work separate from tiling ownership. This roadmap supplies no
-weighted completion percentage; partial tests do not close a milestone.
+A0 can be taken before any stabilization batch, and must be completed before
+feature expansion. Keep each B task bounded; if an uncovered case needs a new
+design decision, record that blocker rather than declaring the whole gate done.
+Later P6–P15 retain their dependencies and acceptance criteria above.
+
+### B1: next batch checklist
+
+- Compare the pinned reference's background-effect/resize behavior with driftwm's
+  retained-frost policy. Separate compositor integration from proven niri parity.
+- Exercise client partial → unset/empty/outside regions while a window rule still
+  requests blur, whole-window → partial, and rule changes during a held group.
+  Confirm which policy wins from code/config semantics before changing it.
+- Check SSD title-band coverage separately from the body. Native title height,
+  border and shadow must survive; client-local regions must not leak into chrome.
+- Cover SSD/CSD at 1x/1.25x/1.5x with rounded frames, opacity, transparent source
+  pixels, opening and both resize directions. Use independently expected coverage
+  in addition to image comparisons.
+- Compare first capture, held region-only commits, first release, intermediate
+  mask weights, immediate/mid-animation recapture and settled state. Keep current
+  two-byte transition tolerances and exact held-frame comparisons.
+- Verify mask/cache cleanup on completion and cancellation. Run the required
+  CI gate, then update status/history and affected user documentation.
+
+Use [current status](tiling-status.md) for the continuation point and
+[the TTY guide](tty-preview.md) for local keys. Direct TTY visual checks and
+surfaceless GPU regressions do not close the unresolved nested NVIDIA issue.
+No weighted completion percentage exists. A partial gate does not close a
+milestone, and this queue does not authorize publishing, pushing or installation.
 
 ## Working rules for continuing agents
 

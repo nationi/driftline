@@ -1,4 +1,4 @@
-# Tiling development history through 2026-10-19
+# Tiling development history
 
 Historical evidence, investigations and decisions, preserved from the former
 status file. Statements such as “next”, “pending”, test totals, remotes and
@@ -1591,3 +1591,17 @@ policies and SSD title bands, general framed canvas resize entry, then the
 remaining degraded/scale/view/output/lifecycle gates. General odd extents and
 geometry offsets are still unvalidated. No installed binary, user config,
 running session or push changed.
+
+
+## 2026-10-20 — roadmap and handoff cleanup
+
+Reconciled the active docs with implementation checkpoint `e6eda19`. Removed
+obsolete `059556e`/old test totals from the roadmap and source-version claims
+from the TTY launcher guide. Condensed the chronological P2 narrative into
+current capabilities; detailed batch evidence stays in this journal. The roadmap
+now owns one execution queue: B1–B4 stabilization, A0/P0 as the explicit semantic
+prerequisite to feature expansion, and a concrete B1 acceptance checklist.
+The status is a compact handoff and evidence summary. Corrected the stale history
+heading and the unsupported claim that a complete compatibility table existed
+in the handoff. Historical entries remain intact. Documentation-only change;
+content, local link/anchor and diff checks replace runtime CI for this cleanup.

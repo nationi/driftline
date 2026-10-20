@@ -7,7 +7,7 @@
 | [Current status](tiling-status.md) | Implemented behavior, latest evidence, remaining gates and tree precautions |
 | [TTY cheat sheet](tty-preview.md) | Local preview launch, F-key bindings, exit and visual checks |
 | [User guide](../../docs/tiling.md) | Available tiling behavior and configuration examples |
-| [Parity roadmap](niri-tiling-parity-plan.md) | Full objective, dependencies and milestone acceptance |
+| [Parity roadmap](niri-tiling-parity-plan.md) | Full objective, single execution queue, dependencies and acceptance |
 | [Reference inventory](niri-tiling-inventory.md) | Generated pinned symbol index; semantic audit remains partial |
 | [Reference traces](niri-reference-traces.md) | Source-derived fixture method, assumptions and known differences |
 | [History](tiling-history.md) | Earlier batch evidence, investigations and superseded next steps |

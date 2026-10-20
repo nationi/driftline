@@ -4,8 +4,9 @@ These commands describe nationi's local isolated preview, not default driftwm
 bindings. The launcher uses the current `target/release/driftwm` binary, a
 separate config, runtime directory and session file.
 
-Current implementation baseline: `059556e` (2026-10-19). See
+For the current source checkpoint and validation, see
 [status and remaining work](tiling-status.md) or [the general user guide](../../docs/tiling.md).
+The preview runs the last release binary built locally; its version may lag Git HEAD.
 The launcher/config are local files outside Git; a fresh clone does not include them.
 
 ## Start and return
