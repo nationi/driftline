@@ -321,6 +321,9 @@ impl ResizeCaptures {
 /// pixels keep their alpha while the geometry leg plays.
 pub(crate) struct ResizeCrossfade {
     native_initial: bool,
+    blur_source: Option<BlurMaskSource>,
+    blur_policy: Option<super::SnapshotBlur>,
+    blur_mixed: Option<GlesTexture>,
     current: Option<ResizeCurrent>,
     mixed: Option<GlesTexture>,
     buffer: TextureBuffer<GlesTexture>,
@@ -431,6 +434,43 @@ impl AnimatedContentCache {
     }
 }
 
+#[derive(Clone)]
+pub(crate) struct BlurMaskSource {
+    pub buffer: TextureBuffer<GlesTexture>,
+    pub texels: Size<i32, Physical>,
+    // Normalized body-local endpoints; None means already weighted coverage.
+    regions: Option<Vec<[f64; 4]>>,
+}
+
+impl BlurMaskSource {
+    fn regions(policy: &super::SnapshotBlur) -> Vec<[f64; 4]> {
+        let regions = match &policy.client_regions {
+            Some(regions) if !regions.is_empty() => regions
+                .iter()
+                .filter_map(|r| {
+                    let r = r.intersection(policy.geometry)?;
+                    Some([
+                        f64::from(r.loc.x - policy.geometry.loc.x)
+                            / f64::from(policy.geometry.size.w),
+                        f64::from(r.loc.y - policy.geometry.loc.y)
+                            / f64::from(policy.geometry.size.h),
+                        f64::from(r.loc.x + r.size.w - policy.geometry.loc.x)
+                            / f64::from(policy.geometry.size.w),
+                        f64::from(r.loc.y + r.size.h - policy.geometry.loc.y)
+                            / f64::from(policy.geometry.size.h),
+                    ])
+                })
+                .collect(),
+            _ => Vec::new(),
+        };
+        if regions.is_empty() && policy.window_blur {
+            vec![[0.0, 0.0, 1.0, 1.0]]
+        } else {
+            regions
+        }
+    }
+}
+
 impl ResizeCrossfade {
     pub(crate) fn from_retained_content(
         buffer: TextureBuffer<GlesTexture>,
@@ -438,6 +478,9 @@ impl ResizeCrossfade {
     ) -> Self {
         Self {
             native_initial: true,
+            blur_source: None,
+            blur_policy: None,
+            blur_mixed: None,
             current: None,
             mixed: None,
             buffer,
@@ -554,6 +597,168 @@ impl ResizeCrossfade {
             TextureBuffer::from_texture(renderer, mixed.clone(), 1, Transform::Normal, None),
             size,
         ))
+    }
+
+    pub(crate) fn retain_blur_mask(
+        &mut self,
+        policy: &super::SnapshotBlur,
+        inherited: Option<BlurMaskSource>,
+    ) {
+        self.blur_policy = inherited.is_none().then(|| policy.clone());
+        self.blur_source = Some(inherited.unwrap_or_else(|| BlurMaskSource {
+            buffer: self.buffer.clone(),
+            texels: self.texels,
+            regions: Some(BlurMaskSource::regions(policy)),
+        }));
+    }
+
+    // Keep the first frame on the original raster/threshold path. Thresholding
+    // before resampling can change a rounded corner by an entire pixel.
+    pub(crate) fn initial_blur_policy(&self) -> Option<&super::SnapshotBlur> {
+        (self.progress == 0.0)
+            .then_some(self.blur_policy.as_ref())
+            .flatten()
+    }
+
+    pub(crate) fn blended_blur_mask(
+        &mut self,
+        renderer: &mut GlesRenderer,
+        shader: &GlesTexProgram,
+        policy: &super::SnapshotBlur,
+        size: Size<i32, Physical>,
+    ) -> Option<BlurMaskSource> {
+        use smithay::backend::renderer::Texture;
+        if self.initial_blur_policy().is_some() {
+            return None;
+        }
+        let initial = self.blur_source.as_ref()?;
+        let regions = BlurMaskSource::regions(policy);
+        if initial.regions.as_ref() == Some(&regions) {
+            return None;
+        }
+        let weight = crossfade_out_alpha(self.progress, self.grew);
+        let mut sources = vec![(initial.clone(), weight)];
+        if weight < 1.0 {
+            let current = self.current.as_ref()?;
+            sources.push((
+                BlurMaskSource {
+                    buffer: current.buffer.clone(),
+                    texels: current.texels,
+                    regions: Some(regions),
+                },
+                1.0 - weight,
+            ));
+        }
+        if self
+            .blur_mixed
+            .as_ref()
+            .is_none_or(|t| t.size().w != size.w || t.size().h != size.h)
+        {
+            self.blur_mixed = Some(
+                Offscreen::<GlesTexture>::create_buffer(
+                    renderer,
+                    Fourcc::Abgr8888,
+                    size.to_logical(1).to_buffer(1, Transform::Normal),
+                )
+                .ok()?,
+            );
+        }
+        let texture = self.blur_mixed.as_mut()?;
+        let mut target = renderer.bind(texture).ok()?;
+        let mut frame = renderer.render(&mut target, size, Transform::Normal).ok()?;
+        frame
+            .clear(Color32F::TRANSPARENT, &[Rectangle::from_size(size)])
+            .ok()?;
+        frame
+            .with_context(|gl| unsafe {
+                gl.BlendFunc(
+                    smithay::backend::renderer::gles::ffi::ONE,
+                    smithay::backend::renderer::gles::ffi::ONE,
+                );
+            })
+            .ok()?;
+        let result = (|| {
+            for (source, weight) in sources {
+                let damage: Vec<_> = source.regions.as_ref().map_or_else(
+                    || vec![Rectangle::from_size(size)],
+                    |regions| {
+                        regions
+                            .iter()
+                            .filter_map(|r| {
+                                let rect = Rectangle::from_extremities(
+                                    (
+                                        (r[0] * f64::from(size.w)).round() as i32,
+                                        (r[1] * f64::from(size.h)).round() as i32,
+                                    ),
+                                    (
+                                        (r[2] * f64::from(size.w)).round() as i32,
+                                        (r[3] * f64::from(size.h)).round() as i32,
+                                    ),
+                                );
+                                (rect.size.w > 0 && rect.size.h > 0).then_some(rect)
+                            })
+                            .collect()
+                    },
+                );
+                if damage.is_empty() || weight == 0.0 {
+                    continue;
+                }
+                // Threshold each source independently: mixed content alpha would
+                // let an opaque old pixel fill a transparent new region.
+                frame.override_default_tex_program(
+                    shader.clone(),
+                    vec![Uniform::new(
+                        "u_preserve_alpha",
+                        if source.regions.is_none() {
+                            1.0f32
+                        } else {
+                            0.0
+                        },
+                    )],
+                );
+                let element = TextureRenderElement::from_texture_buffer(
+                    Point::default(),
+                    &source.buffer,
+                    Some(weight),
+                    Some(super::texel_src(source.texels)),
+                    Some(size.to_logical(1)),
+                    Kind::Unspecified,
+                );
+                <TextureRenderElement<GlesTexture> as RenderElement<GlesRenderer>>::draw(
+                    &element,
+                    &mut frame,
+                    element.src(),
+                    Rectangle::from_size(size),
+                    &damage,
+                    &[],
+                    None,
+                )?;
+            }
+            Ok::<_, smithay::backend::renderer::gles::GlesError>(())
+        })();
+        frame.clear_tex_program_override();
+        frame
+            .with_context(|gl| unsafe {
+                gl.BlendFunc(
+                    smithay::backend::renderer::gles::ffi::ONE,
+                    smithay::backend::renderer::gles::ffi::ONE_MINUS_SRC_ALPHA,
+                );
+            })
+            .ok()?;
+        result.ok()?;
+        let _ = frame.finish().ok()?;
+        drop(target);
+        Some(BlurMaskSource {
+            buffer: TextureBuffer::from_texture(
+                renderer,
+                texture.clone(),
+                1,
+                Transform::Normal,
+                None,
+            ),
+            texels: size,
+            regions: None,
+        })
     }
 
     pub(crate) fn preserve_initial_pixels(&mut self) {
@@ -685,6 +890,9 @@ pub(crate) fn resize_crossfade(
     };
     Some(ResizeCrossfade {
         native_initial: false,
+        blur_source: None,
+        blur_policy: None,
+        blur_mixed: None,
         current: None,
         mixed: None,
         buffer,

@@ -258,8 +258,11 @@ chrome independently of resize. Controlled window-blur/opening scenes and
 first rounded-opening capture now share a cached raster grid with complete
 frame comparisons. Client blur regions now follow native frames through opening,
 motion, canvas-resize entry and grouped capture/release at static scales, with
-fixed/proportionally resized regions and committed protocol-state gates. Blending
-independently changed old/new region shapes, general framed canvas-resize entry,
+committed protocol-state gates. Changed client-only region shapes now blend
+independent source alpha with the content weights; mixed coverage survives
+recapture, immediate supersession, disable and inherited opening in controlled
+SSD/CSD scenes. Mixed window-rule/client-region policies with native SSD title
+bands, general framed canvas-resize entry,
 scale transitions, odd extents/geometry offsets and moving-camera cases remain
 outstanding.
 A pinned source audit confirms that unbuffered windows
@@ -534,8 +537,8 @@ landed. Do not reimplement them from older history entries. Current priority:
 1. Finish P0 custom-decoder/public-option/default and ID-action audit; extend
    [reference fixtures](niri-reference-traces.md) beyond the controlled subset.
 2. Continue P2/P13 acceptance beyond the delivered normal SSD/CSD release gate:
-   independently changing client blur-region shapes during content blending
-   (fixed/proportional opening/frame conversion is covered), degraded capped capture, changing scale/view/output, and motion-time lifecycle.
+   mixed whole-window-rule/client-region masks (including native SSD title bands),
+   general framed canvas resize entry, degraded capped capture, changing scale/view/output, and motion-time lifecycle.
    Keep direct TTY visual checks separate from the unresolved nested NVIDIA bug.
 3. Follow P3 sizing/settings and P5 view-model dependencies after those gates;
    extend P4 reference operations with explicit semantics and fixtures.

@@ -1541,3 +1541,53 @@ body. Proportional-buffer tests do not close that gate. General geometry offsets
 odd extents, degraded/capped pictures, changing views/scales/output, lifecycle
 transitions and P0 semantic audits remain open. No installed binary, user config,
 running compositor session or push was changed.
+
+
+## 2026-10-20 — independently changed client blur masks during resize
+
+Baseline: `5f87ed0`. Old region metadata is retained beside resize content.
+Changed masks now threshold each source's alpha independently, restrict it to
+that source's normalized client rectangles, and blend coverage additively with
+the exact content weights. Thresholding the mixed content first would allow an
+opaque old pixel to populate a transparent new client region. The final frost
+multiply preserves fractional mask alpha. One reusable body-sized GPU target is
+kept with the resize crossfade; a superseding group retains its weighted mask
+as one texture, so repeated recapture does not accumulate recursive layers.
+Frozen masks are independent of later client region-only commits.
+
+The first release stays on the original binary-mask raster path until the first
+tick: pre-thresholding a resampled rounded corner changed two pixels by 84 bytes
+in the initial probe. Immediate recapture retains that initial mask policy
+separately from the current client's geometry. Later recapture retains already
+weighted coverage. Opening transforms wrap the raw native body/frame as before.
+A changed-mask request stays alive when the current client disables its region,
+so the retained old coverage can fade out before normal no-blur rendering resumes.
+
+`changed_client_blur_shapes_blend_through_resize_and_recapture` covers 12 scenes:
+opening/seeded canvas resize, SSD/CSD, scales 1x/1.25x/1.5x, rounded frame/shadow,
+opacity 0.6 and half-alpha content. It changes region topology while doubling
+client dimensions, checks hold/release and immediate supersession, samples GPU
+coverage to require fractional old/new weights summing to one, and checks a
+transparent hole in the new source remains unfrosted even though old content
+there is opaque. It then captures the mixed mask, commits a region-only disable
+while held, releases without a pixel jump, and settles to no residual frost.
+Complete capture/release comparisons stay within two bytes; held updates must
+be byte-identical. Dedicated log: `/tmp/driftwm-mask-changes.log`, passed.
+Full `dev/scripts/ci-local` passed, exit 0:
+`/tmp/driftwm-mask-blending-ci.log`. Includes fmt, locked check, strict all-target
+clippy, no-run build, 368 library cases, 1457 binary cases with ignored GLES,
+integration suites and isolated soak. The final body-mask fallback preserves
+whole-window-rule semantics when client rectangles clip out; final strict clippy
+(`/tmp/driftwm-mask-final-clippy.log`), fmt and both client-blur regressions
+(`/tmp/driftwm-mask-final.log`) passed after that adjustment. Local Markdown
+links and `git diff --check` passed. No pure stage/layout/config changes required
+a deeper proptest run.
+
+This is a driftwm retained-frost adaptation, not a claim that the pinned niri
+resize shader implements these exact masks: `/tmp/niri/src/layout/tile.rs`
+combines old/current offscreens independently of the window's background effect.
+P0 semantic parity remains incomplete. Next: mixed whole-window-rule/client
+policies and SSD title bands, general framed canvas resize entry, then the
+remaining degraded/scale/view/output/lifecycle gates. General odd extents and
+geometry offsets are still unvalidated. No installed binary, user config,
+running session or push changed.

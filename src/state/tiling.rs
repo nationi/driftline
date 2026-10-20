@@ -39,8 +39,10 @@ struct TilingSnapshot {
     image: crate::render::ClosingSnapshot,
     held_geometry: Option<smithay::utils::Rectangle<f64, Logical>>,
     resize: Option<crate::render::ResizeCrossfade>,
+    mask: Option<crate::render::BlurMaskSource>,
     popups: Vec<TilingPopupSnapshot>,
     blur: crate::render::SnapshotBlur,
+    mask_policy: Option<crate::render::SnapshotBlur>,
     shadow: Option<crate::render::SnapshotShadow>,
     border: Option<crate::render::SnapshotBorder>,
     opacity: f64,
@@ -1075,6 +1077,26 @@ impl DriftWm {
                 ),
                 client_regions,
             };
+            let mask_policy = self
+                .resize_crossfades
+                .get(&id)
+                .and_then(|resize| resize.initial_blur_policy())
+                .cloned();
+            let retained_mask = if crossfading {
+                self.render.blur_mask_shader.as_ref().and_then(|shader| {
+                    self.resize_crossfades.get_mut(&id)?.blended_blur_mask(
+                        backend.renderer(),
+                        shader,
+                        &blur,
+                        held_geometry
+                            .map_or(geometry.size.to_f64(), |r| r.size)
+                            .to_physical(scale)
+                            .to_i32_round(),
+                    )
+                })
+            } else {
+                None
+            };
             let native_chrome = crossfading
                 || self.window_animations.open_progress(id).is_some()
                 || (has_geometry && client_effect);
@@ -1199,7 +1221,7 @@ impl DriftWm {
                 if let Some(popups) = popups {
                     // Bake while the original client textures are still valid:
                     // an early peer's new buffer can apply before group release.
-                    let resize = (self.config.effects.animation_speed < 1.0)
+                    let mut resize = (self.config.effects.animation_speed < 1.0)
                         .then(|| {
                             if let Some((buffer, texels)) = retained_content {
                                 return Some(
@@ -1225,12 +1247,20 @@ impl DriftWm {
                             )
                         })
                         .flatten();
+                    if let Some(resize) = resize.as_mut() {
+                        resize.retain_blur_mask(
+                            mask_policy.as_ref().unwrap_or(&blur),
+                            retained_mask.clone(),
+                        );
+                    }
                     self.tiling_view.as_mut().unwrap().snapshots.insert(
                         id,
                         TilingSnapshot {
                             image,
                             held_geometry,
                             resize,
+                            mask: retained_mask,
+                            mask_policy,
                             popups,
                             shadow,
                             border,
@@ -1425,22 +1455,21 @@ impl DriftWm {
                 animation,
             ));
         }
-        let blur = if snapshot.native_chrome
-            && snapshot
-                .blur
+        let mask_policy = snapshot.mask_policy.as_ref().unwrap_or(&snapshot.blur);
+        let mut blur = if snapshot.native_chrome
+            && mask_policy
                 .client_regions
                 .as_ref()
                 .is_some_and(|r| !r.is_empty())
         {
-            snapshot.blur.request_in_visual(
+            mask_policy.request_in_visual(
                 smithay::utils::Rectangle::new(frame.loc - camera, frame.size),
                 physical_scale,
                 chrome_animation,
                 elements.len(),
             )
         } else {
-            snapshot
-                .blur
+            mask_policy
                 .request(camera, zoom, output_scale, elements.len())
                 .map(|mut request| {
                     // Transform already snapped mask geometry and client regions
@@ -1449,7 +1478,7 @@ impl DriftWm {
                         request.screen_rect = crate::render::SnapshotBlur::visual_screen_rect(
                             smithay::utils::Rectangle::new(frame.loc - camera, frame.size),
                             physical_scale,
-                            snapshot.blur.bar_height,
+                            mask_policy.bar_height,
                         );
                         if let Some(a) = chrome_animation {
                             request.apply_animation(a);
@@ -1460,6 +1489,29 @@ impl DriftWm {
                     request
                 })
         };
+        if let Some(mask) = &snapshot.mask {
+            let mut policy = snapshot.blur.clone();
+            policy.window_blur = true;
+            policy.client_regions = None;
+            let mut request = policy.request_in_visual(
+                smithay::utils::Rectangle::new(frame.loc - camera, frame.size),
+                physical_scale,
+                chrome_animation,
+                elements.len(),
+            )?;
+            let body = smithay::utils::Rectangle::new(frame.loc - camera, frame.size)
+                .to_physical(physical_scale)
+                .to_i32_round::<i32>();
+            let body = chrome_animation.map_or(body, |a| a.transform_phys_rect(body));
+            request.mask = Some(crate::render::ResizeCrossfade::render_retained_rect(
+                &mask.buffer,
+                mask.texels,
+                body.to_f64(),
+                output_scale,
+                1.0,
+            ));
+            blur = Some(request);
+        }
         Some(TilingSnapshotElements {
             bar: snapshot.bar.as_ref().map(|buffer| {
                 let height = (f64::from(snapshot.blur.bar_height.unwrap_or(0)) * output_scale)

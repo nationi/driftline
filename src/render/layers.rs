@@ -393,6 +393,7 @@ pub(super) fn build_layer_elements(
                         trailing_chrome,
                         layer: layer_tag,
                         region_rects,
+                        mask: None,
                     });
                 }
             }

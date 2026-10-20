@@ -134,9 +134,11 @@ and recaptures: its progress stays intact, and its scale applies around the
 resized frame while old and new client content blend separately. This also
 applies to window-rule blur; the live backdrop continues beneath the saved
 opening picture. Client-requested partial blur regions follow opening, movement
-and resize, including grouped capture/release when the regions stay fixed or
-scale with the client buffer. Empty regions do not enable whole-window blur.
-Independently changing old/new blur shapes during a resize blend still needs work.
+and resize. Changed client regions blend with the old image during grouped
+resize, and a superseding group retains the partially blended mask. Disabling
+client blur fades its mask out with the old content. Empty client regions do not
+enable whole-window blur. Mixed window-rule/client blur policy transitions still
+need dedicated validation, especially around compositor title bars.
 Canvas resizes still held for a client reply can also be captured before a new
 group takes over. A late buffer arriving after the group expires can start a
 bounded resize transition on an otherwise settled window without restarting

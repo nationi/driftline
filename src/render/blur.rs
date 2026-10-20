@@ -834,7 +834,10 @@ pub(crate) fn compile_blur_shaders(
     match (
         renderer.compile_custom_texture_shader(BLUR_DOWN_SRC, uniforms),
         renderer.compile_custom_texture_shader(BLUR_UP_SRC, uniforms),
-        renderer.compile_custom_texture_shader(BLUR_MASK_SRC, &[]),
+        renderer.compile_custom_texture_shader(
+            BLUR_MASK_SRC,
+            &[UniformName::new("u_preserve_alpha", UniformType::_1f)],
+        ),
     ) {
         (Ok(d), Ok(u), Ok(m)) => (Some(d), Some(u), Some(m)),
         (Err(e), _, _) | (_, Err(e), _) | (_, _, Err(e)) => {
@@ -965,6 +968,9 @@ pub(crate) struct BlurRequestData {
     /// Empty list = client opted out (handled at the trigger site, never
     /// constructed here).
     pub region_rects: Option<Arc<Vec<Rectangle<i32, Physical>>>>,
+    /// Pre-thresholded coverage of the old/new sources. Its fractional alpha
+    /// must survive the final mask pass instead of becoming a binary shape.
+    pub mask: Option<OutputRenderElements>,
 }
 
 impl BlurRequestData {
@@ -989,6 +995,7 @@ impl BlurRequestData {
 }
 
 /// Frozen mask geometry and policy; the backdrop continues through live blur.
+#[derive(Clone)]
 pub(crate) struct SnapshotBlur {
     pub surface_id: smithay::reexports::wayland_server::backend::ObjectId,
     pub position: Point<i32, Logical>,
@@ -1075,6 +1082,7 @@ impl SnapshotBlur {
             trailing_chrome: 0,
             layer: BlurLayer::Normal,
             region_rects,
+            mask: None,
         };
         if let Some(opening) = opening {
             request.apply_animation(opening);
@@ -1158,6 +1166,7 @@ impl SnapshotBlur {
             trailing_chrome: 0,
             layer: BlurLayer::Normal,
             region_rects,
+            mask: None,
         })
     }
 }
@@ -1504,7 +1513,7 @@ pub(crate) fn process_blur_requests(
                 .iter()
                 .copied()
                 .eq(surface_commits(all_elements, surface_ranges[i]));
-        let forced = cache.force_dirty_frames > 0 || client_painted;
+        let forced = cache.force_dirty_frames > 0 || client_painted || req.mask.is_some();
         mask_forced.push(forced);
         if forced {
             cache.dirty = true;
@@ -1896,8 +1905,11 @@ pub(crate) fn process_blur_requests(
             // the off-screen strip — the crop read that buffer's mirror wrap,
             // and nothing re-captured the mask once the pan settled.
             // (index_shift is 0 here — element insertion hasn't happened yet)
-            let relocated: Vec<RelocateRenderElement<&OutputRenderElements>> = all_elements
-                [surf_start..surf_end]
+            let mask_elements = req
+                .mask
+                .as_ref()
+                .map_or(&all_elements[surf_start..surf_end], std::slice::from_ref);
+            let relocated: Vec<RelocateRenderElement<&OutputRenderElements>> = mask_elements
                 .iter()
                 .map(|e| {
                     RelocateRenderElement::from_element(
@@ -2006,7 +2018,10 @@ pub(crate) fn process_blur_requests(
                     Transform::Normal,
                     1.0,
                     Some(shader),
-                    &[],
+                    &[Uniform::new(
+                        "u_preserve_alpha",
+                        if req.mask.is_some() { 1.0f32 } else { 0.0 },
+                    )],
                 )
                 .is_ok();
             let _ = frame.with_context(|gl| unsafe {

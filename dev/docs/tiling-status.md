@@ -1,7 +1,7 @@
 # Tiling development status and handoff
 
-Updated 2026-10-20. Implementation includes shared opening rasters (`0163705`)
-and the client blur-region conversion batch recorded below. This is the current
+Updated 2026-10-20. Implementation includes client-region conversion (`5f87ed0`)
+and the changed-mask blending batch recorded below. This is the current
 continuation point. Earlier batch
 notes, failed experiments and source derivations are preserved in
 [the historical journal](tiling-history.md); their pending/next statements are
@@ -60,7 +60,11 @@ Implemented, with partial reference coverage:
   Client blur regions now follow opening/motion/native resize frames, including
   grouped capture and release with fixed or proportionally resized regions.
   Protocol state remains double-buffered; region-only commits cannot mutate a
-  retained mask. Arbitrary old/new region-shape blending remains outstanding.
+  retained mask. Independently changed client regions now blend the old/new
+  source masks with the content weights; each source contributes its own alpha
+  shape. Superseding groups retain the current fractional coverage, including
+  capture before the first tick and during an inherited opening. Disabling
+  client blur can fade out without exposing the pending mask while held.
 - Optional udev `--drm-connector NAME` restricts preview output enrollment.
   It does not implement independent multi-output tiling.
 
@@ -72,19 +76,22 @@ measurement. See roadmap acceptance criteria instead.
 
 ## Verified evidence and its limits
 
-Latest implementation gate: `/tmp/driftwm-client-regions-ci.log`, exit 0:
-full `dev/scripts/ci-local`, 368 library cases, 1456 binary cases including ignored
-GLES scenarios, integrations and isolated soak. Final expanded protocol/mask
-assertions also passed in `/tmp/driftwm-client-regions-final.log`, followed by
-fmt and strict all-target clippy (`/tmp/driftwm-client-regions-final-clippy.log`). The dedicated GLES test covers 18 SSD/CSD scenes: opening,
-move and canvas resize, at 1x/1.25x/1.5x, with opacity 0.6, rounded borders and
-shadows. It checks real `ext-background-effect-v1` requests before/after commit,
-empty/unset/outside regions, independently bounded animated frost, first capture,
-release and recapture, immutable held masks on region-only commits and a doubled
-client buffer with proportionally doubled regions. Full-frame transition
-comparisons retain the two-byte tolerance. This does not cover arbitrary region
-shape changes during the old/new content blend. Earlier opening/window-blur
-pixel gates remain in the full CI suite.
+Latest implementation gate: `/tmp/driftwm-mask-blending-ci.log`, exit 0:
+full `dev/scripts/ci-local`, 368 library cases, 1457 binary cases including ignored
+GLES scenarios, integration suites and isolated soak. Final fmt and strict
+all-target clippy passed (`/tmp/driftwm-mask-final-clippy.log`); the final client
+blur regressions passed in `/tmp/driftwm-mask-final.log`. Dedicated changed-mask GLES gate:
+`/tmp/driftwm-mask-changes.log`, 12 scenes (SSD/CSD, opening/seeded canvas resize,
+static 1x/1.25x/1.5x). It checks changed shape with a doubled buffer, first release,
+immediate recapture before a tick, intermediate fractional old/new GPU-mask
+weights, independent transparent pixels in the new source, recapture of the
+mixed mask, region-only disable while held, release and complete fade-out.
+Complete capture/release comparisons retain the two-byte tolerance; held frames
+remain byte-identical. Earlier 18 fixed/proportional-region scenes remain in CI.
+This closes these controlled client-only mask transitions, not every blur policy
+combination or universal frame atomicity. Whole-window-rule/client-mask switches
+with SSD title bands, odd extents/geometry offsets, changing views/scales and
+lifecycle transitions still require dedicated gates.
 No release build, installation or manual TTY acceptance was performed in this batch.
 
 GPU regressions ran on NVIDIA RTX 3060, including controlled 1x/1.25x/1.5x
@@ -104,9 +111,10 @@ issue fixed or disable blur to claim success.
 1. Finish P0 custom-decoder/public-option/default/ID-action audit and extend
    source-derived fixtures beyond the controlled zero-gap geometry subset.
    This remains a prerequisite to expanding advanced interactions.
-2. Continue P2/P13 with independently changing old/new client blur-region
-   shapes during content blending. Fixed/proportional regions now have native
-   frame and opening-raster conversion gates. The first rounded opening capture and
+2. Continue P2/P13 with mixed whole-window-rule/client-region policies (including
+   SSD title bands) and general framed canvas resize entry. Changed client-only
+   mask shapes, disable, immediate recapture and inherited opening now have
+   controlled gates. The first rounded opening capture and
    combined window blur/opening resize gates are delivered for the scenes above.
    Normal unblurred and window-rule-blurred SSD/CSD recapture/release is covered
    for three consecutive preset changes at static 1x/1.25x/1.5x. Client-effect

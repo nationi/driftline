@@ -682,3 +682,15 @@ The `ext-background-effect-v1` client protocol copies `wl_region` rectangles
 in surface-local coordinates; NULL disables blur, and destroying the temporary
 `wl_region` after the request is valid. A region-only surface commit can apply
 without a new buffer or a configure acknowledgement.
+
+
+`GlesFrame::override_default_tex_program(program: GlesTexProgram,
+additional_uniforms: Vec<Uniform<'static>>)` also affects
+`TextureRenderElement::draw`, whose generic `Frame::render_texture_from_to`
+otherwise selects the default texture program. Use this to threshold source
+alpha before additive mask blending; pass an empty opaque-region slice and
+restore both `clear_tex_program_override()` and source-over blending on errors.
+`ExportMem::copy_texture(&texture, Rectangle<i32, Buffer>, Fourcc)` plus
+`map_texture(&mapping)` supports direct GPU-mask coverage assertions. A texture's
+`Texture::size()` is in Buffer coordinates; do not compare it directly with a
+Physical size.
