@@ -619,6 +619,7 @@ enum TilingFrostAnimation {
     ActiveOpen,
     ActiveFade,
     RepeatResize,
+    RepeatSsdResize,
 }
 
 fn check_tiling_frost_scene(framed: bool, scale: f64, translate: bool) {
@@ -671,6 +672,14 @@ fn check_tiling_frost_capture(
             .replace("border_width = 0", "border_width = 2")
             .replace("corner_radius = 0", "corner_radius = 12")
             .replace("shadow = false", "shadow = true")
+    } else {
+        config
+    };
+    let config = if matches!(animation, TilingFrostAnimation::RepeatSsdResize) {
+        format!(
+            "{}\n[[window_rules]]\napp_id = \"normal\"\ndecoration = \"server\"\n",
+            config.replace("blur = true", "blur = true\ndecoration = \"server\"")
+        )
     } else {
         config
     };
@@ -912,32 +921,85 @@ fn check_tiling_frost_capture(
         .blocker_cleared(f.state(), &dh);
     f.double_roundtrip(second);
     assert_eq!(f.state().tiling_snapshot_count(), 0);
+    if matches!(
+        animation,
+        TilingFrostAnimation::RepeatResize | TilingFrostAnimation::RepeatSsdResize
+    ) {
+        let released = live_frame(&mut f, &output);
+        let delta = before
+            .as_raw()
+            .iter()
+            .zip(released.as_raw())
+            .map(|(a, b)| a.abs_diff(*b))
+            .max()
+            .unwrap();
+        let differences: Vec<_> = before
+            .enumerate_pixels()
+            .zip(released.pixels())
+            .filter(|((_, _, a), b)| a.0.iter().zip(b.0.iter()).any(|(a, b)| a.abs_diff(*b) > 2))
+            .take(8)
+            .map(|((x, y, a), b)| (x, y, a.0, b.0))
+            .collect();
+        assert!(
+            delta <= 2,
+            "{scale}x SSD={} initial frost release differs by {delta}: {differences:?}",
+            matches!(animation, TilingFrostAnimation::RepeatSsdResize)
+        );
+    }
     // The release frame intentionally retains the old content. The following
     // animation tick, rather than release itself, must advance the picture.
     f.state()
         .tick_window_animations(std::time::Duration::from_millis(16));
     assert!(before != live_frame(&mut f, &output));
-    if matches!(animation, TilingFrostAnimation::RepeatResize) {
+    if matches!(
+        animation,
+        TilingFrostAnimation::RepeatResize | TilingFrostAnimation::RepeatSsdResize
+    ) {
+        f.state()
+            .execute_action(&Action::FocusColumn(driftwm::config::Direction::Left));
         f.state()
             .tick_window_animations(std::time::Duration::from_millis(16));
-        let current = live_frame(&mut f, &output);
-        f.state().execute_action(&Action::CycleColumnWidth);
-        assert_eq!(f.state().tiling_snapshot_count(), 2);
-        let held = live_frame(&mut f, &output);
-        let delta = current
-            .as_raw()
-            .iter()
-            .zip(held.as_raw())
-            .map(|(a, b)| a.abs_diff(*b))
-            .max()
-            .unwrap();
-        assert!(
-            delta <= 2,
-            "resizing frost capture differs by {delta} at {scale}x"
-        );
-        f.state()
-            .tick_window_animations(std::time::Duration::from_millis(16));
-        assert_eq!(held, live_frame(&mut f, &output));
+        let mut current = live_frame(&mut f, &output);
+        for tick_ms in [16, 48, 112] {
+            f.state().execute_action(&Action::CycleColumnWidth);
+            assert!(f.state().tiling_snapshot_count() > 0);
+            let held = live_frame(&mut f, &output);
+            let delta = current
+                .as_raw()
+                .iter()
+                .zip(held.as_raw())
+                .map(|(a, b)| a.abs_diff(*b))
+                .max()
+                .unwrap();
+            assert!(delta <= 2, "{scale}x frost recapture differs by {delta}");
+            f.state()
+                .tick_window_animations(std::time::Duration::from_millis(16));
+            assert_eq!(held, live_frame(&mut f, &output));
+            let size = last_configured(&mut f, first, &a);
+            let pixels = super::render_pixels::solid_bgra(size.0, size.1, [0, 128, 0, 128], false);
+            let window = f.client(first).window(&a);
+            window.set_size(size.0 as u16, size.1 as u16);
+            window.attach_shm_buffer(size, &pixels);
+            window.ack_last_and_commit();
+            f.double_roundtrip(first);
+            f.double_roundtrip(second);
+            assert_eq!(f.state().tiling_snapshot_count(), 0);
+            let resumed = live_frame(&mut f, &output);
+            let delta = held
+                .as_raw()
+                .iter()
+                .zip(resumed.as_raw())
+                .map(|(a, b)| a.abs_diff(*b))
+                .max()
+                .unwrap();
+            assert!(
+                delta <= 2,
+                "{scale}x tick {tick_ms} frost release differs by {delta}"
+            );
+            f.state()
+                .tick_window_animations(std::time::Duration::from_millis(tick_ms));
+            current = live_frame(&mut f, &output);
+        }
     }
     remove_pre_commit_hook(&surface, &hook);
     f.state().execute_action(&Action::ToggleTiling);
@@ -1161,7 +1223,19 @@ fn tiling_captures_frost_during_an_active_open_or_fade() {
 #[ignore = "needs surfaceless EGL; run with --include-ignored"]
 fn repeated_tiling_resize_preserves_frost_and_chrome() {
     let _gl = gl::lock();
+    let (ready, loaded) = std::sync::mpsc::sync_channel(1);
+    driftwm::text::warm_fonts(move || {
+        let _ = ready.send(());
+    });
+    loaded
+        .recv_timeout(std::time::Duration::from_secs(10))
+        .unwrap();
     for scale in [1.0, 1.25, 1.5] {
-        check_tiling_frost_capture(true, scale, TilingFrostAnimation::RepeatResize, false);
+        for animation in [
+            TilingFrostAnimation::RepeatResize,
+            TilingFrostAnimation::RepeatSsdResize,
+        ] {
+            check_tiling_frost_capture(true, scale, animation, false);
+        }
     }
 }

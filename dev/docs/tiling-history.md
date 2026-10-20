@@ -1312,3 +1312,63 @@ isolated soak. Local Markdown links and `git diff --check` passed. No pure
 stage/layout/config change required an additional deep proptest pass. Next:
 blurred/inherited-opening frame conversion during supersession; P0 semantic
 audit and the broader scale/view/output/lifecycle gates remain unfinished.
+
+## Native tiled frames and recapture with window blur (2026-10-20)
+
+Continued the P2/P13 window-blur conversion gate after `78be755`. The previous
+repeat-resize frost test held a new transaction without releasing it, and
+resized the ordinary peer rather than the frosted window. Expanded it to focus
+the frosted column and check initial release plus three successive preset
+changes, including client buffer replies and release. Added an SSD variant
+beside CSD at 1x/1.25x/1.5x, with font warmup synchronized before text comparisons.
+The expanded baseline reproduced a 207-byte channel delta on the first 1x
+frost release: `/tmp/driftwm-frost-native-before.log`.
+
+Normal tiled windows with compositor-requested window blur now use the native
+frame/mixed-texture path introduced in the last batches. Initial release keeps
+the retained pixels; recapture reuses the mixed texel grid for the held image
+and following resize leg. Live and snapshot blur requests use one visual-frame
+extent constructor. Its mask crop preserves the original pixel-centre rule,
+including the logical SSD title band: independently rounding that band changed
+the crop at 1.5x and produced a 126-byte initial SSD release delta. Compositor
+chrome still shares its separately snapped native title-bar band as before.
+The backdrop remains live and no blurred background is baked into the snapshot.
+
+Another release jump came from canvas destination-coverage suppression: a new
+full-width target removed shadow/corners while its retained visual was still
+mid-resize. Tiled columns now retain configured frames even when filling the
+work area. Fullscreen policy remains in its existing path. This aligns live
+presentation with the retained frame; normal canvas destination-coverage policy
+is unchanged. Pinned niri `12de51d6a60baad8896366920278a24f17921f52`,
+`Tile::update_render_elements`, derives border geometry from animated tile size
+and handles expanded/fullscreen radius separately from ordinary column width;
+it does not use driftwm's canvas work-area coverage suppression.
+
+Client-requested blur regions and inherited opening intentionally remain on the
+previous conversion path. Those need separate mask/region/opening-scale gates;
+this batch does not remove their guard. Framed canvas-resize entry, odd extents,
+nonzero geometry offsets and changing view/output scale are also not accepted
+by the new static-scale scenes. P0 audit and other roadmap milestones remain open.
+
+Targeted expanded frost regression passed all six SSD/CSD scale scenes and
+three resize cycles each, including initial release, complete recapture within
+two channel bytes, byte-identical held frames after a tick and complete release
+within two bytes: `/tmp/driftwm-frost-native-final.log`. Existing unblurred
+initial-release tolerances were not weakened. Earlier temporary test config and
+diagnostic attempts are not validation evidence. Full final CI result follows.
+No user configuration, installed binary or running desktop was changed; no push.
+
+The first complete CI attempt (`/tmp/driftwm-frost-frame-ci.log`) caught a
+regression in the existing pure-translation frost capture case. A translation
+with no resize blend must keep its previous mask-rounding policy. Restricted
+the native window-blur path accordingly, without changing the unblurred path;
+`/tmp/driftwm-frost-translation.log` passed all existing scale/frame variants.
+The final full gate is `/tmp/driftwm-frost-frame-ci-final.log`.
+
+Final full CI passed, exit 0: `/tmp/driftwm-frost-frame-ci-final.log`.
+Includes fmt, locked check, strict all-target clippy, no-run build, 368 library
+tests, 1453 binary cases including ignored GLES scenes, integration suites and
+isolated soak. Local Markdown links and `git diff --check` passed. No pure
+stage/layout/config change needed an additional deep proptest pass. Next:
+inherited opening during resize supersession, followed by client blur regions;
+the remaining view/scale/output, degraded capture and P0 gates are unchanged.

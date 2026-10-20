@@ -249,10 +249,12 @@ guarantee remain outstanding. Controlled GLES regressions now cover stationary
 exposed and gate bake-uniform rebasing and independent popup-offset rounding;
 Normal unblurred release now has complete SSD/CSD frame comparisons at
 1x/1.25x/1.5x and native title/ring geometry checks during resize. Three successive
-normal unblurred resize captures preserve the mixed texel grid and stable
-rasterized bounds, with full-frame capture/hold/release checks at these scales.
-Blurred/inherited-opening frame conversion, scale transitions, general odd
-extents/geometry offsets and moving-camera cases remain outstanding.
+normal resize captures preserve the mixed texel grid and stable rasterized
+bounds, including window-rule blur, with full-frame capture/hold/release checks
+for SSD/CSD at these scales. Tiled work-area coverage retains configured frames.
+Inherited opening, client blur regions, framed canvas-resize entry, scale
+transitions, general odd extents/geometry offsets and moving-camera cases remain
+outstanding.
 A pinned source audit confirms that unbuffered windows
 remain outside the scrolling layout until mapping; do not reserve phantom
 columns or initial-configure order. First-buffer order and mapping-time focus
@@ -525,7 +527,7 @@ landed. Do not reimplement them from older history entries. Current priority:
 1. Finish P0 custom-decoder/public-option/default and ID-action audit; extend
    [reference fixtures](niri-reference-traces.md) beyond the controlled subset.
 2. Continue P2/P13 acceptance beyond the delivered normal SSD/CSD release gate:
-   blurred/inherited-opening recapture and frame conversion,
+   inherited-opening recapture/frame conversion and client blur regions,
    degraded capped capture, changing scale/view/output, and motion-time lifecycle.
    Keep direct TTY visual checks separate from the unresolved nested NVIDIA bug.
 3. Follow P3 sizing/settings and P5 view-model dependencies after those gates;

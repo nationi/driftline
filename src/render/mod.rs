@@ -1184,8 +1184,8 @@ pub fn compose_frame(
             continue;
         };
 
-        // Measured on the destination frame, never on the animated picture: a
-        // window animation is eye candy over a state change that is already
+        // Canvas coverage is measured on the destination frame: a window
+        // animation is eye candy over a state change that is already
         // complete, and input hit-tests the destination too. The camera half is
         // the opposite — the frame is mapped through the live view, so a fit's
         // camera flight keeps the chrome until the camera lands.
@@ -1194,9 +1194,15 @@ pub fn compose_frame(
         // the pre-fit size until the client acks. Skipped outright when there is
         // nothing to suppress: the size read below takes a surface lock per
         // window per output per frame.
+        let tiled_frame =
+            state.tiling_view.is_some() && element_id.is_some_and(|id| state.stage.is_tiled(id));
+        // A tiled column filling the work area still owns its configured frame.
+        // Destination coverage must not discard the retained picture's shadow
+        // or round corners when a grouped resize releases.
         let coverage =
             if (configured.corner_radius > 0 || configured.shadow || configured.border_width > 0)
                 && !is_fullscreen
+                && !tiled_frame
             {
                 let bw = effective_bw as f64;
                 let bar = if has_ssd {
@@ -1321,7 +1327,12 @@ pub fn compose_frame(
         let resize_chrome = element_id
             .filter(|id| {
                 state.tiling_view.is_some()
-                    && !wants_blur
+                    && !client_blur
+                    && (!window_blur
+                        || !state
+                            .window_animations
+                            .is_canvas_translation(*id, geom_size)
+                        || state.resize_crossfades.contains_key(id))
                     && !is_fullscreen
                     && !is_pinned
                     && state.stage.is_tiled(*id)
@@ -1782,8 +1793,15 @@ pub fn compose_frame(
             // Frost tracks the animated window's visual rect, not its instant
             // logical position (accepted cost: a frosted animation re-blurs at
             // frame rate, throttled by `animate_blur_fps` like a drag).
-            let screen_rect =
-                window_animation.map_or(screen_rect, |anim| anim.transform_phys_rect(screen_rect));
+            let screen_rect = if resize_chrome.is_some() {
+                SnapshotBlur::visual_screen_rect(
+                    Rectangle::new(chrome_loc, chrome_size),
+                    output_scale * zoom,
+                    has_ssd.then_some(state.config.decorations.title_bar_height),
+                )
+            } else {
+                window_animation.map_or(screen_rect, |anim| anim.transform_phys_rect(screen_rect))
+            };
 
             // Convert client blur region: surface-local Logical → mask-local
             // Physical at composite_scale = zoom × output_scale.

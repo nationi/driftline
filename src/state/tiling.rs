@@ -914,12 +914,11 @@ impl DriftWm {
                 && self.window_animations.generation_of(id).is_some()
                 && let Some(mut resize) = snapshot.resize.take()
             {
-                if !snapshot.blur.window_blur
-                    && snapshot
-                        .blur
-                        .client_regions
-                        .as_ref()
-                        .is_none_or(|r| r.is_empty())
+                if snapshot
+                    .blur
+                    .client_regions
+                    .as_ref()
+                    .is_none_or(|r| r.is_empty())
                 {
                     resize.preserve_initial_pixels();
                 }
@@ -1081,7 +1080,6 @@ impl DriftWm {
                 ),
             };
             let native_chrome = crossfading
-                && !blur.window_blur
                 && blur.client_regions.as_ref().is_none_or(|r| r.is_empty())
                 && self.window_animations.open_progress(id).is_none();
             let chrome = self
@@ -1399,7 +1397,13 @@ impl DriftWm {
             .map(|mut request| {
                 // Transform already snapped mask geometry and client regions
                 // with the same affine as the retained content.
-                if let Some(animation) = animation {
+                if snapshot.native_chrome {
+                    request.screen_rect = crate::render::SnapshotBlur::visual_screen_rect(
+                        smithay::utils::Rectangle::new(visual.loc - camera, visual.size),
+                        physical_scale,
+                        snapshot.blur.bar_height,
+                    );
+                } else if let Some(animation) = animation {
                     request.apply_animation(animation);
                 }
                 request

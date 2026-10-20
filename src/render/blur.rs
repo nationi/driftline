@@ -999,6 +999,23 @@ pub(crate) struct SnapshotBlur {
 }
 
 impl SnapshotBlur {
+    pub(crate) fn visual_screen_rect(
+        visual: Rectangle<f64, Logical>,
+        scale: f64,
+        bar_height: Option<i32>,
+    ) -> Rectangle<i32, Physical> {
+        // Match the original mask's pixel-centre extent. Rounding the bar
+        // separately changes the blur crop by one row at fractional scale.
+        let bar = f64::from(bar_height.unwrap_or(0));
+        super::painted_rect(
+            Rectangle::new(
+                visual.loc - Point::from((0.0, bar)),
+                (visual.size.w, visual.size.h + bar).into(),
+            ),
+            scale.into(),
+        )
+    }
+
     pub fn request(
         &self,
         camera: Point<f64, Logical>,

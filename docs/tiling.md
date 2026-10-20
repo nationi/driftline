@@ -120,13 +120,14 @@ opening scale still applies. Opening fades and ordinary
 position animations can continue on the saved picture. When the group releases,
 windows animate from the saved geometry to their new positions and sizes.
 Old and new content blend before window opacity is applied, including
-translucent pixels. Ordinary unblurred tiled resize transitions keep border
-strokes and compositor title bars at their native thickness and height while
-the window changes size. If another transaction starts during a resolved canvas
+translucent pixels. Ordinary tiled resize transitions, including windows with
+blur enabled by a window rule, keep border strokes and compositor title bars
+at their native thickness and height while the window changes size. Tiled
+columns keep their configured corners and shadows when filling the work area. If another transaction starts during a resolved canvas
 resize, its current geometry and blended image are held until the new buffers
 apply or the deadline expires, then the transition resumes from that picture.
-Ordinary unblurred tiled resize recaptures reuse the mixed texture directly,
-avoiding extra filtering of rounded corners at fractional output scales.
+Ordinary tiled resize recaptures, including window-rule blur, reuse the mixed
+texture directly, avoiding extra filtering of rounded corners at fractional output scales.
 Canvas resizes still held for a client reply can also be captured before a new
 group takes over. A late buffer arriving after the group expires can start a
 bounded resize transition on an otherwise settled window without restarting

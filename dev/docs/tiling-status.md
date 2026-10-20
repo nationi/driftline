@@ -1,7 +1,7 @@
 # Tiling development status and handoff
 
-Updated 2026-10-20. Implementation includes native resize frames (`3170ceb`)
-and the retained-texture recapture batch recorded below. This is the current
+Updated 2026-10-20. Implementation includes native resize frames (`3170ceb`),
+retained-texture recapture (`78be755`) and the window-blur batch recorded below. This is the current
 continuation point. Earlier batch
 notes, failed experiments and source derivations are preserved in
 [the historical journal](tiling-history.md); their pending/next statements are
@@ -44,12 +44,15 @@ Implemented, with partial reference coverage:
 - Popup dimensions stay native during geometry resize, following parent motion
   and opening scale. A settled timed-out window can animate its late response
   once without another configure or reopening the group.
-- Normal unblurred tiled resize chases keep native border strokes and SSD
+- Normal tiled resize chases, including compositor-requested window blur,
+  keep native border strokes and SSD
   title-bar height/text around the animated visual bounds. Release preserves
   the complete SSD/CSD frame, including shadow and menu, at 1x/1.25x/1.5x.
   Superseding captures retain separate native title/ring/shadow presentation.
-  Normal unblurred resize recapture keeps the mixed texture's texel grid;
-  repeated grow/shrink releases share stable rasterized visual bounds.
+  Resize recapture keeps the mixed texture's texel grid; repeated grow/shrink
+  releases share stable rasterized visual bounds and window-blur mask extents.
+  Tiled columns keep configured corners/shadows when filling the work area.
+  Inherited opening and client blur regions still use the previous conversion.
 - Optional udev `--drm-connector NAME` restricts preview output enrollment.
   It does not implement independent multi-output tiling.
 
@@ -61,13 +64,14 @@ measurement. See roadmap acceptance criteria instead.
 
 ## Verified evidence and its limits
 
-Latest implementation gate: `/tmp/driftwm-recapture-ci.log`, exit 0: complete
-`dev/scripts/ci-local`, including strict all-target clippy, 368 library tests,
-1453 binary cases plus isolated soak, and integration suites. The SSD/CSD cases compare the
-complete initial release frame with the one-byte shadow tolerance, then three
-successive resize recaptures and releases with a two-byte full-frame tolerance
-at 1x/1.25x/1.5x. Waiting frames stay byte-identical. Middle-of-chase checks bound
-native bar height/stroke; SSD waits for font warmup before comparing title text.
+Latest implementation gate: `/tmp/driftwm-frost-frame-ci-final.log`, exit 0:
+full `dev/scripts/ci-local`, strict all-target clippy, 368 library tests,
+1453 binary cases plus isolated soak, and integration suites. Expanded frost
+regression to six
+SSD/CSD scenes at 1x/1.25x/1.5x, each checking the initial release plus three
+successive resize captures and releases with a two-byte full-frame tolerance.
+Waiting frames stay byte-identical. Existing unblurred SSD/CSD checks retain
+their stricter initial one-byte shadow tolerance. SSD waits for font warmup.
 No release build, installation or manual TTY acceptance was performed in this batch.
 
 GPU regressions ran on NVIDIA RTX 3060, including controlled 1x/1.25x/1.5x
@@ -87,11 +91,12 @@ issue fixed or disable blur to claim success.
 1. Finish P0 custom-decoder/public-option/default/ID-action audit and extend
    source-derived fixtures beyond the controlled zero-gap geometry subset.
    This remains a prerequisite to expanding advanced interactions.
-2. Continue P2/P13 with SSD/CSD blur and inherited opening during resize
-   supersession before generalizing native frame conversion to those paths.
-   Complete normal unblurred recapture/release is covered for three consecutive
-   preset changes at static 1x/1.25x/1.5x. General odd extents, geometry offsets,
-   other animation phases and changing views/scales still need their own gates.
+2. Continue P2/P13 with inherited opening during resize supersession, then
+   client blur regions before generalizing native frame conversion to them.
+   Normal unblurred and window-rule-blurred SSD/CSD recapture/release is covered
+   for three consecutive preset changes at static 1x/1.25x/1.5x. Framed canvas
+   resize entering tiling, general odd extents, geometry offsets, other animation
+   phases and changing views/scales still need their own gates.
 3. Cover degraded stale/capped capture (body/frame geometry differ), changing
    view/output scale and output transitions, then motion-time remap/disconnect
    and inherited opening during resize supersession. Existing static-scale
