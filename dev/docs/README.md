@@ -20,6 +20,8 @@ and test counts as current measurements.
 
 ## Repository workflow
 
+- [Git workflow](git-workflow.md): fork remotes, branch tracking, Compare and integration PRs.
+
 - [Testing](testing.md): CI gates, fixture rules and generated references.
 - [Caveats](caveats.md): architecture and known protocol/input constraints.
 - [General TODO](todo.md): work outside the tiling roadmap.

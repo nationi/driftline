@@ -1605,3 +1605,22 @@ The status is a compact handoff and evidence summary. Corrected the stale histor
 heading and the unsupported claim that a complete compatibility table existed
 in the handoff. Historical entries remain intact. Documentation-only change;
 content, local link/anchor and diff checks replace runtime CI for this cleanup.
+
+
+## 2026-10-20 — reconcile fork branches and integrate upstream
+
+`origin/main` contained IPC cursor/PID commits absent from development; it was
+merged at `c54d48f`. Upstream through `7ce05ed` was merged at `327fcf5`, including
+viewport sloppy-focus and subsurface pointer-constraint fixes. README kept the
+fork's packaging removals; the test client keeps both background-effect and
+subcompositor bindings. Removed distribution-specific packaging was not restored.
+
+Full local `dev/scripts/ci-local` passed (`/tmp/driftwm-upstream-sync-ci.log`):
+368 library cases, 1467 binary cases including ignored GLES, integrations and
+isolated soak. No pure stage/layout/config parsing algorithm changed, so no
+additional deep property pass was required. No installation or TTY acceptance
+was performed. Tiling gates B1–B4/A0 remain as listed in the roadmap.
+
+Repository-local pull is fast-forward only, push defaults to origin, fetch
+prunes deleted remote refs, and local main tracks origin/main. The maintained
+Git procedure is in `git-workflow.md`; local Git settings are not committed.

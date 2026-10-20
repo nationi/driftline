@@ -1,7 +1,8 @@
 # Tiling development status and handoff
 
-Updated 2026-10-20. Implementation checkpoint: `e6eda19` on
-`nationi/development`. This handoff was reconciled with the code and Git history;
+Updated 2026-10-20. Tiling checkpoint: `e6eda19`; upstream `7ce05ed` was
+integrated at `327fcf5` without restoring removed packaging. The persistent
+development branch is `nationi/development`. This handoff was reconciled with Git;
 see the [roadmap queue](niri-tiling-parity-plan.md#execution-queue-and-acceptance-gates)
 for task order and acceptance. Older “next” statements in the
 [history](tiling-history.md) are historical, not the current task queue.
@@ -53,11 +54,13 @@ mode. These are documented fallbacks, not reference-compatible behavior.
 
 ## Verified evidence and its limits
 
-Latest full implementation gate: `/tmp/driftwm-mask-blending-ci.log`, exit 0:
-`dev/scripts/ci-local`, 368 library cases, 1457 binary cases including ignored
-GLES scenarios, integration suites and isolated soak. Final fmt, strict
-all-target clippy (`/tmp/driftwm-mask-final-clippy.log`) and both client-blur
-regressions (`/tmp/driftwm-mask-final.log`) passed after the final fallback fix.
+Latest integration gate: `/tmp/driftwm-upstream-sync-ci.log`, exit 0:
+`dev/scripts/ci-local`, 368 library cases, 1467 binary cases including ignored
+GLES scenarios, integration suites and isolated soak. Upstream IPC cursor/PID,
+viewport sloppy-focus and subsurface constraint fixes are included; client-blur
+and subsurface additions coexist in the test client. Earlier mask-specific
+validation is recorded in history. This integration does not close a new tiling
+parity milestone.
 Logs in `/tmp` are disposable; persistent test names and details are in history.
 
 Current client-mask evidence covers 18 fixed/proportional-region scenes and
@@ -96,6 +99,7 @@ advanced interactions. The roadmap is the single task/acceptance queue.
 - Follow the TTY guide. The launcher uses the last local `target/release/driftwm`,
   not a binary pinned by the preview directory name. Do not replace the installed
   compositor or restart the main desktop for routine tests.
+- Follow [the Git workflow](git-workflow.md) for branch tracking and integration PRs.
 - `origin`: `https://github.com/nationi/driftwm.git`;
   `upstream`: `https://github.com/malbiruk/driftwm.git`.
   This plan does not grant push, publish, installation or messaging permission.
