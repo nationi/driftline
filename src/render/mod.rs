@@ -1008,6 +1008,27 @@ pub fn compose_frame(
                     );
                 }
             }
+            if let Some(bar) = snapshot.bar.take() {
+                let loc = bar.rect.loc.to_physical_precise_round(scale);
+                let dst = Rectangle::new(loc, painted_size(bar.rect.size, scale));
+                if let Ok(element) = MemoryRenderBufferRenderElement::from_buffer(
+                    renderer,
+                    loc.to_f64(),
+                    &bar.buffer,
+                    Some(bar.opacity as f32),
+                    None,
+                    None,
+                    Kind::Unspecified,
+                ) {
+                    zoomed_normal.push(OutputRenderElements::TrimmedDecoration(
+                        PixelSnapRescaleElement::from_element(
+                            TrimmedElement::from_element(element, dst),
+                            (0, 0).into(),
+                            zoom,
+                        ),
+                    ));
+                }
+            }
             zoomed_normal.extend(snapshot.elements);
             if let Some(border) = snapshot.border
                 && let Some(shader) = state.render.border_shader.clone()
@@ -1025,7 +1046,7 @@ pub fn compose_frame(
                     border.opacity,
                     scale,
                     zoom,
-                    snapshot.animation,
+                    snapshot.chrome_animation,
                 );
             }
             let shadow_start = zoomed_normal.len();
@@ -1043,7 +1064,7 @@ pub fn compose_frame(
                     shadow.opacity,
                     scale,
                     zoom,
-                    snapshot.animation,
+                    snapshot.chrome_animation,
                 );
             }
             if blur_enabled && let Some(mut blur) = snapshot.blur.take() {
@@ -1295,6 +1316,35 @@ pub fn compose_frame(
         // own opacity; `chrome_alpha` is 1 for every other window.
         let chrome_opacity = opacity * chrome_alpha as f64;
 
+        // Resize content follows a texture affine; compositor chrome keeps its
+        // native stroke and title-bar height around the current visual bounds.
+        let resize_chrome = element_id
+            .filter(|id| {
+                state.tiling_view.is_some()
+                    && !wants_blur
+                    && !is_fullscreen
+                    && !is_pinned
+                    && state.stage.is_tiled(*id)
+                    && state.window_animations.open_progress(*id).is_none()
+            })
+            .and_then(|id| state.window_animations.geometry_visual_rect(id));
+        let chrome_loc = resize_chrome.map_or_else(
+            || {
+                if has_ssd {
+                    render_loc
+                } else {
+                    render_loc + geom_loc.to_f64()
+                }
+            },
+            |r| r.loc - camera,
+        );
+        let chrome_size = resize_chrome.map_or(geom_size.to_f64(), |r| r.size);
+        let chrome_animation = if resize_chrome.is_some() {
+            None
+        } else {
+            window_animation
+        };
+
         // Split elements: toplevel + subsurfaces get corner-clipped, popups
         // don't (they can legitimately extend outside the parent's geometry —
         // GTK menus, tooltips, autocomplete, etc). smithay's
@@ -1392,11 +1442,18 @@ pub fn compose_frame(
         // Popups push first (earlier in vec = on-top in smithay z-order) so
         // they sit above the title bar and clipped window content.
         let popup_animation = window_animation.map(|animation| {
-            animation.for_popups(
+            let content_origin = if resize_chrome.is_some() {
+                (loc_phys + geom_loc.to_physical_precise_round(scale))
+                    .to_f64()
+                    .upscale(Scale::from(zoom))
+            } else {
                 Point::from((
                     (render_loc.x + geom_loc.x as f64) * zoom * output_scale,
                     (render_loc.y + geom_loc.y as f64) * zoom * output_scale,
-                )),
+                ))
+            };
+            animation.for_popups(
+                content_origin,
                 element_id.map_or(1.0, |id| {
                     state
                         .window_animations
@@ -1410,6 +1467,11 @@ pub fn compose_frame(
         let mut content_at = target.len();
 
         if has_ssd {
+            let bar_loc_phys = if resize_chrome.is_some() {
+                chrome_loc.to_physical_precise_round(scale)
+            } else {
+                loc_phys
+            };
             let bar_height = state.config.decorations.title_bar_height;
             // Snap the title-bar band to whole physical pixels and share it across the
             // bar, border, and shadow. Deriving each from the raw logical bar_height
@@ -1428,7 +1490,7 @@ pub fn compose_frame(
                 .get_mut(&DecorationKey::Surface(wl_surface.id()))
             {
                 deco.update(
-                    geom_size.w,
+                    chrome_size.w.round() as i32,
                     is_focused,
                     shows_pinned,
                     state.decoration_scale,
@@ -1443,7 +1505,7 @@ pub fn compose_frame(
                 .get(&DecorationKey::Surface(wl_surface.id()))
             {
                 let bar_physical: Point<f64, Physical> =
-                    Point::from((loc_phys.x as f64, loc_phys.y as f64 - bar_h_phys));
+                    Point::from((bar_loc_phys.x as f64, bar_loc_phys.y as f64 - bar_h_phys));
                 let bar_alpha = if chrome_opacity < 1.0 {
                     Some(chrome_opacity as f32)
                 } else {
@@ -1452,9 +1514,9 @@ pub fn compose_frame(
                 // The bar takes the border's inner width so it stops where the
                 // content does instead of covering the ring's inner stroke.
                 let bar_dst = Rectangle::new(
-                    Point::from((loc_phys.x, loc_phys.y - bar_h_phys as i32)),
+                    Point::from((bar_loc_phys.x, bar_loc_phys.y - bar_h_phys as i32)),
                     painted_size(
-                        Size::<f64, Logical>::from((geom_size.w as f64, bar_h_logical)),
+                        Size::<f64, Logical>::from((chrome_size.w, bar_h_logical)),
                         scale,
                     ),
                 );
@@ -1472,7 +1534,7 @@ pub fn compose_frame(
                         Point::<i32, Physical>::from((0, 0)),
                         zoom,
                     );
-                    if let Some(animation) = window_animation {
+                    if let Some(animation) = chrome_animation {
                         target.push(OutputRenderElements::AnimatedTrimmedDecoration(
                             WindowTransformElement::new(
                                 bar_elem,
@@ -1523,8 +1585,8 @@ pub fn compose_frame(
                 && let Some(shader) = state.render.border_shader.clone()
             {
                 let inner_logical: Rectangle<f64, Logical> = Rectangle::new(
-                    (render_loc.x, render_loc.y - bar_h_logical).into(),
-                    (geom_size.w as f64, geom_size.h as f64 + bar_h_logical).into(),
+                    (chrome_loc.x, chrome_loc.y - bar_h_logical).into(),
+                    (chrome_size.w, chrome_size.h + bar_h_logical).into(),
                 );
                 push_border_element(
                     target,
@@ -1539,7 +1601,7 @@ pub fn compose_frame(
                     chrome_opacity,
                     scale,
                     zoom,
-                    window_animation,
+                    chrome_animation,
                 );
             }
 
@@ -1551,10 +1613,10 @@ pub fn compose_frame(
             if effective_shadow && let Some(shader) = state.render.shadow_shader.clone() {
                 let bw = effective_bw as f64;
                 let body_logical: Rectangle<f64, Logical> = Rectangle::new(
-                    (render_loc.x - bw, render_loc.y - bar_h_logical - bw).into(),
+                    (chrome_loc.x - bw, chrome_loc.y - bar_h_logical - bw).into(),
                     (
-                        geom_size.w as f64 + 2.0 * bw,
-                        geom_size.h as f64 + bar_h_logical + 2.0 * bw,
+                        chrome_size.w + 2.0 * bw,
+                        chrome_size.h + bar_h_logical + 2.0 * bw,
                     )
                         .into(),
                 );
@@ -1568,7 +1630,7 @@ pub fn compose_frame(
                     chrome_opacity,
                     scale,
                     zoom,
-                    window_animation,
+                    chrome_animation,
                 );
                 shadow_count = 1;
             }
@@ -1616,7 +1678,7 @@ pub fn compose_frame(
                         &mut state.render.border_cache,
                         wl_surface.id().into(),
                         &border_shader,
-                        geometry,
+                        Rectangle::new(chrome_loc, chrome_size),
                         radius,
                         effective_bw,
                         border_color,
@@ -1624,7 +1686,7 @@ pub fn compose_frame(
                         chrome_opacity,
                         scale,
                         zoom,
-                        window_animation,
+                        chrome_animation,
                     );
                 }
 
@@ -1635,12 +1697,8 @@ pub fn compose_frame(
                 if effective_shadow && let Some(shader) = state.render.shadow_shader.clone() {
                     let bw = effective_bw as f64;
                     let body_logical: Rectangle<f64, Logical> = Rectangle::new(
-                        (
-                            render_loc.x + geo.loc.x as f64 - bw,
-                            render_loc.y + geo.loc.y as f64 - bw,
-                        )
-                            .into(),
-                        (geom_size.w as f64 + 2.0 * bw, geom_size.h as f64 + 2.0 * bw).into(),
+                        (chrome_loc.x - bw, chrome_loc.y - bw).into(),
+                        (chrome_size.w + 2.0 * bw, chrome_size.h + 2.0 * bw).into(),
                     );
                     push_shadow_element(
                         target,
@@ -1652,7 +1710,7 @@ pub fn compose_frame(
                         chrome_opacity,
                         scale,
                         zoom,
-                        window_animation,
+                        chrome_animation,
                     );
                     shadow_count = 1;
                 }

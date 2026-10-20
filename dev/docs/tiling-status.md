@@ -1,7 +1,7 @@
 # Tiling development status and handoff
 
-Updated 2026-10-19. Implementation baseline: `059556e`; subsequent commits
-update documentation. This is the current continuation point. Earlier batch
+Updated 2026-10-20. Implementation includes the native resize-frame batch
+recorded below (previous tiling baseline: `059556e`). This is the current continuation point. Earlier batch
 notes, failed experiments and source derivations are preserved in
 [the historical journal](tiling-history.md); their pending/next statements are
 historical, not instructions to repeat completed work.
@@ -43,6 +43,10 @@ Implemented, with partial reference coverage:
 - Popup dimensions stay native during geometry resize, following parent motion
   and opening scale. A settled timed-out window can animate its late response
   once without another configure or reopening the group.
+- Normal unblurred tiled resize chases keep native border strokes and SSD
+  title-bar height/text around the animated visual bounds. Release preserves
+  the complete SSD/CSD frame, including shadow and menu, at 1x/1.25x/1.5x.
+  Superseding captures retain separate native title/ring/shadow presentation.
 - Optional udev `--drm-connector NAME` restricts preview output enrollment.
   It does not implement independent multi-output tiling.
 
@@ -54,13 +58,14 @@ measurement. See roadmap acceptance criteria instead.
 
 ## Verified evidence and its limits
 
-Latest implementation gate: `/tmp/driftwm-menus-delayed-ci.log`, exit 0:
-fmt, locked check, strict all-target clippy, 368 library tests, 1451 binary
-regular/ignored tests plus isolated soak (1452 total), and integration suites.
-Release build succeeded: `/tmp/driftwm-menus-delayed-build.log`.
-These are recorded checks for the implementation baseline, not newly rerun by
-this documentation update. Full working-tree checks included the unrelated
-output-management changes listed below.
+Latest implementation gate: `/tmp/driftwm-chrome-release-ci.log`, exit 0:
+complete `dev/scripts/ci-local`, including strict all-target clippy, 368 library
+tests, 1453 binary cases plus isolated soak, and integration suites. The two
+new GLES cases compare the complete SSD/CSD release frame with the existing
+one-byte shadow tolerance, check native bar/stroke geometry during the chase,
+and check the upper chrome band after supersession (two-byte tolerance).
+The SSD case waits for the asynchronous font scan before comparing title text.
+No release build, installation or manual TTY acceptance was performed in this batch.
 
 GPU regressions ran on NVIDIA RTX 3060, including controlled 1x/1.25x/1.5x
 retained-content, alpha, popup and delayed-response scenes. Static scale cases
@@ -79,9 +84,11 @@ issue fixed or disable blur to claim success.
 1. Finish P0 custom-decoder/public-option/default/ID-action audit and extend
    source-derived fixtures beyond the controlled zero-gap geometry subset.
    This remains a prerequisite to expanding advanced interactions.
-2. Continue the existing P2/P13 acceptance work with a focused full-frame
-   regression for SSD, borders and shadows at resize-group release. Preserve
-   body and popup behavior and existing pixel tolerances.
+2. Continue P2/P13 with full-frame recapture during a resize chase. The native
+   upper chrome band is covered; complete resized-content corners still differ
+   at fractional scale because the current capture resamples the mixed image.
+   Cover SSD/CSD with blur and inherited opening before generalizing native
+   frame conversion to those paths. The focused normal release gate is delivered.
 3. Cover degraded stale/capped capture (body/frame geometry differ), changing
    view/output scale and output transitions, then motion-time remap/disconnect
    and inherited opening during resize supersession. Existing static-scale
@@ -104,7 +111,7 @@ Use [the TTY guide](tty-preview.md). The external launcher selects the current
 `target/release/driftwm`, not the commit in its directory name. Main desktop is
 on TTY2 in this setup; verify before relying on that in a later session. Do not
 replace the installed binary or restart the main desktop for ordinary testing.
-No installation or push was performed by this documentation update.
+No installation, desktop restart or push was performed in this implementation batch.
 
 The previously separate output-management changes were reviewed and authorized
 for their own commit/push on 2026-10-19: preserving monitor/mode resources on

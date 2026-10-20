@@ -44,16 +44,25 @@ struct TilingSnapshot {
     shadow: Option<crate::render::SnapshotShadow>,
     border: Option<crate::render::SnapshotBorder>,
     opacity: f64,
+    native_chrome: bool,
+    bar: Option<smithay::backend::renderer::element::memory::MemoryRenderBuffer>,
 }
 
 pub(crate) struct TilingSnapshotElements {
-    pub animation: Option<crate::render::WindowRenderAnimation>,
+    pub bar: Option<TilingSnapshotBar>,
+    pub chrome_animation: Option<crate::render::WindowRenderAnimation>,
     pub popup_animation: Option<crate::render::WindowRenderAnimation>,
     pub live_popups: Option<TilingLivePopups>,
     pub elements: Vec<crate::render::OutputRenderElements>,
     pub blur: Option<crate::render::BlurRequestData>,
     pub shadow: Option<crate::render::SnapshotShadow>,
     pub border: Option<crate::render::SnapshotBorder>,
+}
+
+pub(crate) struct TilingSnapshotBar {
+    pub buffer: smithay::backend::renderer::element::memory::MemoryRenderBuffer,
+    pub rect: smithay::utils::Rectangle<f64, Logical>,
+    pub opacity: f64,
 }
 
 pub(crate) struct TilingLivePopups {
@@ -905,6 +914,15 @@ impl DriftWm {
                 && self.window_animations.generation_of(id).is_some()
                 && let Some(mut resize) = snapshot.resize.take()
             {
+                if !snapshot.blur.window_blur
+                    && snapshot
+                        .blur
+                        .client_regions
+                        .as_ref()
+                        .is_none_or(|r| r.is_empty())
+                {
+                    resize.preserve_initial_pixels();
+                }
                 resize.set_resize_direction(old_size, new_size);
                 self.resize_crossfades.insert(id, resize);
             }
@@ -1052,12 +1070,26 @@ impl DriftWm {
                     crate::handlers::background_effect::get_cached_blur_region,
                 ),
             };
-            let chrome = self.snapshot_chrome(&surface, geometry, false);
+            let native_chrome = crossfading
+                && !blur.window_blur
+                && blur.client_regions.as_ref().is_none_or(|r| r.is_empty())
+                && self.window_animations.open_progress(id).is_none();
+            let chrome = self
+                .snapshot_chrome(&surface, geometry, false)
+                .map(|mut chrome| {
+                    if let Some((buffer, mut rect)) = chrome.bar {
+                        let height = (rect.size.h * scale).round() / scale;
+                        rect.loc.y = f64::from(geometry.loc.y) - height;
+                        rect.size.h = height;
+                        chrome.bar = Some((buffer, rect));
+                    }
+                    chrome
+                });
             let origin = position.to_f64() - geometry.loc.to_f64();
             let shadow = chrome.and_then(|c| {
                 c.shadow_shader.map(|_| {
                     let border = f64::from(c.border_width.max(0));
-                    let bar = f64::from(blur.bar_height.unwrap_or(0));
+                    let bar = c.bar.map_or(0.0, |(_, rect)| rect.size.h);
                     crate::render::SnapshotShadow {
                         surface_id: surface.id(),
                         body: Rectangle::new(
@@ -1076,7 +1108,7 @@ impl DriftWm {
             });
             let border = chrome.and_then(|c| {
                 c.border_shader.map(|_| {
-                    let bar = f64::from(blur.bar_height.unwrap_or(0));
+                    let bar = c.bar.map_or(0.0, |(_, rect)| rect.size.h);
                     crate::render::SnapshotBorder {
                         surface_id: surface.id(),
                         inner: Rectangle::new(
@@ -1091,9 +1123,17 @@ impl DriftWm {
                     }
                 })
             });
+            // Decoration updates replace their buffer, so this clone retains
+            // the native-size title pixels across a superseding resize.
+            let bar = native_chrome
+                .then(|| chrome.and_then(|c| c.bar.map(|(b, _)| b.clone())))
+                .flatten();
             // Separate chrome preserves live alpha blending and output-space
             // rounding. Shadows also stay below frost instead of in its mask.
             let chrome = chrome.map(|mut c| {
+                if native_chrome {
+                    c.bar = None;
+                }
                 c.shadow_shader = None;
                 c.border_shader = None;
                 if crossfading {
@@ -1169,10 +1209,12 @@ impl DriftWm {
                             held_geometry,
                             resize,
                             popups,
-                            blur,
                             shadow,
                             border,
                             opacity,
+                            native_chrome,
+                            bar,
+                            blur,
                         },
                     );
                     if held_geometry.is_some() {
@@ -1323,7 +1365,24 @@ impl DriftWm {
                 request
             });
         Some(TilingSnapshotElements {
-            animation,
+            bar: snapshot.bar.as_ref().map(|buffer| {
+                let height = (f64::from(snapshot.blur.bar_height.unwrap_or(0)) * output_scale)
+                    .round()
+                    / output_scale;
+                TilingSnapshotBar {
+                    buffer: buffer.clone(),
+                    rect: smithay::utils::Rectangle::new(
+                        visual.loc - camera - Point::from((0.0, height)),
+                        (visual.size.w, height).into(),
+                    ),
+                    opacity,
+                }
+            }),
+            chrome_animation: if snapshot.native_chrome {
+                None
+            } else {
+                animation
+            },
             popup_animation,
             live_popups: (!popups_match).then(|| TilingLivePopups {
                 root: root.into_owned(),
@@ -1334,10 +1393,25 @@ impl DriftWm {
             elements,
             blur,
             border: snapshot.border.clone().map(|mut border| {
+                if snapshot.native_chrome {
+                    let bar = base.loc.y - border.inner.loc.y;
+                    border.inner = smithay::utils::Rectangle::new(
+                        visual.loc - Point::from((0.0, bar)),
+                        (visual.size.w, visual.size.h + bar).into(),
+                    );
+                }
                 border.opacity *= f64::from(visual.alpha);
                 border
             }),
             shadow: snapshot.shadow.clone().map(|mut shadow| {
+                if snapshot.native_chrome {
+                    let bw = f64::from(shadow.border_width);
+                    let bar = base.loc.y - shadow.body.loc.y - bw;
+                    shadow.body = smithay::utils::Rectangle::new(
+                        visual.loc - Point::from((bw, bar + bw)),
+                        (visual.size.w + 2.0 * bw, visual.size.h + bar + 2.0 * bw).into(),
+                    );
+                }
                 shadow.opacity *= f64::from(visual.alpha);
                 shadow
             }),

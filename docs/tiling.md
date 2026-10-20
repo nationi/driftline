@@ -120,7 +120,9 @@ opening scale still applies. Opening fades and ordinary
 position animations can continue on the saved picture. When the group releases,
 windows animate from the saved geometry to their new positions and sizes.
 Old and new content blend before window opacity is applied, including
-translucent pixels. If another transaction starts during a resolved canvas
+translucent pixels. Ordinary unblurred tiled resize transitions keep border
+strokes and compositor title bars at their native thickness and height while
+the window changes size. If another transaction starts during a resolved canvas
 resize, its current geometry and blended image are held until the new buffers
 apply or the deadline expires, then the transition resumes from that picture.
 Canvas resizes still held for a client reply can also be captured before a new

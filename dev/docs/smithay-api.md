@@ -660,3 +660,11 @@ cloning its mutably borrowed texture handle.
 and PartialEq and records logical source crop, destination size and subsurface
 offset. Include mapped surface IDs/tree order and geometry/clip/scale policy;
 a root-only commit counter misses child commits or reordered/moved subsurfaces.
+
+`MemoryRenderBuffer` is `Clone`, backed by `Arc<Mutex<MemoryRenderBufferInner>>`;
+cloning retains the existing storage, rather than copying pixels. Its mutable
+`render()` context exposes `draw(FnOnce(&mut [u8]) -> Result<Vec<Rectangle<i32,
+Buffer>>, E>)`; writes through a clone affect all owners. driftwm decoration
+updates replace `title_bar` with a new `render_title_bar` result, so retaining a
+clone preserves the previous title bitmap across those replacements. Do not
+mutate a retained title bitmap in place.

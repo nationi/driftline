@@ -469,6 +469,8 @@ fn tiling_live_frame(f: &mut Fixture, output: &smithay::output::Output) -> Vec<u
 enum TilingFinish {
     Buffers,
     ReleaseAnimation,
+    ReleaseSsdFrame,
+    ReleaseCsdFrame,
     ReleaseTranslucent,
     ReleasePixelAlpha,
     ReleaseRetarget,
@@ -577,6 +579,19 @@ fn check_pending_tiling_capture(
             | TilingFinish::ReleaseRetarget
     ) {
         config.replace("default_mode = \"client\"", "default_mode = \"none\"")
+    } else {
+        config
+    };
+    let config = if matches!(finish, TilingFinish::ReleaseSsdFrame) {
+        format!(
+            "{}\n[[window_rules]]\napp_id = \"a\"\ndecoration = \"server\"\n\n[[window_rules]]\napp_id = \"b\"\ndecoration = \"server\"\n",
+            config.replace("corner_radius = 0", "corner_radius = 8")
+        )
+    } else {
+        config
+    };
+    let config = if matches!(finish, TilingFinish::ReleaseCsdFrame) {
+        config.replace("corner_radius = 0", "corner_radius = 8")
     } else {
         config
     };
@@ -860,6 +875,8 @@ fn check_pending_tiling_capture(
     }
     match finish {
         TilingFinish::Buffers
+        | TilingFinish::ReleaseSsdFrame
+        | TilingFinish::ReleaseCsdFrame
         | TilingFinish::UnresolvedHold
         | TilingFinish::ReleaseAnimation
         | TilingFinish::ReleaseTranslucent
@@ -1118,11 +1135,15 @@ fn check_pending_tiling_capture(
             f.state().refresh_tiling_at(expired);
             f.double_roundtrip(first);
             assert_eq!(f.state().tiling_snapshot_count(), 0);
+            f.state()
+                .tick_window_animations(std::time::Duration::from_millis(16));
             assert!(before != tiling_live_frame(&mut f, &output));
         }
         TilingFinish::Exit => {
             f.state().execute_action(&Action::ToggleTiling);
             assert_eq!(f.state().tiling_snapshot_count(), 0);
+            f.state()
+                .tick_window_animations(std::time::Duration::from_millis(16));
             assert!(before != tiling_live_frame(&mut f, &output));
         }
     }
@@ -1140,10 +1161,35 @@ fn check_pending_tiling_capture(
     if matches!(
         finish,
         TilingFinish::ReleaseAnimation
+            | TilingFinish::ReleaseSsdFrame
+            | TilingFinish::ReleaseCsdFrame
             | TilingFinish::ReleaseTranslucent
             | TilingFinish::ReleasePixelAlpha
             | TilingFinish::ReleaseRetarget
     ) {
+        if matches!(
+            finish,
+            TilingFinish::ReleaseSsdFrame | TilingFinish::ReleaseCsdFrame
+        ) {
+            let differences: Vec<_> = before
+                .as_chunks::<4>()
+                .0
+                .iter()
+                .zip(released.as_chunks::<4>().0)
+                .enumerate()
+                .filter(|(_, (a, b))| {
+                    a.iter()
+                        .zip(b.iter())
+                        .any(|(a, b)| a.abs_diff(*b) > u8::from(shadow))
+                })
+                .take(8)
+                .map(|(i, (a, b))| (i % 1200, i / 1200, *a, *b))
+                .collect();
+            assert!(
+                differences.is_empty(),
+                "{scale}x release frame changed: {differences:?}"
+            );
+        }
         let id = f.state().stage.id_of(&wa).unwrap();
         let visual = f
             .state()
@@ -1204,6 +1250,53 @@ fn check_pending_tiling_capture(
         );
         let advanced = tiling_live_frame(&mut f, &output);
         assert!(released != advanced);
+        if matches!(
+            finish,
+            TilingFinish::ReleaseSsdFrame | TilingFinish::ReleaseCsdFrame
+        ) {
+            let visual = f
+                .state()
+                .window_animations
+                .geometry_visual_rect(id)
+                .unwrap();
+            let camera = f.state().camera();
+            let x = ((visual.loc.x - camera.x + visual.size.w / 2.0) * scale).round() as usize;
+            let content_top = ((visual.loc.y - camera.y) * scale).round() as usize;
+            let bar = if matches!(finish, TilingFinish::ReleaseSsdFrame) {
+                (f64::from(f.state().config.decorations.title_bar_height) * scale).round() as usize
+            } else {
+                0
+            };
+            let expected = content_top - bar;
+            let ring: Vec<_> = (0..content_top)
+                .filter(|y| {
+                    let start = (*y * 1200 + x) * 4;
+                    classify(Rgba(advanced[start..start + 4].try_into().unwrap())) == Px::Ring
+                })
+                .collect();
+            assert!(
+                ring.last().unwrap().abs_diff(expected) <= 1,
+                "{scale}x title-bar band moved: ring={ring:?}, expected edge={expected}"
+            );
+            assert!(
+                ring.len().abs_diff((2.0 * scale).round() as usize) <= 1,
+                "{scale}x border stroke stretched: {ring:?}"
+            );
+            f.state().execute_action(&Action::CycleColumnWidth);
+            assert!(f.state().tiling_snapshot_count() > 0);
+            let held = tiling_live_frame(&mut f, &output);
+            // The native title/ring band must survive supersession. Complete
+            // resized-content recapture has its own frame-conversion gate.
+            let band_end = content_top.saturating_sub((2.0 * scale).ceil() as usize) * 1200 * 4;
+            let delta = advanced[..band_end]
+                .iter()
+                .zip(&held[..band_end])
+                .map(|(a, b)| a.abs_diff(*b))
+                .max()
+                .unwrap();
+            assert!(delta <= 2, "{scale}x recaptured chrome differs by {delta}");
+        }
+
         if matches!(scene, TilingPopupScene::Menu) {
             assert_eq!(
                 popup_size(&advanced),
@@ -1309,7 +1402,9 @@ fn check_pending_tiling_capture(
                 .is_none()
         );
     } else {
-        assert!(before != released);
+        f.state()
+            .tick_window_animations(std::time::Duration::from_millis(16));
+        assert!(before != tiling_live_frame(&mut f, &output));
     }
     remove_pre_commit_hook(&surface, &hook);
     if f.state().tiling_view.is_some() {
@@ -1671,6 +1766,43 @@ fn late_tiling_buffers_animate_without_reopening_the_expired_group() {
         check_pending_tiling_capture(
             TilingFinish::LateReply,
             false,
+            TilingPopupScene::Menu,
+            scale,
+            None,
+        );
+    }
+}
+
+#[test]
+#[ignore = "needs surfaceless EGL; run with --include-ignored"]
+fn tiling_release_preserves_the_complete_ssd_frame() {
+    let _gl = gl::lock();
+    let (ready, loaded) = std::sync::mpsc::sync_channel(1);
+    driftwm::text::warm_fonts(move || {
+        let _ = ready.send(());
+    });
+    loaded
+        .recv_timeout(std::time::Duration::from_secs(10))
+        .unwrap();
+    for scale in [1.0, 1.25, 1.5] {
+        check_pending_tiling_capture(
+            TilingFinish::ReleaseSsdFrame,
+            true,
+            TilingPopupScene::Menu,
+            scale,
+            None,
+        );
+    }
+}
+
+#[test]
+#[ignore = "needs surfaceless EGL; run with --include-ignored"]
+fn tiling_release_preserves_the_complete_csd_frame() {
+    let _gl = gl::lock();
+    for scale in [1.0, 1.25, 1.5] {
+        check_pending_tiling_capture(
+            TilingFinish::ReleaseCsdFrame,
+            true,
             TilingPopupScene::Menu,
             scale,
             None,

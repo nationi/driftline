@@ -320,6 +320,7 @@ impl ResizeCaptures {
 /// live content. Both pictures share one premultiplied composite, so translucent
 /// pixels keep their alpha while the geometry leg plays.
 pub(crate) struct ResizeCrossfade {
+    native_initial: bool,
     current: Option<ResizeCurrent>,
     mixed: Option<GlesTexture>,
     buffer: TextureBuffer<GlesTexture>,
@@ -407,6 +408,11 @@ impl ResizeCrossfade {
         clip: Option<&GlesTexProgram>,
     ) -> Option<(TextureBuffer<GlesTexture>, Size<i32, Physical>)> {
         use smithay::backend::renderer::Texture;
+        // The first frame is exactly the retained picture. Resampling it into
+        // the new buffer size and back softens asymmetric SSD corner edges.
+        if self.native_initial && self.progress == 0.0 {
+            return Some((self.buffer.clone(), self.texels));
+        }
         if self
             .current
             .as_ref()
@@ -499,6 +505,10 @@ impl ResizeCrossfade {
             TextureBuffer::from_texture(renderer, mixed.clone(), 1, Transform::Normal, None),
             size,
         ))
+    }
+
+    pub(crate) fn preserve_initial_pixels(&mut self) {
+        self.native_initial = true;
     }
 
     pub(crate) fn set_resize_direction(
@@ -596,6 +606,7 @@ pub(crate) fn resize_crossfade(
         }
     };
     Some(ResizeCrossfade {
+        native_initial: false,
         current: None,
         mixed: None,
         buffer,

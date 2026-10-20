@@ -1201,3 +1201,59 @@ session were not changed. Destination authorized by the user:
 `origin/nationi/development` in `nationi/driftwm`.
 
 `cargo build --locked` also passed; log: `/tmp/driftwm-output-management-build.log`.
+
+## Native frames at grouped resize release (2026-10-20)
+
+Continued the focused P2/P13 release acceptance gate against the pinned niri
+`12de51d6a60baad8896366920278a24f17921f52`. niri's `Tile::render` derives border
+bounds from animated window size (`border_window_size`); driftwm's SSD needs its
+own conversion because niri has no equivalent compositor title bar.
+
+Normal unblurred tiled geometry chases now compose the border and shadow around
+the current visual rectangle with native stroke/radius, and regenerate the SSD
+bar at the visual width with native height/text. Content still uses its existing
+geometry affine and premultiplied resize blend. Frozen SSD bar height shares
+physical-pixel rounding with the live bar; popup animation anchors share the
+live root/geometry snapping. The first unblurred resize frame uses the old bake
+directly instead of upsampling it to the target and downsampling it again.
+That optimization is explicitly opted in: frosted and canvas blends retain
+their previous common-sized intermediate, preserving the existing frost gate.
+
+Recapturing an unblurred resize blend retains native border/shadow bounds and a
+separate title bitmap. Decoration updates replace their memory buffer, so its
+clone safely keeps the previous title pixels. The renderer keeps content and
+chrome transforms separate for these snapshots. This does not generalize the
+native frame path to frosted windows or inherited opening conversions.
+
+Added two ignored GLES regressions (run by CI with `--include-ignored`):
+`tiling_release_preserves_the_complete_ssd_frame` and
+`tiling_release_preserves_the_complete_csd_frame`. Both cover shadow, menu and
+1x/1.25x/1.5x scale. Complete initial release uses the unchanged one-byte shadow
+tolerance; middle-of-chase checks bound title height and ring stroke; a repeated
+resize checks the upper chrome band within two bytes. The SSD test synchronizes
+with font warmup so asynchronous first-time glyph availability cannot change
+between compared frames. Existing progress assertions tick the animation before
+requiring changed pixels: release itself intentionally preserves the old frame.
+
+The broader attempted full-frame recapture check exposed fractional-scale corner
+resampling (maximum channel deltas 117 in SSD at 1.25x and 89 in CSD at 1.5x).
+This is recorded as an unfinished frame-conversion gate, not hidden by a wider
+full-frame tolerance. The added supersession check deliberately covers only the
+upper chrome band; complete initial release still compares every pixel.
+
+Targeted SSD/CSD tests passed: `/tmp/driftwm-native-recapture.log` (2 cases, six
+scale scenes). The preceding graphics sweep passed all 52 pixel cases before
+the final separate-title recapture addition; the complete final CI run below is
+the authoritative regression gate. Earlier attempts exposed incorrect blur-path
+opt-in and recaptured border scaling; both were corrected before the final gate.
+No installed binary, user configuration or running desktop was changed. No push
+was performed for this batch. P0 audit and the remaining P2/P13 gates stay open.
+
+Final validation: `dev/scripts/ci-local` passed, exit 0;
+`/tmp/driftwm-chrome-release-ci.log`. Includes fmt, locked check, strict
+all-target clippy, no-run compilation, 368 library tests, 1453 binary tests
+including ignored GLES cases, every integration suite and isolated soak (one
+additional binary case). Local documentation links and `git diff --check`
+also passed. No pure stage/layout/config logic changed, so the extra deep
+proptest run was not needed. Next: full fractional-scale resize recapture and
+blur/inherited-opening frame conversion, alongside the still-open P0 audit.

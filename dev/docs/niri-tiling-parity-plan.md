@@ -247,7 +247,11 @@ unconditional frame-atomic rendering
 guarantee remain outstanding. Controlled GLES regressions now cover stationary
 1.25x/1.5x content, nested popups, live shadows and frost. Their frame comparisons
 exposed and gate bake-uniform rebasing and independent popup-offset rounding;
-scale transitions, odd extents, SSD and moving-camera cases remain outstanding.
+Normal unblurred release now has complete SSD/CSD frame comparisons at
+1x/1.25x/1.5x, native title/ring geometry checks during resize, and an upper-chrome
+supersession check. Complete fractional-scale resized-content recapture still
+resamples corner pixels; blurred/inherited-opening frame conversion, scale
+transitions, odd extents and moving-camera cases remain outstanding.
 A pinned source audit confirms that unbuffered windows
 remain outside the scrolling layout until mapping; do not reserve phantom
 columns or initial-configure order. First-buffer order and mapping-time focus
@@ -519,7 +523,8 @@ landed. Do not reimplement them from older history entries. Current priority:
 
 1. Finish P0 custom-decoder/public-option/default and ID-action audit; extend
    [reference fixtures](niri-reference-traces.md) beyond the controlled subset.
-2. Complete focused P2/P13 acceptance: SSD/border/shadow continuity on release,
+2. Continue P2/P13 acceptance beyond the delivered normal SSD/CSD release gate:
+   full resized-content recapture, blurred/inherited-opening frame conversion,
    degraded capped capture, changing scale/view/output, and motion-time lifecycle.
    Keep direct TTY visual checks separate from the unresolved nested NVIDIA bug.
 3. Follow P3 sizing/settings and P5 view-model dependencies after those gates;
@@ -527,7 +532,7 @@ landed. Do not reimplement them from older history entries. Current priority:
 
 Use [the maintained status](tiling-status.md) for current evidence and
 [the TTY guide](tty-preview.md) for local test keys. Keep commits focused and
-exclude the pre-existing output-management work. This roadmap supplies no
+keep output-management work separate from tiling ownership. This roadmap supplies no
 weighted completion percentage; partial tests do not close a milestone.
 
 ## Working rules for continuing agents
