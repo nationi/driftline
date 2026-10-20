@@ -1494,3 +1494,50 @@ repaint/cache-cleanup assertions passed in this gate. Local Markdown links and
 `git diff --check` passed. No pure stage/layout/config changes required an
 additional deep proptest run. Next: client blur regions and their native-frame /
 opening conversion; other roadmap gates and P0 audit remain open.
+
+
+## 2026-10-20 — committed client blur regions through animated native frames
+
+Baseline: `0163705`. Real `ext-background-effect-v1` clients exposed two distinct
+faults: live bounds were transformed before source-local rectangles were clipped,
+and fractional SSD bands rounded region origins differently on initial capture.
+Transform whole requests after source clipping; native resize/opening frames now
+project region endpoints onto their shared raster body before applying opening.
+Client effects use the shared clipped animated-content bake during geometry
+motion as well as opening. Keep eligibility stable after the first committed
+effect, including later unset/empty states; Smithay cached-state presence alone
+is insufficient because a pending request creates that entry before commit.
+Retained region metadata stays copy-on-write; release now preserves native initial
+pixels for these clients as it already does for window-rule blur.
+
+The new ignored GLES scenario uses actual protocol requests and covers 18 scenes:
+three motions (opening, move, seeded canvas resize), SSD/CSD, and static
+1x/1.25x/1.5x. Content is half-alpha green under opacity 0.6, rounded border and
+shadow over a striped backdrop. It verifies first-set and unset double buffering,
+visible partial frost bounded independently by the animated client rectangles,
+empty/outside region suppression, first grouped capture/release, successive
+capture, a region-only commit while held, and real doubled client dimensions
+with proportionally doubled regions. Complete transitions retain <=2 byte
+comparisons; the held picture is byte-identical after region-only commits.
+
+Development probes: `/tmp/driftwm-client-regions-before.log` showed a 188-byte
+initial-capture discrepancy; source-order repair alone left a 127-byte fractional
+release discrepancy. Native body sampling closed that gap. The expanded framed
+probe caught an SSD 1.5x region origin shifted by one pixel; sharing absolute
+raster endpoint projection closed it. The alpha=1 ghost used by older blur tests
+quantized away under SSD opening opacity; the new scenario uses half-alpha
+content so the enabled/disabled assertion actually measures visible frost.
+Final dedicated test: `/tmp/driftwm-client-regions-final.log`, passed. Full
+`dev/scripts/ci-local` passed (exit 0, `/tmp/driftwm-client-regions-ci.log`):
+368 library cases, 1456 binary cases including ignored GLES scenes, integration
+suites and isolated soak. The final expanded precommit/mask-bound assertions
+passed in the dedicated run; final fmt and strict all-target clippy passed
+(`/tmp/driftwm-client-regions-final-clippy.log`). `git diff --check` and local
+Markdown targets passed. No pure stage/layout/config algorithms changed.
+
+Remaining: arbitrary independently changed old/new region shapes need retained
+mask blending, rather than merely projecting the latest region onto the mixed
+body. Proportional-buffer tests do not close that gate. General geometry offsets,
+odd extents, degraded/capped pictures, changing views/scales/output, lifecycle
+transitions and P0 semantic audits remain open. No installed binary, user config,
+running compositor session or push was changed.

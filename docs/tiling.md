@@ -133,7 +133,10 @@ output scales. An opening fade can continue through grouped resize releases
 and recaptures: its progress stays intact, and its scale applies around the
 resized frame while old and new client content blend separately. This also
 applies to window-rule blur; the live backdrop continues beneath the saved
-opening picture.
+opening picture. Client-requested partial blur regions follow opening, movement
+and resize, including grouped capture/release when the regions stay fixed or
+scale with the client buffer. Empty regions do not enable whole-window blur.
+Independently changing old/new blur shapes during a resize blend still needs work.
 Canvas resizes still held for a client reply can also be captured before a new
 group takes over. A late buffer arriving after the group expires can start a
 bounded resize transition on an otherwise settled window without restarting

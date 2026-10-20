@@ -20,6 +20,7 @@ struct CachedBlurRegionInner {
     pending_dirty: bool,
     dirty: bool,
     hook_registered: bool,
+    committed: bool,
     /// Non-overlapping rects in surface-local logical coords. `None` = no
     /// region set (or unset). Empty `Vec` = explicit empty region (client
     /// opted out of blur).
@@ -44,6 +45,15 @@ pub fn get_cached_blur_region(states: &SurfaceData) -> Option<Arc<Vec<Rectangle<
     }
 
     guard.rects.clone()
+}
+
+/// Keep animation sampling stable after a client commits its first blur state,
+/// including later empty/unset states. Pending protocol requests do not opt in.
+pub fn has_committed_background_effect(states: &SurfaceData) -> bool {
+    states
+        .data_map
+        .get::<CachedBlurRegionUserData>()
+        .is_some_and(|cache| cache.0.lock().unwrap().committed)
 }
 
 fn recompute_blur_region(states: &SurfaceData, inner: &mut CachedBlurRegionInner) {
@@ -96,6 +106,7 @@ fn mark_blur_region_pending_dirty(wl_surface: &WlSurface) {
                 if guard.pending_dirty {
                     guard.pending_dirty = false;
                     guard.dirty = true;
+                    guard.committed = true;
                     true
                 } else {
                     false

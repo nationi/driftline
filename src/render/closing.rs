@@ -398,11 +398,11 @@ struct ResizeCurrent {
 }
 
 #[derive(Default)]
-pub(crate) struct OpeningContentCache {
+pub(crate) struct AnimatedContentCache {
     current: Option<ResizeCurrent>,
 }
 
-impl OpeningContentCache {
+impl AnimatedContentCache {
     pub(crate) fn content(
         &mut self,
         renderer: &mut GlesRenderer,

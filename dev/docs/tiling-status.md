@@ -1,7 +1,7 @@
 # Tiling development status and handoff
 
-Updated 2026-10-20. Implementation includes inherited opening (`11619e1`)
-and the shared opening-raster sampling batch recorded below. This is the current
+Updated 2026-10-20. Implementation includes shared opening rasters (`0163705`)
+and the client blur-region conversion batch recorded below. This is the current
 continuation point. Earlier batch
 notes, failed experiments and source derivations are preserved in
 [the historical journal](tiling-history.md); their pending/next statements are
@@ -57,7 +57,10 @@ Implemented, with partial reference coverage:
   Scaled-opening and opacity-only scenes cover unblurred and window-rule-blurred
   SSD/CSD, including first rounded capture. Live rounded opening uses a bounded,
   commit/geometry/scale-keyed content bake so capture samples the same grid.
-  Client blur regions still need dedicated conversion gates.
+  Client blur regions now follow opening/motion/native resize frames, including
+  grouped capture and release with fixed or proportionally resized regions.
+  Protocol state remains double-buffered; region-only commits cannot mutate a
+  retained mask. Arbitrary old/new region-shape blending remains outstanding.
 - Optional udev `--drm-connector NAME` restricts preview output enrollment.
   It does not implement independent multi-output tiling.
 
@@ -69,16 +72,19 @@ measurement. See roadmap acceptance criteria instead.
 
 ## Verified evidence and its limits
 
-Latest implementation gate: `/tmp/driftwm-opening-sampling-ci.log`, exit 0:
-full `dev/scripts/ci-local`, strict all-target clippy, 368 library tests, 1455
-binary cases plus isolated soak, and integration suites. Opening tests cover
-24 SSD/CSD scenes:
-scales 1x/1.25x/1.5x, amplitude 0.9 or 1.0, opacity 0.6, shadow/popup, with and
-without window blur over a striped backdrop. Complete first capture, release
-and resize-recapture comparisons stay within two bytes; each scene runs three
-releases and checks waiting ticks/progress/cleanup. Client repaint must update
-the opening cache. The former initial rounded-capture probe gap is closed in
-these scenes. Earlier pixel tolerances remain unchanged.
+Latest implementation gate: `/tmp/driftwm-client-regions-ci.log`, exit 0:
+full `dev/scripts/ci-local`, 368 library cases, 1456 binary cases including ignored
+GLES scenarios, integrations and isolated soak. Final expanded protocol/mask
+assertions also passed in `/tmp/driftwm-client-regions-final.log`, followed by
+fmt and strict all-target clippy (`/tmp/driftwm-client-regions-final-clippy.log`). The dedicated GLES test covers 18 SSD/CSD scenes: opening,
+move and canvas resize, at 1x/1.25x/1.5x, with opacity 0.6, rounded borders and
+shadows. It checks real `ext-background-effect-v1` requests before/after commit,
+empty/unset/outside regions, independently bounded animated frost, first capture,
+release and recapture, immutable held masks on region-only commits and a doubled
+client buffer with proportionally doubled regions. Full-frame transition
+comparisons retain the two-byte tolerance. This does not cover arbitrary region
+shape changes during the old/new content blend. Earlier opening/window-blur
+pixel gates remain in the full CI suite.
 No release build, installation or manual TTY acceptance was performed in this batch.
 
 GPU regressions ran on NVIDIA RTX 3060, including controlled 1x/1.25x/1.5x
@@ -98,12 +104,14 @@ issue fixed or disable blur to claim success.
 1. Finish P0 custom-decoder/public-option/default/ID-action audit and extend
    source-derived fixtures beyond the controlled zero-gap geometry subset.
    This remains a prerequisite to expanding advanced interactions.
-2. Continue P2/P13 with client blur regions before generalizing native frame
-   and opening-raster conversion to them. The first rounded opening capture and
+2. Continue P2/P13 with independently changing old/new client blur-region
+   shapes during content blending. Fixed/proportional regions now have native
+   frame and opening-raster conversion gates. The first rounded opening capture and
    combined window blur/opening resize gates are delivered for the scenes above.
    Normal unblurred and window-rule-blurred SSD/CSD recapture/release is covered
-   for three consecutive preset changes at static 1x/1.25x/1.5x. Framed canvas
-   resize entering tiling, general odd extents, geometry offsets, other animation
+   for three consecutive preset changes at static 1x/1.25x/1.5x. Client-effect
+   framed canvas resize entry is covered in the controlled scenes above; general
+   framed canvas resize entry, odd extents, geometry offsets, other animation
    phases and changing views/scales still need their own gates.
 3. Cover degraded stale/capped capture (body/frame geometry differ), changing
    view/output scale and output transitions, then motion-time remap/disconnect

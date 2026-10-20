@@ -22,7 +22,7 @@ pub(crate) use blur::compile_blur_shaders;
 pub use blur::{BlurCache, BlurScratchPool, SharedBlur};
 pub use capture::{render_capture_frames, render_screencopy, render_toplevel_captures};
 pub(crate) use closing::{
-    BakeChrome, CloseChrome, ClosePixels, ClosingSnapshot, OpeningContentCache, ResizeCaptures,
+    AnimatedContentCache, BakeChrome, CloseChrome, ClosePixels, ClosingSnapshot, ResizeCaptures,
     ResizeContentStamp, ResizeCrossfade, StandInFade, capture_close_pixels, close_pixels_fresh,
     resize_crossfade, snapshot_canvas, snapshot_screen,
 };
@@ -804,8 +804,9 @@ pub fn compose_frame(
         state.dnd_icon = None;
     }
 
-    state.render.opening_content.retain(|(_, id), _| {
-        state.window_animations.open_progress(*id).is_some()
+    state.render.animated_content.retain(|(_, id), _| {
+        (state.window_animations.open_progress(*id).is_some()
+            || state.window_animations.generation_of(*id).is_some())
             && state.stage.window_by_id(*id).is_some()
     });
     if state.session_lock.renders_lock_frame() {
@@ -1327,11 +1328,15 @@ pub fn compose_frame(
                 shadow_elems += 1;
             }
         }
-        let client_blur_rects = with_states(&wl_surface, |s| {
-            crate::handlers::background_effect::get_cached_blur_region(s)
+        let (client_blur_rects, client_effect) = with_states(&wl_surface, |s| {
+            (
+                crate::handlers::background_effect::get_cached_blur_region(s),
+                crate::handlers::background_effect::has_committed_background_effect(s),
+            )
         });
         // Empty rect list = client explicitly opted out → treat as off.
         let client_blur = client_blur_rects.as_ref().is_some_and(|r| !r.is_empty());
+
         // A frozen exit still wears the fullscreen picture over a culled canvas,
         // and an entry ramp is already fullscreen on the stage — neither may dim.
         let fullscreen_exempt = is_fullscreen || state.stage.is_fullscreen(window);
@@ -1355,16 +1360,16 @@ pub fn compose_frame(
         // native stroke and title-bar height around the current visual bounds.
         let resize_chrome = element_id
             .filter(|id| {
-                state.tiling_view.is_some()
-                    && !client_blur
+                (state.tiling_view.is_some() || client_effect)
                     && (!window_blur
+                        || client_effect
                         || !state
                             .window_animations
                             .is_canvas_translation(*id, geom_size)
                         || state.resize_crossfades.contains_key(id))
                     && !is_fullscreen
                     && !is_pinned
-                    && state.stage.is_tiled(*id)
+                    && (state.stage.is_tiled(*id) || client_effect)
             })
             .and_then(|id| state.window_animations.geometry_visual_rect(id));
         let chrome_loc = resize_chrome.map_or_else(
@@ -1460,15 +1465,15 @@ pub fn compose_frame(
                 .unwrap()
                 .blended_buffer(renderer, &wl_surface, stamp, clip.as_ref())
         } else if let Some(id) = element_id
-            && state.window_animations.open_progress(id).is_some()
+            && (state.window_animations.open_progress(id).is_some()
+                || (client_effect && state.window_animations.generation_of(id).is_some()))
             && !is_fullscreen
             && !is_pinned
-            && !client_blur
             && matches!(coverage, canvas::Coverage::None)
-            && effective_corner_radius > 0
+            && (effective_corner_radius > 0 || client_effect)
         {
-            // Opening and its retained picture must sample the same clipped
-            // texel grid. A direct analytic clip differs after resampling.
+            // Animated client effects and their retained picture must sample
+            // the same clipped grid, including while the effect is unset.
             let stamp = closing::ResizeContentStamp::for_surface(
                 &wl_surface,
                 window.geometry(),
@@ -1478,7 +1483,7 @@ pub fn compose_frame(
             let clip = state.render.corner_clip_shader.clone();
             state
                 .render
-                .opening_content
+                .animated_content
                 .entry((name.clone(), id))
                 .or_default()
                 .content(renderer, &wl_surface, stamp, clip.as_ref())
@@ -1834,7 +1839,37 @@ pub fn compose_frame(
             target.insert(content_at, content);
         }
 
-        if wants_blur && (target.len() - elem_start - shadow_count) > 0 {
+        if wants_blur
+            && client_blur
+            && (resize_chrome.is_some() || window_animation.is_some())
+            && target.len() - elem_start - shadow_count > 0
+        {
+            let policy = SnapshotBlur {
+                surface_id: wl_surface.id(),
+                position: loc,
+                geometry: window.geometry(),
+                bar_height: has_ssd.then_some(state.config.decorations.title_bar_height),
+                window_blur,
+                client_regions: client_blur_rects.clone(),
+            };
+            if let Some(mut request) = policy.request_in_visual(
+                Rectangle::new(chrome_loc, chrome_size),
+                output_scale * zoom,
+                chrome_animation,
+                target.len() - elem_start - shadow_count,
+            ) {
+                request.elem_start = elem_start;
+                request.trailing_chrome = shadow_count;
+                request.layer = if bucket_pinned {
+                    BlurLayer::Pinned
+                } else if is_widget {
+                    BlurLayer::Widget
+                } else {
+                    BlurLayer::Normal
+                };
+                blur_requests.push(request);
+            }
+        } else if wants_blur && (target.len() - elem_start - shadow_count) > 0 {
             let elem_count = target.len() - elem_start - shadow_count;
             let screen_loc: Point<i32, Logical> =
                 Point::from(((render_loc.x * zoom) as i32, (render_loc.y * zoom) as i32));
@@ -1884,7 +1919,7 @@ pub fn compose_frame(
                 );
                 chrome_animation.map_or(rect, |a| a.transform_phys_rect(rect))
             } else {
-                window_animation.map_or(screen_rect, |anim| anim.transform_phys_rect(screen_rect))
+                screen_rect
             };
 
             // Convert client blur region: surface-local Logical → mask-local
@@ -1904,6 +1939,9 @@ pub fn compose_frame(
                 let win_bounds: Rectangle<i32, Physical> = Rectangle::from_size(screen_rect.size);
                 let mut out: Vec<Rectangle<i32, Physical>> = Vec::with_capacity(rects.len());
                 for r in rects.iter() {
+                    let Some(r) = r.intersection(window.geometry()) else {
+                        continue;
+                    };
                     let x1 = ((r.loc.x as f64 + offset_x) * composite_scale).round() as i32;
                     let y1 = ((r.loc.y as f64 + offset_y) * composite_scale).round() as i32;
                     let x2 =
@@ -1931,7 +1969,7 @@ pub fn compose_frame(
             let skip_clipped_out = client_blur && region_rects.is_none() && !window_blur;
 
             if !skip_clipped_out {
-                blur_requests.push(BlurRequestData {
+                let mut request = BlurRequestData {
                     surface_id: wl_surface.id(),
                     screen_rect,
                     elem_start,
@@ -1953,7 +1991,16 @@ pub fn compose_frame(
                         BlurLayer::Normal
                     },
                     region_rects,
-                });
+                };
+                // Regions and bounds share the source coordinate space until
+                // both are transformed; clipping against resized bounds loses
+                // region coverage before the animation can move it.
+                if resize_chrome.is_none()
+                    && let Some(animation) = window_animation
+                {
+                    request.apply_animation(animation);
+                }
+                blur_requests.push(request);
             }
         }
     }

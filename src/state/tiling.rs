@@ -913,14 +913,7 @@ impl DriftWm {
                 && self.window_animations.generation_of(id).is_some()
                 && let Some(mut resize) = snapshot.resize.take()
             {
-                if snapshot
-                    .blur
-                    .client_regions
-                    .as_ref()
-                    .is_none_or(|r| r.is_empty())
-                {
-                    resize.preserve_initial_pixels();
-                }
+                resize.preserve_initial_pixels();
                 resize.set_resize_direction(old_size, new_size);
                 self.resize_crossfades.insert(id, resize);
             }
@@ -1060,6 +1053,13 @@ impl DriftWm {
             let Some(pixels) = pixels else {
                 continue;
             };
+            let (client_regions, client_effect) =
+                smithay::wayland::compositor::with_states(&surface, |states| {
+                    (
+                        crate::handlers::background_effect::get_cached_blur_region(states),
+                        crate::handlers::background_effect::has_committed_background_effect(states),
+                    )
+                });
             let blur = crate::render::SnapshotBlur {
                 surface_id: surface.id(),
                 position,
@@ -1073,13 +1073,11 @@ impl DriftWm {
                     &self.config.decorations,
                     false,
                 ),
-                client_regions: smithay::wayland::compositor::with_states(
-                    &surface,
-                    crate::handlers::background_effect::get_cached_blur_region,
-                ),
+                client_regions,
             };
-            let native_chrome = (crossfading || self.window_animations.open_progress(id).is_some())
-                && blur.client_regions.as_ref().is_none_or(|r| r.is_empty());
+            let native_chrome = crossfading
+                || self.window_animations.open_progress(id).is_some()
+                || (has_geometry && client_effect);
             let chrome = self
                 .snapshot_chrome(&surface, geometry, false)
                 .map(|mut chrome| {
@@ -1427,26 +1425,41 @@ impl DriftWm {
                 animation,
             ));
         }
-        let blur = snapshot
-            .blur
-            .request(camera, zoom, output_scale, elements.len())
-            .map(|mut request| {
-                // Transform already snapped mask geometry and client regions
-                // with the same affine as the retained content.
-                if snapshot.native_chrome {
-                    request.screen_rect = crate::render::SnapshotBlur::visual_screen_rect(
-                        smithay::utils::Rectangle::new(frame.loc - camera, frame.size),
-                        physical_scale,
-                        snapshot.blur.bar_height,
-                    );
-                    if let Some(a) = chrome_animation {
-                        request.apply_animation(a);
+        let blur = if snapshot.native_chrome
+            && snapshot
+                .blur
+                .client_regions
+                .as_ref()
+                .is_some_and(|r| !r.is_empty())
+        {
+            snapshot.blur.request_in_visual(
+                smithay::utils::Rectangle::new(frame.loc - camera, frame.size),
+                physical_scale,
+                chrome_animation,
+                elements.len(),
+            )
+        } else {
+            snapshot
+                .blur
+                .request(camera, zoom, output_scale, elements.len())
+                .map(|mut request| {
+                    // Transform already snapped mask geometry and client regions
+                    // with the same affine as the retained content.
+                    if snapshot.native_chrome {
+                        request.screen_rect = crate::render::SnapshotBlur::visual_screen_rect(
+                            smithay::utils::Rectangle::new(frame.loc - camera, frame.size),
+                            physical_scale,
+                            snapshot.blur.bar_height,
+                        );
+                        if let Some(a) = chrome_animation {
+                            request.apply_animation(a);
+                        }
+                    } else if let Some(animation) = animation {
+                        request.apply_animation(animation);
                     }
-                } else if let Some(animation) = animation {
-                    request.apply_animation(animation);
-                }
-                request
-            });
+                    request
+                })
+        };
         Some(TilingSnapshotElements {
             bar: snapshot.bar.as_ref().map(|buffer| {
                 let height = (f64::from(snapshot.blur.bar_height.unwrap_or(0)) * output_scale)

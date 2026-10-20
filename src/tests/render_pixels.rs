@@ -1932,7 +1932,7 @@ fn check_opening_resize_release(scale: f64, ssd: bool, opening_scale: f64, blur:
         first_frame != original,
         "opening cache must follow client commits"
     );
-    assert_eq!(f.state().render.opening_content.len(), 2);
+    assert_eq!(f.state().render.animated_content.len(), 2);
     if blur {
         assert_eq!(f.state().render.blur_cache.len(), 2);
     }
@@ -2033,7 +2033,7 @@ fn check_opening_resize_release(scale: f64, ssd: bool, opening_scale: f64, blur:
     assert!(f.state().window_animations.open_progress(id).is_none());
     assert!(f.state().resize_crossfades.is_empty());
     tiling_live_frame(&mut f, &output);
-    assert!(f.state().render.opening_content.is_empty());
+    assert!(f.state().render.animated_content.is_empty());
     f.state().execute_action(&Action::ToggleTiling);
     f.state().render.remove_output(&output.name());
     f.state().render.blur_down_shader = None;

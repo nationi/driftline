@@ -1016,6 +1016,72 @@ impl SnapshotBlur {
         )
     }
 
+    pub(crate) fn request_in_visual(
+        &self,
+        frame: Rectangle<f64, Logical>,
+        scale: f64,
+        opening: Option<super::WindowRenderAnimation>,
+        elem_count: usize,
+    ) -> Option<BlurRequestData> {
+        let client_blur = self.client_regions.as_ref().is_some_and(|r| !r.is_empty());
+        if !self.window_blur && !client_blur {
+            return None;
+        }
+        let screen_rect = Self::visual_screen_rect(frame, scale, self.bar_height);
+        let body = frame.to_physical(scale).to_i32_round::<i32>();
+        let bounds = Rectangle::from_size(screen_rect.size);
+        let regions = self
+            .client_regions
+            .as_ref()
+            .filter(|r| !r.is_empty())
+            .map(|regions| {
+                regions
+                    .iter()
+                    .filter_map(|region| {
+                        let source = region.intersection(self.geometry)?;
+                        let map = |p: Point<i32, Logical>| -> Point<i32, Physical> {
+                            (
+                                body.loc.x
+                                    + (f64::from(p.x - self.geometry.loc.x)
+                                        * f64::from(body.size.w)
+                                        / f64::from(self.geometry.size.w.max(1)))
+                                    .round() as i32,
+                                body.loc.y
+                                    + (f64::from(p.y - self.geometry.loc.y)
+                                        * f64::from(body.size.h)
+                                        / f64::from(self.geometry.size.h.max(1)))
+                                    .round() as i32,
+                            )
+                                .into()
+                        };
+                        let rect = Rectangle::from_extremities(
+                            map(source.loc),
+                            map(source.loc + source.size.to_point()),
+                        );
+                        Rectangle::new(rect.loc - screen_rect.loc, rect.size).intersection(bounds)
+                    })
+                    .collect::<Vec<_>>()
+            });
+        let region_rects = match regions {
+            Some(r) if !r.is_empty() => Some(Arc::new(r)),
+            Some(_) if !self.window_blur => return None,
+            _ => None,
+        };
+        let mut request = BlurRequestData {
+            surface_id: self.surface_id.clone(),
+            screen_rect,
+            elem_start: 0,
+            elem_count,
+            trailing_chrome: 0,
+            layer: BlurLayer::Normal,
+            region_rects,
+        };
+        if let Some(opening) = opening {
+            request.apply_animation(opening);
+        }
+        Some(request)
+    }
+
     pub fn request(
         &self,
         camera: Point<f64, Logical>,
@@ -1063,6 +1129,7 @@ impl SnapshotBlur {
                 .unwrap()
                 .iter()
                 .filter_map(|r| {
+                    let r = r.intersection(self.geometry)?;
                     let x1 = ((f64::from(r.loc.x) + offset.x) * scale).round() as i32;
                     let y1 = ((f64::from(r.loc.y) + offset.y) * scale).round() as i32;
                     let x2 = ((f64::from(r.loc.x) + f64::from(r.size.w) + offset.x) * scale).round()

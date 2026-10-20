@@ -1372,7 +1372,7 @@ impl DriftWm {
             ),
             ("shadow_cache", self.render.shadow_cache.len()),
             ("border_cache", self.render.border_cache.len()),
-            ("opening_content", self.render.opening_content.len()),
+            ("animated_content", self.render.animated_content.len()),
             ("cached_bg", self.render.cached_bg.len()),
             ("capture_state", self.render.capture_state.len()),
             ("cached_tile_chunks", self.render.cached_tile_chunks.len()),

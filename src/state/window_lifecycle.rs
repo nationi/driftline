@@ -85,7 +85,7 @@ impl DriftWm {
         if let Some(id) = self.stage.id_of(window) {
             self.window_animations.remove(id);
             self.render
-                .opening_content
+                .animated_content
                 .retain(|(_, candidate), _| *candidate != id);
             self.drop_resize_crossfade(id);
         }

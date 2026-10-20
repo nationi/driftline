@@ -668,3 +668,17 @@ Buffer>>, E>)`; writes through a clone affect all owners. driftwm decoration
 updates replace `title_bar` with a new `render_title_bar` result, so retaining a
 clone preserves the previous title bitmap across those replacements. Do not
 mutate a retained title bitmap in place.
+
+
+`BackgroundEffectSurfaceCachedState` (pinned Smithay `4cf0b62`) stores
+`blur_region: Option<RegionAttributes>`; use `states.cached_state.get::<...>()`
+and `current()` after commit. `cached_state.has::<...>()` also becomes true for
+pending requests, so it does not prove that a client committed an effect.
+`ExtBackgroundEffectHandler::{set_blur_region, unset_blur_region}` receive the
+surface when the request changes pending state; an `add_post_commit_hook` can
+mark the compositor's cached rectangle list dirty only on the next commit.
+Keep retained rectangle lists in an Arc and use copy-on-write when rebuilding.
+The `ext-background-effect-v1` client protocol copies `wl_region` rectangles
+in surface-local coordinates; NULL disables blur, and destroying the temporary
+`wl_region` after the request is valid. A region-only surface commit can apply
+without a new buffer or a configure acknowledgement.
