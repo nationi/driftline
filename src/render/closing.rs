@@ -398,6 +398,21 @@ struct ResizeCurrent {
 }
 
 impl ResizeCrossfade {
+    pub(crate) fn from_retained_content(
+        buffer: TextureBuffer<GlesTexture>,
+        texels: Size<i32, Physical>,
+    ) -> Self {
+        Self {
+            native_initial: true,
+            current: None,
+            mixed: None,
+            buffer,
+            texels,
+            grew: false,
+            progress: 0.0,
+        }
+    }
+
     /// Blend premultiplied contents before applying window opacity. Drawing the
     /// two pictures over one another would accumulate their transparency.
     pub(crate) fn blended_buffer(
@@ -527,6 +542,35 @@ impl ResizeCrossfade {
         1.0 - self.progress <= DONE_EPSILON
     }
 
+    pub(crate) fn render_retained_rect(
+        buffer: &TextureBuffer<GlesTexture>,
+        texels: Size<i32, Physical>,
+        rect: Rectangle<f64, Physical>,
+        output_scale: f64,
+        opacity: f64,
+    ) -> OutputRenderElements {
+        let texture = TextureRenderElement::from_texture_buffer(
+            Point::default(),
+            buffer,
+            Some(opacity as f32),
+            Some(super::texel_src(texels)),
+            Some(texels.to_logical(1)),
+            Kind::Unspecified,
+        );
+        // Base the affine on the rasterized source bounds, not an unrelated
+        // client's logical size: fractional rounding must survive a retarget.
+        let animation = WindowRenderAnimation::between_rects(
+            texture.geometry(Scale::from(output_scale)).to_f64(),
+            rect.to_i32_round::<i32>().to_f64(),
+        );
+        OutputRenderElements::ClosingWindow(WindowTransformElement::new(
+            texture,
+            animation.origin,
+            animation.offset,
+            animation.scale,
+        ))
+    }
+
     /// Place the combined content in the window's animated geometry, applying
     /// compositor opacity once after the premultiplied blend.
     pub(crate) fn render_blended_element(
@@ -638,6 +682,37 @@ pub(crate) struct ClosingSnapshot {
 }
 
 impl ClosingSnapshot {
+    pub(crate) fn render_retained_rect(
+        &self,
+        rect: Rectangle<f64, Physical>,
+        output_scale: f64,
+        opacity: f64,
+    ) -> OutputRenderElements {
+        ResizeCrossfade::render_retained_rect(
+            &self.buffer,
+            self.texels,
+            rect,
+            output_scale,
+            opacity,
+        )
+    }
+
+    pub(crate) fn from_retained_content(
+        buffer: TextureBuffer<GlesTexture>,
+        texels: Size<i32, Physical>,
+        canvas_rect: Rectangle<f64, Logical>,
+    ) -> Self {
+        Self {
+            buffer,
+            texels,
+            canvas_rect,
+            pinned: None,
+            alpha_only: true,
+            scale_amplitude: 1.0,
+            progress: 0.0,
+        }
+    }
+
     pub fn tick(&mut self, frame_factor: f64) {
         self.progress += (1.0 - self.progress) * frame_factor;
     }

@@ -125,6 +125,8 @@ strokes and compositor title bars at their native thickness and height while
 the window changes size. If another transaction starts during a resolved canvas
 resize, its current geometry and blended image are held until the new buffers
 apply or the deadline expires, then the transition resumes from that picture.
+Ordinary unblurred tiled resize recaptures reuse the mixed texture directly,
+avoiding extra filtering of rounded corners at fractional output scales.
 Canvas resizes still held for a client reply can also be captured before a new
 group takes over. A late buffer arriving after the group expires can start a
 bounded resize transition on an otherwise settled window without restarting

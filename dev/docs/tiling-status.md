@@ -1,7 +1,8 @@
 # Tiling development status and handoff
 
-Updated 2026-10-20. Implementation includes the native resize-frame batch
-recorded below (previous tiling baseline: `059556e`). This is the current continuation point. Earlier batch
+Updated 2026-10-20. Implementation includes native resize frames (`3170ceb`)
+and the retained-texture recapture batch recorded below. This is the current
+continuation point. Earlier batch
 notes, failed experiments and source derivations are preserved in
 [the historical journal](tiling-history.md); their pending/next statements are
 historical, not instructions to repeat completed work.
@@ -47,6 +48,8 @@ Implemented, with partial reference coverage:
   title-bar height/text around the animated visual bounds. Release preserves
   the complete SSD/CSD frame, including shadow and menu, at 1x/1.25x/1.5x.
   Superseding captures retain separate native title/ring/shadow presentation.
+  Normal unblurred resize recapture keeps the mixed texture's texel grid;
+  repeated grow/shrink releases share stable rasterized visual bounds.
 - Optional udev `--drm-connector NAME` restricts preview output enrollment.
   It does not implement independent multi-output tiling.
 
@@ -58,13 +61,13 @@ measurement. See roadmap acceptance criteria instead.
 
 ## Verified evidence and its limits
 
-Latest implementation gate: `/tmp/driftwm-chrome-release-ci.log`, exit 0:
-complete `dev/scripts/ci-local`, including strict all-target clippy, 368 library
-tests, 1453 binary cases plus isolated soak, and integration suites. The two
-new GLES cases compare the complete SSD/CSD release frame with the existing
-one-byte shadow tolerance, check native bar/stroke geometry during the chase,
-and check the upper chrome band after supersession (two-byte tolerance).
-The SSD case waits for the asynchronous font scan before comparing title text.
+Latest implementation gate: `/tmp/driftwm-recapture-ci.log`, exit 0: complete
+`dev/scripts/ci-local`, including strict all-target clippy, 368 library tests,
+1453 binary cases plus isolated soak, and integration suites. The SSD/CSD cases compare the
+complete initial release frame with the one-byte shadow tolerance, then three
+successive resize recaptures and releases with a two-byte full-frame tolerance
+at 1x/1.25x/1.5x. Waiting frames stay byte-identical. Middle-of-chase checks bound
+native bar height/stroke; SSD waits for font warmup before comparing title text.
 No release build, installation or manual TTY acceptance was performed in this batch.
 
 GPU regressions ran on NVIDIA RTX 3060, including controlled 1x/1.25x/1.5x
@@ -84,11 +87,11 @@ issue fixed or disable blur to claim success.
 1. Finish P0 custom-decoder/public-option/default/ID-action audit and extend
    source-derived fixtures beyond the controlled zero-gap geometry subset.
    This remains a prerequisite to expanding advanced interactions.
-2. Continue P2/P13 with full-frame recapture during a resize chase. The native
-   upper chrome band is covered; complete resized-content corners still differ
-   at fractional scale because the current capture resamples the mixed image.
-   Cover SSD/CSD with blur and inherited opening before generalizing native
-   frame conversion to those paths. The focused normal release gate is delivered.
+2. Continue P2/P13 with SSD/CSD blur and inherited opening during resize
+   supersession before generalizing native frame conversion to those paths.
+   Complete normal unblurred recapture/release is covered for three consecutive
+   preset changes at static 1x/1.25x/1.5x. General odd extents, geometry offsets,
+   other animation phases and changing views/scales still need their own gates.
 3. Cover degraded stale/capped capture (body/frame geometry differ), changing
    view/output scale and output transitions, then motion-time remap/disconnect
    and inherited opening during resize supersession. Existing static-scale

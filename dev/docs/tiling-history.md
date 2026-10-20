@@ -1257,3 +1257,58 @@ additional binary case). Local documentation links and `git diff --check`
 also passed. No pure stage/layout/config logic changed, so the extra deep
 proptest run was not needed. Next: full fractional-scale resize recapture and
 blur/inherited-opening frame conversion, alongside the still-open P0 audit.
+
+## Retain the mixed texel grid across resize supersession (2026-10-20)
+
+Continued the full-frame recapture gate left by `3170ceb`. Replacing the earlier
+upper-chrome crop with a complete frame reproduced the recorded corner deltas:
+`/tmp/driftwm-recapture-before.log` (SSD 117 at 1.25x, CSD 89 at 1.5x). The held
+mixed texture was wrapped in `ClosePixels`, flattened a second time into a
+snapshot, and baked again for its next resize leg. These extra sampling passes
+changed fractional-scale corner coverage.
+
+Normal unblurred resize supersession now retains the mixed texture and its
+original texel extent directly for both the waiting picture and the next resize
+leg. The old crossfade is dropped only after the snapshot and next leg own their
+texture handles, so it cannot reuse that render target underneath the retained
+picture. Failure to capture a mixed texture still skips capture; it must not
+silently replace the currently visible mix with the new client's pixels.
+Separate native SSD/title/ring/shadow presentation remains as in `3170ceb`.
+Blurred and inherited-opening capture retain their existing conversion path.
+
+Extending the test to three successive preset changes exposed a second issue:
+the source logical geometry changed on each release, so fractional rounding of
+that source moved output edges by a pixel even with the same retained texture.
+The normal native-frame live and snapshot paths now derive a texture affine
+from its actual rasterized source bounds to the same rounded physical visual
+rectangle. Client buffer dimensions no longer determine the retained picture's
+output rounding. Source premultiplied pixels and compositor opacity stay separate.
+
+Reference comparison used the unchanged pinned niri revision
+`12de51d6a60baad8896366920278a24f17921f52`: `Tile::render` resize handling keeps
+snapshot texture/physical geometry separate from animated window size, and
+`RenderSnapshot` caches texture plus physical extent. This change addresses
+our extra sampling/rounding passes; it is not a claim that driftwm's resize
+shader or complete animation policy now matches niri.
+
+Expanded the existing SSD/CSD GLES regressions to compare every pixel across
+three successive preset changes (growth and shrink), at 1x/1.25x/1.5x. Each
+cycle checks complete recapture within two channel bytes, a byte-identical held
+frame after a tick, and complete first release within two bytes. The original
+initial release keeps its stricter one-byte shadow tolerance. Test clients reply
+only to the newly configured participant, avoiding invalid repeat acknowledgements
+on unchanged peers. `/tmp/driftwm-recapture-native-rect.log` passed both expanded
+cases before removal of temporary failure diagnostics.
+
+General odd geometry, nonzero geometry offsets, view/scale/output changes,
+blurred/inherited-opening conversion and motion-time lifecycle gates remain open.
+No installation, session restart, user configuration change or push in this batch.
+
+Final validation passed: full `dev/scripts/ci-local`, exit 0, log
+`/tmp/driftwm-recapture-ci.log`. Includes fmt, locked check, strict all-target
+clippy, no-run build, 368 library tests, 1453 binary cases (including all ignored
+GLES scenarios and the existing frost regressions), integration suites and
+isolated soak. Local Markdown links and `git diff --check` passed. No pure
+stage/layout/config change required an additional deep proptest pass. Next:
+blurred/inherited-opening frame conversion during supersession; P0 semantic
+audit and the broader scale/view/output/lifecycle gates remain unfinished.

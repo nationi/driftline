@@ -1282,19 +1282,47 @@ fn check_pending_tiling_capture(
                 ring.len().abs_diff((2.0 * scale).round() as usize) <= 1,
                 "{scale}x border stroke stretched: {ring:?}"
             );
-            f.state().execute_action(&Action::CycleColumnWidth);
-            assert!(f.state().tiling_snapshot_count() > 0);
-            let held = tiling_live_frame(&mut f, &output);
-            // The native title/ring band must survive supersession. Complete
-            // resized-content recapture has its own frame-conversion gate.
-            let band_end = content_top.saturating_sub((2.0 * scale).ceil() as usize) * 1200 * 4;
-            let delta = advanced[..band_end]
-                .iter()
-                .zip(&held[..band_end])
-                .map(|(a, b)| a.abs_diff(*b))
-                .max()
-                .unwrap();
-            assert!(delta <= 2, "{scale}x recaptured chrome differs by {delta}");
+            let mut current = advanced.clone();
+            for tick_ms in [16, 48, 112] {
+                f.state().execute_action(&Action::CycleColumnWidth);
+                assert!(f.state().tiling_snapshot_count() > 0);
+                let held = tiling_live_frame(&mut f, &output);
+                let delta = current
+                    .iter()
+                    .zip(&held)
+                    .map(|(a, b)| a.abs_diff(*b))
+                    .max()
+                    .unwrap();
+                assert!(delta <= 2, "{scale}x recaptured frame differs by {delta}");
+                f.state()
+                    .tick_window_animations(std::time::Duration::from_millis(16));
+                assert_eq!(held, tiling_live_frame(&mut f, &output));
+                {
+                    let size = last_configured(&mut f, second, &b);
+                    let pixels = solid_bgra(size.0, size.1, [255, 0, 255, 255], false);
+                    let window = f.client(second).window(&b);
+                    window.set_size(size.0 as u16, size.1 as u16);
+                    window.attach_shm_buffer(size, &pixels);
+                    window.ack_last_and_commit();
+                    f.double_roundtrip(second);
+                }
+                f.double_roundtrip(first);
+                assert_eq!(f.state().tiling_snapshot_count(), 0);
+                let resumed = tiling_live_frame(&mut f, &output);
+                let delta = held
+                    .iter()
+                    .zip(&resumed)
+                    .map(|(a, b)| a.abs_diff(*b))
+                    .max()
+                    .unwrap();
+                assert!(
+                    delta <= 2,
+                    "{scale}x tick {tick_ms} recapture release differs by {delta}"
+                );
+                f.state()
+                    .tick_window_animations(std::time::Duration::from_millis(tick_ms));
+                current = tiling_live_frame(&mut f, &output);
+            }
         }
 
         if matches!(scene, TilingPopupScene::Menu) {

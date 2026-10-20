@@ -1406,6 +1406,18 @@ pub fn compose_frame(
             None
         };
         let resize_content_element = resize_content.map(|(buffer, texels)| {
+            if resize_chrome.is_some() {
+                return ResizeCrossfade::render_retained_rect(
+                    &buffer,
+                    texels,
+                    Rectangle::new(
+                        chrome_loc.to_physical(output_scale * zoom),
+                        chrome_size.to_physical(output_scale * zoom),
+                    ),
+                    output_scale,
+                    opacity,
+                );
+            }
             ResizeCrossfade::render_blended_element(
                 &buffer,
                 texels,

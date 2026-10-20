@@ -1026,7 +1026,7 @@ impl DriftWm {
             }
             let opacity = self.effective_opacity_of(window, focused.as_ref());
             let scale = self.flatten_scale_for_canvas_rect(visible);
-            let pixels = if crossfading {
+            let retained_content = if crossfading {
                 let stamp = crate::render::ResizeContentStamp::for_surface(
                     &surface,
                     geometry,
@@ -1034,13 +1034,23 @@ impl DriftWm {
                     self.baked_chrome_policy(&surface, false),
                 );
                 let clip = self.render.corner_clip_shader.clone();
-                self.resize_crossfades
-                    .get_mut(&id)
-                    .unwrap()
-                    .blended_buffer(backend.renderer(), &surface, stamp, clip.as_ref())
-                    .map(|(buffer, texels)| {
-                        crate::render::ClosePixels::from_resize_content(buffer, texels, geometry)
-                    })
+                self.resize_crossfades.get_mut(&id).unwrap().blended_buffer(
+                    backend.renderer(),
+                    &surface,
+                    stamp,
+                    clip.as_ref(),
+                )
+            } else {
+                None
+            };
+            let pixels = if crossfading {
+                retained_content.as_ref().map(|(buffer, texels)| {
+                    crate::render::ClosePixels::from_resize_content(
+                        buffer.clone(),
+                        *texels,
+                        geometry,
+                    )
+                })
             } else {
                 crate::render::capture_close_pixels(
                     backend.renderer(),
@@ -1141,15 +1151,27 @@ impl DriftWm {
                 }
                 c
             });
-            if let Some(image) = crate::render::snapshot_canvas(
-                backend.renderer(),
-                &pixels,
-                origin,
-                scale,
-                1.0,
-                true,
-                chrome.as_ref(),
-            ) {
+            // Keep the mixed texture's texel grid. Flattening it again filters
+            // fractional-scale corner pixels before the same output transform.
+            let retained_content = retained_content.filter(|_| native_chrome);
+            let image = if let Some((buffer, texels)) = &retained_content {
+                Some(crate::render::ClosingSnapshot::from_retained_content(
+                    buffer.clone(),
+                    *texels,
+                    Rectangle::new(position.to_f64(), geometry.size.to_f64()),
+                ))
+            } else {
+                crate::render::snapshot_canvas(
+                    backend.renderer(),
+                    &pixels,
+                    origin,
+                    scale,
+                    1.0,
+                    true,
+                    chrome.as_ref(),
+                )
+            };
+            if let Some(image) = image {
                 let popups: Option<Vec<_>> = mapped_tiling_popups(&surface)
                     .map(|(popup, offset)| {
                         let geometry = popup.geometry();
@@ -1185,6 +1207,13 @@ impl DriftWm {
                     // an early peer's new buffer can apply before group release.
                     let resize = (self.config.effects.animation_speed < 1.0)
                         .then(|| {
+                            if let Some((buffer, texels)) = retained_content {
+                                return Some(
+                                    crate::render::ResizeCrossfade::from_retained_content(
+                                        buffer, texels,
+                                    ),
+                                );
+                            }
                             crate::render::resize_crossfade(
                                 backend.renderer(),
                                 &pixels,
@@ -1345,14 +1374,25 @@ impl DriftWm {
                 )
             })
             .collect();
-        elements.extend(snapshot.image.render_element_with_animation(
-            &name,
-            camera,
-            zoom,
-            output_scale,
-            opacity,
-            animation,
-        ));
+        if snapshot.native_chrome {
+            elements.push(snapshot.image.render_retained_rect(
+                smithay::utils::Rectangle::new(
+                    (visual.loc - camera).to_physical(physical_scale),
+                    visual.size.to_physical(physical_scale),
+                ),
+                output_scale,
+                opacity,
+            ));
+        } else {
+            elements.extend(snapshot.image.render_element_with_animation(
+                &name,
+                camera,
+                zoom,
+                output_scale,
+                opacity,
+                animation,
+            ));
+        }
         let blur = snapshot
             .blur
             .request(camera, zoom, output_scale, elements.len())
