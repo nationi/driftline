@@ -1837,3 +1837,156 @@ fn tiling_release_preserves_the_complete_csd_frame() {
         );
     }
 }
+
+#[test]
+#[ignore = "needs surfaceless EGL; run with --include-ignored"]
+fn tiling_resize_release_preserves_an_inherited_opening_picture() {
+    let _gl = gl::lock();
+    let (ready, loaded) = std::sync::mpsc::sync_channel(1);
+    driftwm::text::warm_fonts(move || {
+        let _ = ready.send(());
+    });
+    loaded
+        .recv_timeout(std::time::Duration::from_secs(10))
+        .unwrap();
+    for scale in [1.0, 1.25, 1.5] {
+        for ssd in [false, true] {
+            for opening_scale in [0.9, 1.0] {
+                check_opening_resize_release(scale, ssd, opening_scale);
+            }
+        }
+    }
+}
+
+fn check_opening_resize_release(scale: f64, ssd: bool, opening_scale: f64) {
+    use super::{last_configured, map_window_shm, window_by_app_id};
+    use driftwm::config::Action;
+    let Some(renderer) = gl::surfaceless_renderer("opening resize") else {
+        return;
+    };
+    let config = format!(
+        "{}\n[effects]\nanimation_speed = 0.25\nanimation_scale = {opening_scale}\n",
+        config_toml(true)
+            .replace("corner_radius = 0", "corner_radius = 8")
+            .replace(
+                "[decorations]",
+                "[decorations]\nopacity = 0.6\nopacity_focused = 0.6"
+            )
+    );
+    let config = if ssd {
+        format!(
+            "{config}\n[[window_rules]]\napp_id = \"a\"\ndecoration = \"server\"\n\n[[window_rules]]\napp_id = \"b\"\ndecoration = \"server\"\n"
+        )
+    } else {
+        config
+    };
+    let mut f = Fixture::with_config(super::config(&config));
+    let output = f.add_output_scaled(1, (1200, 800), scale);
+    gl::install(&mut f, renderer);
+    let first = f.add_client();
+    let second = f.add_client();
+    let old = solid_bgra(200, 100, [0, 0, 128, 128], false);
+    let a = map_window_shm(&mut f, first, "a", (200, 100), (200, 100), &old);
+    let b = map_window_shm(&mut f, second, "b", (200, 100), (200, 100), &old);
+    super::tick_until_settled(&mut f);
+    let wa = window_by_app_id(&mut f, "a").unwrap();
+    let wb = window_by_app_id(&mut f, "b").unwrap();
+    f.state().stage.set_position(&wa, (50, 80).into());
+    f.state().stage.set_position(&wb, (350, 80).into());
+    f.state().set_camera((0.0, 0.0).into());
+    colored_tiling_popup(&mut f, first, &a, (180, 50), [255, 0, 0, 255]);
+    f.state().start_window_open_animation(&wa);
+    f.state().start_window_open_animation(&wb);
+    f.state()
+        .tick_window_animations(std::time::Duration::from_millis(48));
+    let id = f.state().stage.id_of(&wb).unwrap();
+    tiling_live_frame(&mut f, &output);
+    f.state().execute_action(&Action::ToggleTiling);
+    for round in 0..3 {
+        assert!(f.state().tiling_snapshot_count() > 0);
+        let previous = f.state().window_animations.open_progress(id).unwrap();
+        let waiting = tiling_live_frame(&mut f, &output);
+        f.state()
+            .tick_window_animations(std::time::Duration::from_millis(16));
+        assert!(f.state().window_animations.open_progress(id).unwrap() > previous);
+        let held = tiling_live_frame(&mut f, &output);
+        assert!(waiting != held);
+        let progress = f.state().window_animations.open_progress(id).unwrap();
+        let clients = if round == 0 {
+            vec![(first, &a), (second, &b)]
+        } else {
+            vec![(second, &b)]
+        };
+        for (client, surface) in clients {
+            let size = last_configured(&mut f, client, surface);
+            let pixels = solid_bgra(
+                size.0,
+                size.1,
+                if round % 2 == 0 {
+                    [0, 128, 0, 128]
+                } else {
+                    [128, 0, 0, 128]
+                },
+                false,
+            );
+            let window = f.client(client).window(surface);
+            window.set_size(size.0 as u16, size.1 as u16);
+            window.attach_shm_buffer(size, &pixels);
+            window.ack_last_and_commit();
+            f.double_roundtrip(client);
+        }
+        f.double_roundtrip(first);
+        assert_eq!(f.state().tiling_snapshot_count(), 0);
+        assert_eq!(
+            f.state().window_animations.open_progress(id),
+            Some(progress)
+        );
+        assert!(f.state().resize_crossfades.contains_key(&id));
+        let released = tiling_live_frame(&mut f, &output);
+        let delta = held
+            .iter()
+            .zip(&released)
+            .map(|(a, b)| a.abs_diff(*b))
+            .max()
+            .unwrap();
+        let differences: Vec<_> = held
+            .as_chunks::<4>()
+            .0
+            .iter()
+            .zip(released.as_chunks::<4>().0)
+            .enumerate()
+            .filter(|(_, (a, b))| a.iter().zip(b.iter()).any(|(a, b)| a.abs_diff(*b) > 2))
+            .take(8)
+            .map(|(i, (a, b))| (i % 1200, i / 1200, *a, *b))
+            .collect();
+        assert!(
+            delta <= 2,
+            "{scale}x SSD={ssd} round {round}: opening release differs by {delta}: {differences:?}"
+        );
+        f.state()
+            .tick_window_animations(std::time::Duration::from_millis(16));
+        assert!(f.state().window_animations.open_progress(id).unwrap() > progress);
+        let moving = tiling_live_frame(&mut f, &output);
+        assert!(moving != released);
+        if round != 2 {
+            f.state().execute_action(&Action::CycleColumnWidth);
+            let captured = tiling_live_frame(&mut f, &output);
+            let delta = moving
+                .iter()
+                .zip(&captured)
+                .map(|(a, b)| a.abs_diff(*b))
+                .max()
+                .unwrap();
+            assert!(
+                delta <= 2,
+                "{scale}x SSD={ssd}: opening recapture differs by {delta}"
+            );
+        }
+    }
+    super::tick_until_settled(&mut f);
+    assert!(f.state().window_animations.open_progress(id).is_none());
+    assert!(f.state().resize_crossfades.is_empty());
+    f.state().execute_action(&Action::ToggleTiling);
+    f.state().render.remove_output(&output.name());
+    gl::uninstall(&mut f);
+}

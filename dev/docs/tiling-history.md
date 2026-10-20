@@ -1372,3 +1372,63 @@ isolated soak. Local Markdown links and `git diff --check` passed. No pure
 stage/layout/config change needed an additional deep proptest pass. Next:
 inherited opening during resize supersession, followed by client blur regions;
 the remaining view/scale/output, degraded capture and P0 gates are unchanged.
+
+## Preserve inherited opening through grouped resize (2026-10-20)
+
+Continued P2/P13 after `a5a8641`. Group release previously skipped the retained
+resize picture whenever `has_open_fade` was true; the fade survived, but the new
+client pixels replaced the held picture immediately. The new GLES scenario
+reproduced the missing crossfade: `/tmp/driftwm-opening-before.log`.
+
+Group release now creates the retained-content blend while keeping the existing
+opening progress. This changes the grouped release path, not the pre-commit
+policy that avoids capturing an unshown throwaway first buffer for an ordinary
+canvas opening. Native frame bounds follow the unscaled resize geometry, with
+an independent opening-only transform around bar, border and shadow. Content
+uses the same opening transform applied to rasterized frame bounds, preserving
+fractional source-origin rounding rather than deriving it from the new buffer.
+Opening snapshots keep a separate title bitmap, avoiding another title-text
+sampling pass. Opacity is applied after the premultiplied content blend.
+
+Popup pixels keep their native dimensions under resize. A shared transform maps
+the snapped source root onto the snapped visual-frame root, then applies only
+opening scale. This fixed a one-pixel popup jump at 1.25x when the new client's
+logical geometry changed the source rounding phase. Existing normal resize,
+translation and blur paths remain covered by their regression suites.
+
+Pinned niri reference is unchanged:
+`12de51d6a60baad8896366920278a24f17921f52`. `Tile::render` wraps
+`render_inner` (which handles resize) with the separate opening animation;
+opening and resize are independent entries. driftwm now preserves that
+separation in its grouped retained-picture path; this does not claim full
+shader, physics or lifecycle parity with niri.
+
+Added ignored GLES test
+`tiling_resize_release_preserves_an_inherited_opening_picture`: 12 SSD/CSD scenes
+at 1x/1.25x/1.5x, opening amplitude 0.9 or opacity-only 1.0, compositor opacity
+0.6, premultiplied half-transparent client pixels, shadow and popup. Each runs
+three releases, ticks opening while buffers wait, checks progress is unchanged
+at release and increases on ticks, compares complete held/released and
+resize-recaptured frames within two channel bytes, and checks final cleanup.
+Targeted result: `/tmp/driftwm-opening-complete.log`, passed.
+
+An additional probe comparing the original freshly opening rounded window with
+its *first* retained capture differed by five channel bytes at 1.5x in the
+unblurred CSD scene. This remains a separate sampling gate; it is not declared
+fixed and the tolerance was not widened. The committed resize test compares
+complete frames starting from the held picture and during subsequent resize
+recaptures; it does not assert original-to-first-capture equivalence. Combined
+window blur/inherited-opening resize still needs dedicated full-frame scenes,
+as do client blur regions and the other scale/view/lifecycle gates. Existing
+opening-blur regression scenarios remain part of CI.
+
+No user config, installed binary or running desktop changed; no push. Final CI
+result follows; the maintained status is the continuation point.
+
+Final full `dev/scripts/ci-local` passed, exit 0:
+`/tmp/driftwm-opening-ci.log`. Includes fmt, locked check, strict all-target
+clippy, no-run build, 368 library tests, 1454 binary cases including ignored
+GLES scenes, integration suites and isolated soak. Local Markdown links and
+`git diff --check` passed. No pure stage/layout/config change required a deep
+proptest run. Next: combined window blur/opening resize and initial rounded
+opening-capture precision, then client blur regions and remaining P0/P2/P13 gates.

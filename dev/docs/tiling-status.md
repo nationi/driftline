@@ -1,7 +1,7 @@
 # Tiling development status and handoff
 
-Updated 2026-10-20. Implementation includes native resize frames (`3170ceb`),
-retained-texture recapture (`78be755`) and the window-blur batch recorded below. This is the current
+Updated 2026-10-20. Implementation includes window-blur resize frames
+(`a5a8641`) and the inherited-opening batch recorded below. This is the current
 continuation point. Earlier batch
 notes, failed experiments and source derivations are preserved in
 [the historical journal](tiling-history.md); their pending/next statements are
@@ -52,7 +52,10 @@ Implemented, with partial reference coverage:
   Resize recapture keeps the mixed texture's texel grid; repeated grow/shrink
   releases share stable rasterized visual bounds and window-blur mask extents.
   Tiled columns keep configured corners/shadows when filling the work area.
-  Inherited opening and client blur regions still use the previous conversion.
+  Retained opening progress can now survive group release and successive
+  resize captures: opening wraps native chrome while content blends separately.
+  Controlled unblurred scaled-opening and opacity-only scenes cover this path;
+  combined window blur/opening and client blur regions still need dedicated gates.
 - Optional udev `--drm-connector NAME` restricts preview output enrollment.
   It does not implement independent multi-output tiling.
 
@@ -64,14 +67,16 @@ measurement. See roadmap acceptance criteria instead.
 
 ## Verified evidence and its limits
 
-Latest implementation gate: `/tmp/driftwm-frost-frame-ci-final.log`, exit 0:
-full `dev/scripts/ci-local`, strict all-target clippy, 368 library tests,
-1453 binary cases plus isolated soak, and integration suites. Expanded frost
-regression to six
-SSD/CSD scenes at 1x/1.25x/1.5x, each checking the initial release plus three
-successive resize captures and releases with a two-byte full-frame tolerance.
-Waiting frames stay byte-identical. Existing unblurred SSD/CSD checks retain
-their stricter initial one-byte shadow tolerance. SSD waits for font warmup.
+Latest implementation gate: `/tmp/driftwm-opening-ci.log`, exit 0: full
+`dev/scripts/ci-local`, strict all-target clippy, 368 library tests, 1454 binary
+cases plus isolated soak, and integration suites. New inherited-opening test covers
+12 unblurred SSD/CSD scenes: scales 1x/1.25x/1.5x, opening amplitude 0.9 or 1.0,
+opacity 0.6, shadow and popup. Each runs three grouped releases, full-frame
+release/resize-recapture comparisons within two bytes, opening ticks while
+waiting, progress preservation and final cleanup. Earlier normal/blur gates and
+their tolerances remain unchanged. Initial fresh rounded-opening capture has a
+separate unresolved 5-byte probe delta at 1.5x (see history); this test starts
+from the already retained picture and does not claim that gate passed.
 No release build, installation or manual TTY acceptance was performed in this batch.
 
 GPU regressions ran on NVIDIA RTX 3060, including controlled 1x/1.25x/1.5x
@@ -91,15 +96,16 @@ issue fixed or disable blur to claim success.
 1. Finish P0 custom-decoder/public-option/default/ID-action audit and extend
    source-derived fixtures beyond the controlled zero-gap geometry subset.
    This remains a prerequisite to expanding advanced interactions.
-2. Continue P2/P13 with inherited opening during resize supersession, then
-   client blur regions before generalizing native frame conversion to them.
+2. Continue P2/P13 with combined window blur/inherited-opening resize and
+   fresh rounded-opening capture (5-byte full-frame probe delta at 1.5x), then
+   client blur regions before generalizing native conversion to them.
    Normal unblurred and window-rule-blurred SSD/CSD recapture/release is covered
    for three consecutive preset changes at static 1x/1.25x/1.5x. Framed canvas
    resize entering tiling, general odd extents, geometry offsets, other animation
    phases and changing views/scales still need their own gates.
 3. Cover degraded stale/capped capture (body/frame geometry differ), changing
    view/output scale and output transitions, then motion-time remap/disconnect
-   and inherited opening during resize supersession. Existing static-scale
+   and opening through these lifecycle changes. Existing static-scale
    and timeout tests do not close these cases.
 4. After these gates, follow P3 sizing/settings and P5 view physics dependencies;
    extend structural reference operations with their own fixtures. Tabs,

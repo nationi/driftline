@@ -910,7 +910,6 @@ impl DriftWm {
                 Some(destination),
             );
             if content_changed
-                && !self.window_animations.has_open_fade(id)
                 && self.window_animations.generation_of(id).is_some()
                 && let Some(mut resize) = snapshot.resize.take()
             {
@@ -1079,9 +1078,8 @@ impl DriftWm {
                     crate::handlers::background_effect::get_cached_blur_region,
                 ),
             };
-            let native_chrome = crossfading
-                && blur.client_regions.as_ref().is_none_or(|r| r.is_empty())
-                && self.window_animations.open_progress(id).is_none();
+            let native_chrome = (crossfading || self.window_animations.open_progress(id).is_some())
+                && blur.client_regions.as_ref().is_none_or(|r| r.is_empty());
             let chrome = self
                 .snapshot_chrome(&surface, geometry, false)
                 .map(|mut chrome| {
@@ -1315,14 +1313,28 @@ impl DriftWm {
             snapshot.blur.position.to_f64(),
             snapshot.blur.geometry.size.to_f64(),
         );
-        let visual = self.window_animations.opening_visual(
-            id,
-            snapshot.held_geometry.unwrap_or_else(|| {
-                smithay::utils::Rectangle::new(base.loc + displacement, base.size)
-            }),
-            self.config.effects.animation_scale,
-        );
+        let frame = snapshot
+            .held_geometry
+            .unwrap_or_else(|| smithay::utils::Rectangle::new(base.loc + displacement, base.size));
+        let visual =
+            self.window_animations
+                .opening_visual(id, frame, self.config.effects.animation_scale);
         let physical_scale = zoom * output_scale;
+        // Opening wraps native chrome; resize changes its bounds, not its stroke.
+        let chrome_animation = (snapshot.native_chrome
+            && self.window_animations.open_progress(id).is_some())
+        .then(|| {
+            crate::render::WindowRenderAnimation::between_rects(
+                smithay::utils::Rectangle::new(
+                    (frame.loc - camera).to_physical(physical_scale),
+                    frame.size.to_physical(physical_scale),
+                ),
+                smithay::utils::Rectangle::new(
+                    (visual.loc - camera).to_physical(physical_scale),
+                    visual.size.to_physical(physical_scale),
+                ),
+            )
+        });
         let animation = (visual.loc != base.loc || visual.size != base.size).then(|| {
             crate::render::WindowRenderAnimation::between_rects(
                 smithay::utils::Rectangle::new(
@@ -1336,6 +1348,27 @@ impl DriftWm {
             )
         });
         let popup_animation = animation.map(|animation| {
+            if snapshot.native_chrome {
+                let root =
+                    snapshot.blur.position.to_f64() - snapshot.blur.geometry.loc.to_f64() - camera;
+                let source: Point<i32, smithay::utils::Physical> = root
+                    .to_physical_precise_round(output_scale)
+                    + snapshot
+                        .blur
+                        .geometry
+                        .loc
+                        .to_physical_precise_round(output_scale);
+                return crate::render::WindowRenderAnimation::popup_at(
+                    source.to_f64().upscale(smithay::utils::Scale::from(zoom)),
+                    (frame.loc - camera)
+                        .to_physical_precise_round::<_, i32>(output_scale)
+                        .to_f64()
+                        .upscale(smithay::utils::Scale::from(zoom)),
+                    chrome_animation,
+                    self.window_animations
+                        .opening_scale(id, self.config.effects.animation_scale),
+                );
+            }
             animation.for_popups(
                 (base.loc - camera).to_physical(physical_scale),
                 self.window_animations
@@ -1373,11 +1406,14 @@ impl DriftWm {
             })
             .collect();
         if snapshot.native_chrome {
+            let rect = smithay::utils::Rectangle::new(
+                (frame.loc - camera).to_physical(physical_scale),
+                frame.size.to_physical(physical_scale),
+            )
+            .to_i32_round::<i32>();
+            let rect = chrome_animation.map_or(rect, |a| a.transform_phys_rect(rect));
             elements.push(snapshot.image.render_retained_rect(
-                smithay::utils::Rectangle::new(
-                    (visual.loc - camera).to_physical(physical_scale),
-                    visual.size.to_physical(physical_scale),
-                ),
+                rect.to_f64(),
                 output_scale,
                 opacity,
             ));
@@ -1399,10 +1435,13 @@ impl DriftWm {
                 // with the same affine as the retained content.
                 if snapshot.native_chrome {
                     request.screen_rect = crate::render::SnapshotBlur::visual_screen_rect(
-                        smithay::utils::Rectangle::new(visual.loc - camera, visual.size),
+                        smithay::utils::Rectangle::new(frame.loc - camera, frame.size),
                         physical_scale,
                         snapshot.blur.bar_height,
                     );
+                    if let Some(a) = chrome_animation {
+                        request.apply_animation(a);
+                    }
                 } else if let Some(animation) = animation {
                     request.apply_animation(animation);
                 }
@@ -1416,14 +1455,14 @@ impl DriftWm {
                 TilingSnapshotBar {
                     buffer: buffer.clone(),
                     rect: smithay::utils::Rectangle::new(
-                        visual.loc - camera - Point::from((0.0, height)),
-                        (visual.size.w, height).into(),
+                        frame.loc - camera - Point::from((0.0, height)),
+                        (frame.size.w, height).into(),
                     ),
                     opacity,
                 }
             }),
             chrome_animation: if snapshot.native_chrome {
-                None
+                chrome_animation
             } else {
                 animation
             },
@@ -1440,8 +1479,8 @@ impl DriftWm {
                 if snapshot.native_chrome {
                     let bar = base.loc.y - border.inner.loc.y;
                     border.inner = smithay::utils::Rectangle::new(
-                        visual.loc - Point::from((0.0, bar)),
-                        (visual.size.w, visual.size.h + bar).into(),
+                        frame.loc - Point::from((0.0, bar)),
+                        (frame.size.w, frame.size.h + bar).into(),
                     );
                 }
                 border.opacity *= f64::from(visual.alpha);
@@ -1452,8 +1491,8 @@ impl DriftWm {
                     let bw = f64::from(shadow.border_width);
                     let bar = base.loc.y - shadow.body.loc.y - bw;
                     shadow.body = smithay::utils::Rectangle::new(
-                        visual.loc - Point::from((bw, bar + bw)),
-                        (visual.size.w + 2.0 * bw, visual.size.h + bar + 2.0 * bw).into(),
+                        frame.loc - Point::from((bw, bar + bw)),
+                        (frame.size.w + 2.0 * bw, frame.size.h + bar + 2.0 * bw).into(),
                     );
                 }
                 shadow.opacity *= f64::from(visual.alpha);

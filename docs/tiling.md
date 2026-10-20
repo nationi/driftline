@@ -123,11 +123,15 @@ Old and new content blend before window opacity is applied, including
 translucent pixels. Ordinary tiled resize transitions, including windows with
 blur enabled by a window rule, keep border strokes and compositor title bars
 at their native thickness and height while the window changes size. Tiled
-columns keep their configured corners and shadows when filling the work area. If another transaction starts during a resolved canvas
+columns keep their configured corners and shadows when filling the work area.
+If another transaction starts during a resolved canvas
 resize, its current geometry and blended image are held until the new buffers
 apply or the deadline expires, then the transition resumes from that picture.
 Ordinary tiled resize recaptures, including window-rule blur, reuse the mixed
-texture directly, avoiding extra filtering of rounded corners at fractional output scales.
+texture directly, avoiding extra filtering of rounded corners at fractional
+output scales. An opening fade can continue through grouped resize releases
+and recaptures: its progress stays intact, and its scale applies around the
+resized frame while old and new client content blend separately.
 Canvas resizes still held for a client reply can also be captured before a new
 group takes over. A late buffer arriving after the group expires can start a
 bounded resize transition on an otherwise settled window without restarting

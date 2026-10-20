@@ -146,6 +146,26 @@ impl WindowRenderAnimation {
         }
     }
 
+    // Resize moves the snapped root; only opening scales popup pixels.
+    pub(crate) fn popup_at(
+        source: Point<f64, Physical>,
+        frame: Point<f64, Physical>,
+        opening: Option<Self>,
+        opening_scale: f64,
+    ) -> Self {
+        let target = opening.map_or(frame, |a| {
+            Point::from((
+                a.origin.x + (frame.x - a.origin.x) * a.scale.x + a.offset.x,
+                a.origin.y + (frame.y - a.origin.y) * a.scale.y + a.offset.y,
+            ))
+        });
+        Self {
+            origin: source,
+            offset: target - source,
+            scale: Scale::from(opening_scale),
+        }
+    }
+
     /// Apply the same affine the element decorator applies, so the frost rect
     /// follows the animated window instead of its (instant) logical position.
     pub(crate) fn transform_phys_rect(
@@ -1020,13 +1040,18 @@ pub fn compose_frame(
                     None,
                     Kind::Unspecified,
                 ) {
-                    zoomed_normal.push(OutputRenderElements::TrimmedDecoration(
-                        PixelSnapRescaleElement::from_element(
-                            TrimmedElement::from_element(element, dst),
-                            (0, 0).into(),
-                            zoom,
-                        ),
-                    ));
+                    let element = PixelSnapRescaleElement::from_element(
+                        TrimmedElement::from_element(element, dst),
+                        (0, 0).into(),
+                        zoom,
+                    );
+                    if let Some(a) = snapshot.chrome_animation {
+                        zoomed_normal.push(OutputRenderElements::AnimatedTrimmedDecoration(
+                            WindowTransformElement::new(element, a.origin, a.offset, a.scale),
+                        ));
+                    } else {
+                        zoomed_normal.push(OutputRenderElements::TrimmedDecoration(element));
+                    }
                 }
             }
             zoomed_normal.extend(snapshot.elements);
@@ -1336,7 +1361,6 @@ pub fn compose_frame(
                     && !is_fullscreen
                     && !is_pinned
                     && state.stage.is_tiled(*id)
-                    && state.window_animations.open_progress(*id).is_none()
             })
             .and_then(|id| state.window_animations.geometry_visual_rect(id));
         let chrome_loc = resize_chrome.map_or_else(
@@ -1350,8 +1374,26 @@ pub fn compose_frame(
             |r| r.loc - camera,
         );
         let chrome_size = resize_chrome.map_or(geom_size.to_f64(), |r| r.size);
-        let chrome_animation = if resize_chrome.is_some() {
-            None
+        let chrome_animation = if let Some(frame) = resize_chrome {
+            element_id
+                .filter(|id| state.window_animations.open_progress(*id).is_some())
+                .map(|id| {
+                    let opened = state.window_animations.opening_visual(
+                        id,
+                        frame,
+                        state.config.effects.animation_scale,
+                    );
+                    WindowRenderAnimation::between_rects(
+                        Rectangle::new(
+                            (frame.loc - camera).to_physical(output_scale * zoom),
+                            frame.size.to_physical(output_scale * zoom),
+                        ),
+                        Rectangle::new(
+                            (opened.loc - camera).to_physical(output_scale * zoom),
+                            opened.size.to_physical(output_scale * zoom),
+                        ),
+                    )
+                })
         } else {
             window_animation
         };
@@ -1418,13 +1460,16 @@ pub fn compose_frame(
         };
         let resize_content_element = resize_content.map(|(buffer, texels)| {
             if resize_chrome.is_some() {
+                let rect = Rectangle::new(
+                    chrome_loc.to_physical(output_scale * zoom),
+                    chrome_size.to_physical(output_scale * zoom),
+                )
+                .to_i32_round::<i32>();
+                let rect = chrome_animation.map_or(rect, |a| a.transform_phys_rect(rect));
                 return ResizeCrossfade::render_retained_rect(
                     &buffer,
                     texels,
-                    Rectangle::new(
-                        chrome_loc.to_physical(output_scale * zoom),
-                        chrome_size.to_physical(output_scale * zoom),
-                    ),
+                    rect.to_f64(),
                     output_scale,
                     opacity,
                 );
@@ -1465,16 +1510,27 @@ pub fn compose_frame(
         // Popups push first (earlier in vec = on-top in smithay z-order) so
         // they sit above the title bar and clipped window content.
         let popup_animation = window_animation.map(|animation| {
-            let content_origin = if resize_chrome.is_some() {
-                (loc_phys + geom_loc.to_physical_precise_round(scale))
-                    .to_f64()
-                    .upscale(Scale::from(zoom))
-            } else {
-                Point::from((
-                    (render_loc.x + geom_loc.x as f64) * zoom * output_scale,
-                    (render_loc.y + geom_loc.y as f64) * zoom * output_scale,
-                ))
-            };
+            if resize_chrome.is_some() {
+                return WindowRenderAnimation::popup_at(
+                    (loc_phys + geom_loc.to_physical_precise_round(scale))
+                        .to_f64()
+                        .upscale(Scale::from(zoom)),
+                    chrome_loc
+                        .to_physical_precise_round::<_, i32>(scale)
+                        .to_f64()
+                        .upscale(Scale::from(zoom)),
+                    chrome_animation,
+                    element_id.map_or(1.0, |id| {
+                        state
+                            .window_animations
+                            .opening_scale(id, state.config.effects.animation_scale)
+                    }),
+                );
+            }
+            let content_origin = Point::from((
+                (render_loc.x + geom_loc.x as f64) * zoom * output_scale,
+                (render_loc.y + geom_loc.y as f64) * zoom * output_scale,
+            ));
             animation.for_popups(
                 content_origin,
                 element_id.map_or(1.0, |id| {
@@ -1794,11 +1850,12 @@ pub fn compose_frame(
             // logical position (accepted cost: a frosted animation re-blurs at
             // frame rate, throttled by `animate_blur_fps` like a drag).
             let screen_rect = if resize_chrome.is_some() {
-                SnapshotBlur::visual_screen_rect(
+                let rect = SnapshotBlur::visual_screen_rect(
                     Rectangle::new(chrome_loc, chrome_size),
                     output_scale * zoom,
                     has_ssd.then_some(state.config.decorations.title_bar_height),
-                )
+                );
+                chrome_animation.map_or(rect, |a| a.transform_phys_rect(rect))
             } else {
                 window_animation.map_or(screen_rect, |anim| anim.transform_phys_rect(screen_rect))
             };
