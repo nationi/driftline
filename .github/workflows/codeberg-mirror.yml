@@ -9,6 +9,7 @@ on:
 
 jobs:
   mirror:
+    if: github.repository == 'malbiruk/driftwm'
     runs-on: ubuntu-latest
     steps:
       - name: Setup SSH

@@ -409,6 +409,7 @@ pub(crate) fn render_if_needed(data: &mut DriftWm) {
 pub fn init_udev(
     event_loop: &mut EventLoop<'static, DriftWm>,
     data: &mut DriftWm,
+    connector_filter: Option<String>,
 ) -> Result<UdevDevice, Box<dyn std::error::Error>> {
     // 1. Create libseat session
     let (mut session, session_notifier) = LibSeatSession::new()
@@ -646,6 +647,9 @@ pub fn init_udev(
                 connector,
                 crtc: Some(crtc),
             } => {
+                if !connector_selected(connector_filter.as_deref(), &connector) {
+                    continue;
+                }
                 tracing::info!(
                     "Connector connected: {}-{} (CRTC {:?})",
                     connector.interface().as_str(),
@@ -683,7 +687,11 @@ pub fn init_udev(
     }
 
     if device_surfaces.is_empty() {
-        return Err("Display connected but failed to create DRM surfaces".into());
+        return Err(format!(
+            "No usable DRM surfaces (connector filter: {:?})",
+            connector_filter,
+        )
+        .into());
     }
 
     // 7. Compile background shader / load tile (shared with winit)
@@ -861,6 +869,10 @@ pub fn init_udev(
                                     connector,
                                     crtc: Some(crtc),
                                 } => {
+                                    if !connector_selected(connector_filter.as_deref(), &connector)
+                                    {
+                                        continue;
+                                    }
                                     if surfaces.contains_key(&crtc) {
                                         continue;
                                     }
@@ -1938,4 +1950,14 @@ fn convert_subpixel(sp: connector::SubPixel) -> Subpixel {
         connector::SubPixel::None => Subpixel::None,
         _ => Subpixel::Unknown,
     }
+}
+
+fn connector_selected(filter: Option<&str>, connector: &connector::Info) -> bool {
+    filter.is_none_or(|name| {
+        name == format!(
+            "{}-{}",
+            connector.interface().as_str(),
+            connector.interface_id()
+        )
+    })
 }

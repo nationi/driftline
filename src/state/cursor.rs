@@ -7,7 +7,7 @@ use smithay::input::pointer::CursorImageStatus;
 use smithay::utils::{Logical, Point, Transform};
 
 /// Embedded left-pointer fallback used when no xcursor theme is resolvable
-/// (e.g. minimal NixOS configs). 24×24 RGBA, hotspot (7, 4). Sourced from
+/// (e.g. a minimal desktop installation). 24×24 RGBA, hotspot (7, 4). Sourced from
 /// the elementary cursor theme (GPL-3.0); see resources/fallback_cursor.LICENSE.md.
 static FALLBACK_CURSOR_RGBA: &[u8] = include_bytes!("../../resources/fallback_cursor.rgba");
 const FALLBACK_CURSOR_SIZE: i32 = 24;
@@ -68,7 +68,7 @@ impl CursorState {
     ///
     /// If theme resolution fails for `name == "default"`, the embedded fallback
     /// shape is used so the pointer stays visible on systems with no usable
-    /// cursor theme (e.g. minimal NixOS configs).
+    /// cursor theme.
     pub fn load_xcursor(
         &mut self,
         name: &str,

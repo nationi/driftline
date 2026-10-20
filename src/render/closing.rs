@@ -11,9 +11,13 @@ use smithay::backend::renderer::element::{Element as _, Kind, RenderElement};
 use smithay::backend::renderer::gles::{
     GlesPixelProgram, GlesRenderer, GlesTexProgram, GlesTexture, Uniform, UniformValue,
 };
-use smithay::backend::renderer::utils::{RendererSurfaceStateUserData, import_surface};
+use smithay::backend::renderer::utils::{
+    CommitCounter, RendererSurfaceStateUserData, SurfaceView, import_surface,
+};
 use smithay::backend::renderer::{Bind as _, Color32F, Frame as _, Offscreen, Renderer as _};
-use smithay::reexports::wayland_server::protocol::wl_surface::WlSurface;
+use smithay::reexports::wayland_server::{
+    Resource, backend::ObjectId, protocol::wl_surface::WlSurface,
+};
 use smithay::utils::user_data::UserDataMap;
 use smithay::utils::{Logical, Physical, Point, Rectangle, Scale, Size, Transform};
 use smithay::wayland::compositor::{TraversalAction, with_surface_tree_downward};
@@ -110,6 +114,26 @@ pub(crate) struct ClosePixels {
     pub geometry: Rectangle<i32, Logical>,
     /// When these pixels were cloned, so a stale capture can be discarded.
     pub captured_at: Instant,
+}
+
+impl ClosePixels {
+    pub(crate) fn from_resize_content(
+        buffer: TextureBuffer<GlesTexture>,
+        texels: Size<i32, Physical>,
+        geometry: Rectangle<i32, Logical>,
+    ) -> Self {
+        Self {
+            surfaces: vec![BakedSurface {
+                buffer,
+                location: geometry.loc.to_f64(),
+                src: super::texel_src(texels),
+                dst: geometry.size,
+            }],
+            bounds: geometry.to_f64(),
+            geometry,
+            captured_at: Instant::now(),
+        }
+    }
 }
 
 /// How long captured close pixels stay usable.
@@ -223,7 +247,7 @@ impl ClosePixels {
 /// `bare` windows (fullscreen, or `decoration = "none"`) get no rounding at all,
 /// the rest are clipped to `corner_radius` — bottom corners only under an SSD
 /// bar, which covers the top edge.
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub(crate) struct BakeChrome {
     pub bare: bool,
     pub corner_radius: [f32; 4],
@@ -292,10 +316,16 @@ impl ResizeCaptures {
     }
 }
 
-/// A resized window's old content, fading out over its live new content while
-/// the geometry leg plays. Both are drawn into the same interpolated rect, so
-/// the exchange reads as one morph rather than a stale stretch and a pop.
+/// A resized window's old content and reusable targets for blending it with
+/// live content. Both pictures share one premultiplied composite, so translucent
+/// pixels keep their alpha while the geometry leg plays.
 pub(crate) struct ResizeCrossfade {
+    native_initial: bool,
+    blur_source: Option<BlurMaskSource>,
+    blur_policy: Option<super::SnapshotBlur>,
+    blur_mixed: Option<GlesTexture>,
+    current: Option<ResizeCurrent>,
+    mixed: Option<GlesTexture>,
     buffer: TextureBuffer<GlesTexture>,
     /// Texel extent of `buffer`, which is wrapped at scale 1 — see [`texel_src`].
     texels: Size<i32, Physical>,
@@ -309,7 +339,440 @@ pub(crate) struct ResizeCrossfade {
     progress: f64,
 }
 
+#[derive(PartialEq)]
+pub(crate) struct ResizeContentStamp {
+    commits: Vec<(ObjectId, CommitCounter, SurfaceView, i32, Transform)>,
+    pub geometry: Rectangle<i32, Logical>,
+    pub scale: f64,
+    pub chrome: BakeChrome,
+}
+
+impl ResizeContentStamp {
+    pub(crate) fn for_surface(
+        surface: &WlSurface,
+        geometry: Rectangle<i32, Logical>,
+        scale: f64,
+        chrome: BakeChrome,
+    ) -> Self {
+        let mut commits = Vec::new();
+        with_surface_tree_downward(
+            surface,
+            (),
+            |_, states, _| {
+                if states
+                    .data_map
+                    .get::<RendererSurfaceStateUserData>()
+                    .is_some_and(|data| data.lock().unwrap().view().is_some())
+                {
+                    TraversalAction::DoChildren(())
+                } else {
+                    TraversalAction::SkipChildren
+                }
+            },
+            |surface, states, _| {
+                if let Some(data) = states.data_map.get::<RendererSurfaceStateUserData>() {
+                    let data = data.lock().unwrap();
+                    if let Some(view) = data.view() {
+                        commits.push((
+                            surface.id(),
+                            data.current_commit(),
+                            view,
+                            data.buffer_scale(),
+                            data.buffer_transform(),
+                        ));
+                    }
+                }
+            },
+            |_, _, _| true,
+        );
+        Self {
+            commits,
+            geometry,
+            scale,
+            chrome,
+        }
+    }
+}
+
+struct ResizeCurrent {
+    stamp: ResizeContentStamp,
+    buffer: TextureBuffer<GlesTexture>,
+    texels: Size<i32, Physical>,
+}
+
+#[derive(Default)]
+pub(crate) struct AnimatedContentCache {
+    current: Option<ResizeCurrent>,
+}
+
+impl AnimatedContentCache {
+    pub(crate) fn content(
+        &mut self,
+        renderer: &mut GlesRenderer,
+        surface: &WlSurface,
+        stamp: ResizeContentStamp,
+        clip: Option<&GlesTexProgram>,
+    ) -> Option<(TextureBuffer<GlesTexture>, Size<i32, Physical>)> {
+        if self.current.as_ref().is_none_or(|c| c.stamp != stamp) {
+            let pixels = capture_close_pixels(renderer, surface, stamp.geometry, Instant::now())?;
+            let content = resize_crossfade(
+                renderer,
+                &pixels,
+                stamp.geometry.size,
+                stamp.scale,
+                clip,
+                stamp.chrome,
+            )?;
+            self.current = Some(ResizeCurrent {
+                stamp,
+                buffer: content.buffer,
+                texels: content.texels,
+            });
+        }
+        let current = self.current.as_ref()?;
+        Some((current.buffer.clone(), current.texels))
+    }
+}
+
+#[derive(Clone)]
+pub(crate) struct BlurMaskSource {
+    pub buffer: TextureBuffer<GlesTexture>,
+    pub texels: Size<i32, Physical>,
+    // Normalized body-local endpoints; None means already weighted coverage.
+    regions: Option<Vec<[f64; 4]>>,
+}
+
+impl BlurMaskSource {
+    fn regions(policy: &super::SnapshotBlur) -> Vec<[f64; 4]> {
+        let regions = match &policy.client_regions {
+            Some(regions) if !regions.is_empty() => regions
+                .iter()
+                .filter_map(|r| {
+                    let r = r.intersection(policy.geometry)?;
+                    Some([
+                        f64::from(r.loc.x - policy.geometry.loc.x)
+                            / f64::from(policy.geometry.size.w),
+                        f64::from(r.loc.y - policy.geometry.loc.y)
+                            / f64::from(policy.geometry.size.h),
+                        f64::from(r.loc.x + r.size.w - policy.geometry.loc.x)
+                            / f64::from(policy.geometry.size.w),
+                        f64::from(r.loc.y + r.size.h - policy.geometry.loc.y)
+                            / f64::from(policy.geometry.size.h),
+                    ])
+                })
+                .collect(),
+            _ => Vec::new(),
+        };
+        if regions.is_empty() && policy.window_blur {
+            vec![[0.0, 0.0, 1.0, 1.0]]
+        } else {
+            regions
+        }
+    }
+}
+
 impl ResizeCrossfade {
+    pub(crate) fn from_retained_content(
+        buffer: TextureBuffer<GlesTexture>,
+        texels: Size<i32, Physical>,
+    ) -> Self {
+        Self {
+            native_initial: true,
+            blur_source: None,
+            blur_policy: None,
+            blur_mixed: None,
+            current: None,
+            mixed: None,
+            buffer,
+            texels,
+            grew: false,
+            progress: 0.0,
+        }
+    }
+
+    /// Blend premultiplied contents before applying window opacity. Drawing the
+    /// two pictures over one another would accumulate their transparency.
+    pub(crate) fn blended_buffer(
+        &mut self,
+        renderer: &mut GlesRenderer,
+        surface: &WlSurface,
+        stamp: ResizeContentStamp,
+        clip: Option<&GlesTexProgram>,
+    ) -> Option<(TextureBuffer<GlesTexture>, Size<i32, Physical>)> {
+        use smithay::backend::renderer::Texture;
+        // The first frame is exactly the retained picture. Resampling it into
+        // the new buffer size and back softens asymmetric SSD corner edges.
+        if self.native_initial && self.progress == 0.0 {
+            return Some((self.buffer.clone(), self.texels));
+        }
+        if self
+            .current
+            .as_ref()
+            .is_none_or(|current| current.stamp != stamp)
+        {
+            let pixels = capture_close_pixels(renderer, surface, stamp.geometry, Instant::now())?;
+            let current = resize_crossfade(
+                renderer,
+                &pixels,
+                stamp.geometry.size,
+                stamp.scale,
+                clip,
+                stamp.chrome,
+            )?;
+            self.current = Some(ResizeCurrent {
+                stamp,
+                buffer: current.buffer,
+                texels: current.texels,
+            });
+        }
+        let current = self.current.as_ref()?;
+        let size = current.texels;
+        if self
+            .mixed
+            .as_ref()
+            .is_none_or(|texture| texture.size().w != size.w || texture.size().h != size.h)
+        {
+            self.mixed = Some(
+                Offscreen::<GlesTexture>::create_buffer(
+                    renderer,
+                    Fourcc::Abgr8888,
+                    size.to_logical(1).to_buffer(1, Transform::Normal),
+                )
+                .ok()?,
+            );
+        }
+        let mixed = self.mixed.as_mut()?;
+        let mut target = renderer.bind(mixed).ok()?;
+        let mut frame = renderer.render(&mut target, size, Transform::Normal).ok()?;
+        frame
+            .clear(Color32F::TRANSPARENT, &[Rectangle::from_size(size)])
+            .ok()?;
+        frame
+            .with_context(|gl| unsafe {
+                gl.BlendFunc(
+                    smithay::backend::renderer::gles::ffi::ONE,
+                    smithay::backend::renderer::gles::ffi::ONE,
+                );
+            })
+            .ok()?;
+        let old_weight = crossfade_out_alpha(self.progress, self.grew);
+        let result = (|| {
+            for (buffer, texels, weight) in [
+                (&self.buffer, self.texels, old_weight),
+                (&current.buffer, current.texels, 1.0 - old_weight),
+            ] {
+                let element = TextureRenderElement::from_texture_buffer(
+                    Point::default(),
+                    buffer,
+                    Some(weight),
+                    Some(super::texel_src(texels)),
+                    Some(size.to_logical(1)),
+                    Kind::Unspecified,
+                );
+                <TextureRenderElement<GlesTexture> as RenderElement<GlesRenderer>>::draw(
+                    &element,
+                    &mut frame,
+                    element.src(),
+                    Rectangle::from_size(size),
+                    &[Rectangle::from_size(size)],
+                    &[],
+                    None,
+                )?;
+            }
+            Ok::<_, smithay::backend::renderer::gles::GlesError>(())
+        })();
+        // Restore Smithay's premultiplied source-over even on a failed draw.
+        frame
+            .with_context(|gl| unsafe {
+                gl.BlendFunc(
+                    smithay::backend::renderer::gles::ffi::ONE,
+                    smithay::backend::renderer::gles::ffi::ONE_MINUS_SRC_ALPHA,
+                );
+            })
+            .ok()?;
+        result.ok()?;
+        let _ = frame.finish().ok()?;
+        drop(target);
+        Some((
+            TextureBuffer::from_texture(renderer, mixed.clone(), 1, Transform::Normal, None),
+            size,
+        ))
+    }
+
+    pub(crate) fn retain_blur_mask(
+        &mut self,
+        policy: &super::SnapshotBlur,
+        inherited: Option<BlurMaskSource>,
+    ) {
+        self.blur_policy = inherited.is_none().then(|| policy.clone());
+        self.blur_source = Some(inherited.unwrap_or_else(|| BlurMaskSource {
+            buffer: self.buffer.clone(),
+            texels: self.texels,
+            regions: Some(BlurMaskSource::regions(policy)),
+        }));
+    }
+
+    // Keep the first frame on the original raster/threshold path. Thresholding
+    // before resampling can change a rounded corner by an entire pixel.
+    pub(crate) fn initial_blur_policy(&self) -> Option<&super::SnapshotBlur> {
+        (self.progress == 0.0)
+            .then_some(self.blur_policy.as_ref())
+            .flatten()
+    }
+
+    pub(crate) fn blended_blur_mask(
+        &mut self,
+        renderer: &mut GlesRenderer,
+        shader: &GlesTexProgram,
+        policy: &super::SnapshotBlur,
+        size: Size<i32, Physical>,
+    ) -> Option<BlurMaskSource> {
+        use smithay::backend::renderer::Texture;
+        if self.initial_blur_policy().is_some() {
+            return None;
+        }
+        let initial = self.blur_source.as_ref()?;
+        let regions = BlurMaskSource::regions(policy);
+        if initial.regions.as_ref() == Some(&regions) {
+            return None;
+        }
+        let weight = crossfade_out_alpha(self.progress, self.grew);
+        let mut sources = vec![(initial.clone(), weight)];
+        if weight < 1.0 {
+            let current = self.current.as_ref()?;
+            sources.push((
+                BlurMaskSource {
+                    buffer: current.buffer.clone(),
+                    texels: current.texels,
+                    regions: Some(regions),
+                },
+                1.0 - weight,
+            ));
+        }
+        if self
+            .blur_mixed
+            .as_ref()
+            .is_none_or(|t| t.size().w != size.w || t.size().h != size.h)
+        {
+            self.blur_mixed = Some(
+                Offscreen::<GlesTexture>::create_buffer(
+                    renderer,
+                    Fourcc::Abgr8888,
+                    size.to_logical(1).to_buffer(1, Transform::Normal),
+                )
+                .ok()?,
+            );
+        }
+        let texture = self.blur_mixed.as_mut()?;
+        let mut target = renderer.bind(texture).ok()?;
+        let mut frame = renderer.render(&mut target, size, Transform::Normal).ok()?;
+        frame
+            .clear(Color32F::TRANSPARENT, &[Rectangle::from_size(size)])
+            .ok()?;
+        frame
+            .with_context(|gl| unsafe {
+                gl.BlendFunc(
+                    smithay::backend::renderer::gles::ffi::ONE,
+                    smithay::backend::renderer::gles::ffi::ONE,
+                );
+            })
+            .ok()?;
+        let result = (|| {
+            for (source, weight) in sources {
+                let damage: Vec<_> = source.regions.as_ref().map_or_else(
+                    || vec![Rectangle::from_size(size)],
+                    |regions| {
+                        regions
+                            .iter()
+                            .filter_map(|r| {
+                                let rect = Rectangle::from_extremities(
+                                    (
+                                        (r[0] * f64::from(size.w)).round() as i32,
+                                        (r[1] * f64::from(size.h)).round() as i32,
+                                    ),
+                                    (
+                                        (r[2] * f64::from(size.w)).round() as i32,
+                                        (r[3] * f64::from(size.h)).round() as i32,
+                                    ),
+                                );
+                                (rect.size.w > 0 && rect.size.h > 0).then_some(rect)
+                            })
+                            .collect()
+                    },
+                );
+                if damage.is_empty() || weight == 0.0 {
+                    continue;
+                }
+                // Threshold each source independently: mixed content alpha would
+                // let an opaque old pixel fill a transparent new region.
+                frame.override_default_tex_program(
+                    shader.clone(),
+                    vec![Uniform::new(
+                        "u_preserve_alpha",
+                        if source.regions.is_none() {
+                            1.0f32
+                        } else {
+                            0.0
+                        },
+                    )],
+                );
+                let element = TextureRenderElement::from_texture_buffer(
+                    Point::default(),
+                    &source.buffer,
+                    Some(weight),
+                    Some(super::texel_src(source.texels)),
+                    Some(size.to_logical(1)),
+                    Kind::Unspecified,
+                );
+                <TextureRenderElement<GlesTexture> as RenderElement<GlesRenderer>>::draw(
+                    &element,
+                    &mut frame,
+                    element.src(),
+                    Rectangle::from_size(size),
+                    &damage,
+                    &[],
+                    None,
+                )?;
+            }
+            Ok::<_, smithay::backend::renderer::gles::GlesError>(())
+        })();
+        frame.clear_tex_program_override();
+        frame
+            .with_context(|gl| unsafe {
+                gl.BlendFunc(
+                    smithay::backend::renderer::gles::ffi::ONE,
+                    smithay::backend::renderer::gles::ffi::ONE_MINUS_SRC_ALPHA,
+                );
+            })
+            .ok()?;
+        result.ok()?;
+        let _ = frame.finish().ok()?;
+        drop(target);
+        Some(BlurMaskSource {
+            buffer: TextureBuffer::from_texture(
+                renderer,
+                texture.clone(),
+                1,
+                Transform::Normal,
+                None,
+            ),
+            texels: size,
+            regions: None,
+        })
+    }
+
+    pub(crate) fn preserve_initial_pixels(&mut self) {
+        self.native_initial = true;
+    }
+
+    pub(crate) fn set_resize_direction(
+        &mut self,
+        old_size: Size<i32, Logical>,
+        new_size: Size<i32, Logical>,
+    ) {
+        self.grew = leg_grew(old_size, new_size);
+    }
+
     pub fn tick(&mut self, frame_factor: f64) {
         self.progress += (1.0 - self.progress) * frame_factor;
     }
@@ -318,14 +781,40 @@ impl ResizeCrossfade {
         1.0 - self.progress <= DONE_EPSILON
     }
 
-    /// The overlay element for a window whose live geometry rect starts at
-    /// `loc` (fully zoomed physical) and spans `size` (zoomed logical), wrapped
-    /// in that window's own animation transform so the old content lands on the
-    /// interpolated visual rect exactly as the live content does. `opacity` is
-    /// the opacity the window is drawn at — the fade starts from the density
-    /// the old picture actually had, not from full.
-    pub fn render_element(
-        &self,
+    pub(crate) fn render_retained_rect(
+        buffer: &TextureBuffer<GlesTexture>,
+        texels: Size<i32, Physical>,
+        rect: Rectangle<f64, Physical>,
+        output_scale: f64,
+        opacity: f64,
+    ) -> OutputRenderElements {
+        let texture = TextureRenderElement::from_texture_buffer(
+            Point::default(),
+            buffer,
+            Some(opacity as f32),
+            Some(super::texel_src(texels)),
+            Some(texels.to_logical(1)),
+            Kind::Unspecified,
+        );
+        // Base the affine on the rasterized source bounds, not an unrelated
+        // client's logical size: fractional rounding must survive a retarget.
+        let animation = WindowRenderAnimation::between_rects(
+            texture.geometry(Scale::from(output_scale)).to_f64(),
+            rect.to_i32_round::<i32>().to_f64(),
+        );
+        OutputRenderElements::ClosingWindow(WindowTransformElement::new(
+            texture,
+            animation.origin,
+            animation.offset,
+            animation.scale,
+        ))
+    }
+
+    /// Place the combined content in the window's animated geometry, applying
+    /// compositor opacity once after the premultiplied blend.
+    pub(crate) fn render_blended_element(
+        buffer: &TextureBuffer<GlesTexture>,
+        texels: Size<i32, Physical>,
         loc: Point<f64, Physical>,
         size: Size<i32, Logical>,
         animation: Option<WindowRenderAnimation>,
@@ -333,9 +822,9 @@ impl ResizeCrossfade {
     ) -> OutputRenderElements {
         let texture = TextureRenderElement::from_texture_buffer(
             loc,
-            &self.buffer,
-            Some(crossfade_out_alpha(self.progress, self.grew) * opacity as f32),
-            Some(super::texel_src(self.texels)),
+            buffer,
+            Some(opacity as f32),
+            Some(super::texel_src(texels)),
             Some(size),
             Kind::Unspecified,
         );
@@ -400,6 +889,12 @@ pub(crate) fn resize_crossfade(
         }
     };
     Some(ResizeCrossfade {
+        native_initial: false,
+        blur_source: None,
+        blur_policy: None,
+        blur_mixed: None,
+        current: None,
+        mixed: None,
         buffer,
         texels,
         grew: leg_grew(pixels.geometry.size, new_size),
@@ -429,6 +924,37 @@ pub(crate) struct ClosingSnapshot {
 }
 
 impl ClosingSnapshot {
+    pub(crate) fn render_retained_rect(
+        &self,
+        rect: Rectangle<f64, Physical>,
+        output_scale: f64,
+        opacity: f64,
+    ) -> OutputRenderElements {
+        ResizeCrossfade::render_retained_rect(
+            &self.buffer,
+            self.texels,
+            rect,
+            output_scale,
+            opacity,
+        )
+    }
+
+    pub(crate) fn from_retained_content(
+        buffer: TextureBuffer<GlesTexture>,
+        texels: Size<i32, Physical>,
+        canvas_rect: Rectangle<f64, Logical>,
+    ) -> Self {
+        Self {
+            buffer,
+            texels,
+            canvas_rect,
+            pinned: None,
+            alpha_only: true,
+            scale_amplitude: 1.0,
+            progress: 0.0,
+        }
+    }
+
     pub fn tick(&mut self, frame_factor: f64) {
         self.progress += (1.0 - self.progress) * frame_factor;
     }
@@ -610,14 +1136,51 @@ fn flatten(
     if let Some((_, area)) = border_element {
         bounds = bounds.merge(area.to_f64());
     }
-    // Shader elements were built in surface-local coordinates; the framebuffer
-    // starts at bounds.loc, just like the content and bar offsets below.
-    for (element, area) in shadow_element.iter_mut().chain(border_element.iter_mut()) {
-        element.resize(
-            Rectangle::new(area.loc - bounds.loc.to_i32_round(), area.size),
-            None,
-        );
-    }
+    // Keep the bake's translation on the physical grid. Translating a shader
+    // by a fractional pixel changes its rounded origin without updating the
+    // geometry uniforms computed above.
+    let grid = (1..=120)
+        .find(|step| {
+            let physical = f64::from(*step) * flatten_scale;
+            (physical - physical.round()).abs() < 1e-6
+        })
+        .map_or(1.0, f64::from);
+    let end = bounds.loc + Point::from((bounds.size.w, bounds.size.h));
+    let start = Point::from((
+        (bounds.loc.x / grid).floor() * grid,
+        (bounds.loc.y / grid).floor() * grid,
+    ));
+    let end = Point::from(((end.x / grid).ceil() * grid, (end.y / grid).ceil() * grid));
+    bounds = Rectangle::new(start, (end - start).to_size());
+    // Rebuild shader uniforms after rebasing as well as moving their areas:
+    // rounding a negative half pixel is not translation invariant.
+    let local_body = Rectangle::new(body.loc - bounds.loc, body.size);
+    shadow_element = chrome.shadow_shader.map(|shader| {
+        let border = f64::from(chrome.border_width.max(0));
+        shaders::bake_shadow_element(
+            shader,
+            Rectangle::new(
+                local_body.loc - Point::from((border, border)),
+                Size::from((
+                    local_body.size.w + 2.0 * border,
+                    local_body.size.h + 2.0 * border,
+                )),
+            ),
+            shaders::outer_corner_radius(chrome.corner_radius[2], chrome.border_width as f32),
+            scale,
+        )
+    });
+    border_element = chrome.border_shader.and_then(|shader| {
+        shaders::bake_border_element(
+            shader,
+            local_body,
+            chrome.corner_radius[2],
+            chrome.border_width,
+            chrome.border_color,
+            chrome.focused,
+            scale,
+        )
+    });
     let phys_size = phys_size_of(bounds, flatten_scale);
     if phys_size.w <= 0 || phys_size.h <= 0 {
         return None;
@@ -804,6 +1367,18 @@ impl ClosingSnapshot {
         output_scale: f64,
         opacity: f64,
     ) -> Option<OutputRenderElements> {
+        self.render_element_with_animation(output_name, camera, zoom, output_scale, opacity, None)
+    }
+
+    pub(crate) fn render_element_with_animation(
+        &self,
+        output_name: &str,
+        camera: Point<f64, Logical>,
+        zoom: f64,
+        output_scale: f64,
+        opacity: f64,
+        animation: Option<WindowRenderAnimation>,
+    ) -> Option<OutputRenderElements> {
         let alpha = fade_out_alpha(self.progress) * opacity as f32;
         let close_scale = if self.alpha_only {
             1.0
@@ -849,9 +1424,9 @@ impl ClosingSnapshot {
         Some(OutputRenderElements::ClosingWindow(
             WindowTransformElement::new(
                 texture,
-                center,
-                Point::default(),
-                Scale::from(close_scale),
+                animation.map_or(center, |a| a.origin),
+                animation.map_or_else(Point::default, |a| a.offset),
+                animation.map_or_else(|| Scale::from(close_scale), |a| a.scale),
             ),
         ))
     }

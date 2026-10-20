@@ -457,7 +457,7 @@ driftwm's synthetic backend for tests lives in `src/tests/input_backend.rs`.
 - **WAYLAND_DISPLAY must NOT be set before `winit::init()`** — winit connects to the parent compositor; setting our socket first causes a deadlock.
 - **Backend on state** — winit backend stored as `Option<WinitGraphicsBackend<GlesRenderer>>` on DriftWm. Timer closure uses take/put pattern to split borrows. Required for DmabufHandler to access renderer.
 - **DMA-BUF v3 (create_global)** sufficient for winit backend — advertises formats, no device info. v4 (create_global_with_default_feedback) adds render device hints for multi-GPU. `ImportDma::dmabuf_formats()` on GlesRenderer gets formats from EGL.
-- Benign `EGL BAD_SURFACE` error on first frame is from `buffer_age()` before the surface is ready; `unwrap_or(0)` handles it.
+- `WinitGraphicsBackend::buffer_age(&self) -> Option<usize>` needs the window backbuffer current. In pinned Smithay `4cf0b620`, `Bind<EGLSurface> for GlesRenderer` only creates a `GlesTarget`; `Renderer::render` actually calls `target.make_current`. An empty finished window frame makes it current without clearing/drawing pixels, and dropping a window target does not unbind it. Compose offscreen blur before acquiring/querying the window buffer, and restore the window after capture passes before `submit()`. Merely calling `backend.bind()` is insufficient after surfaceless work. Verified in `backend/winit/mod.rs` and `renderer/gles/mod.rs`.
 
 - **This smithay rev needs winit `0.31.0-beta.2`**; cargo's `^0.31.0-beta.2` resolves to beta.3, against which smithay's winit backend does not compile (`WindowEvent::DragMoved` gone, new `Axis` arms). `Cargo.lock` pins beta.2; smithay master `73f2570c` moves to beta.3.
 ### Input / Keycodes
@@ -639,3 +639,58 @@ A live `PopupKind`/`WlSurface` does not prove the popup is mapped. For pending
 presentation image validation, read `RendererSurfaceStateUserData` in the popup's
 surface data and test `buffer().is_some()` after the compositor buffer handler.
 This distinguishes a null-buffer unmap from an unchanged, live protocol role.
+
+For a premultiplied offscreen crossfade on pinned Smithay `4cf0b62`,
+`GlesFrame::with_context(&mut self, FnOnce(&ffi::Gles2) -> R)` returns
+`Result<R, GlesError>` and does not restore GL state. Set additive
+`BlendFunc(ONE, ONE)` only after `Frame::clear`, which resets blending to
+`ONE, ONE_MINUS_SRC_ALPHA`. Render ABGR textures without opaque regions so
+`render_texture_from_to` follows its non-opaque branch; that branch preserves
+custom blend state, whereas its opaque branch disables/re-enables blending
+and resets the function. Restore source-over even if a draw fails. Two
+premultiplied texture draws with weights `a` and `1-a` then produce a linear
+RGBA mixture; apply compositor opacity when presenting the result, not to each
+source. `RenderElement<GlesRenderer>::draw` takes the optional `UserDataMap`
+argument after opaque regions; a fully-qualified call disambiguates the
+renderer for `TextureRenderElement<GlesTexture>`. Drop a bound target before
+cloning its mutably borrowed texture handle.
+
+`RendererSurfaceState::current_commit()`, `view()`, `buffer_scale()` and
+`buffer_transform()` can key an imported content bake. `SurfaceView` is Copy
+and PartialEq and records logical source crop, destination size and subsurface
+offset. Include mapped surface IDs/tree order and geometry/clip/scale policy;
+a root-only commit counter misses child commits or reordered/moved subsurfaces.
+
+`MemoryRenderBuffer` is `Clone`, backed by `Arc<Mutex<MemoryRenderBufferInner>>`;
+cloning retains the existing storage, rather than copying pixels. Its mutable
+`render()` context exposes `draw(FnOnce(&mut [u8]) -> Result<Vec<Rectangle<i32,
+Buffer>>, E>)`; writes through a clone affect all owners. driftwm decoration
+updates replace `title_bar` with a new `render_title_bar` result, so retaining a
+clone preserves the previous title bitmap across those replacements. Do not
+mutate a retained title bitmap in place.
+
+
+`BackgroundEffectSurfaceCachedState` (pinned Smithay `4cf0b62`) stores
+`blur_region: Option<RegionAttributes>`; use `states.cached_state.get::<...>()`
+and `current()` after commit. `cached_state.has::<...>()` also becomes true for
+pending requests, so it does not prove that a client committed an effect.
+`ExtBackgroundEffectHandler::{set_blur_region, unset_blur_region}` receive the
+surface when the request changes pending state; an `add_post_commit_hook` can
+mark the compositor's cached rectangle list dirty only on the next commit.
+Keep retained rectangle lists in an Arc and use copy-on-write when rebuilding.
+The `ext-background-effect-v1` client protocol copies `wl_region` rectangles
+in surface-local coordinates; NULL disables blur, and destroying the temporary
+`wl_region` after the request is valid. A region-only surface commit can apply
+without a new buffer or a configure acknowledgement.
+
+
+`GlesFrame::override_default_tex_program(program: GlesTexProgram,
+additional_uniforms: Vec<Uniform<'static>>)` also affects
+`TextureRenderElement::draw`, whose generic `Frame::render_texture_from_to`
+otherwise selects the default texture program. Use this to threshold source
+alpha before additive mask blending; pass an empty opaque-region slice and
+restore both `clear_tex_program_override()` and source-over blending on errors.
+`ExportMem::copy_texture(&texture, Rectangle<i32, Buffer>, Fourcc)` plus
+`map_texture(&mapping)` supports direct GPU-mask coverage assertions. A texture's
+`Texture::size()` is in Buffer coordinates; do not compare it directly with a
+Physical size.

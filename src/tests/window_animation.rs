@@ -6381,3 +6381,68 @@ fn a_window_pinned_to_screen_by_rule_opens_normally_with_no_hold() {
 
     tick_until_settled(&mut f);
 }
+
+#[test]
+fn only_unscaled_canvas_chases_allow_tiling_capture() {
+    let mut f = Fixture::new();
+    let output = f.add_output(1, (1200, 800));
+    let client = f.add_client();
+    map_window(&mut f, client, "capture-policy", (400, 300));
+    tick_until_settled(&mut f);
+    let window = window_by_app_id(&mut f, "capture-policy").unwrap();
+    let id = element_id(&mut f, &window);
+    let size = window.geometry().size;
+    assert!(!f.state().window_animations.is_canvas_translation(id, size));
+    f.state().start_window_open_animation(&window);
+    assert!(!f.state().window_animations.is_canvas_translation(id, size));
+    f.state()
+        .animate_window_move_from(&window, (100, 150).into(), None);
+    assert!(f.state().window_animations.is_canvas_translation(id, size));
+    assert!(f.state().window_animations.has_open_fade(id));
+    f.state().cancel_window_animation(&window);
+    f.state()
+        .animate_window_move_from(&window, (100, 150).into(), None);
+    assert!(f.state().window_animations.is_canvas_translation(id, size));
+    f.state().tick_window_animations(TICK);
+    assert!(f.state().window_animations.is_canvas_translation(id, size));
+    assert!(f.state().window_animations.can_capture_canvas_geometry(id));
+    assert!(
+        !f.state()
+            .window_animations
+            .is_canvas_translation(id, (size.w + 1, size.h).into())
+    );
+    f.state()
+        .animate_window_geometry(&window, (size.w + 100, size.h).into(), None);
+    assert!(!f.state().window_animations.is_canvas_translation(id, size));
+    assert!(f.state().window_animations.start_held(id));
+    assert!(f.state().window_animations.can_capture_canvas_geometry(id));
+    let now = std::time::Instant::now();
+    f.state().tick_window_animations_at(TICK, now);
+    f.state()
+        .tick_window_animations_at(TICK, now + std::time::Duration::from_secs(1));
+    assert!(!f.state().window_animations.can_capture_canvas_geometry(id));
+    f.state().cancel_window_animation(&window);
+    f.state().begin_geometry_animation_seeded(
+        &window,
+        Rectangle::new((100.0, 150.0).into(), size.to_f64().upscale(0.5)),
+        AnimSpace::Canvas,
+        None,
+        crate::state::window_animation::GeometryRole::Normal,
+        crate::state::window_animation::ContentPolicy::Stretch,
+        None,
+    );
+    assert!(!f.state().window_animations.is_canvas_translation(id, size));
+    assert!(f.state().window_animations.can_capture_canvas_geometry(id));
+    f.state().cancel_window_animation(&window);
+    f.state().begin_geometry_animation_seeded(
+        &window,
+        Rectangle::new((100.0, 150.0).into(), size.to_f64()),
+        AnimSpace::Screen(output.name()),
+        None,
+        crate::state::window_animation::GeometryRole::Normal,
+        crate::state::window_animation::ContentPolicy::Cap,
+        None,
+    );
+    assert!(!f.state().window_animations.is_canvas_translation(id, size));
+    assert!(!f.state().window_animations.can_capture_canvas_geometry(id));
+}

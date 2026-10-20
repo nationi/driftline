@@ -1,6 +1,7 @@
 # Summary
 
 - [Home](index.md)
+- [Experimental scrolling tiling](tiling.md)
 - [Configuration](config.md)
 - [Window rules](window-rules.md)
 - [Window suspend & session restore](session.md)

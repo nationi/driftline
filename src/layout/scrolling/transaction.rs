@@ -26,6 +26,7 @@ struct Request {
     serial: Serial,
     deadline: Instant,
     progress: ConfigureProgress,
+    late_resize_taken: bool,
 }
 
 /// Tracks the latest request per live tile; it never blocks or retains history.
@@ -75,6 +76,7 @@ impl ConfigureBatch {
                 serial,
                 deadline: now + CONFIGURE_TIMEOUT,
                 progress: ConfigureProgress::Pending,
+                late_resize_taken: false,
             },
         );
     }
@@ -120,6 +122,24 @@ impl ConfigureBatch {
             .values()
             .filter(|r| r.progress == ConfigureProgress::Pending)
             .count()
+    }
+
+    /// Consume the first buffer response after a timed-out request, without
+    /// reopening its group or arming an animation on every subsequent repaint.
+    pub fn take_late_resize(
+        &mut self,
+        id: ElementId,
+        serial: Serial,
+    ) -> Option<Size<i32, Logical>> {
+        let request = self.requests.get_mut(&id)?;
+        if request.progress != ConfigureProgress::TimedOut
+            || request.late_resize_taken
+            || serial < request.serial
+        {
+            return None;
+        }
+        request.late_resize_taken = true;
+        Some(request.size)
     }
 
     pub fn progress(&self, id: ElementId) -> Option<ConfigureProgress> {
@@ -232,5 +252,43 @@ mod tests {
         batch.record(ElementId(1), (u32::MAX - 1).into(), Instant::now());
         batch.observe_commit(generation, ElementId(1), 1.into(), (300, 600).into());
         assert_eq!(batch.pending_count(), 0);
+    }
+    #[test]
+    fn late_resize_is_serial_checked_and_consumed_once() {
+        let now = Instant::now();
+        let mut batch = batch();
+        batch.update_layout(&[placement(1, 300)]);
+        batch.record(ElementId(1), 10.into(), now);
+        assert_eq!(batch.take_late_resize(ElementId(1), 10.into()), None);
+        batch.advance(now + CONFIGURE_TIMEOUT);
+        assert_eq!(batch.take_late_resize(ElementId(1), 9.into()), None);
+        assert_eq!(
+            batch.take_late_resize(ElementId(1), 10.into()),
+            Some((300, 600).into())
+        );
+        assert_eq!(batch.take_late_resize(ElementId(1), 11.into()), None);
+        assert_eq!(
+            batch.progress(ElementId(1)),
+            Some(ConfigureProgress::TimedOut)
+        );
+        assert_eq!(batch.next_deadline(), None);
+    }
+
+    #[test]
+    fn a_new_request_replaces_the_consumed_late_resize() {
+        let now = Instant::now();
+        let mut batch = batch();
+        batch.update_layout(&[placement(1, 300)]);
+        batch.record(ElementId(1), 10.into(), now);
+        batch.advance(now + CONFIGURE_TIMEOUT);
+        assert!(batch.take_late_resize(ElementId(1), 10.into()).is_some());
+        batch.update_layout(&[placement(1, 400)]);
+        batch.record(ElementId(1), 20.into(), now);
+        batch.advance(now + CONFIGURE_TIMEOUT);
+        assert_eq!(batch.take_late_resize(ElementId(1), 10.into()), None);
+        assert_eq!(
+            batch.take_late_resize(ElementId(1), 20.into()),
+            Some((400, 600).into())
+        );
     }
 }

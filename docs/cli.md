@@ -18,6 +18,7 @@ A trackpad-first infinite canvas Wayland compositor.
 With no subcommand, starts the compositor, auto-detecting the backend (udev on a TTY, winit when nested). The `msg` subcommand instead talks to an already-running instance over its IPC socket.
 
 - `--backend <udev|winit>` — Backend to use (default: udev on a TTY, winit if nested)
+- `--drm-connector <NAME>` — Use only this DRM connector (udev backend; useful for isolated testing)
 - `--config <PATH>` — Use an alternate config file
 - `--check-config` — Validate the config and exit
 - `--session-file <PATH>` — Durable session file path. Overrides the default; lets a nested winit dev session opt into session restore (it skips it otherwise)

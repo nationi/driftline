@@ -7,5 +7,3 @@ __pycache__
 .ruff_cache
 *.tar.gz
 *.tar.xz
-# nix build output symlink
-result

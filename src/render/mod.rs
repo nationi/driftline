@@ -22,9 +22,9 @@ pub(crate) use blur::compile_blur_shaders;
 pub use blur::{BlurCache, BlurScratchPool, SharedBlur};
 pub use capture::{render_capture_frames, render_screencopy, render_toplevel_captures};
 pub(crate) use closing::{
-    BakeChrome, CloseChrome, ClosePixels, ClosingSnapshot, ResizeCaptures, ResizeCrossfade,
-    StandInFade, capture_close_pixels, close_pixels_fresh, resize_crossfade, snapshot_canvas,
-    snapshot_screen,
+    AnimatedContentCache, BakeChrome, BlurMaskSource, CloseChrome, ClosePixels, ClosingSnapshot,
+    ResizeCaptures, ResizeContentStamp, ResizeCrossfade, StandInFade, capture_close_pixels,
+    close_pixels_fresh, resize_crossfade, snapshot_canvas, snapshot_screen,
 };
 pub use cursor::build_cursor_elements;
 pub use elements::{
@@ -64,12 +64,23 @@ pub(crate) struct SnapshotShadow {
     pub opacity: f64,
 }
 
+#[derive(Clone)]
+pub(crate) struct SnapshotBorder {
+    pub surface_id: smithay::reexports::wayland_server::backend::ObjectId,
+    pub inner: Rectangle<f64, Logical>,
+    pub radius: f32,
+    pub width: i32,
+    pub color: [u8; 4],
+    pub focused: bool,
+    pub opacity: f64,
+}
+
 /// The per-window affine transform for an in-flight open/close/geometry
 /// animation, threaded through the chrome push helpers so the surface, border,
 /// shadow, and decoration all lerp together. Physical `origin`/`offset`; the
 /// `scale` is the visual stretch relative to the live rect.
 #[derive(Clone, Copy)]
-pub(super) struct WindowRenderAnimation {
+pub(crate) struct WindowRenderAnimation {
     origin: Point<f64, Physical>,
     offset: Point<f64, Physical>,
     scale: Scale<f64>,
@@ -103,9 +114,64 @@ struct FadeRender {
 }
 
 impl WindowRenderAnimation {
+    pub(crate) fn between_rects(
+        from: Rectangle<f64, Physical>,
+        to: Rectangle<f64, Physical>,
+    ) -> Self {
+        Self {
+            origin: from.loc,
+            offset: to.loc - from.loc,
+            scale: Scale::from((
+                to.size.w / from.size.w.max(1.0),
+                to.size.h / from.size.h.max(1.0),
+            )),
+        }
+    }
+
+    /// Menus follow the animated content origin without inheriting resize
+    /// stretching. Opening scale is the only scale applied to popup pixels.
+    pub(crate) fn for_popups(
+        self,
+        content_origin: Point<f64, Physical>,
+        opening_scale: f64,
+    ) -> Self {
+        let visual_origin = Point::from((
+            self.origin.x + (content_origin.x - self.origin.x) * self.scale.x + self.offset.x,
+            self.origin.y + (content_origin.y - self.origin.y) * self.scale.y + self.offset.y,
+        ));
+        Self {
+            origin: content_origin,
+            offset: visual_origin - content_origin,
+            scale: Scale::from(opening_scale),
+        }
+    }
+
+    // Resize moves the snapped root; only opening scales popup pixels.
+    pub(crate) fn popup_at(
+        source: Point<f64, Physical>,
+        frame: Point<f64, Physical>,
+        opening: Option<Self>,
+        opening_scale: f64,
+    ) -> Self {
+        let target = opening.map_or(frame, |a| {
+            Point::from((
+                a.origin.x + (frame.x - a.origin.x) * a.scale.x + a.offset.x,
+                a.origin.y + (frame.y - a.origin.y) * a.scale.y + a.offset.y,
+            ))
+        });
+        Self {
+            origin: source,
+            offset: target - source,
+            scale: Scale::from(opening_scale),
+        }
+    }
+
     /// Apply the same affine the element decorator applies, so the frost rect
     /// follows the animated window instead of its (instant) logical position.
-    fn transform_phys_rect(&self, rect: Rectangle<i32, Physical>) -> Rectangle<i32, Physical> {
+    pub(crate) fn transform_phys_rect(
+        &self,
+        rect: Rectangle<i32, Physical>,
+    ) -> Rectangle<i32, Physical> {
         let x0 = self.origin.x + (rect.loc.x as f64 - self.origin.x) * self.scale.x + self.offset.x;
         let y0 = self.origin.y + (rect.loc.y as f64 - self.origin.y) * self.scale.y + self.offset.y;
         let x1 = self.origin.x
@@ -738,6 +804,11 @@ pub fn compose_frame(
         state.dnd_icon = None;
     }
 
+    state.render.animated_content.retain(|(_, id), _| {
+        (state.window_animations.open_progress(*id).is_some()
+            || state.window_animations.generation_of(*id).is_some())
+            && state.stage.window_by_id(*id).is_some()
+    });
     if state.session_lock.renders_lock_frame() {
         // No blur draws in a lock frame, and the eviction sweep that frees it
         // sits past this return — so a lock would otherwise hold every blurred
@@ -942,7 +1013,72 @@ pub fn compose_frame(
                 state.tiling_snapshot_elements(id, output, camera, zoom, output_scale)
         {
             let start = zoomed_normal.len();
+            if let Some(popups) = snapshot.live_popups.take() {
+                let root_phys: Point<i32, Physical> =
+                    (popups.origin - camera).to_physical_precise_round(scale);
+                for (popup, offset) in
+                    smithay::desktop::PopupManager::popups_for_surface(&popups.root)
+                {
+                    let offset: Point<i32, Physical> = (popups.geometry_loc + offset
+                        - popup.geometry().loc)
+                        .to_physical_precise_round(scale);
+                    let elements = smithay::backend::renderer::element::surface::render_elements_from_surface_tree::<
+                        _, WaylandSurfaceRenderElement<GlesRenderer>,
+                    >(renderer, popup.wl_surface(), root_phys + offset, scale, popups.opacity as f32, Kind::Unspecified);
+                    push_plain_elements(
+                        &mut zoomed_normal,
+                        elements,
+                        zoom,
+                        snapshot.popup_animation,
+                    );
+                }
+            }
+            if let Some(bar) = snapshot.bar.take() {
+                let loc = bar.rect.loc.to_physical_precise_round(scale);
+                let dst = Rectangle::new(loc, painted_size(bar.rect.size, scale));
+                if let Ok(element) = MemoryRenderBufferRenderElement::from_buffer(
+                    renderer,
+                    loc.to_f64(),
+                    &bar.buffer,
+                    Some(bar.opacity as f32),
+                    None,
+                    None,
+                    Kind::Unspecified,
+                ) {
+                    let element = PixelSnapRescaleElement::from_element(
+                        TrimmedElement::from_element(element, dst),
+                        (0, 0).into(),
+                        zoom,
+                    );
+                    if let Some(a) = snapshot.chrome_animation {
+                        zoomed_normal.push(OutputRenderElements::AnimatedTrimmedDecoration(
+                            WindowTransformElement::new(element, a.origin, a.offset, a.scale),
+                        ));
+                    } else {
+                        zoomed_normal.push(OutputRenderElements::TrimmedDecoration(element));
+                    }
+                }
+            }
             zoomed_normal.extend(snapshot.elements);
+            if let Some(border) = snapshot.border
+                && let Some(shader) = state.render.border_shader.clone()
+            {
+                push_border_element(
+                    &mut zoomed_normal,
+                    &mut state.render.border_cache,
+                    border.surface_id.into(),
+                    &shader,
+                    Rectangle::new(border.inner.loc - camera, border.inner.size),
+                    border.radius,
+                    border.width,
+                    border.color,
+                    border.focused,
+                    border.opacity,
+                    scale,
+                    zoom,
+                    snapshot.chrome_animation,
+                );
+            }
             let shadow_start = zoomed_normal.len();
             if let Some(shadow) = snapshot.shadow
                 && let Some(shader) = state.render.shadow_shader.clone()
@@ -958,11 +1094,12 @@ pub fn compose_frame(
                     shadow.opacity,
                     scale,
                     zoom,
-                    None,
+                    snapshot.chrome_animation,
                 );
             }
             if blur_enabled && let Some(mut blur) = snapshot.blur.take() {
                 blur.elem_start = start;
+                blur.elem_count = shadow_start - start;
                 blur.trailing_chrome = zoomed_normal.len() - shadow_start;
                 blur_requests.push(blur);
             }
@@ -1077,8 +1214,8 @@ pub fn compose_frame(
             continue;
         };
 
-        // Measured on the destination frame, never on the animated picture: a
-        // window animation is eye candy over a state change that is already
+        // Canvas coverage is measured on the destination frame: a window
+        // animation is eye candy over a state change that is already
         // complete, and input hit-tests the destination too. The camera half is
         // the opposite — the frame is mapped through the live view, so a fit's
         // camera flight keeps the chrome until the camera lands.
@@ -1087,9 +1224,15 @@ pub fn compose_frame(
         // the pre-fit size until the client acks. Skipped outright when there is
         // nothing to suppress: the size read below takes a surface lock per
         // window per output per frame.
+        let tiled_frame =
+            state.tiling_view.is_some() && element_id.is_some_and(|id| state.stage.is_tiled(id));
+        // A tiled column filling the work area still owns its configured frame.
+        // Destination coverage must not discard the retained picture's shadow
+        // or round corners when a grouped resize releases.
         let coverage =
             if (configured.corner_radius > 0 || configured.shadow || configured.border_width > 0)
                 && !is_fullscreen
+                && !tiled_frame
             {
                 let bw = effective_bw as f64;
                 let bar = if has_ssd {
@@ -1185,11 +1328,12 @@ pub fn compose_frame(
                 shadow_elems += 1;
             }
         }
-        let client_blur_rects = with_states(&wl_surface, |s| {
-            crate::handlers::background_effect::get_cached_blur_region(s)
+        let (client_blur_rects, client_effect) = with_states(&wl_surface, |s| {
+            (
+                crate::handlers::background_effect::get_cached_blur_region(s),
+                crate::handlers::background_effect::has_committed_background_effect(s),
+            )
         });
-        // Empty rect list = client explicitly opted out → treat as off.
-        let client_blur = client_blur_rects.as_ref().is_some_and(|r| !r.is_empty());
         // A frozen exit still wears the fullscreen picture over a culled canvas,
         // and an entry ramp is already fullscreen on the stage — neither may dim.
         let fullscreen_exempt = is_fullscreen || state.stage.is_fullscreen(window);
@@ -1198,7 +1342,6 @@ pub fn compose_frame(
             &state.config.decorations,
             fullscreen_exempt,
         );
-        let wants_blur = blur_enabled && (window_blur || client_blur);
         let opacity = driftwm::config::effective_opacity(
             applied.as_ref(),
             &state.config.decorations,
@@ -1209,23 +1352,56 @@ pub fn compose_frame(
         // own opacity; `chrome_alpha` is 1 for every other window.
         let chrome_opacity = opacity * chrome_alpha as f64;
 
-        // A resize crossfade rides the window's own transform, so the old content
-        // lands on the interpolated visual rect for Canvas and Screen entries
-        // alike. Positioned at the *live* geometry rect, which that transform
-        // then maps exactly as it maps the live content.
-        let resize_overlay = element_id
-            .and_then(|id| state.resize_crossfades.get(&id))
-            .map(|crossfade| {
-                let geometry_phys: Point<f64, Physical> = Point::from((
-                    (render_loc.x + geom_loc.x as f64) * zoom * output_scale,
-                    (render_loc.y + geom_loc.y as f64) * zoom * output_scale,
-                ));
-                let geometry_size: Size<i32, Logical> = Size::from((
-                    (geom_size.w as f64 * zoom).round() as i32,
-                    (geom_size.h as f64 * zoom).round() as i32,
-                ));
-                crossfade.render_element(geometry_phys, geometry_size, window_animation, opacity)
-            });
+        // Resize content follows a texture affine; compositor chrome keeps its
+        // native stroke and title-bar height around the current visual bounds.
+        let resize_chrome = element_id
+            .filter(|id| {
+                (state.tiling_view.is_some() || client_effect)
+                    && (!window_blur
+                        || client_effect
+                        || !state
+                            .window_animations
+                            .is_canvas_translation(*id, geom_size)
+                        || state.resize_crossfades.contains_key(id))
+                    && !is_fullscreen
+                    && !is_pinned
+                    && (state.stage.is_tiled(*id) || client_effect)
+            })
+            .and_then(|id| state.window_animations.geometry_visual_rect(id));
+        let chrome_loc = resize_chrome.map_or_else(
+            || {
+                if has_ssd {
+                    render_loc
+                } else {
+                    render_loc + geom_loc.to_f64()
+                }
+            },
+            |r| r.loc - camera,
+        );
+        let chrome_size = resize_chrome.map_or(geom_size.to_f64(), |r| r.size);
+        let chrome_animation = if let Some(frame) = resize_chrome {
+            element_id
+                .filter(|id| state.window_animations.open_progress(*id).is_some())
+                .map(|id| {
+                    let opened = state.window_animations.opening_visual(
+                        id,
+                        frame,
+                        state.config.effects.animation_scale,
+                    );
+                    WindowRenderAnimation::between_rects(
+                        Rectangle::new(
+                            (frame.loc - camera).to_physical(output_scale * zoom),
+                            frame.size.to_physical(output_scale * zoom),
+                        ),
+                        Rectangle::new(
+                            (opened.loc - camera).to_physical(output_scale * zoom),
+                            opened.size.to_physical(output_scale * zoom),
+                        ),
+                    )
+                })
+        } else {
+            window_animation
+        };
 
         // Split elements: toplevel + subsurfaces get corner-clipped, popups
         // don't (they can legitimately extend outside the parent's geometry —
@@ -1269,6 +1445,113 @@ pub fn compose_frame(
             (elems, Vec::new())
         };
 
+        let resize_content = if let Some(id) = element_id
+            && state.resize_crossfades.contains_key(&id)
+        {
+            let stamp = closing::ResizeContentStamp::for_surface(
+                &wl_surface,
+                window.geometry(),
+                (output_scale * zoom).max(1.0),
+                state.baked_chrome_policy(&wl_surface, fullscreen_exempt),
+            );
+            let clip = state.render.corner_clip_shader.clone();
+            state
+                .resize_crossfades
+                .get_mut(&id)
+                .unwrap()
+                .blended_buffer(renderer, &wl_surface, stamp, clip.as_ref())
+        } else if let Some(id) = element_id
+            && (state.window_animations.open_progress(id).is_some()
+                || (client_effect && state.window_animations.generation_of(id).is_some()))
+            && !is_fullscreen
+            && !is_pinned
+            && matches!(coverage, canvas::Coverage::None)
+            && (effective_corner_radius > 0 || client_effect)
+        {
+            // Animated client effects and their retained picture must sample
+            // the same clipped grid, including while the effect is unset.
+            let stamp = closing::ResizeContentStamp::for_surface(
+                &wl_surface,
+                window.geometry(),
+                (output_scale * zoom).max(1.0),
+                state.baked_chrome_policy(&wl_surface, fullscreen_exempt),
+            );
+            let clip = state.render.corner_clip_shader.clone();
+            state
+                .render
+                .animated_content
+                .entry((name.clone(), id))
+                .or_default()
+                .content(renderer, &wl_surface, stamp, clip.as_ref())
+        } else {
+            None
+        };
+        let mut blur_policy = SnapshotBlur {
+            surface_id: wl_surface.id(),
+            position: loc,
+            geometry: window.geometry(),
+            bar_height: has_ssd.then_some(state.config.decorations.title_bar_height),
+            window_blur,
+            client_regions: client_blur_rects.clone(),
+        };
+        if let Some(initial) = element_id
+            .and_then(|id| state.resize_crossfades.get(&id))
+            .and_then(|r| r.initial_blur_policy())
+        {
+            blur_policy = initial.clone();
+        }
+        let client_blur = blur_policy
+            .client_regions
+            .as_ref()
+            .is_some_and(|r| !r.is_empty());
+        let wants_blur = blur_enabled && (blur_policy.window_blur || client_blur);
+        let resize_mask = element_id.and_then(|id| {
+            let shader = state.render.blur_mask_shader.as_ref()?;
+            let resize = state.resize_crossfades.get_mut(&id)?;
+            resize.blended_blur_mask(
+                renderer,
+                shader,
+                &blur_policy,
+                chrome_size.to_physical(output_scale * zoom).to_i32_round(),
+            )
+        });
+        let resize_content_element = resize_content.map(|(buffer, texels)| {
+            if resize_chrome.is_some() {
+                let rect = Rectangle::new(
+                    chrome_loc.to_physical(output_scale * zoom),
+                    chrome_size.to_physical(output_scale * zoom),
+                )
+                .to_i32_round::<i32>();
+                let rect = chrome_animation.map_or(rect, |a| a.transform_phys_rect(rect));
+                return ResizeCrossfade::render_retained_rect(
+                    &buffer,
+                    texels,
+                    rect.to_f64(),
+                    output_scale,
+                    opacity,
+                );
+            }
+            ResizeCrossfade::render_blended_element(
+                &buffer,
+                texels,
+                Point::from((
+                    (render_loc.x + geom_loc.x as f64) * zoom * output_scale,
+                    (render_loc.y + geom_loc.y as f64) * zoom * output_scale,
+                )),
+                Size::from((
+                    (geom_size.w as f64 * zoom).round() as i32,
+                    (geom_size.h as f64 * zoom).round() as i32,
+                )),
+                window_animation,
+                opacity,
+            )
+        });
+        let elems = if resize_content_element.is_some() {
+            Vec::new()
+        } else {
+            elems
+        };
+
         // Test pinned BEFORE `is_widget`: a pinned *widget* must land in the
         // pinned bucket (above normal), not `zoomed_widgets` (below normal).
         let target = if bucket_pinned {
@@ -1283,13 +1566,48 @@ pub fn compose_frame(
 
         // Popups push first (earlier in vec = on-top in smithay z-order) so
         // they sit above the title bar and clipped window content.
-        push_plain_elements(target, popup_elems, zoom, window_animation);
-        // Where a resize crossfade goes: above the live content, below the SSD
-        // bar and popups. Spliced in at the end so the branches below stay one
-        // content push each.
-        let mut overlay_at = target.len();
+        let popup_animation = window_animation.map(|animation| {
+            if resize_chrome.is_some() {
+                return WindowRenderAnimation::popup_at(
+                    (loc_phys + geom_loc.to_physical_precise_round(scale))
+                        .to_f64()
+                        .upscale(Scale::from(zoom)),
+                    chrome_loc
+                        .to_physical_precise_round::<_, i32>(scale)
+                        .to_f64()
+                        .upscale(Scale::from(zoom)),
+                    chrome_animation,
+                    element_id.map_or(1.0, |id| {
+                        state
+                            .window_animations
+                            .opening_scale(id, state.config.effects.animation_scale)
+                    }),
+                );
+            }
+            let content_origin = Point::from((
+                (render_loc.x + geom_loc.x as f64) * zoom * output_scale,
+                (render_loc.y + geom_loc.y as f64) * zoom * output_scale,
+            ));
+            animation.for_popups(
+                content_origin,
+                element_id.map_or(1.0, |id| {
+                    state
+                        .window_animations
+                        .opening_scale(id, state.config.effects.animation_scale)
+                }),
+            )
+        });
+        push_plain_elements(target, popup_elems, zoom, popup_animation);
+        // Mixed resize content occupies the live body's slot, below the SSD
+        // bar and popups. Chrome still follows the ordinary composition path.
+        let mut content_at = target.len();
 
         if has_ssd {
+            let bar_loc_phys = if resize_chrome.is_some() {
+                chrome_loc.to_physical_precise_round(scale)
+            } else {
+                loc_phys
+            };
             let bar_height = state.config.decorations.title_bar_height;
             // Snap the title-bar band to whole physical pixels and share it across the
             // bar, border, and shadow. Deriving each from the raw logical bar_height
@@ -1308,7 +1626,7 @@ pub fn compose_frame(
                 .get_mut(&DecorationKey::Surface(wl_surface.id()))
             {
                 deco.update(
-                    geom_size.w,
+                    chrome_size.w.round() as i32,
                     is_focused,
                     shows_pinned,
                     state.decoration_scale,
@@ -1323,7 +1641,7 @@ pub fn compose_frame(
                 .get(&DecorationKey::Surface(wl_surface.id()))
             {
                 let bar_physical: Point<f64, Physical> =
-                    Point::from((loc_phys.x as f64, loc_phys.y as f64 - bar_h_phys));
+                    Point::from((bar_loc_phys.x as f64, bar_loc_phys.y as f64 - bar_h_phys));
                 let bar_alpha = if chrome_opacity < 1.0 {
                     Some(chrome_opacity as f32)
                 } else {
@@ -1332,9 +1650,9 @@ pub fn compose_frame(
                 // The bar takes the border's inner width so it stops where the
                 // content does instead of covering the ring's inner stroke.
                 let bar_dst = Rectangle::new(
-                    Point::from((loc_phys.x, loc_phys.y - bar_h_phys as i32)),
+                    Point::from((bar_loc_phys.x, bar_loc_phys.y - bar_h_phys as i32)),
                     painted_size(
-                        Size::<f64, Logical>::from((geom_size.w as f64, bar_h_logical)),
+                        Size::<f64, Logical>::from((chrome_size.w, bar_h_logical)),
                         scale,
                     ),
                 );
@@ -1352,7 +1670,7 @@ pub fn compose_frame(
                         Point::<i32, Physical>::from((0, 0)),
                         zoom,
                     );
-                    if let Some(animation) = window_animation {
+                    if let Some(animation) = chrome_animation {
                         target.push(OutputRenderElements::AnimatedTrimmedDecoration(
                             WindowTransformElement::new(
                                 bar_elem,
@@ -1366,7 +1684,7 @@ pub fn compose_frame(
                     }
                 }
             }
-            overlay_at = target.len();
+            content_at = target.len();
 
             // Only bottom corners round (title bar covers the top edge).
             if let Some(ref shader) = state.render.corner_clip_shader {
@@ -1403,8 +1721,8 @@ pub fn compose_frame(
                 && let Some(shader) = state.render.border_shader.clone()
             {
                 let inner_logical: Rectangle<f64, Logical> = Rectangle::new(
-                    (render_loc.x, render_loc.y - bar_h_logical).into(),
-                    (geom_size.w as f64, geom_size.h as f64 + bar_h_logical).into(),
+                    (chrome_loc.x, chrome_loc.y - bar_h_logical).into(),
+                    (chrome_size.w, chrome_size.h + bar_h_logical).into(),
                 );
                 push_border_element(
                     target,
@@ -1419,7 +1737,7 @@ pub fn compose_frame(
                     chrome_opacity,
                     scale,
                     zoom,
-                    window_animation,
+                    chrome_animation,
                 );
             }
 
@@ -1431,10 +1749,10 @@ pub fn compose_frame(
             if effective_shadow && let Some(shader) = state.render.shadow_shader.clone() {
                 let bw = effective_bw as f64;
                 let body_logical: Rectangle<f64, Logical> = Rectangle::new(
-                    (render_loc.x - bw, render_loc.y - bar_h_logical - bw).into(),
+                    (chrome_loc.x - bw, chrome_loc.y - bar_h_logical - bw).into(),
                     (
-                        geom_size.w as f64 + 2.0 * bw,
-                        geom_size.h as f64 + bar_h_logical + 2.0 * bw,
+                        chrome_size.w + 2.0 * bw,
+                        chrome_size.h + bar_h_logical + 2.0 * bw,
                     )
                         .into(),
                 );
@@ -1448,7 +1766,7 @@ pub fn compose_frame(
                     chrome_opacity,
                     scale,
                     zoom,
-                    window_animation,
+                    chrome_animation,
                 );
                 shadow_count = 1;
             }
@@ -1496,7 +1814,7 @@ pub fn compose_frame(
                         &mut state.render.border_cache,
                         wl_surface.id().into(),
                         &border_shader,
-                        geometry,
+                        Rectangle::new(chrome_loc, chrome_size),
                         radius,
                         effective_bw,
                         border_color,
@@ -1504,7 +1822,7 @@ pub fn compose_frame(
                         chrome_opacity,
                         scale,
                         zoom,
-                        window_animation,
+                        chrome_animation,
                     );
                 }
 
@@ -1515,12 +1833,8 @@ pub fn compose_frame(
                 if effective_shadow && let Some(shader) = state.render.shadow_shader.clone() {
                     let bw = effective_bw as f64;
                     let body_logical: Rectangle<f64, Logical> = Rectangle::new(
-                        (
-                            render_loc.x + geo.loc.x as f64 - bw,
-                            render_loc.y + geo.loc.y as f64 - bw,
-                        )
-                            .into(),
-                        (geom_size.w as f64 + 2.0 * bw, geom_size.h as f64 + 2.0 * bw).into(),
+                        (chrome_loc.x - bw, chrome_loc.y - bw).into(),
+                        (chrome_size.w + 2.0 * bw, chrome_size.h + 2.0 * bw).into(),
                     );
                     push_shadow_element(
                         target,
@@ -1532,7 +1846,7 @@ pub fn compose_frame(
                         chrome_opacity,
                         scale,
                         zoom,
-                        window_animation,
+                        chrome_animation,
                     );
                     shadow_count = 1;
                 }
@@ -1546,11 +1860,51 @@ pub fn compose_frame(
 
         // In-bucket, ahead of the trailing shadow, so the blur element counts
         // below stay valid.
-        if let Some(overlay) = resize_overlay {
-            target.insert(overlay_at, overlay);
+        if let Some(content) = resize_content_element {
+            target.insert(content_at, content);
         }
 
-        if wants_blur && (target.len() - elem_start - shadow_count) > 0 {
+        if (wants_blur || (blur_enabled && resize_mask.is_some()))
+            && (client_blur || resize_mask.is_some())
+            && (resize_chrome.is_some() || window_animation.is_some())
+            && target.len() - elem_start - shadow_count > 0
+        {
+            let mut policy = blur_policy;
+            if resize_mask.is_some() {
+                policy.window_blur = true;
+                policy.client_regions = None;
+            }
+            if let Some(mut request) = policy.request_in_visual(
+                Rectangle::new(chrome_loc, chrome_size),
+                output_scale * zoom,
+                chrome_animation,
+                target.len() - elem_start - shadow_count,
+            ) {
+                if let Some(mask) = resize_mask {
+                    let body = Rectangle::new(chrome_loc, chrome_size)
+                        .to_physical(output_scale * zoom)
+                        .to_i32_round::<i32>();
+                    let body = chrome_animation.map_or(body, |a| a.transform_phys_rect(body));
+                    request.mask = Some(ResizeCrossfade::render_retained_rect(
+                        &mask.buffer,
+                        mask.texels,
+                        body.to_f64(),
+                        output_scale,
+                        1.0,
+                    ));
+                }
+                request.elem_start = elem_start;
+                request.trailing_chrome = shadow_count;
+                request.layer = if bucket_pinned {
+                    BlurLayer::Pinned
+                } else if is_widget {
+                    BlurLayer::Widget
+                } else {
+                    BlurLayer::Normal
+                };
+                blur_requests.push(request);
+            }
+        } else if wants_blur && (target.len() - elem_start - shadow_count) > 0 {
             let elem_count = target.len() - elem_start - shadow_count;
             let screen_loc: Point<i32, Logical> =
                 Point::from(((render_loc.x * zoom) as i32, (render_loc.y * zoom) as i32));
@@ -1592,8 +1946,16 @@ pub fn compose_frame(
             // Frost tracks the animated window's visual rect, not its instant
             // logical position (accepted cost: a frosted animation re-blurs at
             // frame rate, throttled by `animate_blur_fps` like a drag).
-            let screen_rect =
-                window_animation.map_or(screen_rect, |anim| anim.transform_phys_rect(screen_rect));
+            let screen_rect = if resize_chrome.is_some() {
+                let rect = SnapshotBlur::visual_screen_rect(
+                    Rectangle::new(chrome_loc, chrome_size),
+                    output_scale * zoom,
+                    has_ssd.then_some(state.config.decorations.title_bar_height),
+                );
+                chrome_animation.map_or(rect, |a| a.transform_phys_rect(rect))
+            } else {
+                screen_rect
+            };
 
             // Convert client blur region: surface-local Logical → mask-local
             // Physical at composite_scale = zoom × output_scale.
@@ -1612,6 +1974,9 @@ pub fn compose_frame(
                 let win_bounds: Rectangle<i32, Physical> = Rectangle::from_size(screen_rect.size);
                 let mut out: Vec<Rectangle<i32, Physical>> = Vec::with_capacity(rects.len());
                 for r in rects.iter() {
+                    let Some(r) = r.intersection(window.geometry()) else {
+                        continue;
+                    };
                     let x1 = ((r.loc.x as f64 + offset_x) * composite_scale).round() as i32;
                     let y1 = ((r.loc.y as f64 + offset_y) * composite_scale).round() as i32;
                     let x2 =
@@ -1639,7 +2004,7 @@ pub fn compose_frame(
             let skip_clipped_out = client_blur && region_rects.is_none() && !window_blur;
 
             if !skip_clipped_out {
-                blur_requests.push(BlurRequestData {
+                let mut request = BlurRequestData {
                     surface_id: wl_surface.id(),
                     screen_rect,
                     elem_start,
@@ -1661,7 +2026,17 @@ pub fn compose_frame(
                         BlurLayer::Normal
                     },
                     region_rects,
-                });
+                    mask: None,
+                };
+                // Regions and bounds share the source coordinate space until
+                // both are transformed; clipping against resized bounds loses
+                // region coverage before the animation can move it.
+                if resize_chrome.is_none()
+                    && let Some(animation) = window_animation
+                {
+                    request.apply_animation(animation);
+                }
+                blur_requests.push(request);
             }
         }
     }

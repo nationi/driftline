@@ -1,6 +1,8 @@
 use smithay::{
     backend::{
-        renderer::{ImportDma, damage::OutputDamageTracker, gles::GlesRenderer},
+        renderer::{
+            Frame as _, ImportDma, Renderer as _, damage::OutputDamageTracker, gles::GlesRenderer,
+        },
         winit::{self, WinitEvent},
     },
     output::{Mode, Output, PhysicalProperties, Subpixel},
@@ -15,6 +17,20 @@ use std::time::Duration;
 use crate::backend::Backend;
 use crate::render::build_cursor_elements;
 use crate::state::DriftWm;
+
+fn make_window_current(
+    backend: &mut winit::WinitGraphicsBackend<GlesRenderer>,
+) -> Result<(), smithay::backend::SwapBuffersError> {
+    let size = backend.window_size();
+    let (renderer, mut framebuffer) = backend.bind()?;
+    // Smithay's GLES bind creates a target descriptor; render makes it current.
+    // An empty frame preserves the pixels and leaves the window ready for age
+    // queries or a swap after offscreen work.
+    let _ = renderer
+        .render(&mut framebuffer, size, Transform::Normal)?
+        .finish()?;
+    Ok(())
+}
 
 /// Initialize the winit backend: create a window, set up the output, and
 /// start the render loop timer.
@@ -230,7 +246,25 @@ pub fn init_winit(
                 output.current_scale().fractional_scale(),
                 1.0,
             );
-            let mut age = backend.buffer_age().unwrap_or(0);
+            // Composition can bind offscreen targets for blur. Finish it before
+            // acquiring the window backbuffer whose age and damage we will use.
+            let all_elements =
+                crate::render::compose_frame(data, backend.renderer(), &output, cursor_elements);
+            // Offscreen work releases the EGL backbuffer. Make the window
+            // current before querying its age, then acquire its render target
+            // without intervening offscreen operations.
+            let window_bound = match make_window_current(&mut backend) {
+                Ok(_) => true,
+                Err(err) => {
+                    tracing::warn!("Backend bind before age query failed: {err:?}");
+                    false
+                }
+            };
+            let mut age = if window_bound {
+                backend.buffer_age().unwrap_or(0)
+            } else {
+                0
+            };
             if data.render.cached_bg.values().any(|b| b.is_tile()) && (camera_moved || zoom_changed)
             {
                 age = 0;
@@ -251,8 +285,6 @@ pub fn init_winit(
             }
             let submit_damage = match backend.bind() {
                 Ok((renderer, mut framebuffer)) => {
-                    let all_elements =
-                        crate::render::compose_frame(data, renderer, &output, cursor_elements);
                     let damage = match damage_tracker.render_output(
                         renderer,
                         &mut framebuffer,
@@ -278,10 +310,19 @@ pub fn init_winit(
             };
             // `None` skips the buffer swap so the host compositor isn't forced
             // to recomposite at 60fps while nothing on screen moves.
-            if let Some(damage) = submit_damage
-                && let Err(err) = backend.submit(Some(&damage))
-            {
-                tracing::warn!("Submit error: {err:?}");
+            if let Some(damage) = submit_damage {
+                // Capture passes above can leave a surfaceless/offscreen
+                // context current. Swap only after restoring the window.
+                let rebound = match make_window_current(&mut backend) {
+                    Ok(_) => true,
+                    Err(err) => {
+                        tracing::warn!("Backend bind before submit failed: {err:?}");
+                        false
+                    }
+                };
+                if rebound && let Err(err) = backend.submit(Some(&damage)) {
+                    tracing::warn!("Submit error: {err:?}");
+                }
             }
 
             // --- Record camera+zoom for next-frame change detection ---

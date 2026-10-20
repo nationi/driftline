@@ -32,6 +32,9 @@ struct Cli {
     /// Backend to use (default: udev on a TTY, winit if nested)
     #[arg(long, value_name = "udev|winit")]
     backend: Option<String>,
+    /// Use only this DRM connector (udev backend; useful for isolated testing)
+    #[arg(long, value_name = "NAME")]
+    drm_connector: Option<String>,
     /// Use an alternate config file
     #[arg(long, value_name = "PATH")]
     config: Option<std::path::PathBuf>,
@@ -188,10 +191,15 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Initialize backend BEFORE setting WAYLAND_DISPLAY.
     match backend_name.as_str() {
         "udev" => {
-            let dev = backend::udev::init_udev(&mut event_loop, &mut data)?;
+            let dev = backend::udev::init_udev(&mut event_loop, &mut data, cli.drm_connector)?;
             data.udev_device = Some(dev);
         }
-        _ => backend::winit::init_winit(&mut event_loop, &mut data)?,
+        _ => {
+            if cli.drm_connector.is_some() {
+                return Err("--drm-connector requires the udev backend".into());
+            }
+            backend::winit::init_winit(&mut event_loop, &mut data)?;
+        }
     }
 
     // Deferred until here: the restored focus is only handed over when its

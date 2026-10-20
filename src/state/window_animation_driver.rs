@@ -139,6 +139,7 @@ impl DriftWm {
         // can remap mid-resize — so the crossfade halves of the geometry entry it
         // replaces go with it, rather than fading over the opening window.
         self.drop_resize_crossfade(id);
+        self.invalidate_tiling_snapshot_animation(id);
         self.window_animations.start_open(id);
     }
 
@@ -154,6 +155,7 @@ impl DriftWm {
         let Some(id) = self.stage.id_of(window) else {
             return;
         };
+        self.invalidate_tiling_snapshot_animation(id);
         self.window_animations.remove(id);
         self.drop_resize_crossfade(id);
     }
@@ -172,6 +174,7 @@ impl DriftWm {
         if let Some(pending) = self.window_animations.take_pending_view(id) {
             self.apply_pending_view(pending);
         }
+        self.invalidate_tiling_snapshot_animation(id);
         self.window_animations.remove(id);
         self.drop_resize_crossfade(id);
     }
@@ -303,6 +306,16 @@ impl DriftWm {
         };
         if carries_request {
             self.window_animations.clear_waits_for(id);
+        }
+        // A translation, including an inherited opening fade, can keep the
+        // captured picture. Size and frame changes still require live content.
+        let translation_only = !carries_request
+            && matches!(space, AnimSpace::Canvas)
+            && matches!(role, GeometryRole::Normal)
+            && !replace_visual
+            && seed.size == committed.to_f64();
+        if !translation_only {
+            self.release_tiling_snapshot_for_animation(id);
         }
         self.window_animations.start_geometry(
             id,
@@ -714,6 +727,10 @@ impl DriftWm {
     pub(crate) fn tick_window_animations_at(&mut self, dt: Duration, now: Instant) {
         let speed = self.config.effects.animation_speed;
         let frame_factor = 1.0 - (1.0 - speed).powf(dt.as_secs_f64() * 60.0);
+        // A pure fade can change the frozen alpha mask without moving its rect.
+        if frame_factor > 0.0 && self.has_fading_tiling_snapshot() {
+            self.render.blur_geometry_generation += 1;
+        }
 
         // Mark the outputs that show a *moving* animation this tick, before
         // advancing, so the completing tick still presents the final resting
@@ -1101,7 +1118,7 @@ impl DriftWm {
     /// `decoration = "none"` hard-vetoes it) and the per-corner radius the live
     /// clip applies. Under an SSD bar only the bottom corners round — the bar
     /// covers the top edge.
-    fn baked_chrome_policy(
+    pub(crate) fn baked_chrome_policy(
         &self,
         surface: &WlSurface,
         fullscreen: bool,

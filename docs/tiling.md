@@ -5,6 +5,11 @@ contain several windows stacked vertically. It currently supports a single
 connected output. The canvas remains the default; no keybindings change until
 you configure them.
 
+For this checkout’s isolated test session and F1–F12 keys, use the
+[local TTY cheat sheet](../dev/docs/tty-preview.md). The bindings below are
+configuration examples, not that preview’s keys. Development scope and remaining
+work are tracked in [the current status](../dev/docs/tiling-status.md).
+
 Add bindings to `~/.config/driftwm/config.toml`:
 
 ```toml
@@ -104,10 +109,39 @@ for the other affected windows, for at most 300 ms. A window may choose a
 different size without holding up the group. Closing a participant or leaving
 tiling releases waiting buffers. Window positions and view adjustments wait
 until the corresponding buffers apply or the deadline expires. Refused sizes
-still reserve enough space for the visible window. Visible windows without
-active window animations keep a snapshot of their previous image while waiting,
+still reserve enough space for the visible window. Eligible visible windows
+keep a snapshot of their previous image while waiting,
 when capture is available. Background blur keeps updating beneath the saved
 window shape; its shadow remains below the blur. Popup menus are included without
-clipping them to the window. Opening, closing or moving a popup restores live
-rendering for its window so menus remain responsive. Full rendering
-animations and complete visual atomicity are not implemented yet.
+clipping them to the window. Opening, closing, moving or repainting a popup
+updates its live image without exposing the parent's pending buffer. Menus
+follow the animated window origin but keep their native size during resize;
+opening scale still applies. Opening fades and ordinary
+position animations can continue on the saved picture. When the group releases,
+windows animate from the saved geometry to their new positions and sizes.
+Old and new content blend before window opacity is applied, including
+translucent pixels. Ordinary tiled resize transitions, including windows with
+blur enabled by a window rule, keep border strokes and compositor title bars
+at their native thickness and height while the window changes size. Tiled
+columns keep their configured corners and shadows when filling the work area.
+If another transaction starts during a resolved canvas
+resize, its current geometry and blended image are held until the new buffers
+apply or the deadline expires, then the transition resumes from that picture.
+Ordinary tiled resize recaptures, including window-rule blur, reuse the mixed
+texture directly, avoiding extra filtering of rounded corners at fractional
+output scales. An opening fade can continue through grouped resize releases
+and recaptures: its progress stays intact, and its scale applies around the
+resized frame while old and new client content blend separately. This also
+applies to window-rule blur; the live backdrop continues beneath the saved
+opening picture. Client-requested partial blur regions follow opening, movement
+and resize. Changed client regions blend with the old image during grouped
+resize, and a superseding group retains the partially blended mask. Disabling
+client blur fades its mask out with the old content. Empty client regions do not
+enable whole-window blur. Mixed window-rule/client blur policy transitions still
+need dedicated validation, especially around compositor title bars.
+Canvas resizes still held for a client reply can also be captured before a new
+group takes over. A late buffer arriving after the group expires can start a
+bounded resize transition on an otherwise settled window without restarting
+the group or repeating the animation on subsequent repaints. Degraded stale
+resize content and fullscreen/pinned transitions retain their live fallback.
+Complete visual atomicity and all animation transitions are not implemented yet.

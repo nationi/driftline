@@ -760,6 +760,53 @@ impl WindowAnimations {
         }
     }
 
+    /// Whether the current picture can use unscaled captured canvas content.
+    pub fn is_canvas_translation(&self, id: ElementId, committed: Size<i32, Logical>) -> bool {
+        matches!(
+            self.animations.get(&id),
+            Some(WindowAnimation {
+                kind: AnimationKind::Geometry {
+                    visual,
+                    space: AnimSpace::Canvas,
+                    requested_size: None,
+                    buffer_stale: false,
+                    start_hold: StartHold::Off,
+                    role: GeometryRole::Normal,
+                    picture,
+                    ..
+                }
+            }) if visual.size == committed.to_f64()
+                && !picture.bare && !picture.pinned
+        )
+    }
+
+    /// A normal canvas picture can be flattened while resolved or still held.
+    /// Degraded stale content may be capped inside a larger frame and needs a
+    /// different capture policy.
+    pub(crate) fn can_capture_canvas_geometry(&self, id: ElementId) -> bool {
+        matches!(self.animations.get(&id), Some(WindowAnimation {
+            kind: AnimationKind::Geometry {
+                space: AnimSpace::Canvas, requested_size,
+                buffer_stale, start_hold,
+                role: GeometryRole::Normal, pending_view: None, waits_for: None, picture, ..
+            }
+        }) if !picture.bare && !picture.pinned
+            && (start_hold.is_held() || (requested_size.is_none() && !buffer_stale)))
+    }
+
+    pub(crate) fn stop_geometry_keep_open(&mut self, id: ElementId) {
+        let fade = self.open_progress(id);
+        self.remove(id);
+        if let Some(progress) = fade {
+            self.animations.insert(
+                id,
+                WindowAnimation {
+                    kind: AnimationKind::Open { progress },
+                },
+            );
+        }
+    }
+
     /// The current visual rect of a geometry entry in its own space, if any.
     pub fn geometry_visual_rect(&self, id: ElementId) -> Option<Rectangle<f64, Logical>> {
         match self.animations.get(&id) {
@@ -816,6 +863,36 @@ impl WindowAnimations {
             .collect()
     }
 
+    pub(crate) fn opening_scale(&self, id: ElementId, amplitude: f64) -> f64 {
+        self.open_progress(id)
+            .map_or(1.0, |p| open_scale(amplitude, p.clamp(0.0, 1.0)))
+    }
+
+    /// Apply only the entry's open fade to a retained picture's own geometry.
+    pub fn opening_visual(
+        &self,
+        id: ElementId,
+        rect: Rectangle<f64, Logical>,
+        amplitude: f64,
+    ) -> AnimatedVisual {
+        let (rect, alpha) = match self.open_progress(id) {
+            Some(p) => {
+                let p = p.clamp(0.0, 1.0);
+                (
+                    scaled_about_centre(rect, open_scale(amplitude, p)),
+                    open_alpha(p),
+                )
+            }
+            None => (rect, 1.0),
+        };
+        AnimatedVisual {
+            loc: rect.loc,
+            size: rect.size,
+            alpha,
+            cap_content: false,
+        }
+    }
+
     /// Render-time lookup: the animated stand-in for `id`, given the window's
     /// live target rect (canvas rect for a normal window, screen rect for a
     /// pinned one) and the configured open/close scale amplitude. Returns the
@@ -836,18 +913,8 @@ impl WindowAnimations {
             };
         };
         match &animation.kind {
-            AnimationKind::Open { progress } => {
-                let p = progress.clamp(0.0, 1.0);
-                let rect = scaled_about_centre(
-                    Rectangle::new(target_loc, target_size),
-                    open_scale(amplitude, p),
-                );
-                AnimatedVisual {
-                    loc: rect.loc,
-                    size: rect.size,
-                    alpha: open_alpha(p),
-                    cap_content: false,
-                }
+            AnimationKind::Open { .. } => {
+                self.opening_visual(id, Rectangle::new(target_loc, target_size), amplitude)
             }
             AnimationKind::Geometry {
                 visual,

@@ -33,9 +33,15 @@ use wayland_client::protocol::wl_registry::{self, WlRegistry};
 use wayland_client::protocol::wl_seat::{self, WlSeat};
 use wayland_client::protocol::wl_shm::{self, WlShm};
 use wayland_client::protocol::wl_shm_pool::WlShmPool;
+use wayland_client::protocol::wl_subcompositor::WlSubcompositor;
+use wayland_client::protocol::wl_subsurface::WlSubsurface;
 use wayland_client::protocol::wl_surface::{self, WlSurface};
 use wayland_client::protocol::wl_touch::{self, WlTouch};
 use wayland_client::{Connection, Dispatch, Proxy as _, QueueHandle, WEnum};
+use wayland_protocols::ext::background_effect::v1::client::{
+    ext_background_effect_manager_v1::ExtBackgroundEffectManagerV1,
+    ext_background_effect_surface_v1::ExtBackgroundEffectSurfaceV1,
+};
 use wayland_protocols::ext::idle_notify::v1::client::{
     ext_idle_notification_v1::{self, ExtIdleNotificationV1},
     ext_idle_notifier_v1::ExtIdleNotifierV1,
@@ -106,6 +112,8 @@ pub struct State {
     pub outputs: HashMap<WlOutput, String>,
 
     pub compositor: Option<WlCompositor>,
+    pub background_effect_manager: Option<ExtBackgroundEffectManagerV1>,
+    pub subcompositor: Option<WlSubcompositor>,
     pub xdg_wm_base: Option<XdgWmBase>,
     pub layer_shell: Option<ZwlrLayerShellV1>,
     pub spbm: Option<WpSinglePixelBufferManagerV1>,
@@ -531,6 +539,8 @@ impl Client {
             globals: Vec::new(),
             outputs: HashMap::new(),
             compositor: None,
+            background_effect_manager: None,
+            subcompositor: None,
             xdg_wm_base: None,
             layer_shell: None,
             spbm: None,
@@ -653,6 +663,26 @@ impl Client {
 
     pub fn window(&mut self, surface: &WlSurface) -> &mut Window {
         self.state.window(surface)
+    }
+
+    pub fn background_effect(&self, surface: &WlSurface) -> ExtBackgroundEffectSurfaceV1 {
+        self.state
+            .background_effect_manager
+            .as_ref()
+            .unwrap()
+            .get_background_effect(surface, &self.state.qh, ())
+    }
+
+    pub fn set_blur_region(
+        &self,
+        effect: &ExtBackgroundEffectSurfaceV1,
+        rects: Option<&[(i32, i32, i32, i32)]>,
+    ) {
+        let region = rects.map(|rects| self.state.region_from(rects));
+        effect.set_blur_region(region.as_ref());
+        if let Some(region) = region {
+            region.destroy();
+        }
     }
 
     pub fn set_opaque_region(&mut self, surface: &WlSurface, rects: &[(i32, i32, i32, i32)]) {
@@ -806,6 +836,14 @@ impl Client {
     /// [`Lock`] (`ext_session_lock_v1.get_lock_surface`).
     pub fn create_lock_surface(&mut self, output: &WlOutput) -> &mut LockSurface {
         self.state.create_lock_surface(output)
+    }
+
+    pub fn create_surface(&mut self) -> WlSurface {
+        self.state.create_surface()
+    }
+
+    pub fn create_subsurface(&mut self, surface: &WlSurface, parent: &WlSurface) -> WlSubsurface {
+        self.state.create_subsurface(surface, parent)
     }
 
     /// Destroy this client's most recent [`Lock`] object without unlocking, and
@@ -1265,6 +1303,16 @@ impl State {
         );
         region.destroy();
         confine
+    }
+
+    pub fn create_surface(&mut self) -> WlSurface {
+        let compositor = self.compositor.as_ref().unwrap();
+        compositor.create_surface(&self.qh, ())
+    }
+
+    pub fn create_subsurface(&mut self, surface: &WlSurface, parent: &WlSurface) -> WlSubsurface {
+        let subcompositor = self.subcompositor.as_ref().unwrap();
+        subcompositor.get_subsurface(surface, parent, &self.qh, ())
     }
 
     pub fn set_confine_region(
@@ -1787,6 +1835,12 @@ impl Dispatch<WlRegistry, ()> for State {
                 if interface == WlCompositor::interface().name {
                     let version = min(version, WlCompositor::interface().version);
                     state.compositor = Some(registry.bind(name, version, qh, ()));
+                } else if interface == ExtBackgroundEffectManagerV1::interface().name {
+                    let version = min(version, ExtBackgroundEffectManagerV1::interface().version);
+                    state.background_effect_manager = Some(registry.bind(name, version, qh, ()));
+                } else if interface == WlSubcompositor::interface().name {
+                    let version = min(version, WlSubcompositor::interface().version);
+                    state.subcompositor = Some(registry.bind(name, version, qh, ()));
                 } else if interface == XdgWmBase::interface().name {
                     let version = min(version, XdgWmBase::interface().version);
                     state.xdg_wm_base = Some(registry.bind(name, version, qh, ()));
@@ -1978,6 +2032,32 @@ impl Dispatch<WlCompositor, ()> for State {
         _state: &mut Self,
         _proxy: &WlCompositor,
         _event: <WlCompositor as wayland_client::Proxy>::Event,
+        _data: &(),
+        _conn: &Connection,
+        _qhandle: &QueueHandle<Self>,
+    ) {
+        unreachable!()
+    }
+}
+
+impl Dispatch<WlSubcompositor, ()> for State {
+    fn event(
+        _state: &mut Self,
+        _proxy: &WlSubcompositor,
+        _event: <WlSubcompositor as wayland_client::Proxy>::Event,
+        _data: &(),
+        _conn: &Connection,
+        _qhandle: &QueueHandle<Self>,
+    ) {
+        unreachable!()
+    }
+}
+
+impl Dispatch<WlSubsurface, ()> for State {
+    fn event(
+        _state: &mut Self,
+        _proxy: &WlSubsurface,
+        _event: <WlSubsurface as wayland_client::Proxy>::Event,
         _data: &(),
         _conn: &Connection,
         _qhandle: &QueueHandle<Self>,
@@ -2724,3 +2804,6 @@ impl Dispatch<ZwpTabletPadV2, ()> for State {
         // pads and no scenario reads one.
     }
 }
+
+wayland_client::delegate_noop!(State: ignore ExtBackgroundEffectManagerV1);
+wayland_client::delegate_noop!(State: ignore ExtBackgroundEffectSurfaceV1);

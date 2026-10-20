@@ -112,7 +112,7 @@ fn live_frame(f: &mut Fixture, output: &Output) -> RgbaImage {
         crate::render::render_elements_to_rgba(
             renderer,
             Size::<i32, Physical>::from((OUTPUT.0 as i32, OUTPUT.1 as i32)),
-            Scale::from(SCALE),
+            Scale::from(output.current_scale().fractional_scale()),
             &refs,
         )
     };
@@ -603,6 +603,44 @@ fn two_bars_that_pay_for_the_shared_backdrop_slice_their_frost_out_of_it() {
 }
 
 fn check_tiling_frost(framed: bool) {
+    check_tiling_frost_at_scale(framed, SCALE);
+}
+
+fn check_tiling_frost_at_scale(framed: bool, scale: f64) {
+    check_tiling_frost_scene(framed, scale, false);
+}
+
+#[derive(Clone, Copy)]
+enum TilingFrostAnimation {
+    None,
+    Move,
+    Open,
+    PureFade,
+    ActiveOpen,
+    ActiveFade,
+    RepeatResize,
+    RepeatSsdResize,
+}
+
+fn check_tiling_frost_scene(framed: bool, scale: f64, translate: bool) {
+    check_tiling_frost_capture(
+        framed,
+        scale,
+        if translate {
+            TilingFrostAnimation::Move
+        } else {
+            TilingFrostAnimation::None
+        },
+        false,
+    );
+}
+
+fn check_tiling_frost_capture(
+    framed: bool,
+    scale: f64,
+    animation: TilingFrostAnimation,
+    moving_capture: bool,
+) {
     use super::{last_configured, map_window_shm, window_by_app_id};
     use driftwm::config::Action;
     use smithay::reexports::wayland_server::Resource;
@@ -621,6 +659,14 @@ fn check_tiling_frost(framed: bool) {
         "{}\n[snap]\ngap = 0\n",
         config_toml(shader.to_str().unwrap(), 3, 1.5)
     );
+    let config = if matches!(
+        animation,
+        TilingFrostAnimation::PureFade | TilingFrostAnimation::ActiveFade
+    ) {
+        config.replace("[effects]", "[effects]\nanimation_scale = 1.0")
+    } else {
+        config
+    };
     let config = if framed {
         config
             .replace("border_width = 0", "border_width = 2")
@@ -629,8 +675,16 @@ fn check_tiling_frost(framed: bool) {
     } else {
         config
     };
+    let config = if matches!(animation, TilingFrostAnimation::RepeatSsdResize) {
+        format!(
+            "{}\n[[window_rules]]\napp_id = \"normal\"\ndecoration = \"server\"\n",
+            config.replace("blur = true", "blur = true\ndecoration = \"server\"")
+        )
+    } else {
+        config
+    };
     let mut f = Fixture::with_config(super::config(&config));
-    let output = f.add_output_scaled(1, (OUTPUT.0 as u16, OUTPUT.1 as u16), SCALE);
+    let output = f.add_output_scaled(1, (OUTPUT.0 as u16, OUTPUT.1 as u16), scale);
     install_with_blur(&mut f, renderer);
     let first = f.add_client();
     let second = f.add_client();
@@ -652,9 +706,86 @@ fn check_tiling_frost(framed: bool) {
     f.state().stage.set_position(&wa, (250, 200).into());
     f.state().stage.set_position(&wb, (650, 450).into());
     f.state().set_camera((0.0, 0.0).into());
+    if moving_capture {
+        f.state().execute_action(&Action::ToggleTiling);
+        for (client, surface, size, data) in [
+            (first, &a, WINDOW_PHYSICAL, &pixels),
+            (second, &b, (200, 100), &b_pixels),
+        ] {
+            last_configured(&mut f, client, surface);
+            let w = f.client(client).window(surface);
+            w.attach_shm_buffer(size, data);
+            w.ack_last_and_commit();
+            f.double_roundtrip(client);
+        }
+        f.double_roundtrip(first);
+        assert_eq!(f.state().tiling_snapshot_count(), 0);
+        f.state().cancel_window_animation(&wa);
+        f.state().cancel_window_animation(&wb);
+        f.state().stage.set_position(&wa, (250, 200).into());
+        f.state().stage.set_position(&wb, (650, 450).into());
+        f.state().set_camera((0.0, 0.0).into());
+        f.state()
+            .animate_window_move_from(&wa, (300, 250).into(), None);
+        f.state()
+            .tick_window_animations(std::time::Duration::from_millis(16));
+    }
+    let translated_before = if matches!(animation, TilingFrostAnimation::Move) {
+        f.state()
+            .animate_window_move_from(&wa, (300, 250).into(), None);
+        let expected = live_frame(&mut f, &output);
+        f.state().cancel_window_animation(&wa);
+        Some(expected)
+    } else {
+        None
+    };
+    let opaque_bounds = frost_bounds(&live_frame(&mut f, &output));
+    let opening_frames = if matches!(
+        animation,
+        TilingFrostAnimation::Open
+            | TilingFrostAnimation::PureFade
+            | TilingFrostAnimation::ActiveOpen
+            | TilingFrostAnimation::ActiveFade
+    ) {
+        f.state().start_window_open_animation(&wa);
+        if matches!(
+            animation,
+            TilingFrostAnimation::ActiveOpen | TilingFrostAnimation::ActiveFade
+        ) {
+            f.state()
+                .tick_window_animations(std::time::Duration::from_millis(16));
+        }
+        let mut frames = vec![live_frame(&mut f, &output)];
+        for _ in 0..2 {
+            f.state()
+                .tick_window_animations(std::time::Duration::from_millis(16));
+            // Rebuild the reference mask even for an opacity-only live frame.
+            f.state().render.blur_geometry_generation += 1;
+            frames.push(live_frame(&mut f, &output));
+        }
+        f.state().cancel_window_animation(&wa);
+        f.state().render.blur_geometry_generation += 1;
+        Some(frames)
+    } else {
+        None
+    };
+    if matches!(
+        animation,
+        TilingFrostAnimation::ActiveOpen | TilingFrostAnimation::ActiveFade
+    ) {
+        f.state().start_window_open_animation(&wa);
+        f.state()
+            .tick_window_animations(std::time::Duration::from_millis(16));
+        f.state().render.blur_geometry_generation += 1;
+    }
     let before = live_frame(&mut f, &output);
     let before_bounds = frost_bounds(&before);
-    f.state().execute_action(&Action::ToggleTiling);
+    if moving_capture {
+        f.state()
+            .execute_action(&Action::MoveIntoColumn(driftwm::config::Direction::Left));
+    } else {
+        f.state().execute_action(&Action::ToggleTiling);
+    }
     assert_eq!(f.state().tiling_snapshot_count(), 2);
     let size_a = last_configured(&mut f, first, &a);
     let size_b = last_configured(&mut f, second, &b);
@@ -694,6 +825,93 @@ fn check_tiling_frost(framed: bool) {
         max_delta <= if framed { 2 } else { 1 },
         "frozen frost differs by {max_delta} bytes: {differences:?}"
     );
+    if let Some(expected) = translated_before {
+        let id = f.state().stage.id_of(&wa).unwrap();
+        let resting_mask = f
+            .state()
+            .tiling_snapshot_elements(id, &output, (0.0, 0.0).into(), 1.0, scale)
+            .unwrap()
+            .blur
+            .unwrap()
+            .screen_rect;
+        f.state()
+            .animate_window_move_from(&wa, (300, 250).into(), None);
+        assert_eq!(f.state().tiling_snapshot_count(), 2);
+        let moved = live_frame(&mut f, &output);
+        assert_eq!(frost_bounds(&moved), frost_bounds(&expected));
+        let delta = moved
+            .as_raw()
+            .iter()
+            .zip(expected.as_raw())
+            .map(|(a, b)| a.abs_diff(*b))
+            .max()
+            .unwrap();
+        assert!(
+            delta <= if framed { 2 } else { 1 },
+            "translated frost differs by {delta}"
+        );
+        f.state()
+            .tick_window_animations(std::time::Duration::from_millis(16));
+        let advanced = live_frame(&mut f, &output);
+        assert_ne!(frost_bounds(&advanced), frost_bounds(&moved));
+        let visual = f
+            .state()
+            .window_animations
+            .geometry_visual_rect(id)
+            .unwrap();
+        let delta = visual.loc - f.state().stage.position_of(&wa).unwrap().to_f64();
+        let physical_delta: smithay::utils::Point<i32, smithay::utils::Physical> =
+            delta.to_physical_precise_round(scale);
+        let animated_mask = f
+            .state()
+            .tiling_snapshot_elements(id, &output, (0.0, 0.0).into(), 1.0, scale)
+            .unwrap()
+            .blur
+            .unwrap()
+            .screen_rect;
+        assert_eq!(animated_mask.loc, resting_mask.loc + physical_delta);
+        assert_eq!(animated_mask.size, resting_mask.size);
+        f.state().cancel_window_animation(&wa);
+        let restored = live_frame(&mut f, &output);
+        assert_eq!(frost_bounds(&restored), opaque_bounds);
+        assert_eq!(f.state().tiling_snapshot_count(), 2);
+    }
+    if let Some(frames) = opening_frames {
+        if !matches!(
+            animation,
+            TilingFrostAnimation::ActiveOpen | TilingFrostAnimation::ActiveFade
+        ) {
+            f.state().start_window_open_animation(&wa);
+        }
+        assert_eq!(f.state().tiling_snapshot_count(), 2);
+        for (tick, expected) in frames.iter().enumerate() {
+            if tick != 0 {
+                let generation = f.state().render.blur_geometry_generation;
+                f.state()
+                    .tick_window_animations(std::time::Duration::from_millis(16));
+                assert!(
+                    f.state().render.blur_geometry_generation > generation,
+                    "fade must invalidate the mask even at constant size"
+                );
+            }
+            let actual = live_frame(&mut f, &output);
+            let delta = actual
+                .as_raw()
+                .iter()
+                .zip(expected.as_raw())
+                .map(|(a, b)| a.abs_diff(*b))
+                .max()
+                .unwrap();
+            assert!(
+                delta <= if framed { 2 } else { 1 },
+                "{scale}x framed={framed} opening frost tick {tick} differs by {delta}"
+            );
+        }
+        f.state().cancel_window_animation(&wa);
+        let restored = live_frame(&mut f, &output);
+        assert_eq!(frost_bounds(&restored), opaque_bounds);
+        assert_eq!(f.state().tiling_snapshot_count(), 2);
+    }
     barrier.signal();
     let owner = surface.client().unwrap();
     let client_state = owner.get_data::<crate::state::ClientState>().unwrap();
@@ -703,7 +921,86 @@ fn check_tiling_frost(framed: bool) {
         .blocker_cleared(f.state(), &dh);
     f.double_roundtrip(second);
     assert_eq!(f.state().tiling_snapshot_count(), 0);
+    if matches!(
+        animation,
+        TilingFrostAnimation::RepeatResize | TilingFrostAnimation::RepeatSsdResize
+    ) {
+        let released = live_frame(&mut f, &output);
+        let delta = before
+            .as_raw()
+            .iter()
+            .zip(released.as_raw())
+            .map(|(a, b)| a.abs_diff(*b))
+            .max()
+            .unwrap();
+        let differences: Vec<_> = before
+            .enumerate_pixels()
+            .zip(released.pixels())
+            .filter(|((_, _, a), b)| a.0.iter().zip(b.0.iter()).any(|(a, b)| a.abs_diff(*b) > 2))
+            .take(8)
+            .map(|((x, y, a), b)| (x, y, a.0, b.0))
+            .collect();
+        assert!(
+            delta <= 2,
+            "{scale}x SSD={} initial frost release differs by {delta}: {differences:?}",
+            matches!(animation, TilingFrostAnimation::RepeatSsdResize)
+        );
+    }
+    // The release frame intentionally retains the old content. The following
+    // animation tick, rather than release itself, must advance the picture.
+    f.state()
+        .tick_window_animations(std::time::Duration::from_millis(16));
     assert!(before != live_frame(&mut f, &output));
+    if matches!(
+        animation,
+        TilingFrostAnimation::RepeatResize | TilingFrostAnimation::RepeatSsdResize
+    ) {
+        f.state()
+            .execute_action(&Action::FocusColumn(driftwm::config::Direction::Left));
+        f.state()
+            .tick_window_animations(std::time::Duration::from_millis(16));
+        let mut current = live_frame(&mut f, &output);
+        for tick_ms in [16, 48, 112] {
+            f.state().execute_action(&Action::CycleColumnWidth);
+            assert!(f.state().tiling_snapshot_count() > 0);
+            let held = live_frame(&mut f, &output);
+            let delta = current
+                .as_raw()
+                .iter()
+                .zip(held.as_raw())
+                .map(|(a, b)| a.abs_diff(*b))
+                .max()
+                .unwrap();
+            assert!(delta <= 2, "{scale}x frost recapture differs by {delta}");
+            f.state()
+                .tick_window_animations(std::time::Duration::from_millis(16));
+            assert_eq!(held, live_frame(&mut f, &output));
+            let size = last_configured(&mut f, first, &a);
+            let pixels = super::render_pixels::solid_bgra(size.0, size.1, [0, 128, 0, 128], false);
+            let window = f.client(first).window(&a);
+            window.set_size(size.0 as u16, size.1 as u16);
+            window.attach_shm_buffer(size, &pixels);
+            window.ack_last_and_commit();
+            f.double_roundtrip(first);
+            f.double_roundtrip(second);
+            assert_eq!(f.state().tiling_snapshot_count(), 0);
+            let resumed = live_frame(&mut f, &output);
+            let delta = held
+                .as_raw()
+                .iter()
+                .zip(resumed.as_raw())
+                .map(|(a, b)| a.abs_diff(*b))
+                .max()
+                .unwrap();
+            assert!(
+                delta <= 2,
+                "{scale}x tick {tick_ms} frost release differs by {delta}"
+            );
+            f.state()
+                .tick_window_animations(std::time::Duration::from_millis(tick_ms));
+            current = live_frame(&mut f, &output);
+        }
+    }
     remove_pre_commit_hook(&surface, &hook);
     f.state().execute_action(&Action::ToggleTiling);
     uninstall_with_blur(&mut f, &output);
@@ -721,4 +1018,648 @@ fn tiling_keeps_frost_under_frozen_content_until_buffers_apply() {
 fn frozen_tiling_frost_excludes_shadows_in_rounded_corner_cutouts() {
     let _gl = gl::lock();
     check_tiling_frost(true);
+}
+
+#[test]
+#[ignore = "needs Mesa surfaceless EGL; run with --include-ignored"]
+fn frozen_tiling_frost_preserves_pixels_at_fractional_output_scales() {
+    let _gl = gl::lock();
+    for scale in [1.25, 1.5] {
+        check_tiling_frost_at_scale(false, scale);
+        check_tiling_frost_at_scale(true, scale);
+    }
+}
+
+#[test]
+#[ignore = "needs Mesa surfaceless EGL; run with --include-ignored"]
+fn position_animation_moves_frozen_tiling_frost_and_shadow_together() {
+    let _gl = gl::lock();
+    for scale in [SCALE, 1.25, 1.5] {
+        for framed in [false, true] {
+            check_tiling_frost_scene(framed, scale, true);
+        }
+    }
+}
+
+#[test]
+#[ignore = "needs Mesa surfaceless EGL; run with --include-ignored"]
+fn tiling_captures_frost_during_an_active_translation() {
+    let _gl = gl::lock();
+    for scale in [SCALE, 1.25, 1.5] {
+        for framed in [false, true] {
+            check_tiling_frost_capture(framed, scale, TilingFrostAnimation::None, true);
+        }
+    }
+}
+
+#[test]
+#[ignore = "needs Mesa surfaceless EGL; run with --include-ignored"]
+fn opening_frozen_tiling_content_preserves_frost_and_shadow() {
+    let _gl = gl::lock();
+    for scale in [SCALE, 1.25, 1.5] {
+        for framed in [false, true] {
+            check_tiling_frost_capture(framed, scale, TilingFrostAnimation::Open, false);
+        }
+    }
+}
+
+#[test]
+#[ignore = "needs Mesa surfaceless EGL; run with --include-ignored"]
+fn fading_frozen_tiling_content_refreshes_an_unchanged_blur_mask_rect() {
+    let _gl = gl::lock();
+    check_tiling_frost_capture(true, SCALE, TilingFrostAnimation::PureFade, false);
+}
+
+#[test]
+#[ignore = "needs surfaceless EGL; run with --include-ignored"]
+fn incremental_frost_frames_match_full_redraw_with_output_flip() {
+    use super::{map_window_shm, window_by_app_id};
+    use smithay::backend::allocator::Fourcc;
+    use smithay::backend::renderer::damage::OutputDamageTracker;
+    use smithay::backend::renderer::gles::GlesTexture;
+    use smithay::backend::renderer::{Bind, ExportMem, Offscreen};
+    use smithay::utils::{Rectangle, Transform};
+
+    let _gl = gl::lock();
+    let Some(renderer) = gl::surfaceless_renderer("incremental frost") else {
+        return;
+    };
+    let temp = TempDir::new();
+    let shader = temp.path().join("incremental-stripes.glsl");
+    std::fs::write(&shader, framed_stripes_shader(110.0)).unwrap();
+    let config = config_toml(shader.to_str().unwrap(), 2, 1.1)
+        .replace("[decorations]", "[decorations]\nblur = true");
+    let mut f = Fixture::with_config(super::config(&config));
+    let output = f.add_output_scaled(1, (OUTPUT.0 as u16, OUTPUT.1 as u16), SCALE);
+    install_with_blur(&mut f, renderer);
+    let client = f.add_client();
+    let pixels =
+        super::render_pixels::solid_bgra(WINDOW_PHYSICAL.0, WINDOW_PHYSICAL.1, GHOST_BGRA, false);
+    for name in ["frosted", "middle", "front"] {
+        map_window_shm(
+            &mut f,
+            client,
+            name,
+            WINDOW_LOGICAL,
+            WINDOW_PHYSICAL,
+            &pixels,
+        );
+    }
+    super::tick_until_settled(&mut f);
+    let windows: Vec<_> = ["frosted", "middle", "front"]
+        .into_iter()
+        .map(|name| window_by_app_id(&mut f, name).unwrap())
+        .collect();
+    for (i, window) in windows.iter().enumerate() {
+        f.state()
+            .stage
+            .set_position(window, (100 + 60 * i as i32, 90 + 45 * i as i32).into());
+    }
+    f.state().set_camera((0.0, 0.0).into());
+    let size: Size<i32, Physical> = (OUTPUT.0 as i32, OUTPUT.1 as i32).into();
+    let mut backend = f.state().backend.take().unwrap();
+    {
+        let renderer = backend.renderer();
+        let gpu = renderer
+            .with_context(|gl| unsafe {
+                std::ffi::CStr::from_ptr(
+                    gl.GetString(smithay::backend::renderer::gles::ffi::RENDERER)
+                        .cast(),
+                )
+                .to_string_lossy()
+                .into_owned()
+            })
+            .unwrap();
+        eprintln!("incremental frost renderer: {gpu}");
+        for transform in [Transform::Normal, Transform::Flipped180] {
+            let mut incremental = Offscreen::<GlesTexture>::create_buffer(
+                renderer,
+                Fourcc::Abgr8888,
+                size.to_logical(1).to_buffer(1, Transform::Normal),
+            )
+            .unwrap();
+            let mut reference = Offscreen::<GlesTexture>::create_buffer(
+                renderer,
+                Fourcc::Abgr8888,
+                size.to_logical(1).to_buffer(1, Transform::Normal),
+            )
+            .unwrap();
+            let mut tracker = OutputDamageTracker::new(size, SCALE, transform);
+            for step in 0..6 {
+                let window = &windows[step % windows.len()];
+                f.state().stage.set_position(
+                    window,
+                    (100 + 25 * step as i32, 80 + 17 * step as i32).into(),
+                );
+                f.state().render.blur_geometry_generation += 1;
+                let elements =
+                    crate::render::compose_frame(f.state(), renderer, &output, Vec::new());
+                let mut results = Vec::new();
+                for full in [false, true] {
+                    let texture = if full {
+                        &mut reference
+                    } else {
+                        &mut incremental
+                    };
+                    let mut fresh = OutputDamageTracker::new(size, SCALE, transform);
+                    let dt = if full { &mut fresh } else { &mut tracker };
+                    let mapping = {
+                        let mut target = renderer.bind(texture).unwrap();
+                        dt.render_output(
+                            renderer,
+                            &mut target,
+                            if full || step == 0 { 0 } else { 1 },
+                            &elements,
+                            [0.0, 0.0, 0.0, 1.0],
+                        )
+                        .unwrap()
+                        .sync
+                        .wait()
+                        .unwrap();
+                        renderer
+                            .copy_framebuffer(
+                                &target,
+                                Rectangle::from_size(
+                                    size.to_logical(1).to_buffer(1, Transform::Normal),
+                                ),
+                                Fourcc::Abgr8888,
+                            )
+                            .unwrap()
+                    };
+                    results.push(renderer.map_texture(&mapping).unwrap().to_vec());
+                }
+                let delta = results[0]
+                    .iter()
+                    .zip(&results[1])
+                    .map(|(a, b)| a.abs_diff(*b))
+                    .max()
+                    .unwrap();
+                assert_eq!(
+                    delta, 0,
+                    "{transform:?} step {step}: incremental rendering differs"
+                );
+            }
+        }
+    }
+    f.state().backend = Some(backend);
+    uninstall_with_blur(&mut f, &output);
+}
+
+#[test]
+#[ignore = "needs surfaceless EGL; run with --include-ignored"]
+fn tiling_captures_frost_during_an_active_open_or_fade() {
+    let _gl = gl::lock();
+    for scale in [1.0, 1.25, 1.5] {
+        for animation in [
+            TilingFrostAnimation::ActiveOpen,
+            TilingFrostAnimation::ActiveFade,
+        ] {
+            check_tiling_frost_capture(true, scale, animation, false);
+        }
+    }
+}
+
+#[test]
+#[ignore = "needs surfaceless EGL; run with --include-ignored"]
+fn repeated_tiling_resize_preserves_frost_and_chrome() {
+    let _gl = gl::lock();
+    let (ready, loaded) = std::sync::mpsc::sync_channel(1);
+    driftwm::text::warm_fonts(move || {
+        let _ = ready.send(());
+    });
+    loaded
+        .recv_timeout(std::time::Duration::from_secs(10))
+        .unwrap();
+    for scale in [1.0, 1.25, 1.5] {
+        for animation in [
+            TilingFrostAnimation::RepeatResize,
+            TilingFrostAnimation::RepeatSsdResize,
+        ] {
+            check_tiling_frost_capture(true, scale, animation, false);
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug)]
+enum ClientBlurMotion {
+    Opening,
+    Move,
+    Resize,
+}
+
+#[test]
+#[ignore = "needs surfaceless EGL; run with --include-ignored"]
+fn client_blur_regions_follow_motion_opening_and_grouped_capture() {
+    let _gl = gl::lock();
+    let (ready, loaded) = std::sync::mpsc::sync_channel(1);
+    driftwm::text::warm_fonts(move || {
+        let _ = ready.send(());
+    });
+    loaded
+        .recv_timeout(std::time::Duration::from_secs(10))
+        .unwrap();
+    for scale in [1.0, 1.25, 1.5] {
+        for motion in [
+            ClientBlurMotion::Opening,
+            ClientBlurMotion::Move,
+            ClientBlurMotion::Resize,
+        ] {
+            for ssd in [false, true] {
+                check_client_blur_motion(scale, motion, ssd, false);
+            }
+        }
+    }
+}
+
+#[test]
+#[ignore = "needs surfaceless EGL; run with --include-ignored"]
+fn changed_client_blur_shapes_blend_through_resize_and_recapture() {
+    let _gl = gl::lock();
+    for scale in [1.0, 1.25, 1.5] {
+        for ssd in [false, true] {
+            for motion in [ClientBlurMotion::Resize, ClientBlurMotion::Opening] {
+                check_client_blur_motion(scale, motion, ssd, true);
+            }
+        }
+    }
+}
+
+fn check_client_blur_motion(scale: f64, motion: ClientBlurMotion, ssd: bool, change: bool) {
+    use super::{last_configured, map_window_shm, window_by_app_id};
+    use driftwm::config::Action;
+    let Some(renderer) = gl::surfaceless_renderer("client blur motion") else {
+        return;
+    };
+    let temp = TempDir::new();
+    let shader = temp.path().join("client-regions.glsl");
+    std::fs::write(&shader, "precision highp float; varying vec2 v_coords; void main() { float s=step(0.5,fract(v_coords.x*80.0)); gl_FragColor=vec4(vec3(s),1.0); }").unwrap();
+    let config = config_toml(shader.to_str().unwrap(), 3, 1.5)
+        .replace(
+            "blur = true",
+            if ssd {
+                "blur = false\ndecoration = \"server\""
+            } else {
+                "blur = false"
+            },
+        )
+        .replace("border_width = 0", "border_width = 2")
+        .replace("corner_radius = 0", "corner_radius = 8")
+        .replace("shadow = false", "shadow = true")
+        .replace(
+            "[decorations]",
+            "[decorations]\nopacity = 0.6\nopacity_focused = 0.6",
+        );
+    let mut f = Fixture::with_config(super::config(&config));
+    let output = f.add_output_scaled(1, (OUTPUT.0 as u16, OUTPUT.1 as u16), scale);
+    install_with_blur(&mut f, renderer);
+    let client = f.add_client();
+    let pixels = super::render_pixels::solid_bgra(
+        WINDOW_PHYSICAL.0,
+        WINDOW_PHYSICAL.1,
+        [0, 64, 0, 128],
+        false,
+    );
+    let surface = map_window_shm(
+        &mut f,
+        client,
+        "frosted",
+        WINDOW_LOGICAL,
+        WINDOW_PHYSICAL,
+        &pixels,
+    );
+    super::tick_until_settled(&mut f);
+    let window = window_by_app_id(&mut f, "frosted").unwrap();
+    f.state().stage.set_position(&window, (250, 200).into());
+    f.state().set_camera((0.0, 0.0).into());
+    let effect = f.client(client).background_effect(&surface);
+    let regions = [(15, 10, 90, 70), (160, 80, 70, 100), (-50, -30, 60, 40)];
+    match motion {
+        ClientBlurMotion::Opening => f.state().start_window_open_animation(&window),
+        ClientBlurMotion::Move => {
+            f.state()
+                .animate_window_move_from(&window, (300, 250).into(), None)
+        }
+        ClientBlurMotion::Resize => f.state().begin_geometry_animation_seeded(
+            &window,
+            smithay::utils::Rectangle::new((280.0, 220.0).into(), (200.0, 120.0).into()),
+            crate::state::window_animation::AnimSpace::Canvas,
+            None,
+            crate::state::window_animation::GeometryRole::Normal,
+            crate::state::window_animation::ContentPolicy::Stretch,
+            Some((250, 200).into()),
+        ),
+    }
+    f.state()
+        .tick_window_animations(std::time::Duration::from_millis(16));
+    let pending = live_frame(&mut f, &output);
+    f.client(client).set_blur_region(&effect, Some(&regions));
+    f.double_roundtrip(client);
+    assert_eq!(
+        pending,
+        live_frame(&mut f, &output),
+        "the first pending blur request must not change sampling"
+    );
+    f.client(client).window(&surface).commit();
+    f.double_roundtrip(client);
+    let enabled = live_frame(&mut f, &output);
+    f.client(client).set_blur_region(&effect, None);
+    f.double_roundtrip(client);
+    assert_eq!(
+        enabled,
+        live_frame(&mut f, &output),
+        "uncommitted blur state must not apply"
+    );
+    f.client(client).window(&surface).commit();
+    f.double_roundtrip(client);
+    let disabled = live_frame(&mut f, &output);
+    assert!(
+        enabled != disabled,
+        "{scale}x {motion:?} SSD={ssd}: the partial regions must actually blur the backdrop"
+    );
+    let id = f.state().stage.id_of(&window).unwrap();
+    let amplitude = f.state().config.effects.animation_scale;
+    let visual = f.state().window_animations.animated_visual(
+        id,
+        (250.0, 200.0).into(),
+        (300.0, 200.0).into(),
+        amplitude,
+    );
+    for (x, y, pixel) in enabled.enumerate_pixels() {
+        if pixel == disabled.get_pixel(x, y) {
+            continue;
+        }
+        let in_region = regions.iter().any(|&(rx, ry, rw, rh)| {
+            let left = rx.max(0) as f64 / 300.0;
+            let right = (rx + rw).min(300) as f64 / 300.0;
+            let top = ry.max(0) as f64 / 200.0;
+            let bottom = (ry + rh).min(200) as f64 / 200.0;
+            f64::from(x) >= (visual.loc.x + left * visual.size.w) * scale - 2.0
+                && f64::from(x) <= (visual.loc.x + right * visual.size.w) * scale + 2.0
+                && f64::from(y) >= (visual.loc.y + top * visual.size.h) * scale - 2.0
+                && f64::from(y) <= (visual.loc.y + bottom * visual.size.h) * scale + 2.0
+        });
+        assert!(
+            in_region,
+            "{scale}x {motion:?} SSD={ssd}: frost escaped the animated client regions at ({x}, {y})"
+        );
+    }
+    for rects in [&[][..], &[(500, 500, 20, 20)][..]] {
+        f.client(client).set_blur_region(&effect, Some(rects));
+        f.client(client).window(&surface).commit();
+        f.double_roundtrip(client);
+        assert_eq!(
+            disabled,
+            live_frame(&mut f, &output),
+            "empty/clipped regions must not become whole-window blur"
+        );
+    }
+    f.client(client).set_blur_region(&effect, Some(&regions));
+    f.client(client).window(&surface).commit();
+    f.double_roundtrip(client);
+    let before = live_frame(&mut f, &output);
+    f.state().execute_action(&Action::ToggleTiling);
+    assert_eq!(f.state().tiling_snapshot_count(), 1);
+    let captured = live_frame(&mut f, &output);
+    let delta = before
+        .as_raw()
+        .iter()
+        .zip(captured.as_raw())
+        .map(|(a, b)| a.abs_diff(*b))
+        .max()
+        .unwrap();
+    assert!(
+        delta <= 2,
+        "{scale}x motion {motion:?} SSD={ssd}: region capture differs by {delta}"
+    );
+    last_configured(&mut f, client, &surface);
+    let w = f.client(client).window(&surface);
+    w.attach_shm_buffer(WINDOW_PHYSICAL, &pixels);
+    w.ack_last_and_commit();
+    f.double_roundtrip(client);
+    assert_eq!(f.state().tiling_snapshot_count(), 0);
+    let released = live_frame(&mut f, &output);
+    let delta = captured
+        .as_raw()
+        .iter()
+        .zip(released.as_raw())
+        .map(|(a, b)| a.abs_diff(*b))
+        .max()
+        .unwrap();
+    assert!(
+        delta <= 2,
+        "{scale}x motion {motion:?} SSD={ssd}: region release differs by {delta}"
+    );
+    f.state().execute_action(&Action::CycleColumnWidth);
+    assert_eq!(f.state().tiling_snapshot_count(), 1);
+    let held = live_frame(&mut f, &output);
+    let doubled: Vec<_> = regions
+        .iter()
+        .map(|&(x, y, w, h)| (x * 2, y * 2, w * 2, h * 2))
+        .collect();
+    let doubled = if change {
+        vec![(300, 20, 150, 100)]
+    } else {
+        doubled
+    };
+    f.client(client).set_blur_region(&effect, Some(&doubled));
+    f.client(client).window(&surface).commit();
+    f.double_roundtrip(client);
+    assert_eq!(
+        held,
+        live_frame(&mut f, &output),
+        "an applied region-only commit must not mutate the held mask"
+    );
+    last_configured(&mut f, client, &surface);
+    let mut resized_pixels = super::render_pixels::solid_bgra(
+        WINDOW_PHYSICAL.0 * 2,
+        WINDOW_PHYSICAL.1 * 2,
+        [0, 64, 0, 128],
+        false,
+    );
+    if change {
+        for y in 40..240 {
+            for x in 800..900 {
+                let offset = (y * (WINDOW_PHYSICAL.0 * 2) as usize + x) * 4;
+                resized_pixels[offset..offset + 4].fill(0);
+            }
+        }
+    }
+    let w = f.client(client).window(&surface);
+    w.set_size(WINDOW_LOGICAL.0 * 2, WINDOW_LOGICAL.1 * 2);
+    w.attach_shm_buffer(
+        (WINDOW_PHYSICAL.0 * 2, WINDOW_PHYSICAL.1 * 2),
+        &resized_pixels,
+    );
+    w.ack_last_and_commit();
+    f.double_roundtrip(client);
+    assert_eq!(f.state().tiling_snapshot_count(), 0);
+    let resized = live_frame(&mut f, &output);
+    let delta = held
+        .as_raw()
+        .iter()
+        .zip(resized.as_raw())
+        .map(|(a, b)| a.abs_diff(*b))
+        .max()
+        .unwrap();
+    assert!(
+        delta <= 2,
+        "{scale}x motion {motion:?} SSD={ssd}: resized region release differs by {delta}"
+    );
+    if change {
+        f.state().execute_action(&Action::CycleColumnWidth);
+        let immediate = live_frame(&mut f, &output);
+        let delta = resized
+            .as_raw()
+            .iter()
+            .zip(immediate.as_raw())
+            .map(|(a, b)| a.abs_diff(*b))
+            .max()
+            .unwrap();
+        assert!(
+            delta <= 2,
+            "recapture before the first tick must retain the old region policy: {delta}"
+        );
+        last_configured(&mut f, client, &surface);
+        let w = f.client(client).window(&surface);
+        w.attach_shm_buffer(
+            (WINDOW_PHYSICAL.0 * 2, WINDOW_PHYSICAL.1 * 2),
+            &resized_pixels,
+        );
+        w.ack_last_and_commit();
+        f.double_roundtrip(client);
+        let released = live_frame(&mut f, &output);
+        let delta = immediate
+            .as_raw()
+            .iter()
+            .zip(released.as_raw())
+            .map(|(a, b)| a.abs_diff(*b))
+            .max()
+            .unwrap();
+        assert!(
+            delta <= 2,
+            "immediate recapture release must retain the old region policy: {delta}"
+        );
+    }
+    if change {
+        f.state()
+            .tick_window_animations(std::time::Duration::from_millis(16));
+        let mixed = live_frame(&mut f, &output);
+        {
+            use smithay::backend::allocator::Fourcc;
+            use smithay::backend::renderer::{ExportMem, Texture};
+            let frame = f
+                .state()
+                .window_animations
+                .geometry_visual_rect(id)
+                .unwrap();
+            let amplitude = f.state().config.effects.animation_scale;
+            let visual = f
+                .state()
+                .window_animations
+                .opening_visual(id, frame, amplitude);
+            let bar = if ssd {
+                f64::from(f.state().config.decorations.title_bar_height)
+            } else {
+                0.0
+            };
+            let opening = visual.size.w / frame.size.w;
+            let texture = f
+                .state()
+                .render
+                .blur_cache
+                .values()
+                .next()
+                .unwrap()
+                .mask
+                .clone();
+            let extent = texture.size();
+            let mapping = f
+                .state()
+                .backend
+                .as_mut()
+                .unwrap()
+                .renderer()
+                .copy_texture(
+                    &texture,
+                    smithay::utils::Rectangle::from_size(extent),
+                    Fourcc::Abgr8888,
+                )
+                .unwrap();
+            let bytes = f
+                .state()
+                .backend
+                .as_mut()
+                .unwrap()
+                .renderer()
+                .map_texture(&mapping)
+                .unwrap();
+            let sample = |nx: f64, ny: f64| {
+                let x = (nx * visual.size.w * scale).round() as usize;
+                let y = ((bar * opening + ny * visual.size.h) * scale).round() as usize;
+                bytes[(y * extent.w as usize + x) * 4 + 3]
+            };
+            let old = sample(0.2, 0.225);
+            let new = sample(0.625, 0.175);
+            assert_eq!(
+                sample(0.7, 0.175),
+                0,
+                "a transparent new source must not borrow the old content alpha"
+            );
+            assert!(
+                old > 0 && old < 255 && new > 0 && new < 255,
+                "old/new masks must coexist with fractional coverage: old={old}, new={new}"
+            );
+            assert!(old.abs_diff(255 - new) <= 2, "mask weights must sum to one");
+        }
+
+        f.state().execute_action(&Action::CycleColumnWidth);
+        let captured = live_frame(&mut f, &output);
+        let delta = mixed
+            .as_raw()
+            .iter()
+            .zip(captured.as_raw())
+            .map(|(a, b)| a.abs_diff(*b))
+            .max()
+            .unwrap();
+        assert!(
+            delta <= 2,
+            "{scale}x {motion:?} SSD={ssd}: changed mask recapture differs by {delta}"
+        );
+        f.client(client).set_blur_region(&effect, None);
+        f.client(client).window(&surface).commit();
+        f.double_roundtrip(client);
+        assert_eq!(captured, live_frame(&mut f, &output));
+        last_configured(&mut f, client, &surface);
+        let w = f.client(client).window(&surface);
+        w.attach_shm_buffer(
+            (WINDOW_PHYSICAL.0 * 2, WINDOW_PHYSICAL.1 * 2),
+            &resized_pixels,
+        );
+        w.ack_last_and_commit();
+        f.double_roundtrip(client);
+        let released = live_frame(&mut f, &output);
+        let delta = captured
+            .as_raw()
+            .iter()
+            .zip(released.as_raw())
+            .map(|(a, b)| a.abs_diff(*b))
+            .max()
+            .unwrap();
+        assert!(
+            delta <= 2,
+            "{scale}x {motion:?} SSD={ssd}: disabled mask release differs by {delta}"
+        );
+        super::tick_until_settled(&mut f);
+        let off = live_frame(&mut f, &output);
+        f.client(client).set_blur_region(&effect, Some(&[]));
+        f.client(client).window(&surface).commit();
+        f.double_roundtrip(client);
+        assert_eq!(
+            off,
+            live_frame(&mut f, &output),
+            "finished disabled mask must have no residual frost"
+        );
+    }
+    f.state().execute_action(&Action::ToggleTiling);
+    uninstall_with_blur(&mut f, &output);
 }

@@ -10,6 +10,10 @@ Stage, pure geometry and `reveal`, without a display or a niri checkout:
 cargo test --lib pinned_niri_geometry_and_fit_target_traces
 ```
 
+For current implementation evidence and next work, see
+[the maintained status](tiling-status.md). Renderer regression coverage does not
+expand the reference corpus assumptions below.
+
 ## Reference assumptions
 
 One normal scrolling layout; scale 1; zero gaps, borders, titlebars and struts;

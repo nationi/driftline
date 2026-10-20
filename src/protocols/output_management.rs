@@ -20,6 +20,7 @@ use zwlr_output_mode_v1::ZwlrOutputModeV1;
 const VERSION: u32 = 4;
 
 /// Snapshot of one output's current state.
+#[derive(PartialEq)]
 pub struct OutputHeadState {
     pub name: String,
     pub description: String,
@@ -34,6 +35,7 @@ pub struct OutputHeadState {
     pub scale: f64,
 }
 
+#[derive(PartialEq)]
 pub struct ModeInfo {
     pub width: i32,
     pub height: i32,
@@ -134,31 +136,49 @@ pub fn notify_changes<D>(
     D: Dispatch<ZwlrOutputModeV1, ModeData>,
     D: 'static,
 {
-    // Destroy all old heads
-    for client_data in om.clients.values_mut() {
-        for (_name, (head, modes)) in client_data.heads.drain() {
-            for mode in &modes {
-                mode.finished();
-            }
-            head.finished();
-        }
-        for (conf, conf_state) in client_data.confs.drain() {
-            if matches!(conf_state, ConfigState::Ongoing(_)) {
-                conf.cancelled();
-            }
-        }
+    if om.current_state == new_state {
+        return;
     }
-
-    om.current_state = new_state;
-    om.serial += 1;
+    // Output and mode IDs remain valid across refresh-rate changes.
+    let old_state = mem::replace(&mut om.current_state, new_state);
+    om.serial = om.serial.wrapping_add(1);
 
     let display = om.display.clone();
     for client_data in om.clients.values_mut() {
         let Some(client) = client_data.manager.client() else {
             continue;
         };
+        client_data.heads.retain(|name, (head, modes)| {
+            if om.current_state.contains_key(name) {
+                return true;
+            }
+            for mode in modes {
+                mode.finished();
+            }
+            head.finished();
+            false
+        });
+        for (conf, conf_state) in &mut client_data.confs {
+            if matches!(conf_state, ConfigState::Ongoing(_)) {
+                conf.cancelled();
+                *conf_state = ConfigState::Finished;
+            }
+        }
         for (name, head_state) in &om.current_state {
-            send_new_head::<D>(&display, &client, client_data, name, head_state);
+            if let Some((head, modes)) = client_data.heads.get_mut(name) {
+                if old_state
+                    .get(name)
+                    .is_none_or(|old| old.modes != head_state.modes)
+                {
+                    for mode in modes.drain(..) {
+                        mode.finished();
+                    }
+                    *modes = send_modes::<D>(&display, &client, head, name, head_state);
+                }
+                send_head_state(head, modes, head_state);
+            } else {
+                send_new_head::<D>(&display, &client, client_data, name, head_state);
+            }
         }
         client_data.manager.done(om.serial);
     }
@@ -200,11 +220,28 @@ fn send_new_head<D>(
         head.serial_number(state.serial_number.clone());
     }
 
-    let mut wl_modes = Vec::with_capacity(state.modes.len());
+    let modes = send_modes::<D>(display, client, &head, output_name, state);
+    send_head_state(&head, &modes, state);
+    client_data
+        .heads
+        .insert(output_name.to_string(), (head, modes));
+}
+
+fn send_modes<D>(
+    display: &DisplayHandle,
+    client: &Client,
+    head: &ZwlrOutputHeadV1,
+    output_name: &str,
+    state: &OutputHeadState,
+) -> Vec<ZwlrOutputModeV1>
+where
+    D: Dispatch<ZwlrOutputModeV1, ModeData> + 'static,
+{
+    let mut modes = Vec::with_capacity(state.modes.len());
     for (i, mode) in state.modes.iter().enumerate() {
         let Ok(wl_mode) = client.create_resource::<ZwlrOutputModeV1, _, D>(
             display,
-            version,
+            head.version(),
             ModeData {
                 output_name: output_name.to_string(),
                 mode_index: i,
@@ -218,22 +255,21 @@ fn send_new_head<D>(
         if mode.preferred {
             wl_mode.preferred();
         }
-        wl_modes.push(wl_mode);
+        modes.push(wl_mode);
     }
+    modes
+}
 
+fn send_head_state(head: &ZwlrOutputHeadV1, modes: &[ZwlrOutputModeV1], state: &OutputHeadState) {
     head.enabled(1);
     if let Some(idx) = state.current_mode_index
-        && let Some(wl_mode) = wl_modes.get(idx)
+        && let Some(mode) = modes.get(idx)
     {
-        head.current_mode(wl_mode);
+        head.current_mode(mode);
     }
     head.position(state.position.0, state.position.1);
     head.transform(transform_to_wl(state.transform));
     head.scale(state.scale);
-
-    client_data
-        .heads
-        .insert(output_name.to_string(), (head, wl_modes));
 }
 
 fn transform_to_wl(t: Transform) -> WlTransform {
@@ -637,8 +673,11 @@ where
         }
     }
 
-    fn destroyed(state: &mut D, client: ClientId, _resource: &ZwlrOutputHeadV1, data: &String) {
-        if let Some(c) = state.output_management_state().clients.get_mut(&client) {
+    fn destroyed(state: &mut D, client: ClientId, resource: &ZwlrOutputHeadV1, data: &String) {
+        // A disconnected head can be released after its replacement was announced.
+        if let Some(c) = state.output_management_state().clients.get_mut(&client)
+            && c.heads.get(data).is_some_and(|(head, _)| head == resource)
+        {
             c.heads.remove(data);
         }
     }

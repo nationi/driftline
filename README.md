@@ -1,26 +1,74 @@
 <h1 align="center"><img alt="driftwm" src="assets/logo.jpg" width="500"></h1>
-<p align="center">A trackpad-first infinite canvas Wayland compositor.</p>
+<p align="center">A trackpad-first infinite canvas Wayland compositor with experimental scrolling tiling.</p>
 <p align="center">
-    <a href="https://github.com/malbiruk/driftwm/blob/main/LICENSE"><img alt="License: GPL-3.0-or-later" src="https://img.shields.io/badge/license-GPL--3.0--or--later-blue"></a>
-    <a href="https://github.com/malbiruk/driftwm/releases"><img alt="GitHub Release" src="https://img.shields.io/github/v/release/malbiruk/driftwm?logo=github"></a>
-    <a href="https://repology.org/project/driftwm/versions"><img alt="Packaging status" src="https://img.shields.io/repology/repositories/driftwm"></a>
+    <a href="LICENSE"><img alt="License: GPL-3.0-or-later" src="https://img.shields.io/badge/license-GPL--3.0--or--later-blue"></a>
 </p>
-<p align="center"><sub>Primary repository: <a href="https://github.com/malbiruk/driftwm">GitHub</a> · Mirror: <a href="https://codeberg.org/malbiruk/driftwm">Codeberg</a></sub></p>
+<p align="center"><sub>Fork: <a href="https://github.com/nationi/driftwm/tree/nationi/development">nationi/driftwm · nationi/development</a> · Upstream: <a href="https://github.com/malbiruk/driftwm">malbiruk/driftwm</a></sub></p>
 
 https://github.com/user-attachments/assets/155511a6-0a6e-4681-9061-21be1e93e02a
 
 Traditional window managers arrange windows to fit your screen. Stacking compositors do so by piling windows on top of each other; tiling compositors do so by squeezing them to fit and utilizing workspaces.
 
-`driftwm` is an infinite-canvas compositor: windows live at their native size on an infinite 2D canvas, and your display is a camera viewing it. When two windows come close, they snap together, forming implicit groups that can be moved, resized, and viewed together. No tiling, no workspaces, window overlaps happen only on purpose.
+`driftwm` is an infinite-canvas compositor: windows live at their native size on an infinite 2D canvas, and your display is a camera viewing it. When two windows come close, they snap together, forming implicit groups that can be moved, resized, and viewed together. Canvas mode has no workspaces; window overlaps happen only on purpose.
+
+This fork also provides [experimental single-output scrolling tiling](docs/tiling.md).
+The goal is niri-like tiling behavior alongside the existing canvas; full parity
+is still in development. See [current progress](dev/docs/tiling-status.md) and
+the [roadmap](dev/docs/niri-tiling-parity-plan.md). The canvas features and default
+bindings below remain available; tiling requires explicit bindings.
 
 Designed with laptops in mind: navigation and window management are trackpad-first; the infinite canvas makes the most of a small screen.
 
-Built on [smithay](https://github.com/Smithay/smithay). Inspired by [vxwm](https://codeberg.org/wh1tepearl/vxwm); borrows implementation details from [niri](https://github.com/YaLTeR/niri).
+Built on [smithay](https://github.com/Smithay/smithay). Inspired by [vxwm](https://codeberg.org/wh1tepearl/vxwm); borrows implementation details from [niri](https://github.com/niri-wm/niri).
 
 > [!WARNING]
 > This is experimental software, primarily built with AI.
 
-## Features
+## Experimental scrolling tiling
+
+Switch between the infinite canvas and a horizontal strip of columns. Each
+column can contain several vertically stacked windows. Current features include:
+
+- Directional focus, column and window reordering, and moving windows into or
+  out of columns.
+- Column widths cycling through one third, one half and full usable width.
+- Coordinated resize requests with a 300 ms wait limit for delayed clients.
+- Retained window images, blur and animated resize transitions, including
+  transparent content and popup menus that keep their native size.
+- Restoration of saved canvas positions, sizes and view when leaving tiling.
+
+Add these entries to your existing `[keybindings]` table in
+`~/.config/driftwm/config.toml`:
+
+```toml
+[keybindings]
+"mod+ctrl+t" = "toggle-tiling"
+"mod+alt+left" = "focus-column left"
+"mod+alt+right" = "focus-column right"
+"mod+alt+up" = "focus-column up"
+"mod+alt+down" = "focus-column down"
+"mod+alt+r" = "cycle-column-width"
+"mod+alt+shift+left" = "move-into-column left"
+"mod+alt+e" = "expel-from-column"
+```
+
+These examples override any existing bindings on the same keys, including
+`Mod+Alt` + arrow for sending windows to another output. Full action descriptions
+and more bindings are in the [tiling guide](docs/tiling.md).
+
+Tiling currently requires **one output**. Connecting another output or performing
+unsupported canvas operations, including free move/resize, fit, pin or fullscreen,
+returns to canvas. Independent tiling layouts on multiple monitors, tabs,
+layout-native drag/resize, tiling workspaces and configurable width presets remain
+unfinished. Session restore saves the canvas fallback, not tiling topology.
+
+Direct TTY testing on NVIDIA has worked well; nested winit sessions still show
+blur artifacts and lag in the current test setup. Use direct udev for visual
+checks. The [local TTY cheat sheet](dev/docs/tty-preview.md) documents this
+checkout's isolated launcher and F-key bindings; that launcher is outside Git
+and is not included in a fresh clone.
+
+## Canvas features
 
 ### Pan & zoom
 
@@ -255,6 +303,10 @@ See [docs/session.md](docs/session.md).
 
 ## Install
 
+To use this fork's tiling changes, build the `nationi/development` branch below.
+The AUR packages and upstream releases refer to the original project and do not
+necessarily include this fork's changes.
+
 ### Arch Linux (AUR)
 
 ```bash
@@ -266,70 +318,6 @@ or for latest main:
 ```bash
 yay -S driftwm-git
 ```
-
-### NixOS / Nix
-
-A `flake.nix` is included. To build:
-
-```bash
-nix build
-```
-
-For development (provides native deps, uses your system Rust):
-
-```bash
-nix develop
-cargo build
-cargo run
-```
-
-To enable `driftwm` on NixOS, you can import and use the provided NixOS module in your configuration.
-
-Using Flakes:
-
-```nix
-# flake.nix
-{
-  inputs = {
-    nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
-    driftwm.url = "github:malbiruk/driftwm";
-  };
-
-  outputs = { self, nixpkgs, driftwm, ... }: {
-    nixosConfigurations.myHost = nixpkgs.lib.nixosSystem {
-      modules = [
-        driftwm.nixosModules.default
-        ./configuration.nix
-      ];
-    };
-  };
-}
-```
-
-Then, enable it in your configuration:
-
-```nix
-# configuration.nix
-{
-  programs.driftwm.enable = true;
-}
-```
-
-Without flakes, import the flake's output directly:
-
-```nix
-let
-  driftwm-flake = builtins.getFlake "github:malbiruk/driftwm";
-in
-{
-  imports = [ driftwm-flake.nixosModules.default ];
-  programs.driftwm.enable = true;
-}
-```
-
-`programs.driftwm.package` selects the package providing the compositor binary.
-XWayland via `xwayland-satellite` is on by default; set
-`programs.xwayland.enable = false;` to disable it.
 
 ### Build from source
 
@@ -359,12 +347,29 @@ sudo pacman -S libdisplay-info libinput seatd mesa libxkbcommon
 > Ubuntu 24.04 ships Rust 1.75 which is too old. Install via
 > [rustup](https://rustup.rs/) instead of `apt install rustc`.
 
-Then build and install:
+Build this fork:
 
 ```bash
-git clone https://github.com/malbiruk/driftwm.git
+git clone --branch nationi/development https://github.com/nationi/driftwm.git
 cd driftwm
-make build
+cargo build --release --locked
+```
+
+The binary is `target/release/driftwm`. For a direct hardware run, log in from a
+separate TTY and choose your actual DRM connector name:
+
+```bash
+./target/release/driftwm --backend udev --drm-connector HDMI-A-1
+```
+
+`--drm-connector` limits this run to one connector, allowing the current
+single-output tiling mode on a machine with several monitors. Omit it for normal
+multi-output canvas use. For the locally prepared isolated preview, follow the
+[TTY guide](dev/docs/tty-preview.md).
+
+To install the built binary and session integration:
+
+```bash
 sudo make install
 ```
 
@@ -372,7 +377,9 @@ To uninstall, run `sudo make uninstall` from the repository.
 
 ### Offline build
 
-Every release carries a `driftwm-<version>-vendor.tar.xz` asset holding all Rust
+Upstream release vendor bundles apply to their matching upstream source revision,
+not arbitrary commits of this fork. The upstream release workflow produces a
+`driftwm-<version>-vendor.tar.xz` asset holding all Rust
 dependencies plus the `.cargo/config.toml` that points at them, for building
 without network access:
 
@@ -436,7 +443,6 @@ transparently — no extra config beyond having the binary in `$PATH`.
 
 - **Arch:** `sudo pacman -S xwayland-satellite`
 - **Fedora:** `sudo dnf install xwayland-satellite`
-- **NixOS:** `pkgs.xwayland-satellite`
 - **Debian/Ubuntu:** not yet packaged — `cargo install --locked xwayland-satellite`
 
 If satellite isn't found at startup, driftwm logs a warning and continues without
@@ -505,13 +511,18 @@ supports the `wlr-layer-shell` protocol), just without compositor-specific featu
 
 ## Contributing
 
+For work on this fork, start with the [development documentation index](dev/docs/README.md),
+[current tiling status](dev/docs/tiling-status.md) and [roadmap](dev/docs/niri-tiling-parity-plan.md).
+The compatibility inventory and reference fixtures use a pinned niri revision;
+passing driftwm tests alone does not establish full behavioral parity.
+
 See [CONTRIBUTING.md](CONTRIBUTING.md).
 
 TL;DR: open an issue before writing non-trivial code, keep PRs small and focused.
 
-## Merch
+## Upstream merch
 
-If you want to support the project (or just want a shirt), this is the way.
+The following merchandise and contact details belong to the upstream maintainer.
 
 <p align="left"><img src="assets/tshirt.png" width="400"></p>
 
@@ -523,7 +534,7 @@ Ships worldwide from Tbilisi.
 
 Order via [Telegram](https://t.me/fiyefiyefiye), [Instagram](https://instagram.com/flwrs_in_ur_eyes), or email [2601074@gmail.com](mailto:2601074@gmail.com).
 
-Revenue goes to me as driftwm's primary maintainer.
+Revenue supports driftwm's upstream maintainer.
 
 ## License
 
