@@ -319,70 +319,6 @@ or for latest main:
 yay -S driftwm-git
 ```
 
-### NixOS / Nix
-
-A `flake.nix` is included. To build:
-
-```bash
-nix build
-```
-
-For development (provides native deps, uses your system Rust):
-
-```bash
-nix develop
-cargo build
-cargo run
-```
-
-To enable `driftwm` on NixOS, you can import and use the provided NixOS module in your configuration.
-
-Using Flakes:
-
-```nix
-# flake.nix
-{
-  inputs = {
-    nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
-    driftwm.url = "github:nationi/driftwm/nationi/development";
-  };
-
-  outputs = { self, nixpkgs, driftwm, ... }: {
-    nixosConfigurations.myHost = nixpkgs.lib.nixosSystem {
-      modules = [
-        driftwm.nixosModules.default
-        ./configuration.nix
-      ];
-    };
-  };
-}
-```
-
-Then, enable it in your configuration:
-
-```nix
-# configuration.nix
-{
-  programs.driftwm.enable = true;
-}
-```
-
-Without flakes, import the flake's output directly:
-
-```nix
-let
-  driftwm-flake = builtins.getFlake "github:nationi/driftwm/nationi/development";
-in
-{
-  imports = [ driftwm-flake.nixosModules.default ];
-  programs.driftwm.enable = true;
-}
-```
-
-`programs.driftwm.package` selects the package providing the compositor binary.
-XWayland via `xwayland-satellite` is on by default; set
-`programs.xwayland.enable = false;` to disable it.
-
 ### Build from source
 
 Requires Rust 1.88+ (edition 2024).
@@ -507,7 +443,6 @@ transparently — no extra config beyond having the binary in `$PATH`.
 
 - **Arch:** `sudo pacman -S xwayland-satellite`
 - **Fedora:** `sudo dnf install xwayland-satellite`
-- **NixOS:** `pkgs.xwayland-satellite`
 - **Debian/Ubuntu:** not yet packaged — `cargo install --locked xwayland-satellite`
 
 If satellite isn't found at startup, driftwm logs a warning and continues without
