@@ -1,7 +1,7 @@
 # Tiling development status and handoff
 
-Updated 2026-10-20. Implementation includes window-blur resize frames
-(`a5a8641`) and the inherited-opening batch recorded below. This is the current
+Updated 2026-10-20. Implementation includes inherited opening (`11619e1`)
+and the shared opening-raster sampling batch recorded below. This is the current
 continuation point. Earlier batch
 notes, failed experiments and source derivations are preserved in
 [the historical journal](tiling-history.md); their pending/next statements are
@@ -54,8 +54,10 @@ Implemented, with partial reference coverage:
   Tiled columns keep configured corners/shadows when filling the work area.
   Retained opening progress can now survive group release and successive
   resize captures: opening wraps native chrome while content blends separately.
-  Controlled unblurred scaled-opening and opacity-only scenes cover this path;
-  combined window blur/opening and client blur regions still need dedicated gates.
+  Scaled-opening and opacity-only scenes cover unblurred and window-rule-blurred
+  SSD/CSD, including first rounded capture. Live rounded opening uses a bounded,
+  commit/geometry/scale-keyed content bake so capture samples the same grid.
+  Client blur regions still need dedicated conversion gates.
 - Optional udev `--drm-connector NAME` restricts preview output enrollment.
   It does not implement independent multi-output tiling.
 
@@ -67,16 +69,16 @@ measurement. See roadmap acceptance criteria instead.
 
 ## Verified evidence and its limits
 
-Latest implementation gate: `/tmp/driftwm-opening-ci.log`, exit 0: full
-`dev/scripts/ci-local`, strict all-target clippy, 368 library tests, 1454 binary
-cases plus isolated soak, and integration suites. New inherited-opening test covers
-12 unblurred SSD/CSD scenes: scales 1x/1.25x/1.5x, opening amplitude 0.9 or 1.0,
-opacity 0.6, shadow and popup. Each runs three grouped releases, full-frame
-release/resize-recapture comparisons within two bytes, opening ticks while
-waiting, progress preservation and final cleanup. Earlier normal/blur gates and
-their tolerances remain unchanged. Initial fresh rounded-opening capture has a
-separate unresolved 5-byte probe delta at 1.5x (see history); this test starts
-from the already retained picture and does not claim that gate passed.
+Latest implementation gate: `/tmp/driftwm-opening-sampling-ci.log`, exit 0:
+full `dev/scripts/ci-local`, strict all-target clippy, 368 library tests, 1455
+binary cases plus isolated soak, and integration suites. Opening tests cover
+24 SSD/CSD scenes:
+scales 1x/1.25x/1.5x, amplitude 0.9 or 1.0, opacity 0.6, shadow/popup, with and
+without window blur over a striped backdrop. Complete first capture, release
+and resize-recapture comparisons stay within two bytes; each scene runs three
+releases and checks waiting ticks/progress/cleanup. Client repaint must update
+the opening cache. The former initial rounded-capture probe gap is closed in
+these scenes. Earlier pixel tolerances remain unchanged.
 No release build, installation or manual TTY acceptance was performed in this batch.
 
 GPU regressions ran on NVIDIA RTX 3060, including controlled 1x/1.25x/1.5x
@@ -96,9 +98,9 @@ issue fixed or disable blur to claim success.
 1. Finish P0 custom-decoder/public-option/default/ID-action audit and extend
    source-derived fixtures beyond the controlled zero-gap geometry subset.
    This remains a prerequisite to expanding advanced interactions.
-2. Continue P2/P13 with combined window blur/inherited-opening resize and
-   fresh rounded-opening capture (5-byte full-frame probe delta at 1.5x), then
-   client blur regions before generalizing native conversion to them.
+2. Continue P2/P13 with client blur regions before generalizing native frame
+   and opening-raster conversion to them. The first rounded opening capture and
+   combined window blur/opening resize gates are delivered for the scenes above.
    Normal unblurred and window-rule-blurred SSD/CSD recapture/release is covered
    for three consecutive preset changes at static 1x/1.25x/1.5x. Framed canvas
    resize entering tiling, general odd extents, geometry offsets, other animation

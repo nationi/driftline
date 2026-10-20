@@ -254,8 +254,9 @@ bounds, including window-rule blur, with full-frame capture/hold/release checks
 for SSD/CSD at these scales. Tiled work-area coverage retains configured frames.
 Unblurred inherited opening now survives successive resize releases/recaptures
 in SSD/CSD scenes, preserving progress and opacity while opening wraps native
-chrome independently of resize. Combined window blur/opening, initial fresh
-rounded-opening capture, client blur regions, framed canvas-resize entry, scale
+chrome independently of resize. Controlled window-blur/opening scenes and
+first rounded-opening capture now share a cached raster grid with complete
+frame comparisons. Client blur regions, framed canvas-resize entry, scale
 transitions, general odd extents/geometry offsets and moving-camera cases remain
 outstanding.
 A pinned source audit confirms that unbuffered windows
@@ -530,7 +531,7 @@ landed. Do not reimplement them from older history entries. Current priority:
 1. Finish P0 custom-decoder/public-option/default and ID-action audit; extend
    [reference fixtures](niri-reference-traces.md) beyond the controlled subset.
 2. Continue P2/P13 acceptance beyond the delivered normal SSD/CSD release gate:
-   combined window blur/opening, fresh rounded-opening capture and client blur regions,
+   client blur regions and their opening/frame conversion,
    degraded capped capture, changing scale/view/output, and motion-time lifecycle.
    Keep direct TTY visual checks separate from the unresolved nested NVIDIA bug.
 3. Follow P3 sizing/settings and P5 view-model dependencies after those gates;

@@ -1852,13 +1852,13 @@ fn tiling_resize_release_preserves_an_inherited_opening_picture() {
     for scale in [1.0, 1.25, 1.5] {
         for ssd in [false, true] {
             for opening_scale in [0.9, 1.0] {
-                check_opening_resize_release(scale, ssd, opening_scale);
+                check_opening_resize_release(scale, ssd, opening_scale, false);
             }
         }
     }
 }
 
-fn check_opening_resize_release(scale: f64, ssd: bool, opening_scale: f64) {
+fn check_opening_resize_release(scale: f64, ssd: bool, opening_scale: f64, blur: bool) {
     use super::{last_configured, map_window_shm, window_by_app_id};
     use driftwm::config::Action;
     let Some(renderer) = gl::surfaceless_renderer("opening resize") else {
@@ -1880,9 +1880,30 @@ fn check_opening_resize_release(scale: f64, ssd: bool, opening_scale: f64) {
     } else {
         config
     };
+    let temp = TempDir::new();
+    let shader = temp.path().join("opening-stripes.glsl");
+    std::fs::write(&shader, "precision mediump float; varying vec2 v_coords; void main() { float s=step(0.5,fract(v_coords.x*60.0)); gl_FragColor=vec4(vec3(s),1.0); }").unwrap();
+    let config = if blur {
+        config
+            .replace(
+                "type = \"none\"",
+                &format!("type = \"shader\"\npath = \"{}\"", shader.display()),
+            )
+            .replace("[decorations]", "[decorations]\nblur = true")
+    } else {
+        config
+    };
+    let mut renderer = renderer;
+    let blur_shaders = blur.then(|| crate::render::compile_blur_shaders(&mut renderer));
     let mut f = Fixture::with_config(super::config(&config));
     let output = f.add_output_scaled(1, (1200, 800), scale);
     gl::install(&mut f, renderer);
+    if let Some((down, up, mask)) = blur_shaders {
+        assert!(down.is_some() && up.is_some() && mask.is_some());
+        f.state().render.blur_down_shader = down;
+        f.state().render.blur_up_shader = up;
+        f.state().render.blur_mask_shader = mask;
+    }
     let first = f.add_client();
     let second = f.add_client();
     let old = solid_bgra(200, 100, [0, 0, 128, 128], false);
@@ -1900,8 +1921,33 @@ fn check_opening_resize_release(scale: f64, ssd: bool, opening_scale: f64) {
     f.state()
         .tick_window_animations(std::time::Duration::from_millis(48));
     let id = f.state().stage.id_of(&wb).unwrap();
-    tiling_live_frame(&mut f, &output);
+    let first_frame = tiling_live_frame(&mut f, &output);
+    let updated = solid_bgra(200, 100, [0, 0, 96, 96], false);
+    let window = f.client(first).window(&a);
+    window.attach_shm_buffer((200, 100), &updated);
+    window.commit();
+    f.double_roundtrip(first);
+    let original = tiling_live_frame(&mut f, &output);
+    assert!(
+        first_frame != original,
+        "opening cache must follow client commits"
+    );
+    assert_eq!(f.state().render.opening_content.len(), 2);
+    if blur {
+        assert_eq!(f.state().render.blur_cache.len(), 2);
+    }
     f.state().execute_action(&Action::ToggleTiling);
+    let captured = tiling_live_frame(&mut f, &output);
+    let delta = original
+        .iter()
+        .zip(&captured)
+        .map(|(a, b)| a.abs_diff(*b))
+        .max()
+        .unwrap();
+    assert!(
+        delta <= 2,
+        "{scale}x SSD={ssd} blur={blur}: first opening capture differs by {delta}"
+    );
     for round in 0..3 {
         assert!(f.state().tiling_snapshot_count() > 0);
         let previous = f.state().window_animations.open_progress(id).unwrap();
@@ -1986,7 +2032,32 @@ fn check_opening_resize_release(scale: f64, ssd: bool, opening_scale: f64) {
     super::tick_until_settled(&mut f);
     assert!(f.state().window_animations.open_progress(id).is_none());
     assert!(f.state().resize_crossfades.is_empty());
+    tiling_live_frame(&mut f, &output);
+    assert!(f.state().render.opening_content.is_empty());
     f.state().execute_action(&Action::ToggleTiling);
     f.state().render.remove_output(&output.name());
+    f.state().render.blur_down_shader = None;
+    f.state().render.blur_up_shader = None;
+    f.state().render.blur_mask_shader = None;
     gl::uninstall(&mut f);
+}
+
+#[test]
+#[ignore = "needs surfaceless EGL; run with --include-ignored"]
+fn tiling_resize_release_preserves_frost_during_inherited_opening() {
+    let _gl = gl::lock();
+    let (ready, loaded) = std::sync::mpsc::sync_channel(1);
+    driftwm::text::warm_fonts(move || {
+        let _ = ready.send(());
+    });
+    loaded
+        .recv_timeout(std::time::Duration::from_secs(10))
+        .unwrap();
+    for scale in [1.0, 1.25, 1.5] {
+        for ssd in [false, true] {
+            for opening_scale in [0.9, 1.0] {
+                check_opening_resize_release(scale, ssd, opening_scale, true);
+            }
+        }
+    }
 }

@@ -131,7 +131,9 @@ Ordinary tiled resize recaptures, including window-rule blur, reuse the mixed
 texture directly, avoiding extra filtering of rounded corners at fractional
 output scales. An opening fade can continue through grouped resize releases
 and recaptures: its progress stays intact, and its scale applies around the
-resized frame while old and new client content blend separately.
+resized frame while old and new client content blend separately. This also
+applies to window-rule blur; the live backdrop continues beneath the saved
+opening picture.
 Canvas resizes still held for a client reply can also be captured before a new
 group takes over. A late buffer arriving after the group expires can start a
 bounded resize transition on an otherwise settled window without restarting

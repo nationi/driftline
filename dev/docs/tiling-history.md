@@ -1432,3 +1432,65 @@ GLES scenes, integration suites and isolated soak. Local Markdown links and
 `git diff --check` passed. No pure stage/layout/config change required a deep
 proptest run. Next: combined window blur/opening resize and initial rounded
 opening-capture precision, then client blur regions and remaining P0/P2/P13 gates.
+
+## Shared opening raster and combined blur/resize gate (2026-10-20)
+
+Continued the two sampling gates left by `11619e1`: first fresh rounded-opening
+capture and window blur combined with inherited opening during resize.
+Restored the complete original-to-first-capture assertion in the opening test;
+with its slower fade and opacity 0.6 it reproduced a 7-byte CSD delta at 1x:
+`/tmp/driftwm-opening-precision-before.log`. The earlier 5-byte 1.5x probe and this
+case share the same cause: a live opening evaluated the analytic corner clip
+while drawing the scaled window, whereas a retained picture baked that clip
+before scaling. Filtering a baked alpha edge is not the same operation.
+
+Live ordinary rounded opening now uses the same premultiplied content raster
+as the retained path. A per-output/per-element cache keys the bake by the
+existing full surface-tree commit/view/geometry/scale/chrome stamp. Alpha and
+opening scale stay outside the texture; client repaints replace the cached
+bake, so a window is not frozen for the duration of opening. The existing
+resize blend takes precedence. This also affects ordinary canvas opening for
+eligible rounded windows, which is necessary to make the pre-tiling picture
+and its first capture agree. Fullscreen, pinned, client-region blur and
+coverage-suppressed pictures retain their existing paths.
+
+The cache is pruned when opening ends or the stage ID dies, removed eagerly on
+window unmap, and scoped output entries are removed on output teardown. Added
+it to debug counters so fixture teardown detects lifetime leaks. A cached
+source is sampled without rebuilding on alpha/scale-only animation ticks;
+content/geometry/scale/chrome changes rebuild it. Kept the real-client pre-commit
+policy for unshown throwaway opening buffers unchanged.
+
+Reference remains niri `12de51d6a60baad8896366920278a24f17921f52`.
+`Tile::render` feeds `render_inner` into a distinct opening offscreen; the
+principle here is likewise to scale rasterized content consistently, rather
+than swapping analytic and prefiltered edges at capture. driftwm caches the
+content body and composes chrome/popups separately; this is not identical to
+niri's complete opening-render implementation.
+
+Expanded the opening test to assert full original-to-first-capture continuity
+within the unchanged two-byte tolerance. It also paints a different client
+buffer before capture to verify cache invalidation and checks that cached
+content is released after opening settles. Added ignored GLES scenario
+`tiling_resize_release_preserves_frost_during_inherited_opening`, sharing the
+12 SSD/CSD scale/amplitude/opacity/shadow/popup scenes with window-rule blur
+and a striped shader backdrop. The test requires working blur shaders and
+checks actual blur-cache participation. Both variants run three resize releases,
+check full-frame capture/release/recapture, opening progress while buffers wait,
+and cleanup. Combined coverage is 24 scenes; no tolerance was widened.
+
+Targeted results: `/tmp/driftwm-opening-precision.log` (unblurred) and
+`/tmp/driftwm-opening-frost.log` (blurred), passed before the final repaint
+invalidation assertion was added. Final full CI below is authoritative.
+Client blur regions, general odd extents/offsets, capped capture and changing
+view/output/scale remain separate gates; the P0 audit remains incomplete.
+No user configuration, installed binary, running session or push was changed.
+
+Final full `dev/scripts/ci-local` passed, exit 0:
+`/tmp/driftwm-opening-sampling-ci.log`. Includes fmt, locked check, strict
+all-target clippy, no-run build, 368 library tests, 1455 binary cases including
+ignored GLES scenes, integration suites and isolated soak. The final expanded
+repaint/cache-cleanup assertions passed in this gate. Local Markdown links and
+`git diff --check` passed. No pure stage/layout/config changes required an
+additional deep proptest run. Next: client blur regions and their native-frame /
+opening conversion; other roadmap gates and P0 audit remain open.

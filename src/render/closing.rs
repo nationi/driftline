@@ -397,6 +397,40 @@ struct ResizeCurrent {
     texels: Size<i32, Physical>,
 }
 
+#[derive(Default)]
+pub(crate) struct OpeningContentCache {
+    current: Option<ResizeCurrent>,
+}
+
+impl OpeningContentCache {
+    pub(crate) fn content(
+        &mut self,
+        renderer: &mut GlesRenderer,
+        surface: &WlSurface,
+        stamp: ResizeContentStamp,
+        clip: Option<&GlesTexProgram>,
+    ) -> Option<(TextureBuffer<GlesTexture>, Size<i32, Physical>)> {
+        if self.current.as_ref().is_none_or(|c| c.stamp != stamp) {
+            let pixels = capture_close_pixels(renderer, surface, stamp.geometry, Instant::now())?;
+            let content = resize_crossfade(
+                renderer,
+                &pixels,
+                stamp.geometry.size,
+                stamp.scale,
+                clip,
+                stamp.chrome,
+            )?;
+            self.current = Some(ResizeCurrent {
+                stamp,
+                buffer: content.buffer,
+                texels: content.texels,
+            });
+        }
+        let current = self.current.as_ref()?;
+        Some((current.buffer.clone(), current.texels))
+    }
+}
+
 impl ResizeCrossfade {
     pub(crate) fn from_retained_content(
         buffer: TextureBuffer<GlesTexture>,

@@ -57,6 +57,8 @@ pub struct RenderCache {
     /// A one-shot tick timer is armed for the next animation frame. Without
     /// it the capped animation only advances alongside other redraws.
     pub background_tick_armed: bool,
+    pub(crate) opening_content:
+        HashMap<(String, driftwm::stage::ElementId), crate::render::OpeningContentCache>,
     pub shadow_cache: HashMap<DecorationKey, ShadowCacheEntry>,
     pub border_cache: HashMap<DecorationKey, BorderCacheEntry>,
     /// One element per output for the configured background (shader / tile /
@@ -103,6 +105,7 @@ impl RenderCache {
             shared_blur: HashMap::new(),
             background_last_animate: HashMap::new(),
             background_tick_armed: false,
+            opening_content: HashMap::new(),
             shadow_cache: HashMap::new(),
             border_cache: HashMap::new(),
             cached_bg: HashMap::new(),
@@ -172,6 +175,8 @@ impl RenderCache {
     /// disconnect/remap so a later reconnect re-runs `init_background` instead
     /// of reusing a stale element with the previous geometry.
     pub fn remove_output(&mut self, output_name: &str) {
+        self.opening_content
+            .retain(|(name, _), _| name != output_name);
         self.cached_bg.remove(output_name);
         self.remove_blur_caches(output_name);
         self.background_last_animate.remove(output_name);

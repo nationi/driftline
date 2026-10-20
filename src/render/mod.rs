@@ -22,9 +22,9 @@ pub(crate) use blur::compile_blur_shaders;
 pub use blur::{BlurCache, BlurScratchPool, SharedBlur};
 pub use capture::{render_capture_frames, render_screencopy, render_toplevel_captures};
 pub(crate) use closing::{
-    BakeChrome, CloseChrome, ClosePixels, ClosingSnapshot, ResizeCaptures, ResizeContentStamp,
-    ResizeCrossfade, StandInFade, capture_close_pixels, close_pixels_fresh, resize_crossfade,
-    snapshot_canvas, snapshot_screen,
+    BakeChrome, CloseChrome, ClosePixels, ClosingSnapshot, OpeningContentCache, ResizeCaptures,
+    ResizeContentStamp, ResizeCrossfade, StandInFade, capture_close_pixels, close_pixels_fresh,
+    resize_crossfade, snapshot_canvas, snapshot_screen,
 };
 pub use cursor::build_cursor_elements;
 pub use elements::{
@@ -804,6 +804,10 @@ pub fn compose_frame(
         state.dnd_icon = None;
     }
 
+    state.render.opening_content.retain(|(_, id), _| {
+        state.window_animations.open_progress(*id).is_some()
+            && state.stage.window_by_id(*id).is_some()
+    });
     if state.session_lock.renders_lock_frame() {
         // No blur draws in a lock frame, and the eviction sweep that frees it
         // sits past this return — so a lock would otherwise hold every blurred
@@ -1455,6 +1459,29 @@ pub fn compose_frame(
                 .get_mut(&id)
                 .unwrap()
                 .blended_buffer(renderer, &wl_surface, stamp, clip.as_ref())
+        } else if let Some(id) = element_id
+            && state.window_animations.open_progress(id).is_some()
+            && !is_fullscreen
+            && !is_pinned
+            && !client_blur
+            && matches!(coverage, canvas::Coverage::None)
+            && effective_corner_radius > 0
+        {
+            // Opening and its retained picture must sample the same clipped
+            // texel grid. A direct analytic clip differs after resampling.
+            let stamp = closing::ResizeContentStamp::for_surface(
+                &wl_surface,
+                window.geometry(),
+                (output_scale * zoom).max(1.0),
+                state.baked_chrome_policy(&wl_surface, fullscreen_exempt),
+            );
+            let clip = state.render.corner_clip_shader.clone();
+            state
+                .render
+                .opening_content
+                .entry((name.clone(), id))
+                .or_default()
+                .content(renderer, &wl_surface, stamp, clip.as_ref())
         } else {
             None
         };
