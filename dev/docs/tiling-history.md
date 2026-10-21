@@ -1672,3 +1672,42 @@ lifecycle coverage of partially mixed native titles. Mapped rules apply only
 at mapping; config rule edits do not rewrite existing window flags. B2–B4 and
 P0/A0 remain open. No installed binary, user config, running compositor session,
 release build, push or manual TTY acceptance changed in this batch.
+
+## 2026-10-21 — B1 global blur reload and mixed-title cancellation gates
+
+Baseline `2ee9b26`. Added regression scenarios through the real config-reload
+entry point and ext-background-effect protocol; no additional production-render
+change was needed. `global_blur_reload_preserves_held_masks_and_blends_release`
+covers 12 SSD/CSD scenes at 1x/1.25x/1.5x with opening/seeded resize, opacity 0.6,
+rounded frames, transparent new pixels and real buffer growth/shrink. Enable
+`[decorations].blur` while holding the old partial client image, release and
+recapture mixed coverage, then disable it while held. Both reloads preserve the
+held frame exactly; release/recapture retain the two-byte tolerance. GPU samples
+check body/title weights and rounded/transparent cutouts; settled disable leaves
+no residual frost. Explicit unchanged output mode/scale keeps this gate separate
+from B3 output reconfiguration. Mapped window-rule flags are not rematched.
+
+`global_blur_reload_cancellation_releases_mixed_native_masks` adds 12 SSD scenes
+at those scales and both motions: exit tiling or disconnect while mixed native
+title coverage is held after disabling global blur. Exit retains the live canvas
+window and accepts its restore response; disconnect removes its stage identity.
+Both clear grouped snapshots and resize crossfades, and all closing/animation
+state drains. Disconnect's settled frame equals an independently rendered empty
+background. The cancellation test explicitly waits for asynchronous font warmup;
+without it, first-use SSD text can arrive between capture and release and produce
+an unrelated pixel mismatch. No image tolerance was relaxed. Fixture teardown
+also checks resource counters. Shared expectations now name effective fallback
+blur separately from mapped-rule blur.
+
+Dedicated gate: `cargo test --bin driftwm global_blur_reload -- --include-ignored`,
+passed both tests / 24 scenes (`/tmp/driftwm-b1-reload.log`). Controlled B1 gates
+are delivered; B2 odd extents/geometry offsets are next. Broader lifecycle,
+view/output transitions and the A0 semantic-policy audit remain open. No release
+build, installation, desktop restart, push or manual TTY acceptance was performed.
+
+Full `dev/scripts/ci-local` passed, exit 0 (`/tmp/driftwm-b1-reload-ci.log`):
+fmt, locked check, strict all-target clippy, no-run build, 368 library cases,
+1470 binary cases including ignored GPU tests, integration suites and isolated
+soak. Local Markdown targets and `git diff --check` passed. This batch changes
+only fixture scenarios/documentation, so no additional deep property pass was
+required.

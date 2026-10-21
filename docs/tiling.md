@@ -141,7 +141,9 @@ enable whole-window blur by themselves. If a sticky window rule requests blur,
 unset, empty or fully clipped client regions fall back to whole-window frost.
 During grouped resize, native compositor title-bar coverage blends separately
 from body pixels, preserving its height and rounded corners. Global blur config
-reloads and all lifecycle combinations still need dedicated validation.
+reloads retain the held image and blend toward the new policy when the client
+responds. Controlled checks also cover leaving tiling and disconnecting during a
+held mixed transition; other lifecycle and output changes remain experimental.
 Canvas resizes still held for a client reply can also be captured before a new
 group takes over. A late buffer arriving after the group expires can start a
 bounded resize transition on an otherwise settled window without restarting

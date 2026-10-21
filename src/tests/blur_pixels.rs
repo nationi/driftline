@@ -1300,12 +1300,51 @@ fn mixed_client_and_window_blur_preserves_native_title_coverage() {
     }
 }
 
+#[test]
+#[ignore = "needs surfaceless EGL; run with --include-ignored"]
+fn global_blur_reload_preserves_held_masks_and_blends_release() {
+    let _gl = gl::lock();
+    for scale in [1.0, 1.25, 1.5] {
+        for ssd in [false, true] {
+            for motion in [ClientBlurMotion::Resize, ClientBlurMotion::Opening] {
+                check_client_blur_motion(scale, motion, ssd, ClientBlurScenario::GlobalReload);
+            }
+        }
+    }
+}
+
+#[test]
+#[ignore = "needs surfaceless EGL; run with --include-ignored"]
+fn global_blur_reload_cancellation_releases_mixed_native_masks() {
+    let _gl = gl::lock();
+    let (ready, loaded) = std::sync::mpsc::sync_channel(1);
+    driftwm::text::warm_fonts(move || {
+        let _ = ready.send(());
+    });
+    loaded
+        .recv_timeout(std::time::Duration::from_secs(10))
+        .unwrap();
+    for scale in [1.0, 1.25, 1.5] {
+        for motion in [ClientBlurMotion::Resize, ClientBlurMotion::Opening] {
+            for scenario in [
+                ClientBlurScenario::GlobalReloadExit,
+                ClientBlurScenario::GlobalReloadDisconnect,
+            ] {
+                check_client_blur_motion(scale, motion, true, scenario);
+            }
+        }
+    }
+}
+
 #[derive(Clone, Copy, Debug)]
 enum ClientBlurScenario {
     Unchanged,
     ChangedClient,
     MixedRule,
     WholeBodyRule,
+    GlobalReload,
+    GlobalReloadExit,
+    GlobalReloadDisconnect,
 }
 
 fn check_client_blur_motion(
@@ -1315,7 +1354,13 @@ fn check_client_blur_motion(
     scenario: ClientBlurScenario,
 ) {
     let change = !matches!(scenario, ClientBlurScenario::Unchanged);
-    let rule_blur = matches!(
+    let global_reload = matches!(
+        scenario,
+        ClientBlurScenario::GlobalReload
+            | ClientBlurScenario::GlobalReloadExit
+            | ClientBlurScenario::GlobalReloadDisconnect
+    );
+    let mut fallback_blur = matches!(
         scenario,
         ClientBlurScenario::MixedRule | ClientBlurScenario::WholeBodyRule
     );
@@ -1344,7 +1389,7 @@ fn check_client_blur_motion(
             "[decorations]",
             "[decorations]\nopacity = 0.6\nopacity_focused = 0.6",
         );
-    let config = if rule_blur {
+    let config = if fallback_blur {
         config.replace("blur = false", "blur = true")
     } else {
         config
@@ -1352,6 +1397,8 @@ fn check_client_blur_motion(
     let mut f = Fixture::with_config(super::config(&config));
     let output = f.add_output_scaled(1, (OUTPUT.0 as u16, OUTPUT.1 as u16), scale);
     install_with_blur(&mut f, renderer);
+    let empty_scene = matches!(scenario, ClientBlurScenario::GlobalReloadDisconnect)
+        .then(|| live_frame(&mut f, &output));
     let client = f.add_client();
     let pixels = super::render_pixels::solid_bgra(
         WINDOW_PHYSICAL.0,
@@ -1428,7 +1475,7 @@ fn check_client_blur_motion(
         (300.0, 200.0).into(),
         amplitude,
     );
-    if !rule_blur {
+    if !fallback_blur {
         for (x, y, pixel) in enabled.enumerate_pixels() {
             if pixel == disabled.get_pixel(x, y) {
                 continue;
@@ -1498,6 +1545,29 @@ fn check_client_blur_motion(
     f.state().execute_action(&Action::CycleColumnWidth);
     assert_eq!(f.state().tiling_snapshot_count(), 1);
     let held = live_frame(&mut f, &output);
+    let reload_blur = |enabled| {
+        format!(
+            "{}\n[[outputs]]\nname = {:?}\nmode = \"{}x{}\"\nscale = {}\n",
+            config.replace("[decorations]", &format!("[decorations]\nblur = {enabled}")),
+            output.name(),
+            OUTPUT.0,
+            OUTPUT.1,
+            scale
+        )
+    };
+    if global_reload {
+        f.state().reload_config_from_contents(&reload_blur(true));
+        assert!(f.state().config.decorations.blur);
+        assert_eq!(output.current_scale().fractional_scale(), scale);
+        assert!(f.state().pending_mode_changes.is_empty());
+        assert_eq!(f.state().tiling_snapshot_count(), 1);
+        assert_eq!(
+            held,
+            live_frame(&mut f, &output),
+            "enabling global blur must preserve the held policy"
+        );
+        fallback_blur = true;
+    }
     let doubled: Vec<_> = regions
         .iter()
         .map(|&(x, y, w, h)| (x * 2, y * 2, w * 2, h * 2))
@@ -1508,7 +1578,7 @@ fn check_client_blur_motion(
         doubled
     };
     f.client(client)
-        .set_blur_region(&effect, if rule_blur { None } else { Some(&doubled) });
+        .set_blur_region(&effect, if fallback_blur { None } else { Some(&doubled) });
     f.client(client).window(&surface).commit();
     f.double_roundtrip(client);
     assert_eq!(
@@ -1612,7 +1682,7 @@ fn check_client_blur_motion(
                 new > 0 && new < 255,
                 "new source coverage must be fractional: {new}"
             );
-            if rule_blur {
+            if fallback_blur {
                 assert_eq!(
                     old, 255,
                     "overlapping old partial/new whole regions retain full coverage"
@@ -1631,7 +1701,7 @@ fn check_client_blur_motion(
                 assert!(old.abs_diff(255 - new) <= 2, "mask weights must sum to one");
             }
         }
-        if rule_blur && ssd {
+        if fallback_blur && ssd {
             assert_eq!(
                 corner, 0,
                 "whole-window frost must retain rounded title cutouts"
@@ -1651,9 +1721,68 @@ fn check_client_blur_motion(
             delta <= 2,
             "{scale}x {motion:?} SSD={ssd} {scenario:?}: changed mask recapture differs by {delta}"
         );
+        if global_reload {
+            f.state().reload_config_from_contents(&reload_blur(false));
+            assert!(!f.state().config.decorations.blur);
+            assert_eq!(output.current_scale().fractional_scale(), scale);
+            assert!(f.state().pending_mode_changes.is_empty());
+            assert_eq!(f.state().tiling_snapshot_count(), 1);
+            assert_eq!(
+                captured,
+                live_frame(&mut f, &output),
+                "disabling global blur must preserve mixed held coverage"
+            );
+            fallback_blur = false;
+        }
+        if matches!(
+            scenario,
+            ClientBlurScenario::GlobalReloadExit | ClientBlurScenario::GlobalReloadDisconnect
+        ) {
+            if matches!(scenario, ClientBlurScenario::GlobalReloadExit) {
+                f.state().execute_action(&Action::ToggleTiling);
+                assert!(f.state().tiling_view.is_none());
+                assert_eq!(f.state().tiling_snapshot_count(), 0);
+                assert!(!f.state().resize_crossfades.contains_key(&id));
+                last_configured(&mut f, client, &surface);
+                let w = f.client(client).window(&surface);
+                w.set_size(WINDOW_LOGICAL.0, WINDOW_LOGICAL.1);
+                w.attach_shm_buffer(WINDOW_PHYSICAL, &pixels);
+                w.ack_last_and_commit();
+                f.double_roundtrip(client);
+                live_frame(&mut f, &output);
+                assert!(f.state().tiling_view.is_none());
+                assert!(f.state().stage.window_by_id(id).is_some());
+            } else {
+                f.kill_client(client);
+                f.pump(4);
+                assert!(f.state().stage.window_by_id(id).is_none());
+            }
+            assert_eq!(f.state().tiling_snapshot_count(), 0);
+            assert!(!f.state().resize_crossfades.contains_key(&id));
+            for _ in 0..600 {
+                if !f.state().window_animations.is_active()
+                    && f.state().closing_snapshots.is_empty()
+                {
+                    break;
+                }
+                f.state()
+                    .tick_window_animations(std::time::Duration::from_millis(16));
+            }
+            assert!(!f.state().window_animations.is_active());
+            assert!(f.state().closing_snapshots.is_empty());
+            let settled = live_frame(&mut f, &output);
+            if let Some(empty_scene) = empty_scene {
+                assert!(
+                    empty_scene == settled,
+                    "disconnect must leave no retained picture or frost"
+                );
+            }
+            uninstall_with_blur(&mut f, &output);
+            return;
+        }
         f.client(client).set_blur_region(
             &effect,
-            if rule_blur {
+            if fallback_blur {
                 Some(&[(150, 10, 75, 50)])
             } else {
                 None
@@ -1664,7 +1793,7 @@ fn check_client_blur_motion(
         assert_eq!(captured, live_frame(&mut f, &output));
         last_configured(&mut f, client, &surface);
         let w = f.client(client).window(&surface);
-        if rule_blur {
+        if fallback_blur || global_reload {
             w.set_size(WINDOW_LOGICAL.0, WINDOW_LOGICAL.1);
             w.attach_shm_buffer(WINDOW_PHYSICAL, &pixels);
         } else {
@@ -1687,7 +1816,7 @@ fn check_client_blur_motion(
             delta <= 2,
             "{scale}x {motion:?} SSD={ssd} {scenario:?}: disabled mask release differs by {delta}"
         );
-        if rule_blur && ssd {
+        if (fallback_blur || global_reload) && ssd {
             f.state()
                 .tick_window_animations(std::time::Duration::from_millis(16));
             live_frame(&mut f, &output);
@@ -1703,7 +1832,7 @@ fn check_client_blur_motion(
         f.client(client).window(&surface).commit();
         f.double_roundtrip(client);
         let empty = live_frame(&mut f, &output);
-        if rule_blur {
+        if fallback_blur {
             assert_ne!(
                 off, empty,
                 "empty client state must fall back to the sticky blur rule"

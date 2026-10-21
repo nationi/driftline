@@ -1,8 +1,8 @@
 # Tiling development status and handoff
 
 Updated 2026-10-21. Integration checkpoint: `8c17428`; upstream `7ce05ed` is
-included. The current B1 native-title mask batch is recorded below. The persistent
-development branch is `nationi/development`. This handoff was reconciled with Git;
+included. Controlled B1 native-title mask gates are delivered; B2 is next.
+The persistent development branch is `nationi/development`. This handoff was reconciled with Git;
 see the [roadmap queue](niri-tiling-parity-plan.md#execution-queue-and-acceptance-gates)
 for task order and acceptance. Older “next” statements in the
 [history](tiling-history.md) are historical, not the current task queue.
@@ -56,9 +56,10 @@ mode. These are documented fallbacks, not reference-compatible behavior.
 
 ## Verified evidence and its limits
 
-Latest implementation gate: `/tmp/driftwm-b1-ci.log`, exit 0: full
-`dev/scripts/ci-local`, 368 library cases, 1468 binary cases including ignored
-GPU scenarios, integration suites and isolated soak.
+Latest validation gate: `/tmp/driftwm-b1-reload-ci.log`, exit 0: full
+`dev/scripts/ci-local`, 368 library cases, 1470 binary cases including ignored
+GPU scenarios, integration suites and isolated soak. Dedicated global-reload
+gate: `/tmp/driftwm-b1-reload.log`, both tests / 24 scenes passed.
 Dedicated mixed-policy GPU gate: `/tmp/driftwm-b1-mixed.log`, passed 18 scenes:
 SSD/CSD, static 1x/1.25x/1.5x, opening/seeded canvas resize, actual client-buffer
 growth and shrink, opacity 0.6, rounded frames and transparent new-source pixels.
@@ -66,6 +67,13 @@ It checks partial → rule fallback → partial, native title weights/corner cut
 body-identical but title-different policies, held region-only changes and immediate/
 mid-animation recapture. Earlier integration evidence remains in history.
 Logs in `/tmp` are disposable; persistent test names and details are in history.
+
+Global reload evidence adds 12 SSD/CSD scenes and 12 SSD exit/disconnect scenes
+at the same static scales, with opening/seeded resize. Held images remain exact
+after both enable and disable reload; release stays within two bytes. Disconnect
+returns to an independently rendered empty background after closing completes.
+These tests exercise real config reload with unchanged output mode/scale; output
+changes and broader lifecycle permutations remain B3/B4.
 
 Current client-mask evidence covers 18 fixed/proportional-region scenes and
 12 changed-mask scenes, plus the 18 mixed-policy scenes above: SSD/CSD, static 1x/1.25x/1.5x, opening/motion/canvas resize,
@@ -85,16 +93,18 @@ unresolved; use direct TTY for visual acceptance.
 
 ## Next work
 
-Next implementation: finish roadmap **B1** with global `[decorations].blur`
-hot-reload during a held group and cancellation/lifecycle cases for a partially
-mixed native title. Mapped window-rule flags stay sticky; changing their TOML
-rules does not reapply them to existing windows. Native title/body blending for
+Next implementation: roadmap **B2**, general framed canvas resize entry with
+odd extents and nonzero window-geometry offsets. Exercise SSD/CSD grow/shrink,
+capture/hold/release/recapture, popup anchors and fractional rounding. Controlled
+B1 gates now include global `[decorations].blur` hot-reload during a held group
+and exit/disconnect with a partially mixed native title. Mapped window-rule flags
+stay sticky; changing their TOML rules does not reapply them to existing windows. Native title/body blending for
 fixed mapped rules is delivered in the controlled scenes above. Keep driftwm's
 existing policy distinct from niri's tri-state effect configuration; see the
 source audit in history. Do not restart the delivered client-only mask work.
 
-Then B2–B4 cover general framed canvas entry/odd extents/geometry offsets,
-degraded captures, changing views/scales/outputs and motion-time lifecycle.
+Then B3–B4 cover degraded captures, changing views/scales/outputs and the broader
+motion-time remap/supersession/output-removal lifecycle.
 **A0/P0 semantic audit must finish before expanding features** into P3/P4/P5 or
 advanced interactions. The roadmap is the single task/acceptance queue.
 

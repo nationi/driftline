@@ -1,7 +1,7 @@
 # Niri tiling parity: execution plan
 
-Status (2026-10-21): integration checkpoint `8c17428`, with B1 native-title
-mask stabilization in progress. Single-container
+Status (2026-10-21): integration checkpoint `8c17428`, with controlled B1 native-title
+mask gates delivered and B2 next. Single-container
 topology and bounded commit groups are established; reference semantics and
 rendering acceptance remain partial.
 This document supersedes the remaining delivery sequence in
@@ -469,8 +469,8 @@ renderer work without closing a named remaining gate.
 
 | Order | Task | Completion evidence |
 | --- | --- | --- |
-| B1 — next implementation | Mixed window-rule/client blur policies, including native SSD title bands; fixed mapped-rule transitions delivered, global-default reload/cancellation remain | Controlled pixel matrix below; retain existing client-only and window-rule gates |
-| B2 | General framed canvas resize entry, odd extents and nonzero geometry offsets | SSD/CSD capture/hold/release/recapture with grow/shrink, popup anchors and fractional rounding |
+| B1 — controlled gates delivered | Mixed window-rule/client blur and native SSD title bands; global-default reload while held, mixed-title exit/disconnect | Pixel matrices below and full local CI; broader lifecycle remains B4 |
+| B2 — next implementation | General framed canvas resize entry, odd extents and nonzero geometry offsets | SSD/CSD capture/hold/release/recapture with grow/shrink, popup anchors and fractional rounding |
 | B3 | Degraded stale/capped captures and changing view/scale/output | Explicit fallback/retention policy plus bounded-resource, continuity and cleanup tests |
 | B4 | Motion-time remap, disconnect, supersession and output removal | No stale IDs/images/transactions, no duplicate animation, correct surviving focus/output membership |
 | A0 — semantic prerequisite | Finish P0 custom decoders, defaults, public options and ID-addressed actions | Inventory rows cite pinned source, driftwm behavior and exact/partial/divergent evidence; extend reference traces beyond the zero-gap subset |
@@ -481,12 +481,14 @@ feature expansion. Keep each B task bounded; if an uncovered case needs a new
 design decision, record that blocker rather than declaring the whole gate done.
 Later P6–P15 retain their dependencies and acceptance criteria above.
 
-### B1: next batch checklist
+### B1: delivered controlled gates
 
 Delivered subset: 18 controlled SSD/CSD cases now retain title coverage separately
 from body texels through grow/shrink, opening, immediate/mid-animation recapture
-and client partial ↔ mapped-rule fallback transitions. Global-default reload
-while held and mixed-title cancellation/lifecycle still need explicit gates.
+and client partial ↔ mapped-rule fallback transitions. Another 12 SSD/CSD scenes
+cover global-default enable/disable reload while held, and 12 SSD scenes cover
+exit/disconnect while retaining a mixed native title. Broader remap, supersession
+and output-removal lifecycle coverage remains B4.
 Mapped rules remain sticky and apply at mapping time; changing their TOML does
 not reapply flags to existing windows. Pinned niri's tri-state/empty-region policy
 differs from driftwm's compatibility policy; this batch does not resolve A0.
