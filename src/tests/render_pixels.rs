@@ -2076,13 +2076,33 @@ fn tiling_captures_odd_offset_geometry_during_framed_canvas_resize() {
     for scale in [1.0, 1.25, 1.5] {
         for ssd in [false, true] {
             for growing in [false, true] {
-                check_odd_offset_resize_capture(scale, ssd, growing);
+                check_odd_offset_resize_capture(scale, ssd, growing, false);
             }
         }
     }
 }
 
-fn check_odd_offset_resize_capture(scale: f64, ssd: bool, growing: bool) {
+#[test]
+#[ignore = "needs surfaceless EGL; run with --include-ignored"]
+fn tiling_recapture_handles_fractional_buffers_and_changed_geometry_offsets() {
+    let _gl = gl::lock();
+    let (ready, loaded) = std::sync::mpsc::sync_channel(1);
+    driftwm::text::warm_fonts(move || {
+        let _ = ready.send(());
+    });
+    loaded
+        .recv_timeout(std::time::Duration::from_secs(10))
+        .unwrap();
+    for scale in [1.0, 1.25, 1.5] {
+        for ssd in [false, true] {
+            for growing in [false, true] {
+                check_odd_offset_resize_capture(scale, ssd, growing, true);
+            }
+        }
+    }
+}
+
+fn check_odd_offset_resize_capture(scale: f64, ssd: bool, growing: bool, fractional: bool) {
     use super::{last_configured, tick_until_settled, window_by_app_id};
     use crate::state::window_animation::{AnimSpace, ContentPolicy, GeometryRole};
     use driftwm::config::Action;
@@ -2106,14 +2126,32 @@ fn check_odd_offset_resize_capture(scale: f64, ssd: bool, growing: bool) {
     let output = f.add_output_scaled(1, (1200, 800), scale);
     gl::install(&mut f, renderer);
     let client = f.add_client();
-    let surface = map_window_shm(
-        &mut f,
-        client,
-        "odd",
-        (313, 223),
-        (313, 223),
-        &solid_bgra(313, 223, CONTENT_BGRA, false),
-    );
+    let paint = |size: (i32, i32), color: [u8; 4]| {
+        let buffer_scale = if fractional { scale } else { 1.0 };
+        let texels = (
+            (f64::from(size.0) * buffer_scale).ceil() as i32,
+            (f64::from(size.1) * buffer_scale).ceil() as i32,
+        );
+        let mut pixels = solid_bgra(texels.0, texels.1, color, false);
+        if fractional {
+            for y in 0..texels.1 {
+                for x in 0..texels.0 {
+                    let i = ((y * texels.0 + x) * 4) as usize;
+                    if x > texels.0 / 3 && x < texels.0 / 2 && y > texels.1 / 3 && y < texels.1 / 2
+                    {
+                        pixels[i..i + 4].fill(0);
+                    } else if (x / 17 + y / 13) % 2 == 0 {
+                        for channel in &mut pixels[i..i + 4] {
+                            *channel /= 2;
+                        }
+                    }
+                }
+            }
+        }
+        (texels, pixels)
+    };
+    let (texels, pixels) = paint((313, 223), CONTENT_BGRA);
+    let surface = map_window_shm(&mut f, client, "odd", (313, 223), texels, &pixels);
     f.client(client)
         .window(&surface)
         .xdg_surface
@@ -2191,13 +2229,14 @@ fn check_odd_offset_resize_capture(scale: f64, ssd: bool, growing: bool) {
     let held = tiling_live_frame(&mut f, &output);
     compare(&before, &held, "capture");
     let size = last_configured(&mut f, client, &surface);
+    let offset = if fractional { (11, 5) } else { (7, 9) };
+    let logical = (size.0 + 2 * offset.0, size.1 + 2 * offset.1);
+    let (texels, pixels) = paint(logical, [0, 255, 0, 255]);
     let w = f.client(client).window(&surface);
-    w.set_size((size.0 + 14) as u16, (size.1 + 22) as u16);
-    w.xdg_surface.set_window_geometry(7, 9, size.0, size.1);
-    w.attach_shm_buffer(
-        (size.0 + 14, size.1 + 22),
-        &solid_bgra(size.0 + 14, size.1 + 22, [0, 255, 0, 255], false),
-    );
+    w.set_size(logical.0 as u16, logical.1 as u16);
+    w.xdg_surface
+        .set_window_geometry(offset.0, offset.1, size.0, size.1);
+    w.attach_shm_buffer(texels, &pixels);
     w.ack_last_and_commit();
     f.double_roundtrip(client);
     assert_eq!(f.state().tiling_snapshot_count(), 0);
@@ -2232,6 +2271,76 @@ fn check_odd_offset_resize_capture(scale: f64, ssd: bool, growing: bool) {
     );
     f.state().execute_action(&Action::CycleColumnWidth);
     compare(&mixed, &tiling_live_frame(&mut f, &output), "recapture");
+    if fractional {
+        let held = tiling_live_frame(&mut f, &output);
+        let offered = last_configured(&mut f, client, &surface);
+        let next_size = if growing {
+            offered
+        } else {
+            (size.0 / 2 + 1, size.1 / 2 + 1)
+        };
+        assert_eq!(
+            next_size.0 > size.0,
+            growing,
+            "exercise both buffer-size directions"
+        );
+        let logical = (next_size.0 + 6, next_size.1 + 26);
+        let (texels, pixels) = paint(logical, CONTENT_BGRA);
+        let w = f.client(client).window(&surface);
+        w.set_size(logical.0 as u16, logical.1 as u16);
+        w.xdg_surface
+            .set_window_geometry(3, 13, next_size.0, next_size.1);
+        w.attach_shm_buffer(texels, &pixels);
+        w.ack_last_and_commit();
+        f.double_roundtrip(client);
+        assert_eq!(f.state().tiling_snapshot_count(), 0);
+        assert_eq!(
+            window.geometry(),
+            Rectangle::new((3, 13).into(), next_size.into())
+        );
+        compare(
+            &held,
+            &tiling_live_frame(&mut f, &output),
+            "recapture release",
+        );
+        tick_until_settled(&mut f);
+        let settled = tiling_live_frame(&mut f, &output);
+        assert!(!f.state().resize_crossfades.contains_key(&id));
+        let position = f.state().stage.position_of(&window).unwrap();
+        let camera = f.state().camera();
+        let sample = |x: f64, y: f64| {
+            let x = ((f64::from(position.x - 3) - camera.x + x) * scale).round() as usize;
+            let y = ((f64::from(position.y - 13) - camera.y + y) * scale).round() as usize;
+            assert!(
+                x < 1200 && y < 800,
+                "independent sample must remain visible"
+            );
+            &settled[(y * 1200 + x) * 4..(y * 1200 + x) * 4 + 4]
+        };
+        let hole = sample(
+            f64::from(logical.0) * 5.0 / 12.0,
+            f64::from(logical.1) * 5.0 / 12.0,
+        );
+        assert!(
+            hole[3] <= 2,
+            "transparent client hole must survive settling: {hole:?}"
+        );
+        let tx = ((f64::from(texels.0) * 0.65) as i32 / 17) * 17 + 8;
+        let ty = ((f64::from(texels.1) * 0.65) as i32 / 13) * 13 + 6;
+        let expected = if (tx / 17 + ty / 13) % 2 == 0 {
+            76_u8
+        } else {
+            153_u8
+        };
+        let stripe = sample(f64::from(tx) / scale, f64::from(ty) / scale);
+        assert!(
+            stripe[0].abs_diff(expected) <= 2
+                && stripe[3].abs_diff(expected) <= 2
+                && stripe[1] == 0
+                && stripe[2] == 0,
+            "settled stripe must retain client colour and opacity: {stripe:?}, expected {expected}"
+        );
+    }
     f.state().execute_action(&Action::ToggleTiling);
     tick_until_settled(&mut f);
     assert_eq!(f.state().tiling_snapshot_count(), 0);

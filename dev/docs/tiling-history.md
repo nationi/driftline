@@ -1753,3 +1753,38 @@ cases including ignored GPU scenarios, integration suites and isolated soak.
 Existing client-mask, mixed-title/reload, CSD/SSD release and translation scenarios
 remain green. Markdown targets and `git diff --check` passed; no additional deep
 property pass was required for this renderer-only behavior change.
+
+## 2026-10-21 — B2 fractional client buffers and changed offsets
+
+Baseline `de35b93`. Extended the shared framed-canvas resize fixture with
+`tiling_recapture_handles_fractional_buffers_and_changed_geometry_offsets`:
+12 additional SSD/CSD scenes at static 1x/1.25x/1.5x, seeded grow/shrink. Buffer
+texel dimensions use ceil(logical × output scale), with alternating opaque and
+half-alpha blocks through the content edges and a transparent interior rectangle.
+Actual viewport destination remains logical-sized. First response changes the
+geometry offset (7,9) → (11,5); recapture response changes it again to (3,13).
+The second response explicitly exercises buffer growth/shrink and verifies the
+accepted geometry instead of assuming clients always take the offered size.
+
+Capture, release, mid-animation recapture and recapture release keep full-frame
+continuity within two bytes. Reuse the independent popup-size/displacement checks.
+After the second release settles, an independent surface-local sample verifies
+that the transparent hole remains clear; another samples the center of a known
+pattern block and verifies premultiplied red and opacity 0.6 (153 or 76), separately
+from frame comparisons. Snapshots and resize crossfades clear; fixture counters
+return to baseline. No additional production change was required. Original
+solid 1x-client scenarios remain distinct and are retained in the full suite.
+Dedicated `/tmp/driftwm-b2-fractional.log` passed all 12 scenes.
+
+Controlled B2 gates are delivered. These are driftwm compositor-integration
+checks, not recordings of niri or proof of all fractional rounding combinations.
+B3 starts with stale/capped capture policy, followed by changing views/scales/
+outputs. B4 and the A0 semantic audit remain open. No pure stage/layout/config
+parser change required a deep property pass. No installation, release build,
+desktop restart, push or manual TTY acceptance was performed.
+
+Full `dev/scripts/ci-local` passed, exit 0
+(`/tmp/driftwm-b2-fractional-ci.log`): fmt, locked check, strict all-target clippy,
+no-run build, 368 library cases, 1472 binary cases including ignored GPU scenarios,
+integration suites and isolated soak. Markdown targets and `git diff --check`
+passed. This batch adds fixture coverage and documentation only.

@@ -142,7 +142,9 @@ unset, empty or fully clipped client regions fall back to whole-window frost.
 Normal canvas resize animations keep compositor borders and title bars at their
 native thickness and height, including when entering tiling mid-animation.
 Controlled checks cover odd window sizes, nonzero client geometry offsets and
-popup anchoring at 1x/1.25x/1.5x output scales.
+popup anchoring at 1x/1.25x/1.5x output scales, including fractional client buffers
+and geometry-offset changes during repeated resize. Scale changes during the
+transition remain experimental.
 During grouped resize, native compositor title-bar coverage blends separately
 from body pixels, preserving its height and rounded corners. Global blur config
 reloads retain the held image and blend toward the new policy when the client

@@ -1,7 +1,7 @@
 # Tiling development status and handoff
 
 Updated 2026-10-21. Integration checkpoint: `8c17428`; upstream `7ce05ed` is
-included. Controlled B1 gates and the first B2 framed canvas-resize cases are delivered.
+included. Controlled B1/B2 gates are delivered; B3 is next.
 The persistent development branch is `nationi/development`. This handoff was reconciled with Git;
 see the [roadmap queue](niri-tiling-parity-plan.md#execution-queue-and-acceptance-gates)
 for task order and acceptance. Older “next” statements in the
@@ -56,9 +56,12 @@ mode. These are documented fallbacks, not reference-compatible behavior.
 
 ## Verified evidence and its limits
 
-Latest validation gate: `/tmp/driftwm-b2-ci.log`, exit 0: full
-`dev/scripts/ci-local`, 368 library cases, 1471 binary cases including ignored
-GPU scenarios, integration suites and isolated soak. B2 dedicated gate:
+Latest validation gate: `/tmp/driftwm-b2-fractional-ci.log`, exit 0: full
+`dev/scripts/ci-local`, 368 library cases, 1472 binary cases including ignored
+GPU scenarios, integration suites and isolated soak. Dedicated fractional-client
+gate `/tmp/driftwm-b2-fractional.log` passed 12 scenes with patterned/transparent
+content, changed offsets and both recapture response size directions.
+Earlier B2 dedicated gate:
 `/tmp/driftwm-b2-odd.log`, 12 SSD/CSD grow/shrink scenes passed with odd geometry
 and offset (7,9). Whole-frame capture/release/recapture tolerance remains two
 bytes; independent popup bounds and parent displacement checks passed.
@@ -96,22 +99,22 @@ unresolved; use direct TTY for visual acceptance.
 
 ## Next work
 
-Next implementation: continue roadmap **B2**. The first 12 general framed
-canvas-resize cases now cover odd extents/nonzero geometry, SSD/CSD grow/shrink,
-capture/release/mid-animation recapture and popup anchors at static fractional
-output scales. Extend this to fractional client-buffer grids, patterned/transparent
-edge content, changed geometry offsets on response, and release of the recaptured
-image with both buffer-size directions. Do not treat solid 1x client textures
-on fractional outputs as proof of every fractional buffer/extent combination. Controlled
-B1 gates now include global `[decorations].blur` hot-reload during a held group
-and exit/disconnect with a partially mixed native title. Mapped window-rule flags
-stay sticky; changing their TOML rules does not reapply them to existing windows.
-Native title/body blending for fixed mapped rules is delivered in the controlled scenes above. Keep driftwm's
-existing policy distinct from niri's tri-state effect configuration; see the
-source audit in history. Do not restart the delivered client-only mask work.
+Next implementation: roadmap **B3**, starting with stale/capped canvas resize
+captures. Define the fallback/retention policy from current code and pinned
+reference before changing it; test continuity, bounded resources and cleanup.
+Then cover changing views/scales/outputs. B4 retains broader motion-time remap,
+supersession and output-removal lifecycle coverage.
 
-Then B3–B4 cover degraded captures, changing views/scales/outputs and the broader
-motion-time remap/supersession/output-removal lifecycle.
+Controlled B2 gates now include 12 solid 1x-client scenes and 12 patterned
+fractional-client scenes: odd extents, SSD/CSD, canvas grow/shrink, changed
+geometry offsets, capture/release/recapture/release, native popup size/anchor and
+independent settled transparency/opacity samples. Scales stay fixed per scene;
+this does not establish behavior during scale/output transitions or every
+client texture/extent combination. Controlled B1 blur/reload/cancellation gates
+remain in CI. Mapped rule flags stay sticky until remapping; the existing effect
+policy still differs from pinned niri's tri-state rules. Do not restart the
+already delivered controlled B1/B2 matrices.
+
 **A0/P0 semantic audit must finish before expanding features** into P3/P4/P5 or
 advanced interactions. The roadmap is the single task/acceptance queue.
 
