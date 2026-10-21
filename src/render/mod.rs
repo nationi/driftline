@@ -1033,6 +1033,7 @@ pub fn compose_frame(
                     );
                 }
             }
+            let mut bar_index = None;
             if let Some(bar) = snapshot.bar.take() {
                 let loc = bar.rect.loc.to_physical_precise_round(scale);
                 let dst = Rectangle::new(loc, painted_size(bar.rect.size, scale));
@@ -1045,6 +1046,7 @@ pub fn compose_frame(
                     None,
                     Kind::Unspecified,
                 ) {
+                    bar_index = Some(zoomed_normal.len() - start);
                     let element = PixelSnapRescaleElement::from_element(
                         TrimmedElement::from_element(element, dst),
                         (0, 0).into(),
@@ -1098,6 +1100,9 @@ pub fn compose_frame(
                 );
             }
             if blur_enabled && let Some(mut blur) = snapshot.blur.take() {
+                if let Some((_, coverage)) = blur.chrome_mask {
+                    blur.chrome_mask = bar_index.map(|index| (index, coverage));
+                }
                 blur.elem_start = start;
                 blur.elem_count = shadow_start - start;
                 blur.trailing_chrome = zoomed_normal.len() - shadow_start;
@@ -1563,6 +1568,7 @@ pub fn compose_frame(
         };
         let elem_start = target.len();
         let mut shadow_count = 0usize;
+        let mut blur_bar_index = None;
 
         // Popups push first (earlier in vec = on-top in smithay z-order) so
         // they sit above the title bar and clipped window content.
@@ -1665,6 +1671,7 @@ pub fn compose_frame(
                     None,
                     Kind::Unspecified,
                 ) {
+                    blur_bar_index = Some(target.len() - elem_start);
                     let bar_elem = PixelSnapRescaleElement::from_element(
                         TrimmedElement::from_element(bar_elem, bar_dst),
                         Point::<i32, Physical>::from((0, 0)),
@@ -1881,6 +1888,9 @@ pub fn compose_frame(
                 target.len() - elem_start - shadow_count,
             ) {
                 if let Some(mask) = resize_mask {
+                    request.chrome_mask = blur_bar_index
+                        .filter(|_| mask.title_coverage > 0.0)
+                        .map(|index| (index, mask.title_coverage));
                     let body = Rectangle::new(chrome_loc, chrome_size)
                         .to_physical(output_scale * zoom)
                         .to_i32_round::<i32>();
@@ -2027,6 +2037,7 @@ pub fn compose_frame(
                     },
                     region_rects,
                     mask: None,
+                    chrome_mask: None,
                 };
                 // Regions and bounds share the source coordinate space until
                 // both are transformed; clipping against resized bounds loses

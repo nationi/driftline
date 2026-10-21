@@ -1,6 +1,7 @@
 # Niri tiling parity: execution plan
 
-Status (2026-10-20): implementation checkpoint `e6eda19`. Single-container
+Status (2026-10-21): integration checkpoint `8c17428`, with B1 native-title
+mask stabilization in progress. Single-container
 topology and bounded commit groups are established; reference semantics and
 rendering acceptance remain partial.
 This document supersedes the remaining delivery sequence in
@@ -65,7 +66,7 @@ fit/fill, pin, snap clusters, bookmarks and suspended stand-ins.
 
 ## Current baseline and known differences
 
-Implementation checkpoint: `e6eda19`. Current automated/manual evidence and its
+Integration checkpoint: `8c17428`. Current automated/manual evidence and its
 limits live only in [the maintained status](tiling-status.md#verified-evidence-and-its-limits).
 A passed CI suite is not a parity verdict. Release-build and TTY observations
 from older entries do not validate later commits automatically.
@@ -193,8 +194,8 @@ Implemented foundation (partial acceptance):
   opening, repeated recapture and client-only mask blending have controlled
   static-scale pixel gates. Late responses can start one bounded transition.
 
-Remaining acceptance includes mixed whole-window/client blur policies, general
-frame conversions, stale/capped images, changing views/output scales and
+Remaining acceptance includes global-default reload and mixed-title lifecycle,
+general frame conversions, stale/capped images, changing views/output scales and
 motion-time lifecycle changes. The actionable checks are in the queue below;
 [test evidence](tiling-status.md#verified-evidence-and-its-limits) and
 [historical investigations](tiling-history.md) stay outside the roadmap.
@@ -468,7 +469,7 @@ renderer work without closing a named remaining gate.
 
 | Order | Task | Completion evidence |
 | --- | --- | --- |
-| B1 — next implementation | Mixed window-rule/client blur policies, including native SSD title bands | Controlled pixel matrix below; retain existing client-only and window-rule gates |
+| B1 — next implementation | Mixed window-rule/client blur policies, including native SSD title bands; fixed mapped-rule transitions delivered, global-default reload/cancellation remain | Controlled pixel matrix below; retain existing client-only and window-rule gates |
 | B2 | General framed canvas resize entry, odd extents and nonzero geometry offsets | SSD/CSD capture/hold/release/recapture with grow/shrink, popup anchors and fractional rounding |
 | B3 | Degraded stale/capped captures and changing view/scale/output | Explicit fallback/retention policy plus bounded-resource, continuity and cleanup tests |
 | B4 | Motion-time remap, disconnect, supersession and output removal | No stale IDs/images/transactions, no duplicate animation, correct surviving focus/output membership |
@@ -481,6 +482,14 @@ design decision, record that blocker rather than declaring the whole gate done.
 Later P6–P15 retain their dependencies and acceptance criteria above.
 
 ### B1: next batch checklist
+
+Delivered subset: 18 controlled SSD/CSD cases now retain title coverage separately
+from body texels through grow/shrink, opening, immediate/mid-animation recapture
+and client partial ↔ mapped-rule fallback transitions. Global-default reload
+while held and mixed-title cancellation/lifecycle still need explicit gates.
+Mapped rules remain sticky and apply at mapping time; changing their TOML does
+not reapply flags to existing windows. Pinned niri's tri-state/empty-region policy
+differs from driftwm's compatibility policy; this batch does not resolve A0.
 
 - Compare the pinned reference's background-effect/resize behavior with driftwm's
   retained-frost policy. Separate compositor integration from proven niri parity.

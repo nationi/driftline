@@ -438,11 +438,26 @@ impl AnimatedContentCache {
 pub(crate) struct BlurMaskSource {
     pub buffer: TextureBuffer<GlesTexture>,
     pub texels: Size<i32, Physical>,
+    // The native title is sampled live; only its mixed coverage is retained.
+    pub title_coverage: f32,
     // Normalized body-local endpoints; None means already weighted coverage.
     regions: Option<Vec<[f64; 4]>>,
 }
 
 impl BlurMaskSource {
+    fn title_coverage(policy: &super::SnapshotBlur) -> f32 {
+        let client = policy.client_regions.as_ref().is_some_and(|regions| {
+            regions
+                .iter()
+                .any(|r| r.intersection(policy.geometry).is_some())
+        });
+        if policy.bar_height.is_some() && policy.window_blur && !client {
+            1.0
+        } else {
+            0.0
+        }
+    }
+
     fn regions(policy: &super::SnapshotBlur) -> Vec<[f64; 4]> {
         let regions = match &policy.client_regions {
             Some(regions) if !regions.is_empty() => regions
@@ -609,6 +624,7 @@ impl ResizeCrossfade {
             buffer: self.buffer.clone(),
             texels: self.texels,
             regions: Some(BlurMaskSource::regions(policy)),
+            title_coverage: BlurMaskSource::title_coverage(policy),
         }));
     }
 
@@ -633,10 +649,12 @@ impl ResizeCrossfade {
         }
         let initial = self.blur_source.as_ref()?;
         let regions = BlurMaskSource::regions(policy);
-        if initial.regions.as_ref() == Some(&regions) {
+        let title = BlurMaskSource::title_coverage(policy);
+        if initial.regions.as_ref() == Some(&regions) && initial.title_coverage == title {
             return None;
         }
         let weight = crossfade_out_alpha(self.progress, self.grew);
+        let title_coverage = initial.title_coverage * weight + title * (1.0 - weight);
         let mut sources = vec![(initial.clone(), weight)];
         if weight < 1.0 {
             let current = self.current.as_ref()?;
@@ -645,6 +663,7 @@ impl ResizeCrossfade {
                     buffer: current.buffer.clone(),
                     texels: current.texels,
                     regions: Some(regions),
+                    title_coverage: title,
                 },
                 1.0 - weight,
             ));
@@ -707,14 +726,17 @@ impl ResizeCrossfade {
                 // let an opaque old pixel fill a transparent new region.
                 frame.override_default_tex_program(
                     shader.clone(),
-                    vec![Uniform::new(
-                        "u_preserve_alpha",
-                        if source.regions.is_none() {
-                            1.0f32
-                        } else {
-                            0.0
-                        },
-                    )],
+                    vec![
+                        Uniform::new("u_threshold_opacity", 0.0f32),
+                        Uniform::new(
+                            "u_preserve_alpha",
+                            if source.regions.is_none() {
+                                1.0f32
+                            } else {
+                                0.0
+                            },
+                        ),
+                    ],
                 );
                 let element = TextureRenderElement::from_texture_buffer(
                     Point::default(),
@@ -758,6 +780,7 @@ impl ResizeCrossfade {
             ),
             texels: size,
             regions: None,
+            title_coverage,
         })
     }
 

@@ -1503,6 +1503,7 @@ impl DriftWm {
                 .to_physical(physical_scale)
                 .to_i32_round::<i32>();
             let body = chrome_animation.map_or(body, |a| a.transform_phys_rect(body));
+            request.chrome_mask = (mask.title_coverage > 0.0).then_some((0, mask.title_coverage));
             request.mask = Some(crate::render::ResizeCrossfade::render_retained_rect(
                 &mask.buffer,
                 mask.texels,

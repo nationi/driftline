@@ -1624,3 +1624,51 @@ was performed. Tiling gates B1–B4/A0 remain as listed in the roadmap.
 Repository-local pull is fast-forward only, push defaults to origin, fetch
 prunes deleted remote refs, and local main tracks origin/main. The maintained
 Git procedure is in `git-workflow.md`; local Git settings are not committed.
+
+
+## 2026-10-21 — B1 mixed policies and native title-mask coverage
+
+Baseline `8c17428`. The old retained mask contained body pixels only: when a
+partial client region became whole-window rule blur, the SSD title stayed
+unfrosted until the resize overlay disappeared. Body-identical client/full-window
+regions also looked unchanged to the old comparison although their title policy
+differed. Keep a separate scalar title coverage with each retained mask and blend
+it with the same old/new weights. Capture/recapture transfers that scalar without
+stretching a saved title texture. The final mask samples the actual native title
+render element, thresholds its alpha at the capture's byte quantization boundary,
+and weights it additively. Restore texture-program, blend function and blend
+constant state after drawing; normal/retained composition records the actual
+bar index after popup insertion. No extra title GPU allocation is retained.
+
+`mixed_client_and_window_blur_preserves_native_title_coverage` exercises 18 scenes:
+SSD/CSD, 1x/1.25x/1.5x, opening/seeded canvas resize; half-alpha content and opacity
+0.6, rounded frame/shadow, real 300→600→300 logical buffer sizes. It checks partial
+→ unset rule fallback → partial, immediate and mid-animation recapture, exact held
+frames, full-frame release comparisons <=2 bytes, fractional GPU title weights,
+rounded title cutouts, independent transparent new pixels and body-identical
+full-body client/full-window rule regions. Empty and clipped regions must retain
+the rule fallback; client-only cases still turn off. Dedicated log:
+`/tmp/driftwm-b1-mixed.log`, passed. The earlier two client-mask tests reuse the
+same helper through an explicit scenario enum and shared GPU sampling helper.
+Full `dev/scripts/ci-local` passed, exit 0 (`/tmp/driftwm-b1-ci.log`):
+fmt, locked check, strict all-target clippy, no-run build, 368 library cases,
+1468 binary cases including ignored GPU scenarios, integration suites and
+isolated soak. Local Markdown targets and `git diff --check` passed. No pure
+stage/layout/config parsing changes required an additional deep property pass.
+
+Source audit: pinned niri `src/render_helpers/background_effect.rs`,
+`BackgroundEffect::update_render_elements` honors explicit `blur = false` as a
+veto; `compute_render_params` returns no effect for an explicit empty client
+region. driftwm's documented rule booleans are sticky-on, and
+`config::effective_blur` ORs mapped rule/default blur. Existing `SnapshotBlur`
+request tests explicitly require whole-window fallback for clipped client regions
+when that flag is on. Preserve this compatibility behavior in B1 rather than
+silently converting rule semantics. This is compositor integration evidence,
+not a claim of exact niri background-effect parity. A0 must account for that
+policy difference.
+
+Remaining B1: global decorations-blur reload while held, and cancellation/
+lifecycle coverage of partially mixed native titles. Mapped rules apply only
+at mapping; config rule edits do not rewrite existing window flags. B2–B4 and
+P0/A0 remain open. No installed binary, user config, running compositor session,
+release build, push or manual TTY acceptance changed in this batch.

@@ -137,8 +137,11 @@ opening picture. Client-requested partial blur regions follow opening, movement
 and resize. Changed client regions blend with the old image during grouped
 resize, and a superseding group retains the partially blended mask. Disabling
 client blur fades its mask out with the old content. Empty client regions do not
-enable whole-window blur. Mixed window-rule/client blur policy transitions still
-need dedicated validation, especially around compositor title bars.
+enable whole-window blur by themselves. If a sticky window rule requests blur,
+unset, empty or fully clipped client regions fall back to whole-window frost.
+During grouped resize, native compositor title-bar coverage blends separately
+from body pixels, preserving its height and rounded corners. Global blur config
+reloads and all lifecycle combinations still need dedicated validation.
 Canvas resizes still held for a client reply can also be captured before a new
 group takes over. A late buffer arriving after the group expires can start a
 bounded resize transition on an otherwise settled window without restarting

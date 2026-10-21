@@ -1,7 +1,7 @@
 # Tiling development status and handoff
 
-Updated 2026-10-20. Tiling checkpoint: `e6eda19`; upstream `7ce05ed` was
-integrated at `327fcf5` without restoring removed packaging. The persistent
+Updated 2026-10-21. Integration checkpoint: `8c17428`; upstream `7ce05ed` is
+included. The current B1 native-title mask batch is recorded below. The persistent
 development branch is `nationi/development`. This handoff was reconciled with Git;
 see the [roadmap queue](niri-tiling-parity-plan.md#execution-queue-and-acceptance-gates)
 for task order and acceptance. Older “next” statements in the
@@ -39,7 +39,9 @@ Implemented, with partial reference coverage:
 - Repeated capture/release retains mixed texels and fractional client-mask
   coverage. Changed client-only regions blend independent source alpha; region-only
   commits stay hidden while held. Immediate recapture and disabling blur have
-  controlled tests. Late responses can animate once without reopening the group.
+  controlled tests. Mixed client/window-rule blur now retains native SSD title
+  coverage separately from the body, including title-only policy changes.
+  Late responses can animate once without reopening the group.
 - Optional udev `--drm-connector NAME` restricts preview output enrollment.
 
 P1's single-container foundation exists; this does not close the full milestone.
@@ -54,17 +56,19 @@ mode. These are documented fallbacks, not reference-compatible behavior.
 
 ## Verified evidence and its limits
 
-Latest integration gate: `/tmp/driftwm-upstream-sync-ci.log`, exit 0:
-`dev/scripts/ci-local`, 368 library cases, 1467 binary cases including ignored
-GLES scenarios, integration suites and isolated soak. Upstream IPC cursor/PID,
-viewport sloppy-focus and subsurface constraint fixes are included; client-blur
-and subsurface additions coexist in the test client. Earlier mask-specific
-validation is recorded in history. This integration does not close a new tiling
-parity milestone.
+Latest implementation gate: `/tmp/driftwm-b1-ci.log`, exit 0: full
+`dev/scripts/ci-local`, 368 library cases, 1468 binary cases including ignored
+GPU scenarios, integration suites and isolated soak.
+Dedicated mixed-policy GPU gate: `/tmp/driftwm-b1-mixed.log`, passed 18 scenes:
+SSD/CSD, static 1x/1.25x/1.5x, opening/seeded canvas resize, actual client-buffer
+growth and shrink, opacity 0.6, rounded frames and transparent new-source pixels.
+It checks partial → rule fallback → partial, native title weights/corner cutouts,
+body-identical but title-different policies, held region-only changes and immediate/
+mid-animation recapture. Earlier integration evidence remains in history.
 Logs in `/tmp` are disposable; persistent test names and details are in history.
 
 Current client-mask evidence covers 18 fixed/proportional-region scenes and
-12 changed-mask scenes: SSD/CSD, static 1x/1.25x/1.5x, opening/motion/canvas resize,
+12 changed-mask scenes, plus the 18 mixed-policy scenes above: SSD/CSD, static 1x/1.25x/1.5x, opening/motion/canvas resize,
 opacity and rounded frames. Changed-mask tests check GPU weights, transparent
 new-source pixels, immediate and mid-animation recapture, held region-only
 commits, disable and settled cleanup. Full-frame transition tolerance is two
@@ -76,14 +80,18 @@ GPU evidence is from NVIDIA RTX 3060. Reference fixtures are hand-reviewed,
 source-derived expectations, not recordings of niri. Older direct-udev feedback
 confirmed the single-output bindings/menu scenario; it does not validate later
 commits automatically. No release build, installation or manual TTY acceptance
-was performed for `e6eda19`. Nested winit NVIDIA blur artifacts/lag remain
+was performed for this B1 batch. Nested winit NVIDIA blur artifacts/lag remain
 unresolved; use direct TTY for visual acceptance.
 
 ## Next work
 
-Next implementation: roadmap **B1**, mixed whole-window-rule/client-region masks,
-including SSD title bands. Client-only changed-shape blending is already delivered;
-do not restart it. Follow B1's explicit protocol/policy, pixel and cleanup checks.
+Next implementation: finish roadmap **B1** with global `[decorations].blur`
+hot-reload during a held group and cancellation/lifecycle cases for a partially
+mixed native title. Mapped window-rule flags stay sticky; changing their TOML
+rules does not reapply them to existing windows. Native title/body blending for
+fixed mapped rules is delivered in the controlled scenes above. Keep driftwm's
+existing policy distinct from niri's tri-state effect configuration; see the
+source audit in history. Do not restart the delivered client-only mask work.
 
 Then B2–B4 cover general framed canvas entry/odd extents/geometry offsets,
 degraded captures, changing views/scales/outputs and motion-time lifecycle.
