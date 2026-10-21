@@ -1,7 +1,7 @@
 # Tiling development status and handoff
 
 Updated 2026-10-21. Integration checkpoint: `8c17428`; upstream `7ce05ed` is
-included. Controlled B1/B2 gates are delivered; B3 is next.
+included. Controlled B1/B2 gates are delivered; B3 degraded live-fallback coverage is added.
 The persistent development branch is `nationi/development`. This handoff was reconciled with Git;
 see the [roadmap queue](niri-tiling-parity-plan.md#execution-queue-and-acceptance-gates)
 for task order and acceptance. Older “next” statements in the
@@ -56,9 +56,10 @@ mode. These are documented fallbacks, not reference-compatible behavior.
 
 ## Verified evidence and its limits
 
-Latest validation gate: `/tmp/driftwm-b2-fractional-ci.log`, exit 0: full
-`dev/scripts/ci-local`, 368 library cases, 1472 binary cases including ignored
-GPU scenarios, integration suites and isolated soak. Dedicated fractional-client
+Latest validation gate: `/tmp/driftwm-b3-degraded-ci.log`, exit 0: full
+`dev/scripts/ci-local`, 368 library cases, 1473 binary cases including ignored
+GPU scenarios, integration suites and isolated soak. Dedicated degraded gate
+`/tmp/driftwm-b3-degraded.log` passed 12 SSD/CSD capped live-fallback scenes. Dedicated fractional-client
 gate `/tmp/driftwm-b2-fractional.log` passed 12 scenes with patterned/transparent
 content, changed offsets and both recapture response size directions.
 Earlier B2 dedicated gate:
@@ -99,11 +100,14 @@ unresolved; use direct TTY for visual acceptance.
 
 ## Next work
 
-Next implementation: roadmap **B3**, starting with stale/capped canvas resize
-captures. Define the fallback/retention policy from current code and pinned
-reference before changing it; test continuity, bounded resources and cleanup.
-Then cover changing views/scales/outputs. B4 retains broader motion-time remap,
-supersession and output-removal lifecycle coverage.
+Next implementation: continue roadmap **B3** with changing views/scales/outputs.
+The first stale/capped subset is delivered: do not capture degraded canvas
+content into a full-frame texture; retain its capped live transform and chrome
+policy when tiling starts or the pending group is superseded. Twelve controlled
+SSD/CSD scenes cover static 1x/1.25x/1.5x, replies/timeouts, three supersessions,
+content-size bounds and cleanup. This does not cover every degraded policy,
+minification, client background-effect interaction, view/output change or failure
+to allocate a capture. B4 retains broader motion-time remap and output removal.
 
 Controlled B2 gates now include 12 solid 1x-client scenes and 12 patterned
 fractional-client scenes: odd extents, SSD/CSD, canvas grow/shrink, changed

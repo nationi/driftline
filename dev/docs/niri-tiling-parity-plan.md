@@ -1,7 +1,7 @@
 # Niri tiling parity: execution plan
 
 Status (2026-10-21): integration checkpoint `8c17428`, with controlled B1 native-title
-mask and B2 controlled gates delivered; B3 is next. Single-container
+mask and B2 controlled gates delivered; B3 is in progress. Single-container
 topology and bounded commit groups are established; reference semantics and
 rendering acceptance remain partial.
 This document supersedes the remaining delivery sequence in
@@ -471,7 +471,7 @@ renderer work without closing a named remaining gate.
 | --- | --- | --- |
 | B1 — controlled gates delivered | Mixed window-rule/client blur and native SSD title bands; global-default reload while held, mixed-title exit/disconnect | Pixel matrices below and full local CI; broader lifecycle remains B4 |
 | B2 — controlled gates delivered | General framed canvas resize entry, odd extents/nonzero geometry; 12 solid and 12 patterned fractional-client scenes | SSD/CSD grow/shrink, changed offsets, recapture release, popup size/anchor and independent settled transparency/opacity; static scales only |
-| B3 — next implementation | Degraded stale/capped captures and changing view/scale/output | Explicit fallback/retention policy plus bounded-resource, continuity and cleanup tests |
+| B3 — in progress | Degraded capped live fallback: 12 controlled entry/supersession/reply/timeout scenes delivered; changing view/scale/output next | Explicit fallback/retention policy plus bounded-resource, continuity and cleanup tests; other degraded/effect/capture-failure cases remain |
 | B4 | Motion-time remap, disconnect, supersession and output removal | No stale IDs/images/transactions, no duplicate animation, correct surviving focus/output membership |
 | A0 — semantic prerequisite | Finish P0 custom decoders, defaults, public options and ID-addressed actions | Inventory rows cite pinned source, driftwm behavior and exact/partial/divergent evidence; extend reference traces beyond the zero-gap subset |
 | Feature expansion | P3 sizing/settings, then dependency-ready P4/P5 work | Source-derived size/topology/view fixtures and documented public settings; retain canvas regressions |

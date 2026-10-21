@@ -154,5 +154,9 @@ Canvas resizes still held for a client reply can also be captured before a new
 group takes over. A late buffer arriving after the group expires can start a
 bounded resize transition on an otherwise settled window without restarting
 the group or repeating the animation on subsequent repaints. Degraded stale
-resize content and fullscreen/pinned transitions retain their live fallback.
+resize content retains its live fallback: it is not flattened into a stretched
+full-window snapshot, and starting tiling preserves its existing capped content
+and frame transform. Controlled checks cover replies, timeouts and repeated
+width changes at fixed output scales. Fullscreen/pinned transitions retain their
+live fallback.
 Complete visual atomicity and all animation transitions are not implemented yet.

@@ -1788,3 +1788,44 @@ Full `dev/scripts/ci-local` passed, exit 0
 no-run build, 368 library cases, 1472 binary cases including ignored GPU scenarios,
 integration suites and isolated soak. Markdown targets and `git diff --check`
 passed. This batch adds fixture coverage and documentation only.
+
+## 2026-10-21 — B3 capped stale canvas-resize live fallback
+
+Baseline `ec2a9d0`. Existing `can_capture_canvas_geometry` deliberately rejects
+an expired start-hold with stale content: capped pixels can sit inside a larger
+animated frame, so flattening and stretching that whole image would invent
+magnified content. Preserve this live fallback rather than treating it as an
+ordinary retained resize. The renderer nevertheless switched to native tiling
+chrome as soon as stage membership changed, while content still used the capped
+canvas affine. The new regression found a 255-byte channel jump on entry at 1x
+CSD. Exclude `AnimatedVisual::cap_content` from native resize-chrome selection;
+keep the existing live chrome/content transform until the capped phase ends.
+No additional texture or retained state is allocated by the fix.
+
+`degraded_canvas_resize_keeps_capped_live_content_when_tiling_starts` covers 12
+SSD/CSD scenes at 1x/1.25x/1.5x, with real reply or timeout. A 200x100 red buffer
+ignores a 600x400 canvas request; injected time expires the 300 ms start hold and
+confirms the visual grows while `cap_content` is true. Independent red-pixel
+bounds require the content to remain 200x100 at output scale. Entry compares the
+whole frame within two bytes and requires zero grouped snapshots. Three width
+supersessions keep the current frame exactly and still allocate no snapshots.
+A real green-buffer reply or injected group timeout releases the pending state;
+injected monotonic animation ticks drain endpoint holds without wall-clock sleeps.
+Unanswered settled content still has its original extent. Crossfades clear and
+fixture teardown checks resource counters. Dedicated gate:
+`/tmp/driftwm-b3-degraded.log`, all 12 scenes passed.
+
+Pinned niri `src/utils/transaction.rs` documents its 300 ms transaction deadline
+as protection against clients that do not respond promptly. This supports bounded
+waiting, not equivalence with driftwm's canvas cap policy: that is a documented
+integration fallback. B3 remains open for view/scale/output changes and additional
+degraded/effect/minification/allocation-failure combinations. No pure stage/layout/
+config-parser algorithm changed; no additional deep property run is required.
+No release build, installation, desktop restart, push or manual TTY acceptance
+was performed.
+
+Full `dev/scripts/ci-local` passed, exit 0 (`/tmp/driftwm-b3-degraded-ci.log`):
+fmt, locked check, strict all-target clippy, no-run build, 368 library cases,
+1473 binary cases including ignored GPU scenarios, integration suites and isolated
+soak. Existing B1/B2 matrices remain green. Markdown targets and
+`git diff --check` passed.

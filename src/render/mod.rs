@@ -1364,6 +1364,7 @@ pub fn compose_frame(
                 && !state.window_animations.is_canvas_translation(id, geom_size)
         });
         let resize_chrome = element_id
+            .filter(|_| visual.is_none_or(|v| !v.cap_content))
             .filter(|id| {
                 (state.tiling_view.is_some() || client_effect || canvas_resize)
                     && (!window_blur
