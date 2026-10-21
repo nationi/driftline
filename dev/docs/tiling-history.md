@@ -1829,3 +1829,52 @@ fmt, locked check, strict all-target clippy, no-run build, 368 library cases,
 1473 binary cases including ignored GPU scenarios, integration suites and isolated
 soak. Existing B1/B2 matrices remain green. Markdown targets and
 `git diff --check` passed.
+
+## 2026-10-21 — B3 camera motion and CSD output-scale changes
+
+Baseline `adf9332`. Added
+`held_tiling_images_survive_csd_scale_and_ssd_camera_changes`, 12 controlled
+scenes: six CSD changes 1→1.25, 1.25→1.5 and 1.5→1 (ordinary/mixed retained image),
+and six SSD camera-only cases at fixed 1/1.25/1.5 scales. The actual config-reload
+entry point applies an explicit unchanged 1200x800 mode and selected scale;
+assert no pending mode intent. Retained images/popups survive reflow. Move the
+camera by (16,12), whose physical displacement is integral at these scales, and
+independently compare every overlapping pixel with the correspondingly shifted
+stationary image (<=2 bytes). Check native popup dimensions against the new scale,
+answer the latest size configure, and compare held/released frames <=2 bytes.
+Crossfades drain and fixture counters return to baseline after output-cache and
+renderer teardown. Dedicated `/tmp/driftwm-b3-view.log`: all 12 scenes passed.
+No additional production change is included in this batch.
+
+Unclosed defect: the initial matrix also changed SSD output scale. At 1→1.25,
+ordinary held SSD release differed by 174 bytes (`/tmp/driftwm-b3-scale.log`). To
+reproduce, in the new test's call to `check_tiling_scale_change`, pass `to` for
+SSD too instead of retaining `from`. Keep this failing extension out of the
+passing acceptance matrix until fixed, and keep the gap visible in status/docs.
+The old retained frame/title raster and newly updated native SSD title do not
+share a raster at release; native-title rerasterization/handoff needs explicit
+pixel localization and treatment. A larger tolerance is not acceptance.
+
+Suggested bounded next work: localize title/body/border differences independently;
+retain the actual old title raster with its source extent, blend it with the live
+native title in premultiplied space before applying compositor opacity, and carry
+the mixed title through recapture. Preserve native band height, rounded cutouts,
+first-frame identity, eventual live-title replacement and cleanup. Avoid drawing
+two translucent titles source-over or treating body mask title coverage as saved
+title pixels. Existing mask coverage scalars are not the title image itself.
+Pinned niri `src/layout/tile.rs` tracks snapshot size and current physical texture
+geometry separately in resize rendering; this supports explicit raster metadata,
+not a claim that driftwm's native SSD behavior is reference-equivalent.
+
+B3 remains open for this SSD defect, arbitrary camera fractions/zoom, output
+mode/transform changes and other degraded/effect/allocation-failure cases.
+Second-output enrollment still exits tiling; multi-output ownership is P11.
+No pure stage/layout/config-parser algorithm changed, so no extra deep property
+pass is required. No installation, release build, desktop restart, push or manual
+TTY acceptance was performed.
+
+Full `dev/scripts/ci-local` passed, exit 0 (`/tmp/driftwm-b3-view-ci.log`): fmt,
+locked check, strict all-target clippy, no-run build, 368 library cases, 1474 binary
+cases including ignored GPU scenarios, integration suites and isolated soak.
+Markdown targets and `git diff --check` passed. This passing suite covers only
+the explicitly scoped CSD-scale/SSD-camera matrix, not the SSD scale defect above.

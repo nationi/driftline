@@ -1,7 +1,7 @@
 # Tiling development status and handoff
 
 Updated 2026-10-21. Integration checkpoint: `8c17428`; upstream `7ce05ed` is
-included. Controlled B1/B2 gates are delivered; B3 degraded live-fallback coverage is added.
+included. Controlled B1/B2 gates are delivered; B3 live-fallback and controlled camera/CSD-scale coverage is added.
 The persistent development branch is `nationi/development`. This handoff was reconciled with Git;
 see the [roadmap queue](niri-tiling-parity-plan.md#execution-queue-and-acceptance-gates)
 for task order and acceptance. Older “next” statements in the
@@ -56,9 +56,10 @@ mode. These are documented fallbacks, not reference-compatible behavior.
 
 ## Verified evidence and its limits
 
-Latest validation gate: `/tmp/driftwm-b3-degraded-ci.log`, exit 0: full
-`dev/scripts/ci-local`, 368 library cases, 1473 binary cases including ignored
-GPU scenarios, integration suites and isolated soak. Dedicated degraded gate
+Latest validation gate: `/tmp/driftwm-b3-view-ci.log`, exit 0: full
+`dev/scripts/ci-local`, 368 library cases, 1474 binary cases including ignored
+GPU scenarios, integration suites and isolated soak. Dedicated view gate
+`/tmp/driftwm-b3-view.log` passed six CSD-scale and six SSD-camera scenes. Dedicated degraded gate
 `/tmp/driftwm-b3-degraded.log` passed 12 SSD/CSD capped live-fallback scenes. Dedicated fractional-client
 gate `/tmp/driftwm-b2-fractional.log` passed 12 scenes with patterned/transparent
 content, changed offsets and both recapture response size directions.
@@ -95,19 +96,28 @@ GPU evidence is from NVIDIA RTX 3060. Reference fixtures are hand-reviewed,
 source-derived expectations, not recordings of niri. Older direct-udev feedback
 confirmed the single-output bindings/menu scenario; it does not validate later
 commits automatically. No release build, installation or manual TTY acceptance
-was performed for these B1/B2 batches. Nested winit NVIDIA blur artifacts/lag remain
+was performed for these B1–B3 batches. Nested winit NVIDIA blur artifacts/lag remain
 unresolved; use direct TTY for visual acceptance.
 
 ## Next work
 
-Next implementation: continue roadmap **B3** with changing views/scales/outputs.
-The first stale/capped subset is delivered: do not capture degraded canvas
-content into a full-frame texture; retain its capped live transform and chrome
-policy when tiling starts or the pending group is superseded. Twelve controlled
-SSD/CSD scenes cover static 1x/1.25x/1.5x, replies/timeouts, three supersessions,
-content-size bounds and cleanup. This does not cover every degraded policy,
-minification, client background-effect interaction, view/output change or failure
-to allocate a capture. B4 retains broader motion-time remap and output removal.
+Next implementation: **B3 SSD scale-change release discontinuity**. A controlled
+1x → 1.25x reload while holding an ordinary SSD snapshot produced a 174-byte
+channel jump on release. Current native SSD title rerasterization does not retain
+the old raster through the body transition. Localize the changed pixels, then
+retain/blend native title pixels and extents separately from body/mask coverage;
+include first release, mixed recapture and completion at both scale directions.
+Do not hide this with larger tolerances, disable the scenario permanently or
+claim general scale-change acceptance. See the reproducible fixture in history.
+
+Delivered B3 subsets: 12 stale/capped SSD/CSD live-fallback scenes, six CSD scale
+changes and six SSD camera-only scenes. Camera motion compares against an
+independent physical translation; popup size follows the selected output scale.
+These do not cover SSD scale changes, arbitrary fractional camera positions,
+zoom, every degraded/effect/minification path, allocation failure, output
+transforms/mode changes or multi-output ownership. B4 retains broader motion-time
+remap/output removal. Full tiling multi-output support remains P11; enrolling a
+second output still leaves tiling.
 
 Controlled B2 gates now include 12 solid 1x-client scenes and 12 patterned
 fractional-client scenes: odd extents, SSD/CSD, canvas grow/shrink, changed
