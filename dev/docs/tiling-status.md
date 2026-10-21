@@ -1,7 +1,7 @@
 # Tiling development status and handoff
 
 Updated 2026-10-21. Integration checkpoint: `8c17428`; upstream `7ce05ed` is
-included. Controlled B1 native-title mask gates are delivered; B2 is next.
+included. Controlled B1 gates and the first B2 framed canvas-resize cases are delivered.
 The persistent development branch is `nationi/development`. This handoff was reconciled with Git;
 see the [roadmap queue](niri-tiling-parity-plan.md#execution-queue-and-acceptance-gates)
 for task order and acceptance. Older “next” statements in the
@@ -56,10 +56,13 @@ mode. These are documented fallbacks, not reference-compatible behavior.
 
 ## Verified evidence and its limits
 
-Latest validation gate: `/tmp/driftwm-b1-reload-ci.log`, exit 0: full
-`dev/scripts/ci-local`, 368 library cases, 1470 binary cases including ignored
-GPU scenarios, integration suites and isolated soak. Dedicated global-reload
-gate: `/tmp/driftwm-b1-reload.log`, both tests / 24 scenes passed.
+Latest validation gate: `/tmp/driftwm-b2-ci.log`, exit 0: full
+`dev/scripts/ci-local`, 368 library cases, 1471 binary cases including ignored
+GPU scenarios, integration suites and isolated soak. B2 dedicated gate:
+`/tmp/driftwm-b2-odd.log`, 12 SSD/CSD grow/shrink scenes passed with odd geometry
+and offset (7,9). Whole-frame capture/release/recapture tolerance remains two
+bytes; independent popup bounds and parent displacement checks passed.
+Earlier global-reload gate: `/tmp/driftwm-b1-reload.log`, 24 scenes passed.
 Dedicated mixed-policy GPU gate: `/tmp/driftwm-b1-mixed.log`, passed 18 scenes:
 SSD/CSD, static 1x/1.25x/1.5x, opening/seeded canvas resize, actual client-buffer
 growth and shrink, opacity 0.6, rounded frames and transparent new-source pixels.
@@ -88,18 +91,22 @@ GPU evidence is from NVIDIA RTX 3060. Reference fixtures are hand-reviewed,
 source-derived expectations, not recordings of niri. Older direct-udev feedback
 confirmed the single-output bindings/menu scenario; it does not validate later
 commits automatically. No release build, installation or manual TTY acceptance
-was performed for this B1 batch. Nested winit NVIDIA blur artifacts/lag remain
+was performed for these B1/B2 batches. Nested winit NVIDIA blur artifacts/lag remain
 unresolved; use direct TTY for visual acceptance.
 
 ## Next work
 
-Next implementation: roadmap **B2**, general framed canvas resize entry with
-odd extents and nonzero window-geometry offsets. Exercise SSD/CSD grow/shrink,
-capture/hold/release/recapture, popup anchors and fractional rounding. Controlled
+Next implementation: continue roadmap **B2**. The first 12 general framed
+canvas-resize cases now cover odd extents/nonzero geometry, SSD/CSD grow/shrink,
+capture/release/mid-animation recapture and popup anchors at static fractional
+output scales. Extend this to fractional client-buffer grids, patterned/transparent
+edge content, changed geometry offsets on response, and release of the recaptured
+image with both buffer-size directions. Do not treat solid 1x client textures
+on fractional outputs as proof of every fractional buffer/extent combination. Controlled
 B1 gates now include global `[decorations].blur` hot-reload during a held group
 and exit/disconnect with a partially mixed native title. Mapped window-rule flags
-stay sticky; changing their TOML rules does not reapply them to existing windows. Native title/body blending for
-fixed mapped rules is delivered in the controlled scenes above. Keep driftwm's
+stay sticky; changing their TOML rules does not reapply them to existing windows.
+Native title/body blending for fixed mapped rules is delivered in the controlled scenes above. Keep driftwm's
 existing policy distinct from niri's tri-state effect configuration; see the
 source audit in history. Do not restart the delivered client-only mask work.
 

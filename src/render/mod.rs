@@ -1359,9 +1359,13 @@ pub fn compose_frame(
 
         // Resize content follows a texture affine; compositor chrome keeps its
         // native stroke and title-bar height around the current visual bounds.
+        let canvas_resize = element_id.is_some_and(|id| {
+            state.window_animations.can_capture_canvas_geometry(id)
+                && !state.window_animations.is_canvas_translation(id, geom_size)
+        });
         let resize_chrome = element_id
             .filter(|id| {
-                (state.tiling_view.is_some() || client_effect)
+                (state.tiling_view.is_some() || client_effect || canvas_resize)
                     && (!window_blur
                         || client_effect
                         || !state
@@ -1370,7 +1374,7 @@ pub fn compose_frame(
                         || state.resize_crossfades.contains_key(id))
                     && !is_fullscreen
                     && !is_pinned
-                    && (state.stage.is_tiled(*id) || client_effect)
+                    && (state.stage.is_tiled(*id) || client_effect || canvas_resize)
             })
             .and_then(|id| state.window_animations.geometry_visual_rect(id));
         let chrome_loc = resize_chrome.map_or_else(
@@ -1467,14 +1471,15 @@ pub fn compose_frame(
                 .blended_buffer(renderer, &wl_surface, stamp, clip.as_ref())
         } else if let Some(id) = element_id
             && (state.window_animations.open_progress(id).is_some()
-                || (client_effect && state.window_animations.generation_of(id).is_some()))
+                || ((client_effect || canvas_resize)
+                    && state.window_animations.generation_of(id).is_some()))
             && !is_fullscreen
             && !is_pinned
             && matches!(coverage, canvas::Coverage::None)
-            && (effective_corner_radius > 0 || client_effect)
+            && (effective_corner_radius > 0 || client_effect || canvas_resize)
         {
-            // Animated client effects and their retained picture must sample
-            // the same clipped grid, including while the effect is unset.
+            // Canvas resizes and animated client effects must sample the same
+            // clipped grid as their retained picture, even with the effect unset.
             let stamp = closing::ResizeContentStamp::for_surface(
                 &wl_surface,
                 window.geometry(),

@@ -2061,3 +2061,181 @@ fn tiling_resize_release_preserves_frost_during_inherited_opening() {
         }
     }
 }
+
+#[test]
+#[ignore = "needs surfaceless EGL; run with --include-ignored"]
+fn tiling_captures_odd_offset_geometry_during_framed_canvas_resize() {
+    let _gl = gl::lock();
+    let (ready, loaded) = std::sync::mpsc::sync_channel(1);
+    driftwm::text::warm_fonts(move || {
+        let _ = ready.send(());
+    });
+    loaded
+        .recv_timeout(std::time::Duration::from_secs(10))
+        .unwrap();
+    for scale in [1.0, 1.25, 1.5] {
+        for ssd in [false, true] {
+            for growing in [false, true] {
+                check_odd_offset_resize_capture(scale, ssd, growing);
+            }
+        }
+    }
+}
+
+fn check_odd_offset_resize_capture(scale: f64, ssd: bool, growing: bool) {
+    use super::{last_configured, tick_until_settled, window_by_app_id};
+    use crate::state::window_animation::{AnimSpace, ContentPolicy, GeometryRole};
+    use driftwm::config::Action;
+    use smithay::utils::Rectangle;
+
+    let Some(renderer) = gl::surfaceless_renderer("odd offset canvas resize") else {
+        return;
+    };
+    let config = config_toml(true)
+        .replace("corner_radius = 0", "corner_radius = 8")
+        .replace(
+            "[decorations]",
+            "[decorations]\nopacity = 0.6\nopacity_focused = 0.6",
+        );
+    let config = if ssd {
+        format!("{config}\n[[window_rules]]\napp_id = \"odd\"\ndecoration = \"server\"\n")
+    } else {
+        config
+    };
+    let mut f = Fixture::with_config(super::config(&config));
+    let output = f.add_output_scaled(1, (1200, 800), scale);
+    gl::install(&mut f, renderer);
+    let client = f.add_client();
+    let surface = map_window_shm(
+        &mut f,
+        client,
+        "odd",
+        (313, 223),
+        (313, 223),
+        &solid_bgra(313, 223, CONTENT_BGRA, false),
+    );
+    f.client(client)
+        .window(&surface)
+        .xdg_surface
+        .set_window_geometry(7, 9, 299, 201);
+    f.client(client).window(&surface).commit();
+    f.double_roundtrip(client);
+    tick_until_settled(&mut f);
+    let window = window_by_app_id(&mut f, "odd").unwrap();
+    let id = f.state().stage.id_of(&window).unwrap();
+    assert_eq!(
+        window.geometry(),
+        Rectangle::new((7, 9).into(), (299, 201).into())
+    );
+    f.state().stage.set_position(&window, (121, 161).into());
+    f.state().set_camera((0.0, 0.0).into());
+    colored_tiling_popup(&mut f, client, &surface, (280, 51), [255, 0, 0, 255]);
+    f.state().begin_geometry_animation_seeded(
+        &window,
+        Rectangle::new(
+            (103.0, 143.0).into(),
+            if growing {
+                (191.0, 131.0)
+            } else {
+                (411.0, 281.0)
+            }
+            .into(),
+        ),
+        AnimSpace::Canvas,
+        None,
+        GeometryRole::Normal,
+        ContentPolicy::Stretch,
+        Some((121, 161).into()),
+    );
+    f.state()
+        .tick_window_animations(std::time::Duration::from_millis(16));
+    let before = tiling_live_frame(&mut f, &output);
+    let visual = f
+        .state()
+        .window_animations
+        .geometry_visual_rect(id)
+        .unwrap();
+    let popup_bounds = |frame: &[u8]| {
+        let points: Vec<_> = frame
+            .as_chunks::<4>()
+            .0
+            .iter()
+            .enumerate()
+            .filter(|(_, pixel)| pixel[2] > 100 && pixel[0] < 100)
+            .map(|(i, _)| ((i % 1200) as i32, (i / 1200) as i32))
+            .collect();
+        let left = points.iter().map(|p| p.0).min().expect("visible popup");
+        let top = points.iter().map(|p| p.1).min().unwrap();
+        let width = points.iter().map(|p| p.0).max().unwrap() - left + 1;
+        let height = points.iter().map(|p| p.1).max().unwrap() - top + 1;
+        assert_eq!(
+            (width, height),
+            (
+                (100.0 * scale).round() as i32,
+                (80.0 * scale).round() as i32
+            ),
+            "resize must preserve native popup dimensions"
+        );
+        (left, top)
+    };
+    let popup_before = popup_bounds(&before);
+    f.state().execute_action(&Action::ToggleTiling);
+    assert_eq!(f.state().tiling_snapshot_count(), 2);
+    let compare = |a: &[u8], b: &[u8], phase: &str| {
+        let delta = a.iter().zip(b).map(|(a, b)| a.abs_diff(*b)).max().unwrap();
+        assert!(
+            delta <= 2,
+            "{scale}x SSD={ssd} growing={growing} {phase}: delta {delta}"
+        );
+    };
+    let held = tiling_live_frame(&mut f, &output);
+    compare(&before, &held, "capture");
+    let size = last_configured(&mut f, client, &surface);
+    let w = f.client(client).window(&surface);
+    w.set_size((size.0 + 14) as u16, (size.1 + 22) as u16);
+    w.xdg_surface.set_window_geometry(7, 9, size.0, size.1);
+    w.attach_shm_buffer(
+        (size.0 + 14, size.1 + 22),
+        &solid_bgra(size.0 + 14, size.1 + 22, [0, 255, 0, 255], false),
+    );
+    w.ack_last_and_commit();
+    f.double_roundtrip(client);
+    assert_eq!(f.state().tiling_snapshot_count(), 0);
+    assert_eq!(
+        f.state().window_animations.geometry_visual_rect(id),
+        Some(visual)
+    );
+    compare(&held, &tiling_live_frame(&mut f, &output), "release");
+    f.state()
+        .tick_window_animations(std::time::Duration::from_millis(16));
+    let mixed = tiling_live_frame(&mut f, &output);
+    let popup_after = popup_bounds(&mixed);
+    let advanced = f
+        .state()
+        .window_animations
+        .geometry_visual_rect(id)
+        .unwrap();
+    let camera = f.state().camera();
+    let displacement = (
+        ((advanced.loc.x - camera.x) * scale).round() as i32
+            - (visual.loc.x * scale).round() as i32,
+        ((advanced.loc.y - camera.y) * scale).round() as i32
+            - (visual.loc.y * scale).round() as i32,
+    );
+    assert_eq!(
+        (
+            popup_after.0 - popup_before.0,
+            popup_after.1 - popup_before.1
+        ),
+        displacement,
+        "popup must follow the parent geometry anchor"
+    );
+    f.state().execute_action(&Action::CycleColumnWidth);
+    compare(&mixed, &tiling_live_frame(&mut f, &output), "recapture");
+    f.state().execute_action(&Action::ToggleTiling);
+    tick_until_settled(&mut f);
+    assert_eq!(f.state().tiling_snapshot_count(), 0);
+    assert!(!f.state().resize_crossfades.contains_key(&id));
+    f.state().render.remove_output(&output.name());
+    gl::uninstall(&mut f);
+}

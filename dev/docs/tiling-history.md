@@ -1711,3 +1711,45 @@ fmt, locked check, strict all-target clippy, no-run build, 368 library cases,
 soak. Local Markdown targets and `git diff --check` passed. This batch changes
 only fixture scenarios/documentation, so no additional deep property pass was
 required.
+
+## 2026-10-21 — B2 general framed canvas-resize entry
+
+Baseline `ced39d2`. A normal canvas resize without a background-effect object
+stretched the compositor frame with the content; switching to the held tiling
+picture changed frame thickness, shadow footprint and popup placement. The new
+odd-offset regression initially found a 135-byte channel difference at 1x CSD.
+Eligible normal canvas resizes now use native frame geometry and the same cached,
+clipped content grid as capture/release. Snapshot chrome uses that policy for
+non-translation geometry even without a client-effect object. Translation-only,
+pinned/fullscreen and degraded/ineligible animation paths retain their existing
+policy. Cached content is keyed by surface commit/geometry/chrome/scale and uses
+the existing animation cache eviction; no new retained collection was added.
+
+`tiling_captures_odd_offset_geometry_during_framed_canvas_resize` covers 12 scenes:
+SSD/CSD, 1x/1.25x/1.5x, a 313x223 logical/buffer window with geometry (7,9,299,201),
+rounded corners, shadow and opacity 0.6. Seeded canvas grow/shrink enters tiling,
+responds with a differently sized buffer with the same nonzero geometry offset,
+then recaptures during crossfade and exits. Capture/release/recapture compare the
+whole frame at <=2 bytes; release retains the exact visual rectangle. Independent
+popup checks require 100x80 logical buffer dimensions at output scale and motion
+matching the parent geometry anchor. Output caches are explicitly removed before
+renderer teardown, and fixture resource counters must return to baseline.
+Dedicated gate `/tmp/driftwm-b2-odd.log`: passed all 12 scenes.
+
+Pinned niri `src/layout/tile.rs` resize rendering keeps current texture physical
+geometry and passes it with old snapshot size/current window size to
+`ResizeRenderElement::new`; its comments explicitly require reversible rounding
+at the same scale. This supports checking frame-space geometry separately from
+client textures, but these driftwm canvas-entry scenes are integration evidence,
+not recorded niri visual parity. B2 remains open for fractional client-buffer
+texel grids, patterned/transparent edges, changed geometry offsets and release of
+the recaptured picture in both buffer-size directions. No stage/layout/config
+parser algorithm changed. No installation, release build, desktop restart, push
+or manual TTY acceptance was performed.
+
+Full `dev/scripts/ci-local` passed, exit 0 (`/tmp/driftwm-b2-ci.log`): fmt,
+locked check, strict all-target clippy, no-run build, 368 library cases, 1471 binary
+cases including ignored GPU scenarios, integration suites and isolated soak.
+Existing client-mask, mixed-title/reload, CSD/SSD release and translation scenarios
+remain green. Markdown targets and `git diff --check` passed; no additional deep
+property pass was required for this renderer-only behavior change.

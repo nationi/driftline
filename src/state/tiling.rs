@@ -1099,7 +1099,7 @@ impl DriftWm {
             };
             let native_chrome = crossfading
                 || self.window_animations.open_progress(id).is_some()
-                || (has_geometry && client_effect);
+                || (has_geometry && (!translating || client_effect));
             let chrome = self
                 .snapshot_chrome(&surface, geometry, false)
                 .map(|mut chrome| {
