@@ -68,13 +68,15 @@ backdrop-color uses Color with default RGBA `(0.15,0.15,0.15,1)`, workspace-shad
 uses the value/normalization already [audited](niri-effects-config-audit.md#workspace-shadows).
 These three resolved fields and three optional part fields are Missing as a niri
 overview facility in driftwm; arbitrary canvas zoom is not that facility.
-Complete overview zoom/entry/render/interaction consumers remain to be audited.
+Scoped zoom/entry/render/interaction consumers are now recorded in the
+[layer/overview audit](niri-layer-overview-audit.md); complete interaction parity
+and independent fixtures remain open.
 
 LayerRule and its own Match are now visible separately from WindowRule.Match.
-Its grammar includes namespace, startup and layer matching; shadow/geometry/
-background-effect values reuse audited types, but filter defaults, compositing
-placement, rule refresh and full layer/popup consumers still require a dedicated
-audit. No automatic window-rule equivalence is claimed.
+Its namespace/startup/layer matching, defaults, compositing placement, refresh
+and scoped body/popup consumers are traced in the layer/overview audit. Shared
+value types do not imply automatic window-rule equivalence or full layer/capture
+acceptance.
 
 ## Explicit exclusions and mixed scopes
 
@@ -110,9 +112,8 @@ indexed 318 rows and their scoped semantic links. Local targets/anchors and pinn
 source paths must resolve. These checks validate source coverage, not accepted
 runtime behavior, parser diagnostics or every possible public child/property.
 
-Next A0 semantic batch: newly indexed LayerRule/Match and Overview/OverviewPart,
-including actual default/filtering/reload/render/interaction consumers. Then
-remaining input focus/warping/workspace policy, debug layout flags, animation/
+LayerRule/Match and Overview/OverviewPart now have a scoped source audit.
+Next A0: input focus/warping/workspace policy and debug layout flags, then animation/
 gesture configuration, output/workspace naming, unscoped rule fields and public
 binding/action addressing. Document concrete exclusions as needed. Independent
 decoder/geometry/operation fixtures beyond zero gaps remain required; no Exact

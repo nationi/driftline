@@ -16,6 +16,8 @@ adds radius/workspace-shadow/blur/background-effect decoding and consumers.
 The [schema coverage audit](niri-config-schema-coverage.md) accounts for all
 18 source files, 25 root nodes and 14 indexed modules. Fields are source
 inventory, not a completed public decoder/consumer audit. Unscoped behavior stays open.
+The [layer/overview consumers](niri-layer-overview-audit.md) audit traces newly indexed
+layer rules and overview value consumers; complete interactions remain open.
 P0 reference operation fixtures and the custom-decoder audit remain unfinished.
 
 Status: Partial = related implementation, not full equivalence; Divergent = known
@@ -261,7 +263,7 @@ public node names such as `output` and `window-rule` are not plural Rust fields.
 | `spawn-at-startup` | `Config.spawn_at_startup` | Outside | Outside | Process launch list; resulting window map remains in layout scope; [coverage](niri-config-schema-coverage.md) |
 | `spawn-sh-at-startup` | `Config.spawn_sh_at_startup` | Outside | Outside | Shell process launch; not a tiling action contract; [coverage](niri-config-schema-coverage.md) |
 | `window-rule` | `Config.window_rules` | Layout/integration | Partial | Scoped decoder/lifecycle audits exist; remaining fields and fixtures pending; [coverage](niri-config-schema-coverage.md) |
-| `layer-rule` | `Config.layer_rules` | Integration | Unverified | Previously omitted layer/effect schema; semantic audit still pending; [coverage](niri-config-schema-coverage.md) |
+| `layer-rule` | `Config.layer_rules` | Integration | Missing | Dedicated rule tree missing; scoped decoder/consumer audit recorded; [coverage](niri-config-schema-coverage.md) |
 | `workspace` | `Config.workspaces` | Layout | Missing | Named workspace/layout hierarchy not implemented; [coverage](niri-config-schema-coverage.md) |
 | `binds` | `Config.binds` | Layout/integration | Unverified | Action inventory is not a public binding alias/decoder audit; [coverage](niri-config-schema-coverage.md) |
 | `environment` | `Config.environment` | Outside | Outside | Child-process environment, not layout behavior; [coverage](niri-config-schema-coverage.md) |
@@ -300,7 +302,7 @@ own definitions; tuple wrappers and enums are indexed by declaration below.
 | `Config.environment` | Outside | Root `environment`: Child-process environment, not layout behavior; [schema coverage](niri-config-schema-coverage.md) |
 | `Config.xwayland_satellite` | Unverified | Root `xwayland-satellite`: Client/protocol integration; reconsider layout-visible lifecycle effects; [schema coverage](niri-config-schema-coverage.md) |
 | `Config.window_rules` | Partial | Root `window-rule`: Scoped decoder/lifecycle audits exist; remaining fields and fixtures pending; [schema coverage](niri-config-schema-coverage.md) |
-| `Config.layer_rules` | Unverified | Root `layer-rule`: Previously omitted layer/effect schema; semantic audit still pending; [schema coverage](niri-config-schema-coverage.md) |
+| `Config.layer_rules` | Missing | Root `layer-rule`: Dedicated rule tree missing; scoped decoder/consumer audit recorded; [schema coverage](niri-config-schema-coverage.md) |
 | `Config.binds` | Unverified | Root `binds`: Action inventory is not a public binding alias/decoder audit; [schema coverage](niri-config-schema-coverage.md) |
 | `Config.switch_events` | Unverified | Root `switch-events`: Lid/output actions may affect layout lifecycle; [schema coverage](niri-config-schema-coverage.md) |
 | `Config.debug` | Unverified | Root `debug`: Mixed layout-visible transaction/focus flags and backend controls; [schema coverage](niri-config-schema-coverage.md) |
@@ -698,12 +700,12 @@ Declared types to check for nested values/custom decoding: `Outputs`, `Mode`, `M
 | `ConfigNotificationPart.disable_failed` | Outside | Process/selection/help/error-UI setting; explicit root-scope exclusion; [schema coverage](niri-config-schema-coverage.md) |
 | `Clipboard.disable_primary` | Outside | Process/selection/help/error-UI setting; explicit root-scope exclusion; [schema coverage](niri-config-schema-coverage.md) |
 | `ClipboardPart.disable_primary` | Outside | Process/selection/help/error-UI setting; explicit root-scope exclusion; [schema coverage](niri-config-schema-coverage.md) |
-| `Overview.zoom` | Missing | No reference overview; decoded zoom/backdrop/workspace-shadow surface is indexed; [schema coverage](niri-config-schema-coverage.md) |
-| `Overview.backdrop_color` | Missing | No reference overview; decoded zoom/backdrop/workspace-shadow surface is indexed; [schema coverage](niri-config-schema-coverage.md) |
-| `Overview.workspace_shadow` | Missing | No reference overview; decoded zoom/backdrop/workspace-shadow surface is indexed; [schema coverage](niri-config-schema-coverage.md) |
-| `OverviewPart.zoom` | Missing | No reference overview; decoded zoom/backdrop/workspace-shadow surface is indexed; [schema coverage](niri-config-schema-coverage.md) |
-| `OverviewPart.backdrop_color` | Missing | No reference overview; decoded zoom/backdrop/workspace-shadow surface is indexed; [schema coverage](niri-config-schema-coverage.md) |
-| `OverviewPart.workspace_shadow` | Missing | No reference overview; decoded zoom/backdrop/workspace-shadow surface is indexed; [schema coverage](niri-config-schema-coverage.md) |
+| `Overview.zoom` | Missing | No reference overview; runtime zoom clamps separately from decode and canvas zoom is not equivalent; [layer/overview audit](niri-layer-overview-audit.md#overview-defaults-runtime-zoom-and-state) |
+| `Overview.backdrop_color` | Missing | No reference overview; runtime zoom clamps separately from decode and canvas zoom is not equivalent; [layer/overview audit](niri-layer-overview-audit.md#overview-defaults-runtime-zoom-and-state) |
+| `Overview.workspace_shadow` | Missing | No reference overview; runtime zoom clamps separately from decode and canvas zoom is not equivalent; [layer/overview audit](niri-layer-overview-audit.md#overview-defaults-runtime-zoom-and-state) |
+| `OverviewPart.zoom` | Missing | No reference overview; runtime zoom clamps separately from decode and canvas zoom is not equivalent; [layer/overview audit](niri-layer-overview-audit.md#overview-defaults-runtime-zoom-and-state) |
+| `OverviewPart.backdrop_color` | Missing | No reference overview; runtime zoom clamps separately from decode and canvas zoom is not equivalent; [layer/overview audit](niri-layer-overview-audit.md#overview-defaults-runtime-zoom-and-state) |
+| `OverviewPart.workspace_shadow` | Missing | No reference overview; runtime zoom clamps separately from decode and canvas zoom is not equivalent; [layer/overview audit](niri-layer-overview-audit.md#overview-defaults-runtime-zoom-and-state) |
 | `EnvironmentVariable.name` | Outside | Process/selection/help/error-UI setting; explicit root-scope exclusion; [schema coverage](niri-config-schema-coverage.md) |
 | `EnvironmentVariable.value` | Outside | Process/selection/help/error-UI setting; explicit root-scope exclusion; [schema coverage](niri-config-schema-coverage.md) |
 | `XwaylandSatellite.off` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
@@ -718,19 +720,19 @@ Declared types to check for nested values/custom decoding: `SpawnAtStartup`, `Sp
 
 | Schema field | Status | Mapping / next audit |
 | --- | --- | --- |
-| `LayerRule.matches` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
-| `LayerRule.excludes` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
-| `LayerRule.opacity` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
-| `LayerRule.block_out_from` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
-| `LayerRule.shadow` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
-| `LayerRule.geometry_corner_radius` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
-| `LayerRule.place_within_backdrop` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
-| `LayerRule.baba_is_float` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
-| `LayerRule.background_effect` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
-| `LayerRule.popups` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
-| `Match.namespace` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
-| `Match.at_startup` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
-| `Match.layer` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
+| `LayerRule.matches` | Partial | Generic layer chrome/effects cover a subset; dedicated matching/backdrop/popup policy differs; [layer/overview audit](niri-layer-overview-audit.md#layer-matching-defaults-and-local-merge) |
+| `LayerRule.excludes` | Missing | Generic layer chrome/effects cover a subset; dedicated matching/backdrop/popup policy differs; [layer/overview audit](niri-layer-overview-audit.md#layer-matching-defaults-and-local-merge) |
+| `LayerRule.opacity` | Partial | Generic layer chrome/effects cover a subset; dedicated matching/backdrop/popup policy differs; [layer/overview audit](niri-layer-overview-audit.md#layer-matching-defaults-and-local-merge) |
+| `LayerRule.block_out_from` | Missing | Generic layer chrome/effects cover a subset; dedicated matching/backdrop/popup policy differs; [layer/overview audit](niri-layer-overview-audit.md#layer-matching-defaults-and-local-merge) |
+| `LayerRule.shadow` | Partial | Generic layer chrome/effects cover a subset; dedicated matching/backdrop/popup policy differs; [layer/overview audit](niri-layer-overview-audit.md#layer-matching-defaults-and-local-merge) |
+| `LayerRule.geometry_corner_radius` | Divergent | Generic layer chrome/effects cover a subset; dedicated matching/backdrop/popup policy differs; [layer/overview audit](niri-layer-overview-audit.md#layer-matching-defaults-and-local-merge) |
+| `LayerRule.place_within_backdrop` | Missing | Generic layer chrome/effects cover a subset; dedicated matching/backdrop/popup policy differs; [layer/overview audit](niri-layer-overview-audit.md#layer-matching-defaults-and-local-merge) |
+| `LayerRule.baba_is_float` | Missing | Generic layer chrome/effects cover a subset; dedicated matching/backdrop/popup policy differs; [layer/overview audit](niri-layer-overview-audit.md#layer-matching-defaults-and-local-merge) |
+| `LayerRule.background_effect` | Divergent | Generic layer chrome/effects cover a subset; dedicated matching/backdrop/popup policy differs; [layer/overview audit](niri-layer-overview-audit.md#layer-matching-defaults-and-local-merge) |
+| `LayerRule.popups` | Missing | Generic layer chrome/effects cover a subset; dedicated matching/backdrop/popup policy differs; [layer/overview audit](niri-layer-overview-audit.md#layer-matching-defaults-and-local-merge) |
+| `Match.namespace` | Divergent | Generic namespace-as-app-id patterns lack reference regex/startup/current-layer predicate semantics; [layer/overview audit](niri-layer-overview-audit.md#layer-matching-defaults-and-local-merge) |
+| `Match.at_startup` | Missing | Generic namespace-as-app-id patterns lack reference regex/startup/current-layer predicate semantics; [layer/overview audit](niri-layer-overview-audit.md#layer-matching-defaults-and-local-merge) |
+| `Match.layer` | Missing | Generic namespace-as-app-id patterns lack reference regex/startup/current-layer predicate semantics; [layer/overview audit](niri-layer-overview-audit.md#layer-matching-defaults-and-local-merge) |
 
 Declared types to check for nested values/custom decoding: `LayerRule`, `Match`.
 

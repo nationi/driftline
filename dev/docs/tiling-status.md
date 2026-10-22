@@ -20,6 +20,7 @@ for task order and acceptance. Older “next” statements in the
 | Override precedence, rule matching, initial map and reload | [Lifecycle audit](niri-config-lifecycle-audit.md) |
 | Radius, workspace shadow, blur and background-effect policy | [Effects audit](niri-effects-config-audit.md) |
 | Entire source-file/root-node coverage and exclusions | [Schema coverage](niri-config-schema-coverage.md) |
+| Layer matching/reload/render and overview consumers | [Layer/overview audit](niri-layer-overview-audit.md) |
 | Source-derived fixture assumptions | [Reference traces](niri-reference-traces.md) |
 | Local preview launch, keys and return path | [TTY guide](tty-preview.md) |
 | Per-batch results and investigation logs | [History](tiling-history.md) |
@@ -62,18 +63,18 @@ mode. These are documented fallbacks, not reference-compatible behavior.
 
 ## Verified evidence and its limits
 
-Latest A0 documentation/tooling validation: the [schema coverage audit](niri-config-schema-coverage.md)
-accounts for all 18 source files (14 indexed modules, four infrastructure paths),
-25 public root decoder nodes and their 24 Config storage fields. The inventory
-expanded from 318 to 576 module-qualified named fields, retaining all 186 action
-variants and the previous 206 scoped semantic-audit links (34 layout + 98 core
-appearance + 33 lifecycle + 41 effects). Newly indexed root/misc, layer, input,
-debug, binds and MRU surfaces remain Unverified unless existing evidence or
-explicit scope exclusions justify otherwise. Complete source indexing is not a
-complete public decoder/consumer audit. Syntax, deterministic regeneration,
-source/root coverage sets, preservation of old rows/actions, uniqueness, links
-and pinned clean source checks passed. No runtime/config change; implementation
-CI remains the B4 gate below.
+Latest A0 documentation/tooling validation: the [layer/overview audit](niri-layer-overview-audit.md)
+adds 19 semantic source-index links (13 layer rule/match fields and six overview
+fields), bringing scoped links to 225. It records layer shadow opt-in/global
+parameter source, committed-layer recomputation, backdrop eligibility/focus,
+raw f32 opacity versus render clamp, target-specific block-out, and overview
+runtime zoom clamp/desired-state/progress distinction. It distinguishes live
+driftwm layer rule resolution from sticky mapped-toplevel rules. This is pinned
+source review, not execution or complete interaction/capture acceptance.
+The inventory still covers 576 fields, 186 actions, 18 source paths / 14 modules
+and 25 root nodes / 24 Config fields. Syntax, deterministic output, scoped field
+sets, old row preservation, link/anchor and pinned clean source checks passed.
+No runtime/config change; implementation CI remains the B4 gate below.
 
 Latest validation gate: `/tmp/driftwm-b4-output-ci.log`, exit 0: full
 `dev/scripts/ci-local`, 369 library cases, 1490 binary cases including ignored
@@ -185,17 +186,17 @@ unresolved; use direct TTY for visual acceptance.
 
 ## Next work
 
-Next work: **A0/P0 LayerRule/Match and Overview consumer audit** at pinned niri
-`12de51d6a60baad8896366920278a24f17921f52`. The schema coverage gap is reconciled:
-all source paths and root aliases now have inclusion/exclusion reasons. Audit
-newly indexed layer matching/defaults/reload/backdrop/effect consumers and
-Overview zoom/backdrop/shadow/entry behavior, without inferring semantics from
-shared value types. Then remaining input focus/warp/workspace policy, debug layout
-flags, animations/gestures, output/workspace names, unscoped rules and public
-binding/ID/index/previous/next actions; independent fixtures beyond zero gaps
-remain required. Do not repeat delivered source audits, restart B matrices or
-silently change driftwm's effect policy. A0/P0 gates feature expansion; indexing
-576 fields does not close semantic parity, P2/P13 acceptance or P11 ownership.
+Next work: **A0/P0 input focus/warp/workspace policy and debug layout flags** at
+pinned niri `12de51d6a60baad8896366920278a24f17921f52`: public value shapes,
+defaults and actual consumers for focus-follows-mouse, warp-mouse-to-focus,
+workspace-auto-back-and-forth, plus resize throttling/transactions and strict
+new-window/unfocused activation policy. Keep mixed input/debug schemas visible;
+record field-specific exclusions rather than assuming unrelated device/backend
+settings. LayerRule/Overview source audit is delivered; complete click/drag/DnD,
+capture and transition fixtures still remain open. Then animation/gesture /
+remaining naming/rule decoders and public binding/ID/index/previous/next actions.
+Do not repeat delivered audits or restart B matrices. A0/P0 gates feature
+expansion; source coverage and scoped review do not prove complete niri parity.
 Controlled SSD scale-change release is
 fixed: retain the native title raster separately, blend old/current premultiplied
 pixels before window opacity, and carry mixed title pixels through recapture.

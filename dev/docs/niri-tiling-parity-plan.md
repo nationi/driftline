@@ -3,7 +3,8 @@
 Status (2026-10-22): integration checkpoint `8c17428`; named controlled B1–B4
 stabilization gates are delivered. A0 top-level layout and core appearance
 decoder/local-merge, effects and scoped lifecycle audits are recorded. Source/root
-coverage is reconciled; newly indexed semantics/actions/fixtures stay open. Single-container topology and bounded commit groups are established; reference semantics and
+coverage is reconciled; scoped layer/overview consumers are audited. Remaining
+input/debug/animation/gesture semantics, actions and fixtures stay open. Single-container topology and bounded commit groups are established; reference semantics and
 rendering acceptance remain partial.
 This document supersedes the remaining delivery sequence in
 [the initial proposal](scrolling-tiling-plan.md). It does not claim parity today.
@@ -145,7 +146,9 @@ border/shadow and tab/insert-hint grammars and local merges. The
 matching and initial-map/reload consumers; complete permutations, remaining
 schemas and action addressing remain open. The [effects audit](niri-effects-config-audit.md)
 covers remaining named appearance structs and selected window/popup consumers;
-newly indexed container/consumer semantics remain open.
+the [layer/overview audit](niri-layer-overview-audit.md) traces those scoped
+matching/reload/render/state consumers. Remaining indexed semantics and full
+interaction/capture permutations stay open.
 
 Tasks:
 
@@ -486,7 +489,7 @@ renderer work without closing a named remaining gate.
 | B2 — controlled gates delivered | General framed canvas resize entry, odd extents/nonzero geometry; 12 solid and 12 patterned fractional-client scenes | SSD/CSD grow/shrink, changed offsets, recapture release, popup size/anchor and independent settled transparency/opacity; static scales only |
 | B3 — controlled gates delivered | Capped/minified stale fallback, client-region blur, view/output matrices and five scoped capture allocation failures | 90 allocation scenes cover reply/timeout/exit and subsequent recovery; content-only fractional bake padding fixed; GPU-offscreen/mode evidence remains distinct from hardware scanout |
 | B4 — controlled gates delivered | Direct remap, ready-peer disconnect, protocol unmap/remap, group supersession and sole-output removal/recovery during held/mixed resize | 12 GPU scenes per lifecycle matrix plus hermetic restore/peer/output and stage re-enrollment regressions; output loss leaves tiling and rejects placeholder enrollment; these bounded gates do not prove every lifecycle combination or real DRM hotplug |
-| A0 — in progress, semantic prerequisite | Layout/appearance/effects/scoped lifecycle audited and source/root coverage reconciled; newly indexed consumers, remaining decoders/actions/fixtures stay open | 206 scoped semantic rows; inventory covers 576 fields in 14 modules, all 18 source paths and 25 root nodes / 24 Config fields; source coverage is not an Exact claim or executable oracle |
+| A0 — in progress, semantic prerequisite | Layout/appearance/effects/scoped lifecycle and layer/overview consumers audited; input/debug and remaining decoders/actions/fixtures stay open | 225 scoped semantic rows; inventory covers 576 fields in 14 modules, all 18 source paths and 25 root nodes / 24 Config fields; source coverage is not an Exact claim or executable oracle |
 | Feature expansion | P3 sizing/settings, then dependency-ready P4/P5 work | Source-derived size/topology/view fixtures and documented public settings; retain canvas regressions |
 
 A0 can be taken before any stabilization batch, and must be completed before

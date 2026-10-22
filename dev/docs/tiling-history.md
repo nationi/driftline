@@ -2591,3 +2591,51 @@ Next A0: LayerRule/Match and Overview/OverviewPart defaults and actual consumers
 then input focus/warp/workspace policy, debug layout flags, animation/gesture /
 remaining naming/rule decoders, public binding/action addressing and independent
 fixture expansion. A0/P0 stays open and gates feature expansion.
+
+## 2026-10-22 — A0 LayerRule and Overview consumers
+
+Added `dev/docs/niri-layer-overview-audit.md` from clean pinned reference
+`12de51d6a60baad8896366920278a24f17921f52`. The generator now links 13 complete
+LayerRule/Match fields and six Overview/OverviewPart fields to scoped semantic
+source evidence, raising the total from 206 to 225 links. Field completeness is
+checked. The 576-field / 186-action inventory and full source/root coverage stay
+unchanged; remaining input/debug/gesture/animation/rule/naming/action semantics
+are still open.
+
+Layer rules match namespace regex, startup flag and current protocol layer, with
+OR match blocks, AND properties and exclude veto. Rules resolve on first mapped
+buffer, committed layer change, rule reload and startup completion. Layer shadows
+use global layout.shadow parameters but explicitly reset on=false before merging
+layer rules, so enabled window shadows do not enable layer shadows. Backdrop
+placement requires Background plus ExclusiveZone::DontCare; on-demand focus is
+cleaned when the computed predicate becomes true. f32 opacity is clamped only
+at rendering. Geometry radius affects shadow/effect geometry without forcing the
+ordinary layer surface tree to be corner-clipped in the inspected render path.
+Target block-out replaces body with a black solid and omits popups; full capture
+pipeline acceptance is not claimed. Popup/IME distinction and bob motion are
+recorded, not mistaken for tiling floating mode.
+
+Overview's decoded [0,1] zoom is runtime-clamped to [0.0001,0.75], interpolated
+from progress separately from its desired-open flag. Toggle/open/close/gesture
+and completion paths are traced; closing can have a false desired flag while
+still scaled. Monitor workspace geometry/render and selected pointer/focus
+branches are source evidence, not full click/drag/DnD parity. Config propagates
+options without that path toggling overview; backdrop reload chooses per-output
+override then global color and forces buffer alpha to one. Workspace shadows
+keep the previously audited view-height normalization.
+
+Driftwm comparison explicitly distinguishes live namespace-based layer rule
+lookup at render time from sticky mapped-toplevel appearance. Its opt-in native
+layer chrome/canvas positioning is not the niri layer matching/backdrop grammar,
+and free canvas zoom is not workspace overview. No runtime policy changed.
+Validation passed: Python syntax, deterministic byte-identical generation, 576
+unique schema rows, 186 actions, all source/root coverage sets, previous row keys
+and scoped links, 19 new layer/overview links, local targets/anchors, pinned source
+paths and clean checkout, `git diff --check`. No niri/parser execution, Rust parity
+tests, full CI rerun, push, installation or TTY acceptance. Implementation CI
+remains `/tmp/driftwm-b4-output-ci.log`.
+
+Next A0: input focus/warp/workspace policy and layout-visible debug flags, then
+remaining decoder/action addressing and independent fixture expansion. Complete
+layer/overview interaction/capture permutations remain separate acceptance work;
+A0/P0 stays open and gates feature expansion.

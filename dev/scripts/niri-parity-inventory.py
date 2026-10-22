@@ -196,7 +196,7 @@ ROOT_NODES = {
     "spawn-at-startup": ("spawn_at_startup", "Outside", "Outside", "Process launch list; resulting window map remains in layout scope"),
     "spawn-sh-at-startup": ("spawn_sh_at_startup", "Outside", "Outside", "Shell process launch; not a tiling action contract"),
     "window-rule": ("window_rules", "Layout/integration", "Partial", "Scoped decoder/lifecycle audits exist; remaining fields and fixtures pending"),
-    "layer-rule": ("layer_rules", "Integration", "Unverified", "Previously omitted layer/effect schema; semantic audit still pending"),
+    "layer-rule": ("layer_rules", "Integration", "Missing", "Dedicated rule tree missing; scoped decoder/consumer audit recorded"),
     "workspace": ("workspaces", "Layout", "Missing", "Named workspace/layout hierarchy not implemented"),
     "binds": ("binds", "Layout/integration", "Unverified", "Action inventory is not a public binding alias/decoder audit"),
     "environment": ("environment", "Outside", "Outside", "Child-process environment, not layout behavior"),
@@ -213,13 +213,38 @@ def schema_structs(source):
         yield match.group(1), re.findall(r"^    pub (\w+):", block(source, match.group(0)), re.M)
 
 
+LAYER_OVERVIEW_AUDIT_FIELDS = {
+    ("layer_rule", "LayerRule"): "matches excludes opacity block_out_from shadow geometry_corner_radius place_within_backdrop baba_is_float background_effect popups",
+    ("layer_rule", "Match"): "namespace at_startup layer",
+    ("misc", "Overview"): "zoom backdrop_color workspace_shadow",
+    ("misc", "OverviewPart"): "zoom backdrop_color workspace_shadow",
+}
+
+
+def layer_overview_status(name, field):
+    if name in {"Overview", "OverviewPart"}:
+        status, mapping, section = "Missing", "No reference overview; runtime zoom clamps separately from decode and canvas zoom is not equivalent", "overview-defaults-runtime-zoom-and-state"
+    elif name == "Match":
+        status = "Divergent" if field == "namespace" else "Missing"
+        mapping, section = "Generic namespace-as-app-id patterns lack reference regex/startup/current-layer predicate semantics", "layer-matching-defaults-and-local-merge"
+    else:
+        status = {
+            "matches": "Partial", "excludes": "Missing", "opacity": "Partial",
+            "block_out_from": "Missing", "shadow": "Partial",
+            "geometry_corner_radius": "Divergent", "place_within_backdrop": "Missing",
+            "baba_is_float": "Missing", "background_effect": "Divergent", "popups": "Missing",
+        }[field]
+        mapping, section = "Generic layer chrome/effects cover a subset; dedicated matching/backdrop/popup policy differs", "layer-matching-defaults-and-local-merge"
+    return status, f"{mapping}; [layer/overview audit](niri-layer-overview-audit.md#{section})"
+
+
 def config_status(module, name, field):
+    if (module, name) in LAYER_OVERVIEW_AUDIT_FIELDS:
+        return layer_overview_status(name, field)
     coverage_link = "[schema coverage](niri-config-schema-coverage.md)"
     if module == "lib" and name == "Config":
         node, (_, _, status, reason) = next((node, spec) for node, spec in ROOT_NODES.items() if spec[0] == field)
         return status, f"Root `{node}`: {reason}; {coverage_link}"
-    if module == "misc" and name in {"Overview", "OverviewPart"}:
-        return "Missing", f"No reference overview; decoded zoom/backdrop/workspace-shadow surface is indexed; {coverage_link}"
     if module == "misc" and name in {"SpawnAtStartup", "SpawnShAtStartup", "Clipboard", "ClipboardPart", "HotkeyOverlay", "HotkeyOverlayPart", "ConfigNotification", "ConfigNotificationPart", "EnvironmentVariable"}:
         return "Outside", f"Process/selection/help/error-UI setting; explicit root-scope exclusion; {coverage_link}"
     if module in {"misc", "layer_rule", "input", "debug", "binds", "recent_windows"}:
@@ -282,6 +307,8 @@ def generate(root):
         "The [schema coverage audit](niri-config-schema-coverage.md) accounts for all",
         "18 source files, 25 root nodes and 14 indexed modules. Fields are source",
         "inventory, not a completed public decoder/consumer audit. Unscoped behavior stays open.",
+        "The [layer/overview consumers](niri-layer-overview-audit.md) audit traces newly indexed",
+        "layer rules and overview value consumers; complete interactions remain open.",
         "P0 reference operation fixtures and the custom-decoder audit remain unfinished.", "",
         "Status: Partial = related implementation, not full equivalence; Divergent = known",
         "semantic difference; Missing = no matching tiling action; Unverified = not audited;",
@@ -319,6 +346,8 @@ def generate(root):
         source = sources[f"{module}.rs"]
         lines += [f"### `{module}.rs`", "", "| Schema field | Status | Mapping / next audit |", "| --- | --- | --- |"]
         for name, fields in schema_structs(source):
+            if (module, name) in LAYER_OVERVIEW_AUDIT_FIELDS:
+                assert set(fields) == set(LAYER_OVERVIEW_AUDIT_FIELDS[(module, name)].split()), "Layer/overview audit must cover every field"
             if module == "layout" and name in {"Layout", "LayoutPart"}:
                 assert set(fields) == set(LAYOUT_AUDIT), "Layout audit must account for every field"
             if module == "appearance" and name in APPEARANCE_AUDIT_FIELDS:
