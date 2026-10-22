@@ -2,6 +2,8 @@ mod background;
 mod blur;
 mod capture;
 mod capture_background;
+#[cfg(test)]
+pub(crate) mod capture_fault;
 mod chrome;
 mod closing;
 mod cursor;

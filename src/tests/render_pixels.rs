@@ -3065,3 +3065,207 @@ fn output_transform_pixels_match_an_independent_upright_render() {
     f.state().render.remove_output(&output.name());
     gl::uninstall(&mut f);
 }
+
+#[derive(Clone, Copy, Debug)]
+enum CaptureAllocationSite {
+    ParentContent,
+    ParentComposite,
+    Popup,
+    ResizeContent,
+    ResizeClip,
+}
+
+#[derive(Clone, Copy, Debug)]
+enum CaptureFailureOutcome {
+    Reply,
+    Timeout,
+    Exit,
+}
+
+#[test]
+#[ignore = "needs surfaceless EGL; run with --include-ignored"]
+fn failed_tiling_capture_allocations_use_bounded_fallback_and_recover() {
+    let _gl = gl::lock();
+    let (ready, loaded) = std::sync::mpsc::sync_channel(1);
+    driftwm::text::warm_fonts(move || {
+        let _ = ready.send(());
+    });
+    loaded
+        .recv_timeout(std::time::Duration::from_secs(10))
+        .unwrap();
+    for scale in [1.0, 1.25, 1.5] {
+        for ssd in [false, true] {
+            for site in [
+                CaptureAllocationSite::ParentContent,
+                CaptureAllocationSite::ParentComposite,
+                CaptureAllocationSite::Popup,
+                CaptureAllocationSite::ResizeContent,
+                CaptureAllocationSite::ResizeClip,
+            ] {
+                for outcome in [
+                    CaptureFailureOutcome::Reply,
+                    CaptureFailureOutcome::Timeout,
+                    CaptureFailureOutcome::Exit,
+                ] {
+                    check_failed_tiling_capture(scale, ssd, site, outcome);
+                }
+            }
+        }
+    }
+}
+
+fn check_failed_tiling_capture(
+    scale: f64,
+    ssd: bool,
+    site: CaptureAllocationSite,
+    outcome: CaptureFailureOutcome,
+) {
+    use super::{last_configured, tick_until_settled, window_by_app_id};
+    use crate::render::capture_fault::CaptureAllocationFailure;
+    use driftwm::config::Action;
+    use std::time::{Duration, Instant};
+    let Some(renderer) = gl::surfaceless_renderer("tiling allocation failure") else {
+        return;
+    };
+    let config = config_toml(true).replace("corner_radius = 0", "corner_radius = 8");
+    let config = if ssd {
+        format!("{config}\n[[window_rules]]\napp_id = \"allocation\"\ndecoration = \"server\"\n")
+    } else {
+        config
+    };
+    let mut f = Fixture::with_config(super::config(&config));
+    let output = f.add_output_scaled(1, (1200, 800), scale);
+    gl::install(&mut f, renderer);
+    let client = f.add_client();
+    let surface = map_window_shm(
+        &mut f,
+        client,
+        "allocation",
+        (200, 100),
+        (200, 100),
+        &solid_bgra(200, 100, CONTENT_BGRA, false),
+    );
+    tick_until_settled(&mut f);
+    let window = window_by_app_id(&mut f, "allocation").unwrap();
+    let id = f.state().stage.id_of(&window).unwrap();
+    f.state().stage.set_position(&window, (100, 120).into());
+    f.state().set_camera((0.0, 0.0).into());
+    colored_tiling_popup(&mut f, client, &surface, (180, 51), [255, 0, 0, 255]);
+    let before = tiling_live_frame(&mut f, &output);
+    {
+        let failure = CaptureAllocationFailure::after(site as usize);
+        f.state().execute_action(&Action::ToggleTiling);
+        assert!(
+            failure.triggered(),
+            "allocation {site:?} must reach the capture allocator"
+        );
+    }
+    assert!(f.state().tiling_view.is_some());
+    assert_eq!(
+        f.state().tiling_snapshot_count(),
+        if matches!(
+            site,
+            CaptureAllocationSite::ParentContent
+                | CaptureAllocationSite::ParentComposite
+                | CaptureAllocationSite::Popup
+        ) {
+            0
+        } else {
+            2
+        },
+        "failed parent/popup capture must not install a partial tree"
+    );
+    let held = tiling_live_frame(&mut f, &output);
+    let delta = before
+        .iter()
+        .zip(&held)
+        .map(|(a, b)| a.abs_diff(*b))
+        .max()
+        .unwrap();
+    assert!(
+        delta <= 2,
+        "{scale}x SSD={ssd} allocation={site:?} {outcome:?}: fallback entry differs by {delta}"
+    );
+    match outcome {
+        CaptureFailureOutcome::Reply => {
+            let size = last_configured(&mut f, client, &surface);
+            let w = f.client(client).window(&surface);
+            w.set_size(size.0 as u16, size.1 as u16);
+            w.attach_shm_buffer(size, &solid_bgra(size.0, size.1, [0, 255, 0, 255], false));
+            w.ack_last_and_commit();
+            f.double_roundtrip(client);
+            assert_eq!(window.geometry().size, size.into());
+        }
+        CaptureFailureOutcome::Timeout => {
+            let expired = Instant::now() + Duration::from_secs(1);
+            f.state().refresh_tiling_at(expired);
+            f.pump(4);
+            f.state().refresh_tiling_at(expired);
+        }
+        CaptureFailureOutcome::Exit => f.state().execute_action(&Action::ToggleTiling),
+    }
+    assert_eq!(f.state().tiling_snapshot_count(), 0);
+    assert!(!f.state().resize_crossfades.contains_key(&id));
+    if matches!(outcome, CaptureFailureOutcome::Exit) {
+        assert!(f.state().tiling_view.is_none());
+        assert_eq!(f.state().tiling_pending_configures(), 0);
+        f.state().execute_action(&Action::ToggleTiling);
+    } else {
+        tick_until_settled(&mut f);
+        f.state().execute_action(&Action::CycleColumnWidth);
+    }
+    assert_eq!(
+        f.state().tiling_snapshot_count(),
+        2,
+        "successful capture must recover the complete parent/popup tree"
+    );
+    let recovered_hold = tiling_live_frame(&mut f, &output);
+    let size = last_configured(&mut f, client, &surface);
+    let w = f.client(client).window(&surface);
+    w.set_size(size.0 as u16, size.1 as u16);
+    w.attach_shm_buffer(size, &solid_bgra(size.0, size.1, [0, 255, 0, 255], false));
+    w.ack_last_and_commit();
+    f.double_roundtrip(client);
+    assert_eq!(f.state().tiling_snapshot_count(), 0);
+    assert!(
+        f.state().resize_crossfades.contains_key(&id),
+        "recovery must restore real content retention"
+    );
+    let recovered_release = tiling_live_frame(&mut f, &output);
+    let delta = recovered_hold
+        .iter()
+        .zip(&recovered_release)
+        .map(|(a, b)| a.abs_diff(*b))
+        .max()
+        .unwrap();
+    assert!(
+        delta <= 2,
+        "{scale}x SSD={ssd} {site:?} {outcome:?}: recovered capture release differs by {delta}; differing pixels: {:?}",
+        recovered_hold
+            .as_chunks::<4>()
+            .0
+            .iter()
+            .zip(recovered_release.as_chunks::<4>().0)
+            .enumerate()
+            .filter(|(_, (a, b))| a.iter().zip(b.iter()).any(|(a, b)| a.abs_diff(*b) > 2))
+            .take(12)
+            .collect::<Vec<_>>()
+    );
+    tick_until_settled(&mut f);
+    assert!(!f.state().resize_crossfades.contains_key(&id));
+    assert!(!f.state().window_animations.is_active());
+    let settled = tiling_live_frame(&mut f, &output);
+    assert!(settled.as_chunks::<4>().0.contains(&[0, 255, 0, 255]));
+    assert!(settled.as_chunks::<4>().0.contains(&[0, 0, 255, 255]));
+    let w = f.client(client).window(&surface);
+    w.attach_shm_buffer(size, &solid_bgra(size.0, size.1, [0, 255, 0, 255], false));
+    w.commit();
+    f.double_roundtrip(client);
+    assert!(
+        !f.state().window_animations.is_active(),
+        "same-size repaint must not revive a failed transition"
+    );
+    f.state().execute_action(&Action::ToggleTiling);
+    f.state().render.remove_output(&output.name());
+    gl::uninstall(&mut f);
+}

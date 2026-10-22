@@ -1061,6 +1061,19 @@ fn phys_size_of(bounds: Rectangle<f64, Logical>, flatten_scale: f64) -> Size<i32
     ))
 }
 
+fn capture_texture(renderer: &mut GlesRenderer, size: Size<i32, Physical>) -> Option<GlesTexture> {
+    #[cfg(test)]
+    if super::capture_fault::should_fail() {
+        return None;
+    }
+    Offscreen::<GlesTexture>::create_buffer(
+        renderer,
+        Fourcc::Abgr8888,
+        size.to_logical(1).to_buffer(1, Transform::Normal),
+    )
+    .ok()
+}
+
 /// Rasterize the captured content textures into one offscreen covering exactly
 /// `bounds` (surface-origin-local). Surfaces overhanging `bounds` are cropped by
 /// the framebuffer, which is how the live corner clip discards a CSD client's
@@ -1076,9 +1089,7 @@ fn bake_content(
     if phys_size.w <= 0 || phys_size.h <= 0 {
         return None;
     }
-    let buffer_size = phys_size.to_logical(1).to_buffer(1, Transform::Normal);
-    let mut texture =
-        Offscreen::<GlesTexture>::create_buffer(renderer, Fourcc::Abgr8888, buffer_size).ok()?;
+    let mut texture = capture_texture(renderer, phys_size)?;
     {
         let mut target = renderer.bind(&mut texture).ok()?;
         let mut frame = renderer
@@ -1175,6 +1186,16 @@ fn flatten(
             (physical - physical.round()).abs() < 1e-6
         })
         .map_or(1.0, f64::from);
+    // A content-only bake has no native chrome to align across a translated
+    // raster. Padding it to the chrome grid would become part of the resize
+    // source and stretch its rounded edge at fractional scales.
+    let grid =
+        if chrome.shadow_shader.is_none() && chrome.border_shader.is_none() && chrome.bar.is_none()
+        {
+            1.0
+        } else {
+            grid
+        };
     let end = bounds.loc + Point::from((bounds.size.w, bounds.size.h));
     let start = Point::from((
         (bounds.loc.x / grid).floor() * grid,
@@ -1215,9 +1236,7 @@ fn flatten(
     if phys_size.w <= 0 || phys_size.h <= 0 {
         return None;
     }
-    let buffer_size = phys_size.to_logical(1).to_buffer(1, Transform::Normal);
-    let mut texture =
-        Offscreen::<GlesTexture>::create_buffer(renderer, Fourcc::Abgr8888, buffer_size).ok()?;
+    let mut texture = capture_texture(renderer, phys_size)?;
 
     // Elements needing `renderer` are built before the frame borrows it. The
     // content element is placed so its full extent lands on the geometry rect.

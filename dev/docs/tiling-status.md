@@ -1,7 +1,7 @@
 # Tiling development status and handoff
 
 Updated 2026-10-22. Integration checkpoint: `8c17428`; upstream `7ce05ed` is
-included. Controlled B1/B2 gates are delivered; B3 live-fallback and controlled camera/CSD-scale coverage is added.
+included. Controlled B1/B2/B3 gates are delivered; B4 lifecycle coverage is next.
 The persistent development branch is `nationi/development`. This handoff was reconciled with Git;
 see the [roadmap queue](niri-tiling-parity-plan.md#execution-queue-and-acceptance-gates)
 for task order and acceptance. Older “next” statements in the
@@ -56,9 +56,18 @@ mode. These are documented fallbacks, not reference-compatible behavior.
 
 ## Verified evidence and its limits
 
-Latest validation gate: `/tmp/driftwm-b3-stale-effects-ci.log`, exit 0: full
-`dev/scripts/ci-local`, 368 library cases, 1481 binary cases including ignored
-GPU scenarios, integration suites and isolated soak. Dedicated stale-effect gates:
+Latest validation gate: `/tmp/driftwm-b3-failures-ci.log`, exit 0: full
+`dev/scripts/ci-local`, 368 library cases, 1482 binary cases including ignored
+GPU scenarios, integration suites and isolated soak. Dedicated allocation gate:
+`/tmp/driftwm-b3-failures.log`, 90 scenes passed across five capture allocation
+sites, three scales, SSD/CSD and reply/timeout/exit. Parent/popup failure installs
+no partial image tree; resize-bake failure retains the held image but releases
+through live content. A later successful capture restores content retention,
+with entry and recovered release within two bytes. Content-only bakes no longer
+pad to the chrome alignment grid, fixing a fractional-scale edge stretch found
+by this recovery check. Failures are scoped one-shot test injections, not actual
+GPU OOM, bind/import/draw failures or every resource-failure combination.
+Dedicated stale-effect gates:
 `/tmp/driftwm-b3-minify.log` (24 grow/minify scenes),
 `/tmp/driftwm-b3-degraded-blur.log` (24 client-region scenes), both passed. Dedicated mode gate
 `/tmp/driftwm-b3-mode.log` passed 48 width-growth/shrink scenes. Transform gates:
@@ -109,16 +118,14 @@ unresolved; use direct TTY for visual acceptance.
 
 ## Next work
 
-Next implementation: **B3 deterministic capture/allocation-failure coverage**.
-Use a scoped one-shot failure at the compositor capture allocation boundary;
-do not allocate enormous buffers or depend on driver/OOM behavior. Distinguish
-parent image, popup image and resize-content bake failure, document each live
-fallback, and verify bounded transactions, retained-resource cleanup and recovery.
-No new capture-failure behavior is claimed yet. Degraded minification/client-effect
-controlled gates are delivered; do not restart the completed mode/view matrices. Rotated/reflected GPU rendering
-now has explicit acceptance: all seven non-normal transforms use the actual output
-damage/render path; an independent CPU pixel permutation compares against an
-upright render. Keep that expensive orientation oracle outside timed commit groups.
+Next implementation: **B4 motion-time lifecycle coverage**.
+Read existing remap/disconnect/supersession/output-removal tests and history first;
+choose the next missing controlled case rather than duplicating settled-window
+coverage. Require no stale IDs, images or transactions, no duplicate animation,
+and correct surviving focus/output membership. B3's named controlled allocation,
+stale-content and view/output gates are delivered; residual hardware/zoom/effect
+combinations do not establish universal parity. Keep the expensive independent
+GPU orientation oracle outside timed commit groups.
 Controlled SSD scale-change release is
 fixed: retain the native title raster separately, blend old/current premultiplied
 pixels before window opacity, and carry mixed title pixels through recapture.
@@ -141,7 +148,7 @@ height shrink and combined shrink (1600x800/900x800/1200x600/900x600), with exac
 proportional-width/native-height offers and complete release/recapture checks.
 A separate seven-transform scene verifies actual GPU orientation against an
 independent upright render. Real DRM scanout is not tested. Zoom, every degraded/effect/minification path,
-allocation failures and multi-output ownership remain unproven. B4 retains
+other GPU failure APIs and multi-output ownership remain unproven. B4 retains
 broader motion-time remap/output removal. Full tiling multi-output support remains
 P11; enrolling a second output still leaves tiling.
 Degraded coverage also adds 12 stale-minification scenes and 24 client-region blur

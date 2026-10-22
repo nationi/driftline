@@ -167,4 +167,10 @@ and frame transform. Controlled checks cover capped growth, minification and
 client partial blur, including replies, timeouts and repeated width changes at
 fixed output scales. Fullscreen/pinned transitions retain their
 live fallback.
+If a parent or popup snapshot allocation fails, the group uses live content
+without installing a partial snapshot tree. If only the resize-content bake
+fails, the held image can still be released, but without the old-content
+crossfade. Groups remain bounded and later successful captures restore normal
+retention. Controlled checks cover these paths at 1x/1.25x/1.5x with replies,
+timeouts and leaving tiling; they simulate allocation failure rather than GPU OOM.
 Complete visual atomicity and all animation transitions are not implemented yet.

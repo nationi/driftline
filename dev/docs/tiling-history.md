@@ -2094,3 +2094,48 @@ no-run build, 368 library cases, 1481 binary cases including ignored GPU scenari
 integration suites and isolated soak. Existing mode/transform/title matrices remain
 green. Markdown targets and `git diff --check` passed. This batch adds fixture
 coverage and documentation only.
+
+## 2026-10-22 — B3 controlled capture allocation failures and recovery
+
+Baseline `34570f7`. Added a thread-local, RAII-scoped, one-shot allocation fault
+hook under `cfg(test)`. The real content/composite capture allocator returns
+`None` at the chosen attempt; no enormous allocation, process-wide environment
+change or actual driver OOM is involved. Production capture calls use the same
+allocator and format as before.
+
+`failed_tiling_capture_allocations_use_bounded_fallback_and_recover` covers 90
+real-GLES scenes: parent-content, parent-composite, popup, resize-content and
+resize-clip allocation, SSD/CSD, scales 1/1.25/1.5, and reply/timeout/exit. Real
+parent/popup surfaces are mapped before arming the hook. The trigger is asserted;
+parent/popup failure cannot install a partial snapshot tree. Resize-bake failure
+keeps the two held images but cannot retain old resize content at release.
+Entry differs by at most two bytes. A reply, injected deadline or exit drains
+snapshots and failed crossfades; exit also clears pending configures. The next
+successful capture must retain both images and install a real resize crossfade,
+with release within two bytes. Settled green parent and blue popup are checked;
+a same-size repaint cannot revive the transition. Fixture counters return to
+baseline after per-output GPU teardown.
+
+The added recovery-release pixel check exposed a real fractional-scale defect:
+at 1.5x, an odd logical height was padded to the chrome alignment grid even for
+a content-only bake. The extra transparent row became part of the resize source,
+stretched rounded edges and produced a 254-byte maximum difference. Content-only
+bakes now use the logical grid; native border/shadow/title composites retain
+their physical-grid alignment. All 90 scenes pass without changing the two-byte
+tolerance or 300 ms transaction deadline (`/tmp/driftwm-b3-failures.log`).
+
+This closes B3's named controlled gates. It does not cover actual GPU OOM,
+bind/import/draw failures, every anisotropic/zoom/effect combination or hardware
+scanout. Next is B4: inspect existing motion-time remap, disconnect, supersession
+and output-removal coverage, then fill the next missing bounded lifecycle gate.
+A0 remains required before feature expansion; multi-output tiling remains P11.
+No pure stage/layout/config parsing algorithm changed, so no deep property pass
+is required. No release build, installation, desktop restart, push or manual TTY
+acceptance was performed.
+
+Full `dev/scripts/ci-local` passed, exit 0
+(`/tmp/driftwm-b3-failures-ci.log`): fmt, locked check, strict all-target clippy,
+no-run build, 368 library cases, 1482 binary cases including ignored GPU scenarios,
+integration suites and isolated soak. Existing odd/fractional-client,
+blur/title, mode and transform matrices remain green with the bake-grid fix.
+Local Markdown targets and `git diff --check` passed.
