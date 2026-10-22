@@ -2896,3 +2896,31 @@ clean exact reference and diff checks. No niri/client/PipeWire/GPU execution or
 Rust CI rerun for docs/tooling; implementation evidence remains B4. No push/
 install/TTY claim. Next A0: remaining 32 process/session/debug/capture/MRU/internal
 action scopes, misc/root/recent-windows and independent executable fixtures.
+
+
+## A0 final action source-scope triage
+
+Reviewed the last 32 action scopes/selected consumers: all 186 Action variants
+now link source review, with no new schema links (496/576). Eight bounded Outside
+facilities are explicit (quit/launch/help/diagnostic overlays/test counter), while
+24 retain integration acceptance. Sixteen generic Outside labels were corrected
+to Integration/Unverified for session/power/input, screen transition/capture,
+keyboard inhibition/layout and reload; eight MRU integration labels remain.
+MRU open versus already-open scope behavior, confirm focus ordering, polite
+close, capture targets/privacy/UI context and common dispatch consequences are
+recorded. Source action triage completion does not mean public arguments,
+behavioral contexts or implementation acceptance are complete.
+
+Generator now requires complete/disjoint source-action evidence and rejects
+unknown generic action scope rather than silently excluding it. Validation passed:
+Python syntax, deterministic 576 field /186 action /136–50 config exposure,
+496 schema links /186 disjoint action links, exact 16 scope changes and unchanged
+other scopes/statuses, unknown-action rejection, local/pinned links/anchors and
+clean exact reference, diff checks. No niri/client/capture/hardware execution or
+Rust CI rerun for docs/tooling; implementation evidence remains B4. No push/
+install/TTY claim. Next A0: recent-windows config/model and remaining misc/root
+integration decoders, independent executable reference fixtures and retained
+acceptance gates. Full niri parity remains unfinished.
+
+The roadmap continuation section was consolidated to remove superseded per-batch
+next-task statements; the audit catalog/history retains their detailed evidence.

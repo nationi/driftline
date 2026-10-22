@@ -16,6 +16,9 @@ def block(source, declaration):
 
 
 def action_status(name):
+    if name in FINAL_ACTION_SCOPE:
+        scope, status, reason = FINAL_ACTION_SCOPE[name]
+        return scope, status, reason, "Explicit consumer/exclusion review; retained acceptance open"
     if name in {"ToggleWindowRuleOpacity", "ToggleWindowRuleOpacityById"}:
         return "Integration", "Missing", "Reference ignore-opacity-rule toggle missing", "Mapped opacity/focus/reload acceptance remains open"
     if name in {"SetDynamicCastWindow", "SetDynamicCastWindowById", "SetDynamicCastMonitor", "ClearDynamicCastTarget", "StopCast"}:
@@ -48,7 +51,7 @@ def action_status(name):
         return "Layout", "Missing", "—", "P4/P6–P14; no parity evidence yet"
     if "Urgent" in name or name.startswith("Mru"):
         return "Integration", "Unverified", "existing focus/window state is not a parity test", "P8/P10/P14; behavior audit pending"
-    return "Outside", "Outside", "unrelated compositor action", "roadmap scope; reconsider if layout-visible"
+    raise AssertionError(f"Action {name} needs an explicit scope decision")
 
 
 LAYOUT_AUDIT = {
@@ -215,6 +218,42 @@ ROOT_NODES = {
 def schema_structs(source):
     for match in re.finditer(r"^pub struct (\w+)[^;\n{]*\{", source, re.M):
         yield match.group(1), re.findall(r"^    pub (\w+):", block(source, match.group(0)), re.M)
+
+
+FINAL_ACTION_SCOPE = {
+    "Quit": ("Outside", "Outside", "Exit/confirmation command UX outside tiling; window teardown acceptance retained"),
+    "ChangeVt": ("Integration", "Unverified", "VT/session transition clears suppressed keys and repeat; integration acceptance open"),
+    "Suspend": ("Integration", "Unverified", "Session transition clears suppressed keys and repeat; resume/lifecycle acceptance open"),
+    "PowerOffMonitors": ("Integration", "Unverified", "Monitor-active state/backend output power; ownership and resume acceptance open"),
+    "PowerOnMonitors": ("Integration", "Unverified", "Monitor-active state/backend output power and redraw; recovery acceptance open"),
+    "ToggleDebugTint": ("Outside", "Outside", "Diagnostic tint overlay outside visual parity; ordinary rendering retained"),
+    "DebugToggleOpaqueRegions": ("Outside", "Outside", "Diagnostic region overlay outside visual parity; opacity/occlusion acceptance retained"),
+    "DebugToggleDamage": ("Outside", "Outside", "Diagnostic damage overlay outside visual parity; damage/render correctness retained"),
+    "ToggleTouchpad": ("Integration", "Unverified", "Runtime toggle reapplies touchpad settings; device/input acceptance open"),
+    "Spawn": ("Outside", "Outside", "Program launch outside tiling; activation and mapped-window policy retained"),
+    "SpawnSh": ("Outside", "Outside", "Shell launch outside tiling; activation and mapped-window policy retained"),
+    "DoScreenTransition": ("Integration", "Unverified", "Target-specific screen snapshots and transition; rendering/privacy acceptance open"),
+    "ConfirmScreenshot": ("Integration", "Unverified", "Capture UI/output/window target and privacy/render/input context; acceptance open"),
+    "CancelScreenshot": ("Integration", "Unverified", "Capture UI/output/window target and privacy/render/input context; acceptance open"),
+    "ScreenshotTogglePointer": ("Integration", "Unverified", "Capture UI/output/window target and privacy/render/input context; acceptance open"),
+    "Screenshot": ("Integration", "Unverified", "Capture UI/output/window target and privacy/render/input context; acceptance open"),
+    "ScreenshotScreen": ("Integration", "Unverified", "Capture UI/output/window target and privacy/render/input context; acceptance open"),
+    "ScreenshotWindow": ("Integration", "Unverified", "Capture UI/output/window target and privacy/render/input context; acceptance open"),
+    "ScreenshotWindowById": ("Integration", "Unverified", "Capture UI/output/window target and privacy/render/input context; acceptance open"),
+    "ToggleKeyboardShortcutsInhibit": ("Integration", "Unverified", "Focused surface inhibitor activation; keyboard resolution acceptance open"),
+    "SwitchLayout": ("Integration", "Unverified", "XKB next/prev/index switch; keyboard/focus acceptance open"),
+    "ShowHotkeyOverlay": ("Outside", "Outside", "Shortcut-help presentation outside tiling; binding resolution retained"),
+    "LoadConfigFile": ("Integration", "Unverified", "Watcher-selected config reload; layout/rule reload acceptance open"),
+    "MruAdvance": ("Integration", "Unverified", "MRU selection/scope/confirm/cancel state; independent focus/view acceptance open"),
+    "MruConfirm": ("Integration", "Unverified", "MRU selection/scope/confirm/cancel state; independent focus/view acceptance open"),
+    "MruCancel": ("Integration", "Unverified", "MRU selection/scope/confirm/cancel state; independent focus/view acceptance open"),
+    "MruCloseCurrentWindow": ("Integration", "Unverified", "MRU selection/scope/confirm/cancel state; independent focus/view acceptance open"),
+    "MruFirst": ("Integration", "Unverified", "MRU selection/scope/confirm/cancel state; independent focus/view acceptance open"),
+    "MruLast": ("Integration", "Unverified", "MRU selection/scope/confirm/cancel state; independent focus/view acceptance open"),
+    "MruSetScope": ("Integration", "Unverified", "MRU selection/scope/confirm/cancel state; independent focus/view acceptance open"),
+    "MruCycleScope": ("Integration", "Unverified", "MRU selection/scope/confirm/cancel state; independent focus/view acceptance open"),
+    "TestAction": ("Outside", "Outside", "Test-only dispatcher counter, no production layout policy"),
+}
 
 
 WORKSPACE_POLICY_ACTION_AUDIT = set("FocusWorkspaceDown FocusWorkspaceDownUnderMouse FocusWorkspaceUp FocusWorkspaceUpUnderMouse MoveWindowToWorkspaceDown MoveWindowToWorkspaceUp MoveColumnToWorkspaceDown MoveColumnToWorkspaceUp MoveWorkspaceDown MoveWorkspaceUp SetWorkspaceName SetWorkspaceNameByRef UnsetWorkspaceName UnsetWorkSpaceNameByRef ToggleWindowRuleOpacity ToggleWindowRuleOpacityById ToggleWindowUrgent SetWindowUrgent UnsetWindowUrgent SetDynamicCastWindow SetDynamicCastWindowById SetDynamicCastMonitor ClearDynamicCastTarget StopCast".split())
@@ -493,6 +532,9 @@ def generate(root):
     assert NAVIGATION_VIEW_ACTION_AUDIT.issubset(names), "Reviewed navigation/view actions must exist"
     assert LOCAL_STATE_ACTION_AUDIT.issubset(names), "Reviewed local/state actions must exist"
     assert WORKSPACE_POLICY_ACTION_AUDIT.issubset(names), "Reviewed workspace/policy actions must exist"
+    reviewed_actions = ACTION_ADDRESS_AUDIT | SIZE_TRANSFER_ACTION_AUDIT | PRESET_TOPOLOGY_ACTION_AUDIT | NAVIGATION_VIEW_ACTION_AUDIT | LOCAL_STATE_ACTION_AUDIT | WORKSPACE_POLICY_ACTION_AUDIT
+    assert not set(FINAL_ACTION_SCOPE) & reviewed_actions, "Final action scope must not overlap"
+    assert reviewed_actions | set(FINAL_ACTION_SCOPE) == set(names), "Every action needs explicit source review"
     assert not WORKSPACE_POLICY_ACTION_AUDIT & (ACTION_ADDRESS_AUDIT | SIZE_TRANSFER_ACTION_AUDIT | PRESET_TOPOLOGY_ACTION_AUDIT | NAVIGATION_VIEW_ACTION_AUDIT | LOCAL_STATE_ACTION_AUDIT), "Workspace/policy audit sets must not overlap"
     assert not LOCAL_STATE_ACTION_AUDIT & (ACTION_ADDRESS_AUDIT | SIZE_TRANSFER_ACTION_AUDIT | PRESET_TOPOLOGY_ACTION_AUDIT | NAVIGATION_VIEW_ACTION_AUDIT), "Local/state audit sets must not overlap"
     assert not NAVIGATION_VIEW_ACTION_AUDIT & (ACTION_ADDRESS_AUDIT | SIZE_TRANSFER_ACTION_AUDIT | PRESET_TOPOLOGY_ACTION_AUDIT), "Navigation action audit sets must not overlap"
@@ -549,6 +591,8 @@ def generate(root):
             evidence += "; [local/state action audit](niri-local-state-action-audit.md)"
         if name in WORKSPACE_POLICY_ACTION_AUDIT:
             evidence += "; [workspace/policy action audit](niri-workspace-policy-action-audit.md)"
+        if name in FINAL_ACTION_SCOPE:
+            evidence += "; [integration/scope action audit](niri-integration-action-scope-audit.md)"
         lines.append(f"| `{name}` | {scope} | {status} | {mapping} | {evidence} |")
     lines += ["", f"Action variants indexed: **{len(names)}**.", "", "## Action config exposure", "",
         f"Derived config decoder variants: **{len(names) - len(skipped)}**; skipped variants: **{len(skipped)}**.",

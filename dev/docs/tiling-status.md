@@ -64,18 +64,18 @@ mode. These are documented fallbacks, not reference-compatible behavior.
 ## Verified evidence and its limits
 
 Latest A0 documentation/tooling validation: the
-[workspace/policy action audit](niri-workspace-policy-action-audit.md) adds 24
-links (154 scoped action rows total). It traces workspace DnD/apparent-index,
-under-pointer switching, Smart/No transfers, reorder/previous identity, naming
-and remote-reference boundary edge, opacity ignore/recompute, focus-gated urgency,
-feature-gated dynamic targets versus session stop and cast-target rule flags.
-Seven generic Outside rows were corrected: two opacity actions Integration/Missing,
-five cast actions Integration/Unverified. Other action statuses stay unchanged.
-Named-schema review count stays 496/576; inventory stays 186 actions, 18 paths /
-14 modules, 25 root nodes / 24 Config fields and 136 derived / 50 skipped variants.
-Syntax, deterministic output, disjoint action sets, exact scope-change set and
-local/pinned links were checked. No runtime/config change or executable parity
-claim; implementation CI remains B4.
+[integration/action scope audit](niri-integration-action-scope-audit.md) adds the
+final 32 action links. All 186 variants now have explicit source-consumer/scope
+links; this completes action source triage, not behavioral/argument acceptance.
+Eight new bounded exclusions and 24 retained integration rows are documented;
+16 former generic Outside labels become Integration/Unverified. MRU dispatch,
+capture privacy/UI context, session/input/reload side effects remain open.
+The generator rejects uncovered action scope instead of silently using Outside.
+Named-schema review count stays 496/576; source coverage stays 18 paths /14 modules,
+25 root nodes /24 Config fields and 136 derived /50 skipped action variants.
+Syntax, deterministic generation, complete/disjoint action sets, exact 16 scope
+changes, unknown-action rejection and local/pinned links were checked. No runtime/
+config change or executable parity claim; implementation CI remains B4.
 
 Latest validation gate: `/tmp/driftwm-b4-output-ci.log`, exit 0: full
 `dev/scripts/ci-local`, 369 library cases, 1490 binary cases including ignored
@@ -187,13 +187,14 @@ unresolved; use direct TTY for visual acceptance.
 
 ## Next work
 
-Next work: **A0/P0 remaining process/session/debug/capture/MRU/internal action
-scope**, pinned niri `12de51d6a60baad8896366920278a24f17921f52`. 154 source-linked
-actions leave 32 without scoped action audit; classify them individually rather
-than relying on generic Outside. Misc/root/recent-windows semantics and independent
-executable reference fixtures beyond zero gaps remain open, together with retained
-input/backend/capture and full numerical animation/gesture/layer/overview
-acceptance. Source review is not implementation or a waiver of feature gates.
+Next work: **A0/P0 recent-windows config/model and remaining misc/root
+integration decoders**, pinned niri `12de51d6a60baad8896366920278a24f17921f52`.
+All 186 action variants have scoped source evidence; argument/error/consumer
+permutations and runtime parity are still open. Named-schema links remain 496/576.
+Then expand independent executable reference fixtures beyond zero gaps and
+resolve retained integration scope with concrete evidence. Input/backend/capture
+and full numerical animation/gesture/layer/overview acceptance remain required;
+source review is not implementation or a feature-expansion waiver.
 Do not repeat delivered audits or restart B matrices. A0/P0 gates feature
 expansion; source coverage and scoped review do not prove complete niri parity.
 Controlled SSD scale-change release is

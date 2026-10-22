@@ -38,26 +38,26 @@ Outside = explicit non-layout scope exclusion. Never infer Exact from a similar 
 
 | Reference Action | Scope | Status | driftwm mapping / gap | Evidence / remaining gate |
 | --- | --- | --- | --- | --- |
-| `Quit` | Outside | Outside | unrelated compositor action | roadmap scope; reconsider if layout-visible |
-| `ChangeVt` | Outside | Outside | unrelated compositor action | roadmap scope; reconsider if layout-visible |
-| `Suspend` | Outside | Outside | unrelated compositor action | roadmap scope; reconsider if layout-visible |
-| `PowerOffMonitors` | Outside | Outside | unrelated compositor action | roadmap scope; reconsider if layout-visible |
-| `PowerOnMonitors` | Outside | Outside | unrelated compositor action | roadmap scope; reconsider if layout-visible |
-| `ToggleDebugTint` | Outside | Outside | unrelated compositor action | roadmap scope; reconsider if layout-visible |
-| `DebugToggleOpaqueRegions` | Outside | Outside | unrelated compositor action | roadmap scope; reconsider if layout-visible |
-| `DebugToggleDamage` | Outside | Outside | unrelated compositor action | roadmap scope; reconsider if layout-visible |
-| `ToggleTouchpad` | Outside | Outside | unrelated compositor action | roadmap scope; reconsider if layout-visible |
-| `Spawn` | Outside | Outside | unrelated compositor action | roadmap scope; reconsider if layout-visible |
-| `SpawnSh` | Outside | Outside | unrelated compositor action | roadmap scope; reconsider if layout-visible |
-| `DoScreenTransition` | Outside | Outside | unrelated compositor action | roadmap scope; reconsider if layout-visible |
-| `ConfirmScreenshot` | Outside | Outside | unrelated compositor action | roadmap scope; reconsider if layout-visible |
-| `CancelScreenshot` | Outside | Outside | unrelated compositor action | roadmap scope; reconsider if layout-visible |
-| `ScreenshotTogglePointer` | Outside | Outside | unrelated compositor action | roadmap scope; reconsider if layout-visible |
-| `Screenshot` | Outside | Outside | unrelated compositor action | roadmap scope; reconsider if layout-visible |
-| `ScreenshotScreen` | Outside | Outside | unrelated compositor action | roadmap scope; reconsider if layout-visible |
-| `ScreenshotWindow` | Outside | Outside | unrelated compositor action | roadmap scope; reconsider if layout-visible |
-| `ScreenshotWindowById` | Outside | Outside | unrelated compositor action | roadmap scope; reconsider if layout-visible |
-| `ToggleKeyboardShortcutsInhibit` | Outside | Outside | unrelated compositor action | roadmap scope; reconsider if layout-visible |
+| `Quit` | Outside | Outside | Exit/confirmation command UX outside tiling; window teardown acceptance retained | Explicit consumer/exclusion review; retained acceptance open; [integration/scope action audit](niri-integration-action-scope-audit.md) |
+| `ChangeVt` | Integration | Unverified | VT/session transition clears suppressed keys and repeat; integration acceptance open | Explicit consumer/exclusion review; retained acceptance open; [integration/scope action audit](niri-integration-action-scope-audit.md) |
+| `Suspend` | Integration | Unverified | Session transition clears suppressed keys and repeat; resume/lifecycle acceptance open | Explicit consumer/exclusion review; retained acceptance open; [integration/scope action audit](niri-integration-action-scope-audit.md) |
+| `PowerOffMonitors` | Integration | Unverified | Monitor-active state/backend output power; ownership and resume acceptance open | Explicit consumer/exclusion review; retained acceptance open; [integration/scope action audit](niri-integration-action-scope-audit.md) |
+| `PowerOnMonitors` | Integration | Unverified | Monitor-active state/backend output power and redraw; recovery acceptance open | Explicit consumer/exclusion review; retained acceptance open; [integration/scope action audit](niri-integration-action-scope-audit.md) |
+| `ToggleDebugTint` | Outside | Outside | Diagnostic tint overlay outside visual parity; ordinary rendering retained | Explicit consumer/exclusion review; retained acceptance open; [integration/scope action audit](niri-integration-action-scope-audit.md) |
+| `DebugToggleOpaqueRegions` | Outside | Outside | Diagnostic region overlay outside visual parity; opacity/occlusion acceptance retained | Explicit consumer/exclusion review; retained acceptance open; [integration/scope action audit](niri-integration-action-scope-audit.md) |
+| `DebugToggleDamage` | Outside | Outside | Diagnostic damage overlay outside visual parity; damage/render correctness retained | Explicit consumer/exclusion review; retained acceptance open; [integration/scope action audit](niri-integration-action-scope-audit.md) |
+| `ToggleTouchpad` | Integration | Unverified | Runtime toggle reapplies touchpad settings; device/input acceptance open | Explicit consumer/exclusion review; retained acceptance open; [integration/scope action audit](niri-integration-action-scope-audit.md) |
+| `Spawn` | Outside | Outside | Program launch outside tiling; activation and mapped-window policy retained | Explicit consumer/exclusion review; retained acceptance open; [integration/scope action audit](niri-integration-action-scope-audit.md) |
+| `SpawnSh` | Outside | Outside | Shell launch outside tiling; activation and mapped-window policy retained | Explicit consumer/exclusion review; retained acceptance open; [integration/scope action audit](niri-integration-action-scope-audit.md) |
+| `DoScreenTransition` | Integration | Unverified | Target-specific screen snapshots and transition; rendering/privacy acceptance open | Explicit consumer/exclusion review; retained acceptance open; [integration/scope action audit](niri-integration-action-scope-audit.md) |
+| `ConfirmScreenshot` | Integration | Unverified | Capture UI/output/window target and privacy/render/input context; acceptance open | Explicit consumer/exclusion review; retained acceptance open; [integration/scope action audit](niri-integration-action-scope-audit.md) |
+| `CancelScreenshot` | Integration | Unverified | Capture UI/output/window target and privacy/render/input context; acceptance open | Explicit consumer/exclusion review; retained acceptance open; [integration/scope action audit](niri-integration-action-scope-audit.md) |
+| `ScreenshotTogglePointer` | Integration | Unverified | Capture UI/output/window target and privacy/render/input context; acceptance open | Explicit consumer/exclusion review; retained acceptance open; [integration/scope action audit](niri-integration-action-scope-audit.md) |
+| `Screenshot` | Integration | Unverified | Capture UI/output/window target and privacy/render/input context; acceptance open | Explicit consumer/exclusion review; retained acceptance open; [integration/scope action audit](niri-integration-action-scope-audit.md) |
+| `ScreenshotScreen` | Integration | Unverified | Capture UI/output/window target and privacy/render/input context; acceptance open | Explicit consumer/exclusion review; retained acceptance open; [integration/scope action audit](niri-integration-action-scope-audit.md) |
+| `ScreenshotWindow` | Integration | Unverified | Capture UI/output/window target and privacy/render/input context; acceptance open | Explicit consumer/exclusion review; retained acceptance open; [integration/scope action audit](niri-integration-action-scope-audit.md) |
+| `ScreenshotWindowById` | Integration | Unverified | Capture UI/output/window target and privacy/render/input context; acceptance open | Explicit consumer/exclusion review; retained acceptance open; [integration/scope action audit](niri-integration-action-scope-audit.md) |
+| `ToggleKeyboardShortcutsInhibit` | Integration | Unverified | Focused surface inhibitor activation; keyboard resolution acceptance open | Explicit consumer/exclusion review; retained acceptance open; [integration/scope action audit](niri-integration-action-scope-audit.md) |
 | `CloseWindow` | Layout | Partial | close-window | src/tests/tiling.rs; src/stage/tiling.rs tests; [local/state action audit](niri-local-state-action-audit.md) |
 | `CloseWindowById` | Layout | Missing | — | P4/P6–P14; no parity evidence yet; [action address audit](niri-binding-address-audit.md#scoped-ordinal-and-previous-selection) |
 | `FullscreenWindow` | Layout | Divergent | toggle-fullscreen exits tiling; topology not retained | incompatible_actions_leave_tiling_before_applying_canvas_policy; [local/state action audit](niri-local-state-action-audit.md) |
@@ -183,8 +183,8 @@ Outside = explicit non-layout scope exclusion. Never infer Exact from a similar 
 | `MaximizeWindowToEdgesById` | Layout | Missing | — | P4/P6–P14; no parity evidence yet; [preset/topology action audit](niri-preset-topology-action-audit.md) |
 | `SetColumnWidth` | Layout | Missing | — | P4/P6–P14; no parity evidence yet; [size/transfer action audit](niri-size-transfer-action-audit.md) |
 | `ExpandColumnToAvailableWidth` | Layout | Missing | — | P4/P6–P14; no parity evidence yet; [navigation/view action audit](niri-navigation-view-action-audit.md) |
-| `SwitchLayout` | Outside | Outside | unrelated compositor action | roadmap scope; reconsider if layout-visible |
-| `ShowHotkeyOverlay` | Outside | Outside | unrelated compositor action | roadmap scope; reconsider if layout-visible |
+| `SwitchLayout` | Integration | Unverified | XKB next/prev/index switch; keyboard/focus acceptance open | Explicit consumer/exclusion review; retained acceptance open; [integration/scope action audit](niri-integration-action-scope-audit.md) |
+| `ShowHotkeyOverlay` | Outside | Outside | Shortcut-help presentation outside tiling; binding resolution retained | Explicit consumer/exclusion review; retained acceptance open; [integration/scope action audit](niri-integration-action-scope-audit.md) |
 | `MoveWorkspaceToMonitorLeft` | Layout | Missing | — | P4/P6–P14; no parity evidence yet; [navigation/view action audit](niri-navigation-view-action-audit.md) |
 | `MoveWorkspaceToMonitorRight` | Layout | Missing | — | P4/P6–P14; no parity evidence yet; [navigation/view action audit](niri-navigation-view-action-audit.md) |
 | `MoveWorkspaceToMonitorDown` | Layout | Missing | — | P4/P6–P14; no parity evidence yet; [navigation/view action audit](niri-navigation-view-action-audit.md) |
@@ -214,16 +214,16 @@ Outside = explicit non-layout scope exclusion. Never infer Exact from a similar 
 | `ToggleWindowUrgent` | Integration | Unverified | existing focus/window state is not a parity test | P8/P10/P14; behavior audit pending; [workspace/policy action audit](niri-workspace-policy-action-audit.md) |
 | `SetWindowUrgent` | Layout | Missing | — | P4/P6–P14; no parity evidence yet; [workspace/policy action audit](niri-workspace-policy-action-audit.md) |
 | `UnsetWindowUrgent` | Integration | Unverified | existing focus/window state is not a parity test | P8/P10/P14; behavior audit pending; [workspace/policy action audit](niri-workspace-policy-action-audit.md) |
-| `LoadConfigFile` | Outside | Outside | unrelated compositor action | roadmap scope; reconsider if layout-visible |
-| `MruAdvance` | Integration | Unverified | existing focus/window state is not a parity test | P8/P10/P14; behavior audit pending |
-| `MruConfirm` | Integration | Unverified | existing focus/window state is not a parity test | P8/P10/P14; behavior audit pending |
-| `MruCancel` | Integration | Unverified | existing focus/window state is not a parity test | P8/P10/P14; behavior audit pending |
-| `MruCloseCurrentWindow` | Integration | Unverified | existing focus/window state is not a parity test | P8/P10/P14; behavior audit pending |
-| `MruFirst` | Integration | Unverified | existing focus/window state is not a parity test | P8/P10/P14; behavior audit pending |
-| `MruLast` | Integration | Unverified | existing focus/window state is not a parity test | P8/P10/P14; behavior audit pending |
-| `MruSetScope` | Integration | Unverified | existing focus/window state is not a parity test | P8/P10/P14; behavior audit pending |
-| `MruCycleScope` | Integration | Unverified | existing focus/window state is not a parity test | P8/P10/P14; behavior audit pending |
-| `TestAction` | Outside | Outside | unrelated compositor action | roadmap scope; reconsider if layout-visible |
+| `LoadConfigFile` | Integration | Unverified | Watcher-selected config reload; layout/rule reload acceptance open | Explicit consumer/exclusion review; retained acceptance open; [integration/scope action audit](niri-integration-action-scope-audit.md) |
+| `MruAdvance` | Integration | Unverified | MRU selection/scope/confirm/cancel state; independent focus/view acceptance open | Explicit consumer/exclusion review; retained acceptance open; [integration/scope action audit](niri-integration-action-scope-audit.md) |
+| `MruConfirm` | Integration | Unverified | MRU selection/scope/confirm/cancel state; independent focus/view acceptance open | Explicit consumer/exclusion review; retained acceptance open; [integration/scope action audit](niri-integration-action-scope-audit.md) |
+| `MruCancel` | Integration | Unverified | MRU selection/scope/confirm/cancel state; independent focus/view acceptance open | Explicit consumer/exclusion review; retained acceptance open; [integration/scope action audit](niri-integration-action-scope-audit.md) |
+| `MruCloseCurrentWindow` | Integration | Unverified | MRU selection/scope/confirm/cancel state; independent focus/view acceptance open | Explicit consumer/exclusion review; retained acceptance open; [integration/scope action audit](niri-integration-action-scope-audit.md) |
+| `MruFirst` | Integration | Unverified | MRU selection/scope/confirm/cancel state; independent focus/view acceptance open | Explicit consumer/exclusion review; retained acceptance open; [integration/scope action audit](niri-integration-action-scope-audit.md) |
+| `MruLast` | Integration | Unverified | MRU selection/scope/confirm/cancel state; independent focus/view acceptance open | Explicit consumer/exclusion review; retained acceptance open; [integration/scope action audit](niri-integration-action-scope-audit.md) |
+| `MruSetScope` | Integration | Unverified | MRU selection/scope/confirm/cancel state; independent focus/view acceptance open | Explicit consumer/exclusion review; retained acceptance open; [integration/scope action audit](niri-integration-action-scope-audit.md) |
+| `MruCycleScope` | Integration | Unverified | MRU selection/scope/confirm/cancel state; independent focus/view acceptance open | Explicit consumer/exclusion review; retained acceptance open; [integration/scope action audit](niri-integration-action-scope-audit.md) |
+| `TestAction` | Outside | Outside | Test-only dispatcher counter, no production layout policy | Explicit consumer/exclusion review; retained acceptance open; [integration/scope action audit](niri-integration-action-scope-audit.md) |
 
 Action variants indexed: **186**.
 
