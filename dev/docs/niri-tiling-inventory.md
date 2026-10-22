@@ -288,7 +288,7 @@ public node names such as `output` and `window-rule` are not plural Rust fields.
 | `screenshot-path` | `Config.screenshot_path` | Outside | Outside | Destination filename policy; capture/effect behavior remains separately in scope; [coverage](niri-config-schema-coverage.md) |
 | `layout` | `Config.layout` | Layout | Partial | Top-level names/defaults audited; full option behavior/fixtures remain partial; [coverage](niri-config-schema-coverage.md) |
 | `recent-windows` | `Config.recent_windows` | Layout/integration | Missing | MRU focus overlay/preview configuration has no parity implementation; [coverage](niri-config-schema-coverage.md) |
-| `include` | — | Infrastructure | Unverified | Custom positional decoder directive with no Config field; full path/error behavior pending; [coverage](niri-config-schema-coverage.md) |
+| `include` | — | Infrastructure | Unverified | Positional path/error source review recorded; executable parser/watcher acceptance pending; [coverage](niri-config-schema-coverage.md) |
 
 ## Configuration source index
 
@@ -301,30 +301,30 @@ own definitions; tuple wrappers and enums are indexed by declaration below.
 
 | Schema field | Status | Mapping / next audit |
 | --- | --- | --- |
-| `Config.input` | Unverified | Root `input`: Includes focus/warping/workspace policy; audit per field; [schema coverage](niri-config-schema-coverage.md) |
-| `Config.outputs` | Partial | Root `output`: Repeated output configs; ownership/layout/name/mode surface not fully audited; [schema coverage](niri-config-schema-coverage.md) |
-| `Config.spawn_at_startup` | Outside | Root `spawn-at-startup`: Process launch list; resulting window map remains in layout scope; [schema coverage](niri-config-schema-coverage.md) |
-| `Config.spawn_sh_at_startup` | Outside | Root `spawn-sh-at-startup`: Shell process launch; not a tiling action contract; [schema coverage](niri-config-schema-coverage.md) |
-| `Config.layout` | Partial | Root `layout`: Top-level names/defaults audited; full option behavior/fixtures remain partial; [schema coverage](niri-config-schema-coverage.md) |
-| `Config.prefer_no_csd` | Unverified | Root `prefer-no-csd`: Decoration negotiation/tiled-state behavior can affect layout; [schema coverage](niri-config-schema-coverage.md) |
-| `Config.cursor` | Unverified | Root `cursor`: Cursor interaction/visibility boundaries not audited; [schema coverage](niri-config-schema-coverage.md) |
-| `Config.screenshot_path` | Outside | Root `screenshot-path`: Destination filename policy; capture/effect behavior remains separately in scope; [schema coverage](niri-config-schema-coverage.md) |
-| `Config.clipboard` | Outside | Root `clipboard`: Selection policy, not tiling topology or sizing; [schema coverage](niri-config-schema-coverage.md) |
-| `Config.hotkey_overlay` | Outside | Root `hotkey-overlay`: Shortcut help UI, not workspace overview or MRU focus; [schema coverage](niri-config-schema-coverage.md) |
-| `Config.config_notification` | Outside | Root `config-notification`: Config-error notification presentation, not layout policy; [schema coverage](niri-config-schema-coverage.md) |
-| `Config.animations` | Divergent | Root `animations`: Frame factors differ from per-event spring/easing; scoped source audit recorded; [schema coverage](niri-config-schema-coverage.md) |
-| `Config.blur` | Partial | Root `blur`: Tuning/effect-selection source audit exists; runtime parity not established; [schema coverage](niri-config-schema-coverage.md) |
-| `Config.gestures` | Missing | Root `gestures`: Reference DnD policy missing; hot-corner behavior differs; scoped source audit recorded; [schema coverage](niri-config-schema-coverage.md) |
-| `Config.overview` | Missing | Root `overview`: Overview exists in pinned schema; no reference overview implementation; [schema coverage](niri-config-schema-coverage.md) |
-| `Config.environment` | Outside | Root `environment`: Child-process environment, not layout behavior; [schema coverage](niri-config-schema-coverage.md) |
-| `Config.xwayland_satellite` | Unverified | Root `xwayland-satellite`: Client/protocol integration; reconsider layout-visible lifecycle effects; [schema coverage](niri-config-schema-coverage.md) |
-| `Config.window_rules` | Partial | Root `window-rule`: Scoped decoder/lifecycle audits exist; remaining fields and fixtures pending; [schema coverage](niri-config-schema-coverage.md) |
-| `Config.layer_rules` | Missing | Root `layer-rule`: Dedicated rule tree missing; scoped decoder/consumer audit recorded; [schema coverage](niri-config-schema-coverage.md) |
-| `Config.binds` | Unverified | Root `binds`: Action inventory is not a public binding alias/decoder audit; [schema coverage](niri-config-schema-coverage.md) |
-| `Config.switch_events` | Unverified | Root `switch-events`: Lid/output actions may affect layout lifecycle; [schema coverage](niri-config-schema-coverage.md) |
-| `Config.debug` | Unverified | Root `debug`: Mixed layout-visible transaction/focus flags and backend controls; [schema coverage](niri-config-schema-coverage.md) |
-| `Config.workspaces` | Missing | Root `workspace`: Named workspace/layout hierarchy not implemented; [schema coverage](niri-config-schema-coverage.md) |
-| `Config.recent_windows` | Missing | Root `recent-windows`: MRU focus overlay/preview configuration has no parity implementation; [schema coverage](niri-config-schema-coverage.md) |
+| `Config.input` | Unverified | Root input: Includes focus/warping/workspace policy; audit per field; [root/misc audit](niri-root-misc-audit.md#root-storage-scope-and-ordering) |
+| `Config.outputs` | Partial | Root output: Repeated output configs; ownership/layout/name/mode surface not fully audited; [root/misc audit](niri-root-misc-audit.md#root-storage-scope-and-ordering) |
+| `Config.spawn_at_startup` | Outside | Root spawn-at-startup: Process launch list; resulting window map remains in layout scope; [root/misc audit](niri-root-misc-audit.md#root-storage-scope-and-ordering) |
+| `Config.spawn_sh_at_startup` | Outside | Root spawn-sh-at-startup: Shell process launch; not a tiling action contract; [root/misc audit](niri-root-misc-audit.md#root-storage-scope-and-ordering) |
+| `Config.layout` | Partial | Root layout: Top-level names/defaults audited; full option behavior/fixtures remain partial; [root/misc audit](niri-root-misc-audit.md#root-storage-scope-and-ordering) |
+| `Config.prefer_no_csd` | Unverified | Root prefer-no-csd: Decoration negotiation/tiled-state behavior can affect layout; [root/misc audit](niri-root-misc-audit.md#root-storage-scope-and-ordering) |
+| `Config.cursor` | Unverified | Root cursor: Cursor interaction/visibility boundaries not audited; [root/misc audit](niri-root-misc-audit.md#root-storage-scope-and-ordering) |
+| `Config.screenshot_path` | Outside | Root screenshot-path: Destination filename policy; capture/effect behavior remains separately in scope; [root/misc audit](niri-root-misc-audit.md#root-storage-scope-and-ordering) |
+| `Config.clipboard` | Outside | Root clipboard: Selection policy, not tiling topology or sizing; [root/misc audit](niri-root-misc-audit.md#root-storage-scope-and-ordering) |
+| `Config.hotkey_overlay` | Outside | Root hotkey-overlay: Shortcut help UI, not workspace overview or MRU focus; [root/misc audit](niri-root-misc-audit.md#root-storage-scope-and-ordering) |
+| `Config.config_notification` | Outside | Root config-notification: Config-error notification presentation, not layout policy; [root/misc audit](niri-root-misc-audit.md#root-storage-scope-and-ordering) |
+| `Config.animations` | Divergent | Root animations: Frame factors differ from per-event spring/easing; scoped source audit recorded; [root/misc audit](niri-root-misc-audit.md#root-storage-scope-and-ordering) |
+| `Config.blur` | Partial | Root blur: Tuning/effect-selection source audit exists; runtime parity not established; [root/misc audit](niri-root-misc-audit.md#root-storage-scope-and-ordering) |
+| `Config.gestures` | Missing | Root gestures: Reference DnD policy missing; hot-corner behavior differs; scoped source audit recorded; [root/misc audit](niri-root-misc-audit.md#root-storage-scope-and-ordering) |
+| `Config.overview` | Missing | Root overview: Overview exists in pinned schema; no reference overview implementation; [root/misc audit](niri-root-misc-audit.md#root-storage-scope-and-ordering) |
+| `Config.environment` | Outside | Root environment: Child-process environment, not layout behavior; [root/misc audit](niri-root-misc-audit.md#root-storage-scope-and-ordering) |
+| `Config.xwayland_satellite` | Unverified | Root xwayland-satellite: Client/protocol integration; reconsider layout-visible lifecycle effects; [root/misc audit](niri-root-misc-audit.md#root-storage-scope-and-ordering) |
+| `Config.window_rules` | Partial | Root window-rule: Scoped decoder/lifecycle audits exist; remaining fields and fixtures pending; [root/misc audit](niri-root-misc-audit.md#root-storage-scope-and-ordering) |
+| `Config.layer_rules` | Missing | Root layer-rule: Dedicated rule tree missing; scoped decoder/consumer audit recorded; [root/misc audit](niri-root-misc-audit.md#root-storage-scope-and-ordering) |
+| `Config.binds` | Unverified | Root binds: Action inventory is not a public binding alias/decoder audit; [root/misc audit](niri-root-misc-audit.md#root-storage-scope-and-ordering) |
+| `Config.switch_events` | Unverified | Root switch-events: Lid/output actions may affect layout lifecycle; [root/misc audit](niri-root-misc-audit.md#root-storage-scope-and-ordering) |
+| `Config.debug` | Unverified | Root debug: Mixed layout-visible transaction/focus flags and backend controls; [root/misc audit](niri-root-misc-audit.md#root-storage-scope-and-ordering) |
+| `Config.workspaces` | Missing | Root workspace: Named workspace/layout hierarchy not implemented; [root/misc audit](niri-root-misc-audit.md#root-storage-scope-and-ordering) |
+| `Config.recent_windows` | Missing | Root recent-windows: MRU focus overlay/preview configuration has no parity implementation; [root/misc audit](niri-root-misc-audit.md#root-storage-scope-and-ordering) |
 
 Declared types to check for nested values/custom decoding: `Config`, `ConfigPath`, `ConfigPart`.
 
@@ -648,8 +648,8 @@ Declared types to check for nested values/custom decoding: `WindowRule`, `Popups
 
 | Schema field | Status | Mapping / next audit |
 | --- | --- | --- |
-| `Workspace.name` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
-| `Workspace.open_on_output` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
+| `Workspace.name` | Missing | Reference workspace identity/placement missing; earlier consumer review now linked per row; [root/misc audit](niri-root-misc-audit.md#remaining-exclusions-and-workspace-row-links) |
+| `Workspace.open_on_output` | Missing | Reference workspace identity/placement missing; earlier consumer review now linked per row; [root/misc audit](niri-root-misc-audit.md#remaining-exclusions-and-workspace-row-links) |
 | `Workspace.layout` | Missing | No per-output/workspace tiling layout hierarchy; [precedence/lifecycle audit](niri-config-lifecycle-audit.md) |
 
 Declared types to check for nested values/custom decoding: `Workspace`, `WorkspaceName`, `WorkspaceLayoutPart`.
@@ -699,37 +699,37 @@ Declared types to check for nested values/custom decoding: `Outputs`, `Mode`, `M
 
 | Schema field | Status | Mapping / next audit |
 | --- | --- | --- |
-| `SpawnAtStartup.command` | Outside | Process/selection/help/error-UI setting; explicit root-scope exclusion; [schema coverage](niri-config-schema-coverage.md) |
-| `SpawnShAtStartup.command` | Outside | Process/selection/help/error-UI setting; explicit root-scope exclusion; [schema coverage](niri-config-schema-coverage.md) |
-| `Cursor.xcursor_theme` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
-| `Cursor.xcursor_size` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
-| `Cursor.hide_when_typing` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
-| `Cursor.hide_after_inactive_ms` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
-| `CursorPart.xcursor_theme` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
-| `CursorPart.xcursor_size` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
-| `CursorPart.hide_when_typing` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
-| `CursorPart.hide_after_inactive_ms` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
-| `HotkeyOverlay.skip_at_startup` | Outside | Process/selection/help/error-UI setting; explicit root-scope exclusion; [schema coverage](niri-config-schema-coverage.md) |
-| `HotkeyOverlay.hide_not_bound` | Outside | Process/selection/help/error-UI setting; explicit root-scope exclusion; [schema coverage](niri-config-schema-coverage.md) |
-| `HotkeyOverlayPart.skip_at_startup` | Outside | Process/selection/help/error-UI setting; explicit root-scope exclusion; [schema coverage](niri-config-schema-coverage.md) |
-| `HotkeyOverlayPart.hide_not_bound` | Outside | Process/selection/help/error-UI setting; explicit root-scope exclusion; [schema coverage](niri-config-schema-coverage.md) |
-| `ConfigNotification.disable_failed` | Outside | Process/selection/help/error-UI setting; explicit root-scope exclusion; [schema coverage](niri-config-schema-coverage.md) |
-| `ConfigNotificationPart.disable_failed` | Outside | Process/selection/help/error-UI setting; explicit root-scope exclusion; [schema coverage](niri-config-schema-coverage.md) |
-| `Clipboard.disable_primary` | Outside | Process/selection/help/error-UI setting; explicit root-scope exclusion; [schema coverage](niri-config-schema-coverage.md) |
-| `ClipboardPart.disable_primary` | Outside | Process/selection/help/error-UI setting; explicit root-scope exclusion; [schema coverage](niri-config-schema-coverage.md) |
+| `SpawnAtStartup.command` | Outside | Concrete process/selection/help/error-UI exclusion; layout-visible consequences retained; [root/misc audit](niri-root-misc-audit.md#remaining-exclusions-and-workspace-row-links) |
+| `SpawnShAtStartup.command` | Outside | Concrete process/selection/help/error-UI exclusion; layout-visible consequences retained; [root/misc audit](niri-root-misc-audit.md#remaining-exclusions-and-workspace-row-links) |
+| `Cursor.xcursor_theme` | Unverified | Cursor visibility/theme/timer source traced; protocol/input/capture parity open; [root/misc audit](niri-root-misc-audit.md#cursor-defaults-and-consumers) |
+| `Cursor.xcursor_size` | Unverified | Cursor visibility/theme/timer source traced; protocol/input/capture parity open; [root/misc audit](niri-root-misc-audit.md#cursor-defaults-and-consumers) |
+| `Cursor.hide_when_typing` | Unverified | Cursor visibility/theme/timer source traced; protocol/input/capture parity open; [root/misc audit](niri-root-misc-audit.md#cursor-defaults-and-consumers) |
+| `Cursor.hide_after_inactive_ms` | Unverified | Cursor visibility/theme/timer source traced; protocol/input/capture parity open; [root/misc audit](niri-root-misc-audit.md#cursor-defaults-and-consumers) |
+| `CursorPart.xcursor_theme` | Unverified | Cursor visibility/theme/timer source traced; protocol/input/capture parity open; [root/misc audit](niri-root-misc-audit.md#cursor-defaults-and-consumers) |
+| `CursorPart.xcursor_size` | Unverified | Cursor visibility/theme/timer source traced; protocol/input/capture parity open; [root/misc audit](niri-root-misc-audit.md#cursor-defaults-and-consumers) |
+| `CursorPart.hide_when_typing` | Unverified | Cursor visibility/theme/timer source traced; protocol/input/capture parity open; [root/misc audit](niri-root-misc-audit.md#cursor-defaults-and-consumers) |
+| `CursorPart.hide_after_inactive_ms` | Unverified | Cursor visibility/theme/timer source traced; protocol/input/capture parity open; [root/misc audit](niri-root-misc-audit.md#cursor-defaults-and-consumers) |
+| `HotkeyOverlay.skip_at_startup` | Outside | Concrete process/selection/help/error-UI exclusion; layout-visible consequences retained; [root/misc audit](niri-root-misc-audit.md#remaining-exclusions-and-workspace-row-links) |
+| `HotkeyOverlay.hide_not_bound` | Outside | Concrete process/selection/help/error-UI exclusion; layout-visible consequences retained; [root/misc audit](niri-root-misc-audit.md#remaining-exclusions-and-workspace-row-links) |
+| `HotkeyOverlayPart.skip_at_startup` | Outside | Concrete process/selection/help/error-UI exclusion; layout-visible consequences retained; [root/misc audit](niri-root-misc-audit.md#remaining-exclusions-and-workspace-row-links) |
+| `HotkeyOverlayPart.hide_not_bound` | Outside | Concrete process/selection/help/error-UI exclusion; layout-visible consequences retained; [root/misc audit](niri-root-misc-audit.md#remaining-exclusions-and-workspace-row-links) |
+| `ConfigNotification.disable_failed` | Outside | Concrete process/selection/help/error-UI exclusion; layout-visible consequences retained; [root/misc audit](niri-root-misc-audit.md#remaining-exclusions-and-workspace-row-links) |
+| `ConfigNotificationPart.disable_failed` | Outside | Concrete process/selection/help/error-UI exclusion; layout-visible consequences retained; [root/misc audit](niri-root-misc-audit.md#remaining-exclusions-and-workspace-row-links) |
+| `Clipboard.disable_primary` | Outside | Concrete process/selection/help/error-UI exclusion; layout-visible consequences retained; [root/misc audit](niri-root-misc-audit.md#remaining-exclusions-and-workspace-row-links) |
+| `ClipboardPart.disable_primary` | Outside | Concrete process/selection/help/error-UI exclusion; layout-visible consequences retained; [root/misc audit](niri-root-misc-audit.md#remaining-exclusions-and-workspace-row-links) |
 | `Overview.zoom` | Missing | No reference overview; runtime zoom clamps separately from decode and canvas zoom is not equivalent; [layer/overview audit](niri-layer-overview-audit.md#overview-defaults-runtime-zoom-and-state) |
 | `Overview.backdrop_color` | Missing | No reference overview; runtime zoom clamps separately from decode and canvas zoom is not equivalent; [layer/overview audit](niri-layer-overview-audit.md#overview-defaults-runtime-zoom-and-state) |
 | `Overview.workspace_shadow` | Missing | No reference overview; runtime zoom clamps separately from decode and canvas zoom is not equivalent; [layer/overview audit](niri-layer-overview-audit.md#overview-defaults-runtime-zoom-and-state) |
 | `OverviewPart.zoom` | Missing | No reference overview; runtime zoom clamps separately from decode and canvas zoom is not equivalent; [layer/overview audit](niri-layer-overview-audit.md#overview-defaults-runtime-zoom-and-state) |
 | `OverviewPart.backdrop_color` | Missing | No reference overview; runtime zoom clamps separately from decode and canvas zoom is not equivalent; [layer/overview audit](niri-layer-overview-audit.md#overview-defaults-runtime-zoom-and-state) |
 | `OverviewPart.workspace_shadow` | Missing | No reference overview; runtime zoom clamps separately from decode and canvas zoom is not equivalent; [layer/overview audit](niri-layer-overview-audit.md#overview-defaults-runtime-zoom-and-state) |
-| `EnvironmentVariable.name` | Outside | Process/selection/help/error-UI setting; explicit root-scope exclusion; [schema coverage](niri-config-schema-coverage.md) |
-| `EnvironmentVariable.value` | Outside | Process/selection/help/error-UI setting; explicit root-scope exclusion; [schema coverage](niri-config-schema-coverage.md) |
-| `XwaylandSatellite.off` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
-| `XwaylandSatellite.path` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
-| `XwaylandSatellitePart.off` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
-| `XwaylandSatellitePart.on` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
-| `XwaylandSatellitePart.path` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
+| `EnvironmentVariable.name` | Outside | Concrete process/selection/help/error-UI exclusion; layout-visible consequences retained; [root/misc audit](niri-root-misc-audit.md#remaining-exclusions-and-workspace-row-links) |
+| `EnvironmentVariable.value` | Outside | Concrete process/selection/help/error-UI exclusion; layout-visible consequences retained; [root/misc audit](niri-root-misc-audit.md#remaining-exclusions-and-workspace-row-links) |
+| `XwaylandSatellite.off` | Divergent | Eager satellite launch differs from reference on-demand sockets and reload policy; [root/misc audit](niri-root-misc-audit.md#decoration-preference-and-satellite-lifecycle) |
+| `XwaylandSatellite.path` | Divergent | Eager satellite launch differs from reference on-demand sockets and reload policy; [root/misc audit](niri-root-misc-audit.md#decoration-preference-and-satellite-lifecycle) |
+| `XwaylandSatellitePart.off` | Divergent | Eager satellite launch differs from reference on-demand sockets and reload policy; [root/misc audit](niri-root-misc-audit.md#decoration-preference-and-satellite-lifecycle) |
+| `XwaylandSatellitePart.on` | Divergent | Eager satellite launch differs from reference on-demand sockets and reload policy; [root/misc audit](niri-root-misc-audit.md#decoration-preference-and-satellite-lifecycle) |
+| `XwaylandSatellitePart.path` | Divergent | Eager satellite launch differs from reference on-demand sockets and reload policy; [root/misc audit](niri-root-misc-audit.md#decoration-preference-and-satellite-lifecycle) |
 
 Declared types to check for nested values/custom decoding: `SpawnAtStartup`, `SpawnShAtStartup`, `Cursor`, `CursorPart`, `ScreenshotPath`, `HotkeyOverlay`, `HotkeyOverlayPart`, `ConfigNotification`, `ConfigNotificationPart`, `Clipboard`, `ClipboardPart`, `Overview`, `OverviewPart`, `Environment`, `EnvironmentVariable`, `XwaylandSatellite`, `XwaylandSatellitePart`.
 

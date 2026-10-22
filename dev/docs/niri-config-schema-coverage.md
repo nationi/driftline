@@ -137,8 +137,12 @@ The [remaining integration/action scope audit](niri-integration-action-scope-aud
 adds the final 32 action links and 16 explicit scope corrections. All 186 action
 variants now have source-scope evidence; runtime/argument acceptance remains open.
 The [recent-windows audit](niri-recent-windows-audit.md) adds 29 named field links
-(525 total); MRU runtime/decoder/lifecycle acceptance remains open. Next A0:
-remaining misc/root semantics and independent reference fixtures.
+(525 at that step); MRU runtime/decoder/lifecycle acceptance remains open.
+The [root/misc audit](niri-root-misc-audit.md) adds the final 51 row links, so all
+576 named fields now have scoped source evidence. It includes explicit exclusions
+and retained Unverified integration, not complete parser/consumer acceptance.
+Next A0: independent executable pinned-reference parser/merge/error fixtures,
+then nonzero-gap/fractional-frame geometry and operation traces.
 Document concrete exclusions as needed. Independent decoder/geometry/operation
 fixtures beyond zero gaps remain required; no Exact or overall-completion claim
 follows from covering the source file list.

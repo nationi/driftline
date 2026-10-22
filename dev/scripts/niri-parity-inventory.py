@@ -211,13 +211,47 @@ ROOT_NODES = {
     "screenshot-path": ("screenshot_path", "Outside", "Outside", "Destination filename policy; capture/effect behavior remains separately in scope"),
     "layout": ("layout", "Layout", "Partial", "Top-level names/defaults audited; full option behavior/fixtures remain partial"),
     "recent-windows": ("recent_windows", "Layout/integration", "Missing", "MRU focus overlay/preview configuration has no parity implementation"),
-    "include": (None, "Infrastructure", "Unverified", "Custom positional decoder directive with no Config field; full path/error behavior pending"),
+    "include": (None, "Infrastructure", "Unverified", "Positional path/error source review recorded; executable parser/watcher acceptance pending"),
 }
 
 
 def schema_structs(source):
     for match in re.finditer(r"^pub struct (\w+)[^;\n{]*\{", source, re.M):
         yield match.group(1), re.findall(r"^    pub (\w+):", block(source, match.group(0)), re.M)
+
+
+ROOT_MISC_AUDIT_FIELDS = {
+    ("lib", "Config"): "input outputs spawn_at_startup spawn_sh_at_startup layout prefer_no_csd cursor screenshot_path clipboard hotkey_overlay config_notification animations blur gestures overview environment xwayland_satellite window_rules layer_rules binds switch_events debug workspaces recent_windows",
+    ("misc", "SpawnAtStartup"): "command",
+    ("misc", "SpawnShAtStartup"): "command",
+    ("misc", "Cursor"): "xcursor_theme xcursor_size hide_when_typing hide_after_inactive_ms",
+    ("misc", "CursorPart"): "xcursor_theme xcursor_size hide_when_typing hide_after_inactive_ms",
+    ("misc", "HotkeyOverlay"): "skip_at_startup hide_not_bound",
+    ("misc", "HotkeyOverlayPart"): "skip_at_startup hide_not_bound",
+    ("misc", "ConfigNotification"): "disable_failed",
+    ("misc", "ConfigNotificationPart"): "disable_failed",
+    ("misc", "Clipboard"): "disable_primary",
+    ("misc", "ClipboardPart"): "disable_primary",
+    ("misc", "EnvironmentVariable"): "name value",
+    ("misc", "XwaylandSatellite"): "off path",
+    ("misc", "XwaylandSatellitePart"): "off on path",
+    ("workspace", "Workspace"): "name open_on_output",
+}
+
+
+def root_misc_status(module, name, field):
+    if module == "lib":
+        node, (_, _, status, reason) = next((node, spec) for node, spec in ROOT_NODES.items() if spec[0] == field)
+        mapping, section = f"Root {node}: {reason}", "root-storage-scope-and-ordering"
+    elif module == "workspace":
+        status, mapping, section = "Missing", "Reference workspace identity/placement missing; earlier consumer review now linked per row", "remaining-exclusions-and-workspace-row-links"
+    elif name in {"Cursor", "CursorPart"}:
+        status, mapping, section = "Unverified", "Cursor visibility/theme/timer source traced; protocol/input/capture parity open", "cursor-defaults-and-consumers"
+    elif name in {"XwaylandSatellite", "XwaylandSatellitePart"}:
+        status, mapping, section = "Divergent", "Eager satellite launch differs from reference on-demand sockets and reload policy", "decoration-preference-and-satellite-lifecycle"
+    else:
+        status, mapping, section = "Outside", "Concrete process/selection/help/error-UI exclusion; layout-visible consequences retained", "remaining-exclusions-and-workspace-row-links"
+    return status, f"{mapping}; [root/misc audit](niri-root-misc-audit.md#{section})"
 
 
 RECENT_WINDOWS_AUDIT_FIELDS = {
@@ -479,6 +513,8 @@ def layer_overview_status(name, field):
 
 
 def config_status(module, name, field):
+    if field in ROOT_MISC_AUDIT_FIELDS.get((module, name), "").split():
+        return root_misc_status(module, name, field)
     if (module, name) in RECENT_WINDOWS_AUDIT_FIELDS:
         return recent_windows_status(name, field)
     if (module, name) in BIND_AUDIT_FIELDS:
@@ -645,6 +681,8 @@ def generate(root):
         source = sources[f"{module}.rs"]
         lines += [f"### `{module}.rs`", "", "| Schema field | Status | Mapping / next audit |", "| --- | --- | --- |"]
         for name, fields in schema_structs(source):
+            if (module, name) in ROOT_MISC_AUDIT_FIELDS:
+                assert set(ROOT_MISC_AUDIT_FIELDS[(module, name)].split()).issubset(fields), "Root/misc review fields must exist"
             if module == "recent_windows":
                 assert (module, name) in RECENT_WINDOWS_AUDIT_FIELDS, "Every MRU struct needs source review"
                 assert set(fields) == set(RECENT_WINDOWS_AUDIT_FIELDS[(module, name)].split()), "MRU audit must cover every field"
@@ -686,6 +724,7 @@ def generate(root):
             for field in fields:
                 count += 1
                 status, mapping = config_status(module, name, field)
+                assert re.search(r"\[[^]]*audit\]\(", mapping), f"Every named field needs scoped review: {module}.{name}.{field}"
                 lines.append(f"| `{name}.{field}` | {status} | {mapping} |")
         types = re.findall(r"^pub (?:struct|enum) (\w+)", source, re.M)
         lines += ["", "Declared types to check for nested values/custom decoding: " + ", ".join(f"`{t}`" for t in types) + ".", ""]

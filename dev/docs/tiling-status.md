@@ -1,6 +1,6 @@
 # Tiling development status and handoff
 
-Updated 2026-10-22. Integration checkpoint: `8c17428`; upstream `7ce05ed` is
+Updated 2026-10-23. Integration checkpoint: `8c17428`; upstream `7ce05ed` is
 included. Named controlled B1–B4 stabilization gates are delivered; this does
 not establish complete P2/P13 acceptance or niri parity.
 The persistent development branch is `nationi/development`. This handoff was reconciled with Git;
@@ -64,16 +64,17 @@ mode. These are documented fallbacks, not reference-compatible behavior.
 ## Verified evidence and its limits
 
 Latest A0 documentation/tooling validation: the
-[recent-windows audit](niri-recent-windows-audit.md) adds all 29 named MRU fields
-(525/576 schema review links). It traces defaults/merge, first-custom-bind clearing
-across includes, keyboard-only modifier bindings, omitted versus skipped All
-filter, model selection/cache/scope, debounce/open delay, preview minimum floor
-and reload/open-state behavior. One help-title row is Outside; MRU facility rows
-are Missing rather than an implementation claim. All 186 action links remain;
-source exposure is 136 derived /50 skipped. Syntax, deterministic generation,
-exact MRU field coverage, old keys/actions/statuses and local/pinned links were
-checked. No runtime/config change or executable parity claim; implementation CI
-remains B4.
+[root/misc audit](niri-root-misc-audit.md) adds 51 row links: 24 Config storage
+fields, 25 misc fields and two previously traced workspace identity/preference
+fields now linked per row. All 576 named fields and all 186 actions now have
+scoped source-review evidence. This completes source triage only: root/exclusion
+links are not behavioral acceptance. Positional includes, per-file duplicate
+roots, optional/error boundaries, fresh parse versus live reload, watcher repair,
+cursor timers, decoration snapshot/Tiled hints and on-demand satellite/reload
+were traced. Generator requires a scoped audit link for every field. Syntax,
+deterministic output, full sets, old keys/action statuses, local/pinned links and
+negative coverage guards were checked. No runtime/config change or executable
+parity claim; implementation CI remains B4.
 
 Latest validation gate: `/tmp/driftwm-b4-output-ci.log`, exit 0: full
 `dev/scripts/ci-local`, 369 library cases, 1490 binary cases including ignored
@@ -185,14 +186,15 @@ unresolved; use direct TTY for visual acceptance.
 
 ## Next work
 
-Next work: **A0/P0 remaining misc/root integration decoders**, pinned niri
-`12de51d6a60baad8896366920278a24f17921f52`: cursor, prefer-no-csd, xwayland-satellite,
-root assembly/include/reload and explicit remaining exclusions. MRU named source
-review is delivered; model/input/render lifecycle acceptance remains open.
-All 186 action variants have source-scope links and 525/576 named fields have
-scoped review links. Independent executable parser/geometry/operation fixtures
-beyond zero gaps and retained input/backend/capture/numerical interaction gates
-remain required; source review is not feature completion or a gate waiver.
+Next work: **A0/P0 independent executable pinned-reference parser/merge/error
+fixtures**, niri `12de51d6a60baad8896366920278a24f17921f52`. Start with positional
+includes, per-file duplicates, optional missing versus malformed include,
+first-custom MRU binds and on/off precedence; distinguish accepted Config from
+partial decoder construction and persist provenance/results. Then extend nonzero-
+gap/fractional-frame geometry and operation traces, comparing independent expected
+results rather than reproducing driftwm algorithms. All 576 fields /186 actions
+have source triage, but argument/consumer permutations and retained integration/
+input/backend/capture/numerical behavior still gate A0/P0 and feature expansion.
 Do not repeat delivered audits or restart B matrices. A0/P0 gates feature
 expansion; source coverage and scoped review do not prove complete niri parity.
 Controlled SSD scale-change release is

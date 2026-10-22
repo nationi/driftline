@@ -2947,3 +2947,25 @@ docs/tooling; implementation evidence remains B4. No push/install/TTY claim.
 Next A0: remaining misc/root decoders and explicit scope, then independent
 executable reference fixtures and retained acceptance. MRU lifecycle/model/render
 coverage is source evidence, not proven behavioral parity.
+
+
+## 2026-10-23 — A0 root/misc source coverage reconciled
+
+Added the final 51 schema row links: 24 root storage fields, 25 remaining misc
+fields and two workspace identity/preference fields already reviewed but not
+linked per row. All 576 named fields /186 action variants now have source-scope
+evidence. This is triage closure, not behavioral/decoder execution or A0 completion.
+Root ordering/duplicate rules, include path/error/depth/optional behavior, fresh
+parse and failed-reload preservation, watcher include repair, cursor defaults/
+timers, prefer-no-csd client snapshot versus Tiled refresh and satellite on-demand/
+reload behavior were traced. Concrete misc exclusions retain layout-visible
+consequences. Driftwm eager satellite launch remains a documented divergence.
+
+Validation passed: Python syntax, deterministic 576 fields /186 actions /136–50
+config exposure, 576 scoped schema links, old field/action keys and statuses,
+51 new links/exact fields, source coverage guards, local/pinned links/anchors,
+clean exact reference and diff checks. No niri/parser/client/hardware execution
+or Rust CI rerun for docs/tooling; implementation evidence remains B4. No push/
+install/TTY claim. Next A0 is executable independent pinned parser/merge/error
+fixtures (include/duplicates/optional malformed/MRU-first-bind/on-off), followed
+by nonzero-gap/fractional-frame geometry/operation evidence and retained gates.
