@@ -2687,3 +2687,30 @@ rerun. Implementation evidence remains the B4 gate. No push/install/TTY claim.
 Next A0: remaining mixed input/debug scope and output/workspace naming, then
 rules/action addressing and independent executable reference fixtures. Physics,
 reload and interaction acceptance still remain open.
+
+
+## A0 client input, debug scope and output identity review
+
+Audited six scroll/pinch fields and five output identity fields; triaged the
+remaining 34 debug storage/Part fields against located consumers. Niri forwards
+source-selected per-axis factors multiplied by a focused-window factor, and
+pinch scale raised to combined sensitivity. This is distinct from canvas speed.
+Output matching uses ASCII-insensitive connector or full metadata string, first
+matching entry, with connector-only fallback when all metadata is absent.
+Workspace duplicate detection/named lookup and preference-order creation were
+traced without double-counting already reviewed lifecycle rows. Full action
+parsing, persistence and hotplug permutations remain open.
+
+Only the two DBus-export switch rows are newly Outside. Scanout/timing/format/
+capture rows retain Unverified status, while missing topology/name/preview knobs
+are explicit. Debug merge/default behavior is separated from actual reload
+application. A debug label does not waive layout-visible integration acceptance.
+
+Validation passed: Python syntax, deterministic generator output, all 576 previous
+field keys and 186 actions, 45 new review links (351 total), field existence,
+local links/anchors, pinned source paths and clean reference revision, diff check.
+No runtime/config change, niri/parser execution or full Rust CI rerun; latest
+implementation evidence remains B4. No push, installation or TTY acceptance.
+Next A0: remaining keyboard/device grammar/consumers, unscoped output/rule fields,
+public binding/action addressing and independent executable reference fixtures;
+retained integration/physics/interaction acceptance gates remain open.

@@ -64,19 +64,18 @@ mode. These are documented fallbacks, not reference-compatible behavior.
 ## Verified evidence and its limits
 
 Latest A0 documentation/tooling validation: the
-[animation/gesture audit](niri-animation-gesture-audit.md) adds 63 reviewed row
-links (40 animation and 23 gesture fields), bringing scoped links to 306.
-Six of these rows explicitly exclude unrelated notification/exit/screenshot UI
-motion. Defaults, whole-animation replacement versus DnD field merge, custom
-spring/easing/shader decoding, shared clock/off/slowdown and real-time DnD edge
-consumers are traced. Hot corners use output overrides, one-pixel boxes and
-conditional overview toggles. This is pinned source review, not niri/parser/GPU
-execution or full animation/gesture acceptance. Prior input/debug and layer/
-overview audits retain their stated limits. Inventory remains 576 fields,
-186 actions, 18 source paths / 14 modules and 25 root nodes / 24 Config fields.
-Syntax, deterministic generation, audited field sets, row/action preservation,
-local anchors and pinned source paths were checked. No runtime/config change;
-implementation CI remains B4.
+[input/output integration audit](niri-input-output-integration-audit.md) adds 45
+review links (351 total): six client scroll/pinch fields, five output identity
+fields and 34 remaining debug storage/Part rows. Backend rows include explicit
+scope triage: two DBus-export rows are Outside, while retained Unverified
+scanout/timing/capture paths remain open. Client axis factors/pinch exponent,
+ASCII-insensitive connector/metadata matching and named workspace preference
+fallbacks are traced. Workspace rows retain their prior lifecycle links rather
+than being double-counted. This is source review, not executable acceptance.
+Inventory remains 576 fields, 186 actions, 18 paths / 14 modules and 25 root nodes /
+24 Config fields. Syntax, deterministic generation, scoped field existence,
+row/action preservation and local/pinned links were checked. No runtime/config
+change; implementation CI remains B4.
 
 Latest validation gate: `/tmp/driftwm-b4-output-ci.log`, exit 0: full
 `dev/scripts/ci-local`, 369 library cases, 1490 binary cases including ignored
@@ -188,13 +187,13 @@ unresolved; use direct TTY for visual acceptance.
 
 ## Next work
 
-Next work: **A0/P0 remaining input/debug integration scope and output/workspace
-naming**, at pinned niri `12de51d6a60baad8896366920278a24f17921f52`. Review mixed
-device/backend fields individually or justify exclusions, then unscoped rule
-fields and public binding/ID/index/previous/next actions. Animation/gesture scoped
-source audit is delivered; solver/curve numerics, gesture snap/cancellation,
-shader/reload, complete layer/overview permutations and independent executable
-reference fixtures beyond zero gaps remain open.
+Next work: **A0/P0 remaining keyboard/device input grammar and consumers** at
+pinned niri `12de51d6a60baad8896366920278a24f17921f52`, then unscoped output/rule
+fields and public binding/ID/index/previous/next actions. Output/workspace naming
+and remaining debug scope triage are delivered; retained Unverified backend/
+capture/timing rows require evidence or justified field-specific scope decisions.
+Independent executable reference fixtures beyond zero gaps, numerical animation/
+gesture behavior and complete layer/overview permutations remain open.
 Do not repeat delivered audits or restart B matrices. A0/P0 gates feature
 expansion; source coverage and scoped review do not prove complete niri parity.
 Controlled SSD scale-change release is

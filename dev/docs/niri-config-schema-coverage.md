@@ -116,7 +116,10 @@ LayerRule/Match and Overview/OverviewPart now have a scoped source audit.
 The [input focus audit](niri-input-focus-audit.md) covers 18 selected input/debug
 rows; other fields remain unverified. The [animation/gesture audit](niri-animation-gesture-audit.md)
 adds 63 reviewed rows, including six explicit exclusions for unrelated UI motion.
-Next A0: remaining device/backend scope, output/workspace naming, unscoped rule
-fields and public binding/action addressing. Document concrete exclusions as needed. Independent
-decoder/geometry/operation fixtures beyond zero gaps remain required; no Exact
+The [input/output integration audit](niri-input-output-integration-audit.md) adds
+45 review links for client delivery, output identity and remaining debug scope.
+Only the DBus-export switch is newly Outside; retained Unverified backend/capture
+rows remain open. Next A0: remaining keyboard/device input and output/rule fields,
+public binding/action addressing and unresolved integration acceptance. Document
+concrete exclusions as needed. Independent decoder/geometry/operation fixtures beyond zero gaps remain required; no Exact
 or overall-completion claim follows from covering the source file list.

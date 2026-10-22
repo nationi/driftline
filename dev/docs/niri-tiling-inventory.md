@@ -22,6 +22,8 @@ The [input focus consumers](niri-input-focus-audit.md) audit traces scoped focus
 workspace back-and-forth and five layout-visible debug flags; other fields stay open.
 The [animation/gesture consumers](niri-animation-gesture-audit.md) audit traces those
 schema fields and scoped consumers; physics/interaction execution remains open.
+The [input/output integration consumers](niri-input-output-integration-audit.md) review
+scroll/pinch delivery, identity and remaining debug scope; retained Unverified gates stay open.
 P0 reference operation fixtures and the custom-decoder audit remain unfinished.
 
 Status: Partial = related implementation, not full equivalence; Divergent = known
@@ -659,7 +661,7 @@ Declared types to check for nested values/custom decoding: `Workspace`, `Workspa
 | `Modeline.hsync_polarity` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
 | `Modeline.vsync_polarity` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
 | `Output.off` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
-| `Output.name` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
+| `Output.name` | Divergent | Exact connector/* lookup differs from ASCII-insensitive connector or metadata identity; [input/output integration audit](niri-input-output-integration-audit.md#output-identity-and-lookup) |
 | `Output.scale` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
 | `Output.transform` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
 | `Output.position` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
@@ -672,10 +674,10 @@ Declared types to check for nested values/custom decoding: `Workspace`, `Workspa
 | `Output.backdrop_color` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
 | `Output.hot_corners` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
 | `Output.layout` | Missing | No per-output/workspace tiling layout hierarchy; [precedence/lifecycle audit](niri-config-lifecycle-audit.md) |
-| `OutputName.connector` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
-| `OutputName.make` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
-| `OutputName.model` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
-| `OutputName.serial` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
+| `OutputName.connector` | Divergent | Exact connector/* lookup differs from ASCII-insensitive connector or metadata identity; [input/output integration audit](niri-input-output-integration-audit.md#output-identity-and-lookup) |
+| `OutputName.make` | Divergent | Exact connector/* lookup differs from ASCII-insensitive connector or metadata identity; [input/output integration audit](niri-input-output-integration-audit.md#output-identity-and-lookup) |
+| `OutputName.model` | Divergent | Exact connector/* lookup differs from ASCII-insensitive connector or metadata identity; [input/output integration audit](niri-input-output-integration-audit.md#output-identity-and-lookup) |
+| `OutputName.serial` | Divergent | Exact connector/* lookup differs from ASCII-insensitive connector or metadata identity; [input/output integration audit](niri-input-output-integration-audit.md#output-identity-and-lookup) |
 | `Position.x` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
 | `Position.y` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
 | `Vrr.on_demand` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
@@ -786,9 +788,9 @@ Declared types to check for nested values/custom decoding: `LayerRule`, `Match`.
 | `Xkb.variant` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
 | `Xkb.options` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
 | `Xkb.file` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
-| `ScrollFactor.base` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
-| `ScrollFactor.horizontal` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
-| `ScrollFactor.vertical` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
+| `ScrollFactor.base` | Divergent | Client delivery factors/exponentiation differ from canvas navigation controls; [input/output integration audit](niri-input-output-integration-audit.md#client-scroll-and-pinch) |
+| `ScrollFactor.horizontal` | Divergent | Client delivery factors/exponentiation differ from canvas navigation controls; [input/output integration audit](niri-input-output-integration-audit.md#client-scroll-and-pinch) |
+| `ScrollFactor.vertical` | Divergent | Client delivery factors/exponentiation differ from canvas navigation controls; [input/output integration audit](niri-input-output-integration-audit.md#client-scroll-and-pinch) |
 | `Touchpad.off` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
 | `Touchpad.tap` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
 | `Touchpad.dwt` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
@@ -806,8 +808,8 @@ Declared types to check for nested values/custom decoding: `LayerRule`, `Match`.
 | `Touchpad.left_handed` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
 | `Touchpad.disabled_on_external_mouse` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
 | `Touchpad.middle_emulation` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
-| `Touchpad.scroll_factor` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
-| `Touchpad.pinch_sensitivity` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
+| `Touchpad.scroll_factor` | Divergent | Client delivery factors/exponentiation differ from canvas navigation controls; [input/output integration audit](niri-input-output-integration-audit.md#client-scroll-and-pinch) |
+| `Touchpad.pinch_sensitivity` | Divergent | Client delivery factors/exponentiation differ from canvas navigation controls; [input/output integration audit](niri-input-output-integration-audit.md#client-scroll-and-pinch) |
 | `Mouse.off` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
 | `Mouse.natural_scroll` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
 | `Mouse.accel_speed` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
@@ -817,7 +819,7 @@ Declared types to check for nested values/custom decoding: `LayerRule`, `Match`.
 | `Mouse.scroll_button_lock` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
 | `Mouse.left_handed` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
 | `Mouse.middle_emulation` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
-| `Mouse.scroll_factor` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
+| `Mouse.scroll_factor` | Divergent | Client delivery factors/exponentiation differ from canvas navigation controls; [input/output integration audit](niri-input-output-integration-audit.md#client-scroll-and-pinch) |
 | `Trackpoint.off` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
 | `Trackpoint.natural_scroll` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
 | `Trackpoint.accel_speed` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
@@ -854,50 +856,50 @@ Declared types to check for nested values/custom decoding: `Input`, `InputPart`,
 
 | Schema field | Status | Mapping / next audit |
 | --- | --- | --- |
-| `Debug.preview_render` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
-| `Debug.dbus_interfaces_in_non_session_instances` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
-| `Debug.wait_for_frame_completion_before_queueing` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
-| `Debug.enable_overlay_planes` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
-| `Debug.disable_cursor_plane` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
-| `Debug.disable_direct_scanout` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
-| `Debug.restrict_primary_scanout_to_matching_format` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
-| `Debug.force_disable_connectors_on_resume` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
-| `Debug.render_drm_device` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
-| `Debug.ignored_drm_devices` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
-| `Debug.force_pipewire_invalid_modifier` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
-| `Debug.disable_pipewire_dmabuf` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
-| `Debug.emulate_zero_presentation_time` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
+| `Debug.preview_render` | Missing | Field-specific backend/capture/topology scope recorded; retained acceptance is open; [input/output integration audit](niri-input-output-integration-audit.md#remaining-debug-scope) |
+| `Debug.dbus_interfaces_in_non_session_instances` | Outside | Field-specific backend/capture/topology scope recorded; retained acceptance is open; [input/output integration audit](niri-input-output-integration-audit.md#remaining-debug-scope) |
+| `Debug.wait_for_frame_completion_before_queueing` | Unverified | Field-specific backend/capture/topology scope recorded; retained acceptance is open; [input/output integration audit](niri-input-output-integration-audit.md#remaining-debug-scope) |
+| `Debug.enable_overlay_planes` | Unverified | Field-specific backend/capture/topology scope recorded; retained acceptance is open; [input/output integration audit](niri-input-output-integration-audit.md#remaining-debug-scope) |
+| `Debug.disable_cursor_plane` | Unverified | Field-specific backend/capture/topology scope recorded; retained acceptance is open; [input/output integration audit](niri-input-output-integration-audit.md#remaining-debug-scope) |
+| `Debug.disable_direct_scanout` | Unverified | Field-specific backend/capture/topology scope recorded; retained acceptance is open; [input/output integration audit](niri-input-output-integration-audit.md#remaining-debug-scope) |
+| `Debug.restrict_primary_scanout_to_matching_format` | Unverified | Field-specific backend/capture/topology scope recorded; retained acceptance is open; [input/output integration audit](niri-input-output-integration-audit.md#remaining-debug-scope) |
+| `Debug.force_disable_connectors_on_resume` | Missing | Field-specific backend/capture/topology scope recorded; retained acceptance is open; [input/output integration audit](niri-input-output-integration-audit.md#remaining-debug-scope) |
+| `Debug.render_drm_device` | Unverified | Field-specific backend/capture/topology scope recorded; retained acceptance is open; [input/output integration audit](niri-input-output-integration-audit.md#remaining-debug-scope) |
+| `Debug.ignored_drm_devices` | Missing | Field-specific backend/capture/topology scope recorded; retained acceptance is open; [input/output integration audit](niri-input-output-integration-audit.md#remaining-debug-scope) |
+| `Debug.force_pipewire_invalid_modifier` | Unverified | Field-specific backend/capture/topology scope recorded; retained acceptance is open; [input/output integration audit](niri-input-output-integration-audit.md#remaining-debug-scope) |
+| `Debug.disable_pipewire_dmabuf` | Unverified | Field-specific backend/capture/topology scope recorded; retained acceptance is open; [input/output integration audit](niri-input-output-integration-audit.md#remaining-debug-scope) |
+| `Debug.emulate_zero_presentation_time` | Unverified | Field-specific backend/capture/topology scope recorded; retained acceptance is open; [input/output integration audit](niri-input-output-integration-audit.md#remaining-debug-scope) |
 | `Debug.disable_resize_throttling` | Missing | Dedicated reference policy/setting missing; existing integration is not equivalence; [input focus audit](niri-input-focus-audit.md#layout-debug-flags) |
 | `Debug.disable_transactions` | Missing | Dedicated reference policy/setting missing; existing integration is not equivalence; [input focus audit](niri-input-focus-audit.md#layout-debug-flags) |
-| `Debug.keep_laptop_panel_on_when_lid_is_closed` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
-| `Debug.disable_monitor_names` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
+| `Debug.keep_laptop_panel_on_when_lid_is_closed` | Missing | Field-specific backend/capture/topology scope recorded; retained acceptance is open; [input/output integration audit](niri-input-output-integration-audit.md#remaining-debug-scope) |
+| `Debug.disable_monitor_names` | Missing | Field-specific backend/capture/topology scope recorded; retained acceptance is open; [input/output integration audit](niri-input-output-integration-audit.md#remaining-debug-scope) |
 | `Debug.strict_new_window_focus_policy` | Missing | Dedicated reference policy/setting missing; existing integration is not equivalence; [input focus audit](niri-input-focus-audit.md#layout-debug-flags) |
 | `Debug.honor_xdg_activation_with_invalid_serial` | Missing | Dedicated reference policy/setting missing; existing integration is not equivalence; [input focus audit](niri-input-focus-audit.md#layout-debug-flags) |
 | `Debug.deactivate_unfocused_windows` | Missing | Dedicated reference policy/setting missing; existing integration is not equivalence; [input focus audit](niri-input-focus-audit.md#layout-debug-flags) |
-| `Debug.skip_cursor_only_updates_during_vrr` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
-| `Debug.disable_10bit_output` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
-| `DebugPart.preview_render` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
-| `DebugPart.dbus_interfaces_in_non_session_instances` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
-| `DebugPart.wait_for_frame_completion_before_queueing` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
-| `DebugPart.enable_overlay_planes` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
-| `DebugPart.disable_cursor_plane` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
-| `DebugPart.disable_direct_scanout` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
-| `DebugPart.restrict_primary_scanout_to_matching_format` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
-| `DebugPart.force_disable_connectors_on_resume` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
-| `DebugPart.render_drm_device` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
-| `DebugPart.ignored_drm_devices` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
-| `DebugPart.force_pipewire_invalid_modifier` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
-| `DebugPart.disable_pipewire_dmabuf` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
-| `DebugPart.emulate_zero_presentation_time` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
+| `Debug.skip_cursor_only_updates_during_vrr` | Unverified | Field-specific backend/capture/topology scope recorded; retained acceptance is open; [input/output integration audit](niri-input-output-integration-audit.md#remaining-debug-scope) |
+| `Debug.disable_10bit_output` | Unverified | Field-specific backend/capture/topology scope recorded; retained acceptance is open; [input/output integration audit](niri-input-output-integration-audit.md#remaining-debug-scope) |
+| `DebugPart.preview_render` | Missing | Field-specific backend/capture/topology scope recorded; retained acceptance is open; [input/output integration audit](niri-input-output-integration-audit.md#remaining-debug-scope) |
+| `DebugPart.dbus_interfaces_in_non_session_instances` | Outside | Field-specific backend/capture/topology scope recorded; retained acceptance is open; [input/output integration audit](niri-input-output-integration-audit.md#remaining-debug-scope) |
+| `DebugPart.wait_for_frame_completion_before_queueing` | Unverified | Field-specific backend/capture/topology scope recorded; retained acceptance is open; [input/output integration audit](niri-input-output-integration-audit.md#remaining-debug-scope) |
+| `DebugPart.enable_overlay_planes` | Unverified | Field-specific backend/capture/topology scope recorded; retained acceptance is open; [input/output integration audit](niri-input-output-integration-audit.md#remaining-debug-scope) |
+| `DebugPart.disable_cursor_plane` | Unverified | Field-specific backend/capture/topology scope recorded; retained acceptance is open; [input/output integration audit](niri-input-output-integration-audit.md#remaining-debug-scope) |
+| `DebugPart.disable_direct_scanout` | Unverified | Field-specific backend/capture/topology scope recorded; retained acceptance is open; [input/output integration audit](niri-input-output-integration-audit.md#remaining-debug-scope) |
+| `DebugPart.restrict_primary_scanout_to_matching_format` | Unverified | Field-specific backend/capture/topology scope recorded; retained acceptance is open; [input/output integration audit](niri-input-output-integration-audit.md#remaining-debug-scope) |
+| `DebugPart.force_disable_connectors_on_resume` | Missing | Field-specific backend/capture/topology scope recorded; retained acceptance is open; [input/output integration audit](niri-input-output-integration-audit.md#remaining-debug-scope) |
+| `DebugPart.render_drm_device` | Unverified | Field-specific backend/capture/topology scope recorded; retained acceptance is open; [input/output integration audit](niri-input-output-integration-audit.md#remaining-debug-scope) |
+| `DebugPart.ignored_drm_devices` | Missing | Field-specific backend/capture/topology scope recorded; retained acceptance is open; [input/output integration audit](niri-input-output-integration-audit.md#remaining-debug-scope) |
+| `DebugPart.force_pipewire_invalid_modifier` | Unverified | Field-specific backend/capture/topology scope recorded; retained acceptance is open; [input/output integration audit](niri-input-output-integration-audit.md#remaining-debug-scope) |
+| `DebugPart.disable_pipewire_dmabuf` | Unverified | Field-specific backend/capture/topology scope recorded; retained acceptance is open; [input/output integration audit](niri-input-output-integration-audit.md#remaining-debug-scope) |
+| `DebugPart.emulate_zero_presentation_time` | Unverified | Field-specific backend/capture/topology scope recorded; retained acceptance is open; [input/output integration audit](niri-input-output-integration-audit.md#remaining-debug-scope) |
 | `DebugPart.disable_resize_throttling` | Missing | Dedicated reference policy/setting missing; existing integration is not equivalence; [input focus audit](niri-input-focus-audit.md#layout-debug-flags) |
 | `DebugPart.disable_transactions` | Missing | Dedicated reference policy/setting missing; existing integration is not equivalence; [input focus audit](niri-input-focus-audit.md#layout-debug-flags) |
-| `DebugPart.keep_laptop_panel_on_when_lid_is_closed` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
-| `DebugPart.disable_monitor_names` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
+| `DebugPart.keep_laptop_panel_on_when_lid_is_closed` | Missing | Field-specific backend/capture/topology scope recorded; retained acceptance is open; [input/output integration audit](niri-input-output-integration-audit.md#remaining-debug-scope) |
+| `DebugPart.disable_monitor_names` | Missing | Field-specific backend/capture/topology scope recorded; retained acceptance is open; [input/output integration audit](niri-input-output-integration-audit.md#remaining-debug-scope) |
 | `DebugPart.strict_new_window_focus_policy` | Missing | Dedicated reference policy/setting missing; existing integration is not equivalence; [input focus audit](niri-input-focus-audit.md#layout-debug-flags) |
 | `DebugPart.honor_xdg_activation_with_invalid_serial` | Missing | Dedicated reference policy/setting missing; existing integration is not equivalence; [input focus audit](niri-input-focus-audit.md#layout-debug-flags) |
 | `DebugPart.deactivate_unfocused_windows` | Missing | Dedicated reference policy/setting missing; existing integration is not equivalence; [input focus audit](niri-input-focus-audit.md#layout-debug-flags) |
-| `DebugPart.skip_cursor_only_updates_during_vrr` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
-| `DebugPart.disable_10bit_output` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
+| `DebugPart.skip_cursor_only_updates_during_vrr` | Unverified | Field-specific backend/capture/topology scope recorded; retained acceptance is open; [input/output integration audit](niri-input-output-integration-audit.md#remaining-debug-scope) |
+| `DebugPart.disable_10bit_output` | Unverified | Field-specific backend/capture/topology scope recorded; retained acceptance is open; [input/output integration audit](niri-input-output-integration-audit.md#remaining-debug-scope) |
 
 Declared types to check for nested values/custom decoding: `Debug`, `DebugPart`, `PreviewRender`.
 

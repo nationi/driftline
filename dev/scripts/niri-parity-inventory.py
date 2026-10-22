@@ -213,6 +213,32 @@ def schema_structs(source):
         yield match.group(1), re.findall(r"^    pub (\w+):", block(source, match.group(0)), re.M)
 
 
+INTEGRATION_AUDIT_FIELDS = {
+    ("debug", "Debug"): "preview_render dbus_interfaces_in_non_session_instances wait_for_frame_completion_before_queueing enable_overlay_planes disable_cursor_plane disable_direct_scanout restrict_primary_scanout_to_matching_format force_disable_connectors_on_resume render_drm_device ignored_drm_devices force_pipewire_invalid_modifier disable_pipewire_dmabuf emulate_zero_presentation_time keep_laptop_panel_on_when_lid_is_closed disable_monitor_names skip_cursor_only_updates_during_vrr disable_10bit_output",
+    ("debug", "DebugPart"): "preview_render dbus_interfaces_in_non_session_instances wait_for_frame_completion_before_queueing enable_overlay_planes disable_cursor_plane disable_direct_scanout restrict_primary_scanout_to_matching_format force_disable_connectors_on_resume render_drm_device ignored_drm_devices force_pipewire_invalid_modifier disable_pipewire_dmabuf emulate_zero_presentation_time keep_laptop_panel_on_when_lid_is_closed disable_monitor_names skip_cursor_only_updates_during_vrr disable_10bit_output",
+    ("output", "Output"): "name",
+    ("output", "OutputName"): "connector make model serial",
+    ("input", "ScrollFactor"): "base horizontal vertical",
+    ("input", "Mouse"): "scroll_factor",
+    ("input", "Touchpad"): "scroll_factor pinch_sensitivity",
+}
+
+
+def integration_status(module, name, field):
+    if module == "input":
+        status, section = "Divergent", "client-scroll-and-pinch"
+        mapping = "Client delivery factors/exponentiation differ from canvas navigation controls"
+    elif module == "output":
+        status, section = "Divergent", "output-identity-and-lookup"
+        mapping = "Exact connector/* lookup differs from ASCII-insensitive connector or metadata identity"
+    else:
+        section = "remaining-debug-scope"
+        missing = {"preview_render", "force_disable_connectors_on_resume", "ignored_drm_devices", "keep_laptop_panel_on_when_lid_is_closed", "disable_monitor_names"}
+        status = "Outside" if field == "dbus_interfaces_in_non_session_instances" else "Missing" if field in missing else "Unverified"
+        mapping = "Field-specific backend/capture/topology scope recorded; retained acceptance is open"
+    return status, f"{mapping}; [input/output integration audit](niri-input-output-integration-audit.md#{section})"
+
+
 ANIMATION_GESTURE_AUDIT_FIELDS = {
     ("animations", "Animations"): "off slowdown workspace_switch window_open window_close horizontal_view_movement window_movement window_resize config_notification_open_close exit_confirmation_open_close screenshot_ui_open overview_open_close recent_windows_close",
     ("animations", "AnimationsPart"): "off on slowdown workspace_switch window_open window_close horizontal_view_movement window_movement window_resize config_notification_open_close exit_confirmation_open_close screenshot_ui_open overview_open_close recent_windows_close",
@@ -297,6 +323,8 @@ def layer_overview_status(name, field):
 
 
 def config_status(module, name, field):
+    if field in INTEGRATION_AUDIT_FIELDS.get((module, name), "").split():
+        return integration_status(module, name, field)
     if (module, name) in ANIMATION_GESTURE_AUDIT_FIELDS:
         return animation_gesture_status(module, name, field)
     if field in INPUT_FOCUS_AUDIT_FIELDS.get((module, name), "").split():
@@ -375,6 +403,8 @@ def generate(root):
         "workspace back-and-forth and five layout-visible debug flags; other fields stay open.",
         "The [animation/gesture consumers](niri-animation-gesture-audit.md) audit traces those",
         "schema fields and scoped consumers; physics/interaction execution remains open.",
+        "The [input/output integration consumers](niri-input-output-integration-audit.md) review",
+        "scroll/pinch delivery, identity and remaining debug scope; retained Unverified gates stay open.",
         "P0 reference operation fixtures and the custom-decoder audit remain unfinished.", "",
         "Status: Partial = related implementation, not full equivalence; Divergent = known",
         "semantic difference; Missing = no matching tiling action; Unverified = not audited;",
@@ -412,6 +442,8 @@ def generate(root):
         source = sources[f"{module}.rs"]
         lines += [f"### `{module}.rs`", "", "| Schema field | Status | Mapping / next audit |", "| --- | --- | --- |"]
         for name, fields in schema_structs(source):
+            if (module, name) in INTEGRATION_AUDIT_FIELDS:
+                assert set(INTEGRATION_AUDIT_FIELDS[(module, name)].split()).issubset(fields), "Integration audit fields must exist"
             if (module, name) in ANIMATION_GESTURE_AUDIT_FIELDS:
                 assert set(fields) == set(ANIMATION_GESTURE_AUDIT_FIELDS[(module, name)].split()), "Animation/gesture audit must cover every field"
             if (module, name) in INPUT_FOCUS_AUDIT_FIELDS:
