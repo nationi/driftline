@@ -2759,3 +2759,26 @@ tooling; implementation evidence remains B4. No push/install/TTY claim. Next A0:
 public binding/action addressing plus remaining misc/root/recent-windows semantics
 and independent executable reference fixtures. Hardware/input/capture and complete
 animation/gesture/overview acceptance remains open.
+
+
+## A0 binding grammar and scoped action addressing
+
+Reviewed all 14 named bind fields (496 schema review links overall) and 12
+selected action consumers. Traced key aliases/whitespace/keysym exception,
+same-block duplicate diagnostics versus later-block key replacement, action
+children, repeat/cooldown/lock/inhibition and switch-hook shapes. Help-overlay
+presentation alone is Outside; runtime binding policy remains in scope.
+The inventory derives 50 config-skipped versus 136 derived variants from pinned
+source; neither set is an IPC whitelist or full argument/behavior audit.
+Selected ID lookups no-op on unknown mapped IDs; saturating ordinal conversion,
+floating dispatch, timestamp-based previous focus/MRU and config/CLI workspace
+reference differences are recorded. Quoted numeric config strings are names,
+CLI numeric strings can be indices; Id exists in IPC but not those scalar parsers.
+
+Validation passed: Python syntax, deterministic generation, 576 preserved schema
+keys / 186 action keys and statuses, exact bind field/source exposure sets,
+14 new schema links plus 12 scoped action links, local/pinned links/anchors,
+clean pinned revision and diff checks. No niri/parser/input execution or full
+Rust CI rerun for docs/tooling; implementation evidence remains B4. No push/
+install/TTY claim. Next A0: SizeChange/PositionChange and remaining compound/target
+action families, misc/root/recent-windows and independent executable fixtures.

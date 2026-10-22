@@ -213,6 +213,22 @@ def schema_structs(source):
         yield match.group(1), re.findall(r"^    pub (\w+):", block(source, match.group(0)), re.M)
 
 
+BIND_AUDIT_FIELDS = {
+    ("binds", "Bind"): "key action repeat cooldown allow_when_locked allow_inhibiting hotkey_overlay_title",
+    ("binds", "Key"): "trigger modifiers",
+    ("binds", "SwitchBinds"): "lid_open lid_close tablet_mode_on tablet_mode_off",
+    ("binds", "SwitchAction"): "spawn",
+}
+ACTION_ADDRESS_AUDIT = set("CloseWindowById FocusWindow FocusWindowInColumn FocusWindowPrevious FocusColumnFirst FocusColumnLast FocusColumnRightOrFirst FocusColumnLeftOrLast FocusColumn MoveColumnToIndex FocusWorkspace FocusWorkspacePrevious".split())
+
+
+def bind_status(name, field):
+    section = "binding-grammar-and-assembly"
+    status = "Outside" if field == "hotkey_overlay_title" else "Unverified"
+    mapping = "Custom binding decode/merge and selected consumers traced; runtime acceptance remains open"
+    return status, f"{mapping}; [bind/address audit](niri-binding-address-audit.md#{section})"
+
+
 OUTPUT_RULE_AUDIT_FIELDS = {
     ("output", "Mode"): "custom mode",
     ("output", "Modeline"): "clock hdisplay hsync_start hsync_end htotal vdisplay vsync_start vsync_end vtotal hsync_polarity vsync_polarity",
@@ -387,6 +403,8 @@ def layer_overview_status(name, field):
 
 
 def config_status(module, name, field):
+    if (module, name) in BIND_AUDIT_FIELDS:
+        return bind_status(name, field)
     if field in OUTPUT_RULE_AUDIT_FIELDS.get((module, name), "").split():
         return output_rule_status(module, name, field)
     if field in DEVICE_INPUT_AUDIT_FIELDS.get((module, name), "").split():
@@ -448,6 +466,9 @@ def generate(root):
     actions = block((source_root / "binds.rs").read_text(), "pub enum Action {")
     names = re.findall(r"^    ([A-Z]\w*)\b", actions, re.M)
     assert names and len(set(names)) == len(names)
+    skipped = re.findall(r"^    #\[knuffel\(skip\)\]\n    ([A-Z]\w*)", actions, re.M)
+    assert set(skipped).issubset(names) and len(set(skipped)) == len(skipped)
+    assert ACTION_ADDRESS_AUDIT.issubset(names), "Reviewed action names must exist"
     lines = [
         "# Niri tiling parity inventory", "",
         f"Reference: `{REVISION}`. Rebuild with `python3 dev/scripts/niri-parity-inventory.py /tmp/niri > dev/docs/niri-tiling-inventory.md`.", "",
@@ -487,8 +508,15 @@ def generate(root):
     ]
     for name in names:
         scope, status, mapping, evidence = action_status(name)
+        if name in ACTION_ADDRESS_AUDIT:
+            evidence += "; [action address audit](niri-binding-address-audit.md#scoped-ordinal-and-previous-selection)"
         lines.append(f"| `{name}` | {scope} | {status} | {mapping} | {evidence} |")
-    lines += ["", f"Action variants indexed: **{len(names)}**.", "", "## Module coverage", "",
+    lines += ["", f"Action variants indexed: **{len(names)}**.", "", "## Action config exposure", "",
+        f"Derived config decoder variants: **{len(names) - len(skipped)}**; skipped variants: **{len(skipped)}**.",
+        "Derived does not mean fully audited arguments/consumers. Skipped is not an IPC whitelist.",
+        "Source-skipped config variants: " + ", ".join(f"`{name}`" for name in skipped) + ".",
+        "See the [binding/address interfaces](niri-binding-address-audit.md#config-exposure-versus-ipc).", "",
+        "## Module coverage", "",
         "| Source file | Scope | Index | Named fields | Coverage / exclusion reason |",
         "| --- | --- | --- | --- | --- |"]
     for path, (scope, reason) in MODULE_COVERAGE.items():
@@ -514,6 +542,8 @@ def generate(root):
         source = sources[f"{module}.rs"]
         lines += [f"### `{module}.rs`", "", "| Schema field | Status | Mapping / next audit |", "| --- | --- | --- |"]
         for name, fields in schema_structs(source):
+            if (module, name) in BIND_AUDIT_FIELDS:
+                assert set(fields) == set(BIND_AUDIT_FIELDS[(module, name)].split()), "Bind audit must cover every field"
             if (module, name) in OUTPUT_RULE_AUDIT_FIELDS:
                 assert set(OUTPUT_RULE_AUDIT_FIELDS[(module, name)].split()).issubset(fields), "Output/rule audit fields must exist"
             if module in {"output", "window_rule"}:

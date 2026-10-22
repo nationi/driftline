@@ -59,23 +59,23 @@ Outside = explicit non-layout scope exclusion. Never infer Exact from a similar 
 | `ScreenshotWindowById` | Outside | Outside | unrelated compositor action | roadmap scope; reconsider if layout-visible |
 | `ToggleKeyboardShortcutsInhibit` | Outside | Outside | unrelated compositor action | roadmap scope; reconsider if layout-visible |
 | `CloseWindow` | Layout | Partial | close-window | src/tests/tiling.rs; src/stage/tiling.rs tests |
-| `CloseWindowById` | Layout | Missing | — | P4/P6–P14; no parity evidence yet |
+| `CloseWindowById` | Layout | Missing | — | P4/P6–P14; no parity evidence yet; [action address audit](niri-binding-address-audit.md#scoped-ordinal-and-previous-selection) |
 | `FullscreenWindow` | Layout | Divergent | toggle-fullscreen exits tiling; topology not retained | incompatible_actions_leave_tiling_before_applying_canvas_policy |
 | `FullscreenWindowById` | Layout | Missing | — | P4/P6–P14; no parity evidence yet |
 | `ToggleWindowedFullscreen` | Layout | Divergent | toggle-fullscreen exits tiling; topology not retained | incompatible_actions_leave_tiling_before_applying_canvas_policy |
 | `ToggleWindowedFullscreenById` | Layout | Missing | — | P4/P6–P14; no parity evidence yet |
-| `FocusWindow` | Layout | Missing | — | P4/P6–P14; no parity evidence yet |
-| `FocusWindowInColumn` | Layout | Missing | — | P4/P6–P14; no parity evidence yet |
-| `FocusWindowPrevious` | Layout | Missing | — | P4/P6–P14; no parity evidence yet |
+| `FocusWindow` | Layout | Missing | — | P4/P6–P14; no parity evidence yet; [action address audit](niri-binding-address-audit.md#scoped-ordinal-and-previous-selection) |
+| `FocusWindowInColumn` | Layout | Missing | — | P4/P6–P14; no parity evidence yet; [action address audit](niri-binding-address-audit.md#scoped-ordinal-and-previous-selection) |
+| `FocusWindowPrevious` | Layout | Missing | — | P4/P6–P14; no parity evidence yet; [action address audit](niri-binding-address-audit.md#scoped-ordinal-and-previous-selection) |
 | `FocusColumnLeft` | Layout | Partial | focus-column left | src/tests/tiling.rs; src/stage/tiling.rs tests |
 | `FocusColumnLeftUnderMouse` | Layout | Missing | — | P4/P6–P14; no parity evidence yet |
 | `FocusColumnRight` | Layout | Partial | focus-column right | src/tests/tiling.rs; src/stage/tiling.rs tests |
 | `FocusColumnRightUnderMouse` | Layout | Missing | — | P4/P6–P14; no parity evidence yet |
-| `FocusColumnFirst` | Layout | Missing | — | P4/P6–P14; no parity evidence yet |
-| `FocusColumnLast` | Layout | Missing | — | P4/P6–P14; no parity evidence yet |
-| `FocusColumnRightOrFirst` | Layout | Missing | — | P4/P6–P14; no parity evidence yet |
-| `FocusColumnLeftOrLast` | Layout | Missing | — | P4/P6–P14; no parity evidence yet |
-| `FocusColumn` | Layout | Missing | — | P4/P6–P14; no parity evidence yet |
+| `FocusColumnFirst` | Layout | Missing | — | P4/P6–P14; no parity evidence yet; [action address audit](niri-binding-address-audit.md#scoped-ordinal-and-previous-selection) |
+| `FocusColumnLast` | Layout | Missing | — | P4/P6–P14; no parity evidence yet; [action address audit](niri-binding-address-audit.md#scoped-ordinal-and-previous-selection) |
+| `FocusColumnRightOrFirst` | Layout | Missing | — | P4/P6–P14; no parity evidence yet; [action address audit](niri-binding-address-audit.md#scoped-ordinal-and-previous-selection) |
+| `FocusColumnLeftOrLast` | Layout | Missing | — | P4/P6–P14; no parity evidence yet; [action address audit](niri-binding-address-audit.md#scoped-ordinal-and-previous-selection) |
+| `FocusColumn` | Layout | Missing | — | P4/P6–P14; no parity evidence yet; [action address audit](niri-binding-address-audit.md#scoped-ordinal-and-previous-selection) |
 | `FocusWindowOrMonitorUp` | Layout | Missing | — | P4/P6–P14; no parity evidence yet |
 | `FocusWindowOrMonitorDown` | Layout | Missing | — | P4/P6–P14; no parity evidence yet |
 | `FocusColumnOrMonitorLeft` | Layout | Missing | — | P4/P6–P14; no parity evidence yet |
@@ -98,7 +98,7 @@ Outside = explicit non-layout scope exclusion. Never infer Exact from a similar 
 | `MoveColumnToLast` | Layout | Missing | — | P4/P6–P14; no parity evidence yet |
 | `MoveColumnLeftOrToMonitorLeft` | Layout | Missing | — | P4/P6–P14; no parity evidence yet |
 | `MoveColumnRightOrToMonitorRight` | Layout | Missing | — | P4/P6–P14; no parity evidence yet |
-| `MoveColumnToIndex` | Layout | Missing | — | P4/P6–P14; no parity evidence yet |
+| `MoveColumnToIndex` | Layout | Missing | — | P4/P6–P14; no parity evidence yet; [action address audit](niri-binding-address-audit.md#scoped-ordinal-and-previous-selection) |
 | `MoveWindowDown` | Layout | Partial | move-tiled-window down | src/tests/tiling.rs; src/stage/tiling.rs tests |
 | `MoveWindowUp` | Layout | Partial | move-tiled-window up | src/tests/tiling.rs; src/stage/tiling.rs tests |
 | `MoveWindowDownOrToWorkspaceDown` | Layout | Missing | — | P4/P6–P14; no parity evidence yet |
@@ -121,8 +121,8 @@ Outside = explicit non-layout scope exclusion. Never infer Exact from a similar 
 | `FocusWorkspaceDownUnderMouse` | Layout | Missing | — | P4/P6–P14; no parity evidence yet |
 | `FocusWorkspaceUp` | Layout | Missing | — | P4/P6–P14; no parity evidence yet |
 | `FocusWorkspaceUpUnderMouse` | Layout | Missing | — | P4/P6–P14; no parity evidence yet |
-| `FocusWorkspace` | Layout | Missing | — | P4/P6–P14; no parity evidence yet |
-| `FocusWorkspacePrevious` | Layout | Missing | — | P4/P6–P14; no parity evidence yet |
+| `FocusWorkspace` | Layout | Missing | — | P4/P6–P14; no parity evidence yet; [action address audit](niri-binding-address-audit.md#scoped-ordinal-and-previous-selection) |
+| `FocusWorkspacePrevious` | Layout | Missing | — | P4/P6–P14; no parity evidence yet; [action address audit](niri-binding-address-audit.md#scoped-ordinal-and-previous-selection) |
 | `MoveWindowToWorkspaceDown` | Layout | Missing | — | P4/P6–P14; no parity evidence yet |
 | `MoveWindowToWorkspaceUp` | Layout | Missing | — | P4/P6–P14; no parity evidence yet |
 | `MoveWindowToWorkspace` | Layout | Missing | — | P4/P6–P14; no parity evidence yet |
@@ -226,6 +226,13 @@ Outside = explicit non-layout scope exclusion. Never infer Exact from a similar 
 | `TestAction` | Outside | Outside | unrelated compositor action | roadmap scope; reconsider if layout-visible |
 
 Action variants indexed: **186**.
+
+## Action config exposure
+
+Derived config decoder variants: **136**; skipped variants: **50**.
+Derived does not mean fully audited arguments/consumers. Skipped is not an IPC whitelist.
+Source-skipped config variants: `ChangeVt`, `ConfirmScreenshot`, `CancelScreenshot`, `ScreenshotTogglePointer`, `ScreenshotWindowById`, `CloseWindowById`, `FullscreenWindowById`, `ToggleWindowedFullscreenById`, `FocusWindow`, `FocusColumnLeftUnderMouse`, `FocusColumnRightUnderMouse`, `ConsumeOrExpelWindowLeftById`, `ConsumeOrExpelWindowRightById`, `CenterWindowById`, `FocusWorkspaceDownUnderMouse`, `FocusWorkspaceUpUnderMouse`, `MoveWindowToWorkspaceById`, `MoveWorkspaceToIndexByRef`, `MoveWorkspaceToMonitorByRef`, `SetWorkspaceNameByRef`, `UnsetWorkSpaceNameByRef`, `MoveWindowToMonitorById`, `SetWindowWidthById`, `SetWindowHeightById`, `ResetWindowHeightById`, `SwitchPresetWindowWidthById`, `SwitchPresetWindowWidthBackById`, `SwitchPresetWindowHeightById`, `SwitchPresetWindowHeightBackById`, `MaximizeWindowToEdgesById`, `ToggleWindowFloatingById`, `MoveWindowToFloatingById`, `MoveWindowToTilingById`, `MoveFloatingWindowById`, `ToggleWindowRuleOpacityById`, `SetDynamicCastWindowById`, `StopCast`, `ToggleWindowUrgent`, `SetWindowUrgent`, `UnsetWindowUrgent`, `LoadConfigFile`, `MruAdvance`, `MruConfirm`, `MruCancel`, `MruCloseCurrentWindow`, `MruFirst`, `MruLast`, `MruSetScope`, `MruCycleScope`, `TestAction`.
+See the [binding/address interfaces](niri-binding-address-audit.md#config-exposure-versus-ipc).
 
 ## Module coverage
 
@@ -911,20 +918,20 @@ Declared types to check for nested values/custom decoding: `Debug`, `DebugPart`,
 
 | Schema field | Status | Mapping / next audit |
 | --- | --- | --- |
-| `Bind.key` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
-| `Bind.action` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
-| `Bind.repeat` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
-| `Bind.cooldown` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
-| `Bind.allow_when_locked` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
-| `Bind.allow_inhibiting` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
-| `Bind.hotkey_overlay_title` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
-| `Key.trigger` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
-| `Key.modifiers` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
-| `SwitchBinds.lid_open` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
-| `SwitchBinds.lid_close` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
-| `SwitchBinds.tablet_mode_on` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
-| `SwitchBinds.tablet_mode_off` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
-| `SwitchAction.spawn` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
+| `Bind.key` | Unverified | Custom binding decode/merge and selected consumers traced; runtime acceptance remains open; [bind/address audit](niri-binding-address-audit.md#binding-grammar-and-assembly) |
+| `Bind.action` | Unverified | Custom binding decode/merge and selected consumers traced; runtime acceptance remains open; [bind/address audit](niri-binding-address-audit.md#binding-grammar-and-assembly) |
+| `Bind.repeat` | Unverified | Custom binding decode/merge and selected consumers traced; runtime acceptance remains open; [bind/address audit](niri-binding-address-audit.md#binding-grammar-and-assembly) |
+| `Bind.cooldown` | Unverified | Custom binding decode/merge and selected consumers traced; runtime acceptance remains open; [bind/address audit](niri-binding-address-audit.md#binding-grammar-and-assembly) |
+| `Bind.allow_when_locked` | Unverified | Custom binding decode/merge and selected consumers traced; runtime acceptance remains open; [bind/address audit](niri-binding-address-audit.md#binding-grammar-and-assembly) |
+| `Bind.allow_inhibiting` | Unverified | Custom binding decode/merge and selected consumers traced; runtime acceptance remains open; [bind/address audit](niri-binding-address-audit.md#binding-grammar-and-assembly) |
+| `Bind.hotkey_overlay_title` | Outside | Custom binding decode/merge and selected consumers traced; runtime acceptance remains open; [bind/address audit](niri-binding-address-audit.md#binding-grammar-and-assembly) |
+| `Key.trigger` | Unverified | Custom binding decode/merge and selected consumers traced; runtime acceptance remains open; [bind/address audit](niri-binding-address-audit.md#binding-grammar-and-assembly) |
+| `Key.modifiers` | Unverified | Custom binding decode/merge and selected consumers traced; runtime acceptance remains open; [bind/address audit](niri-binding-address-audit.md#binding-grammar-and-assembly) |
+| `SwitchBinds.lid_open` | Unverified | Custom binding decode/merge and selected consumers traced; runtime acceptance remains open; [bind/address audit](niri-binding-address-audit.md#binding-grammar-and-assembly) |
+| `SwitchBinds.lid_close` | Unverified | Custom binding decode/merge and selected consumers traced; runtime acceptance remains open; [bind/address audit](niri-binding-address-audit.md#binding-grammar-and-assembly) |
+| `SwitchBinds.tablet_mode_on` | Unverified | Custom binding decode/merge and selected consumers traced; runtime acceptance remains open; [bind/address audit](niri-binding-address-audit.md#binding-grammar-and-assembly) |
+| `SwitchBinds.tablet_mode_off` | Unverified | Custom binding decode/merge and selected consumers traced; runtime acceptance remains open; [bind/address audit](niri-binding-address-audit.md#binding-grammar-and-assembly) |
+| `SwitchAction.spawn` | Unverified | Custom binding decode/merge and selected consumers traced; runtime acceptance remains open; [bind/address audit](niri-binding-address-audit.md#binding-grammar-and-assembly) |
 
 Declared types to check for nested values/custom decoding: `Binds`, `Bind`, `Key`, `Trigger`, `SwitchBinds`, `SwitchAction`, `Action`, `WorkspaceReference`.
 

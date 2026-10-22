@@ -64,17 +64,17 @@ mode. These are documented fallbacks, not reference-compatible behavior.
 ## Verified evidence and its limits
 
 Latest A0 documentation/tooling validation: the
-[output/window rule audit](niri-output-window-rule-audit.md) adds 42 review links
-(482 total): 28 output and 14 window-rule fields. All named rows in those modules
-now have source-review links. Runtime scale clamp/N/120 representation, output
-ordering/overlap fallback, startup focus, modes/modelines/max-bpc, VRR visibility,
-dynamic scalar/protocol/popup rules and working-area floating placement are
-traced. Decoder acceptance and actual DRM/render/protocol parity remain open;
-Unverified hardware rows are retained. Inventory remains 576 fields, 186 actions,
-18 paths / 14 modules and 25 root nodes / 24 Config fields. Syntax, deterministic
-generation, field existence/combined evidence coverage, old row/action preservation
-and local/pinned links were checked. No runtime or public config change;
-implementation CI remains B4.
+[binding/address audit](niri-binding-address-audit.md) adds 14 schema review links
+(496 total) and source evidence on 12 selected action rows. The generator lists
+50 config-skipped Action variants versus 136 derived variants, keeping source
+symbols separate from public config availability. Key/flag/duplicate/override
+shapes, cooldown/repeat/lock/inhibition consumers and selected ID/ordinal/previous/
+workspace reference paths are traced. The other action families/argument decoders
+and full contexts stay open. Review does not change behavior status to Exact.
+Inventory remains 576 fields, 186 actions, 18 paths / 14 modules and 25 root nodes /
+24 Config fields. Syntax, deterministic generation, exact binds field coverage,
+source exposure sets, previous keys/action statuses and local/pinned links were
+checked. No runtime or public config change; implementation CI remains B4.
 
 Latest validation gate: `/tmp/driftwm-b4-output-ci.log`, exit 0: full
 `dev/scripts/ci-local`, 369 library cases, 1490 binary cases including ignored
@@ -186,13 +186,13 @@ unresolved; use direct TTY for visual acceptance.
 
 ## Next work
 
-Next work: **A0/P0 public binding/action addressing**, at pinned niri
-`12de51d6a60baad8896366920278a24f17921f52`: bind grammar, ID/index/name/previous/
-next selection and action boundaries. Remaining misc/recent-windows and root
-integration semantics also need explicit review. Independent executable reference
-fixtures beyond zero gaps, input/backend/capture acceptance and complete numerical
-animation/gesture/layer/overview permutations remain open. Reviewed named fields
-are not implemented reference behavior or completed parser/hardware acceptance.
+Next work: **A0/P0 remaining action families and argument decoders**, pinned niri
+`12de51d6a60baad8896366920278a24f17921f52`: SizeChange/PositionChange, compound
+monitor/workspace actions and target variants. The 12 reviewed addressing rows
+do not close all 186 actions. Remaining misc/root/recent-windows semantics and
+independent executable reference fixtures beyond zero gaps also stay open.
+Retained input/backend/capture acceptance and full numerical animation/gesture/
+layer/overview permutations remain required. Source review is not implementation.
 Do not repeat delivered audits or restart B matrices. A0/P0 gates feature
 expansion; source coverage and scoped review do not prove complete niri parity.
 Controlled SSD scale-change release is
