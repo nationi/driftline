@@ -73,8 +73,10 @@ alone is Outside; MRU key/focus resolution stays in scope.
 
 Public MRU actions are next-window and previous-window, each with optional scope
 and filter property. Scope decodes all/output/workspace; filter's AppId decodes
-app-id. Filter All is the omitted default but marked knuffel(skip), so do not
-assume explicit filter="all" is accepted. Direction Forward/Backward is supplied
+app-id. Filter All is the omitted default and explicit filter="all" is also
+accepted, as confirmed by the [executable parser contracts](niri-parser-reference-fixtures.md).
+The earlier inference from knuffel(skip) was incorrect: pinned knuffel-derive
+3.2.0 DecodeScalar enumerates unit variants without applying that variant attribute. Direction Forward/Backward is supplied
 by the chosen action, not a user child field. Conversion creates MruAdvance with
 an explicit Some(filter), including default All, so a default bind can clear an
 existing AppId filter when advancing. Runtime cycle order is All → Workspace →
@@ -155,7 +157,7 @@ comparison, not new implementation. Action rows retain their conservative
 integration labels. No Exact or completion claim follows from source links.
 
 Independent fixtures must cover on/off order, first/empty/later binds across
-includes, duplicate/invalid binds, skipped All filter versus omitted default,
+includes, duplicate/invalid binds, explicit/omitted All filter and unknown values,
 missing/cached app IDs and scope selection, timestamp ties/debounce, filtered
 empty models, wrap/removal, opening/closing delays, zero preview scale and
 fractional geometry, reload while open/closing, modifier release/inhibition,

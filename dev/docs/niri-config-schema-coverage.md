@@ -146,3 +146,14 @@ then nonzero-gap/fractional-frame geometry and operation traces.
 Document concrete exclusions as needed. Independent decoder/geometry/operation
 fixtures beyond zero gaps remain required; no Exact or overall-completion claim
 follows from covering the source file list.
+
+
+## First executed reference contracts
+
+The [parser corpus](niri-parser-reference-fixtures.md) runs the actual pinned
+niri-config parser in an archived workspace: the first 16 tests passed. It
+corrected an earlier inferred rejection of explicit MRU filter="all". This is
+bounded executable reference evidence, not driftwm equivalence or completion of
+all 576 field /186 action contracts. Source inventory stays unchanged. Next:
+remaining scalar/error cases and nonzero-gap/fractional-frame geometry/operation
+fixtures; retained consumer/integration acceptance stays open.

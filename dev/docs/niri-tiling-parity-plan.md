@@ -4,7 +4,8 @@ Status (2026-10-23): integration checkpoint `8c17428`; named controlled B1–B4
 stabilization gates are delivered. A0 source triage now covers all 576 named
 schema fields and 186 action variants, including explicit exclusions and retained
 Unverified integration. Independent parser/merge/error and geometry/operation
-fixtures, argument/consumer permutations and scope decisions remain open.
+fixtures beyond the first 16 passing parser contracts, argument/consumer
+permutations and scope decisions remain open.
 Single-container topology and bounded commit groups are established; reference
 semantics and rendering acceptance remain partial.
 This document supersedes the remaining delivery sequence in
@@ -494,13 +495,18 @@ all 576 rows have scoped evidence, including explicit exclusions and retained
 Unverified integration. Root/error/include and selected cursor/decoration/satellite
 consumers are source-reviewed, not executed acceptance.
 
-Next A0: independent pinned-reference parser/merge/error fixtures, starting with
-ordered includes, duplicate roots, optional missing versus malformed files, first
-MRU binds and on/off precedence. Then extend nonzero-gap/fractional-frame geometry
-and operation traces. Keep reference provenance and executable acceptance distinct
-from source links. Hardware, keymap/protocol, capture/privacy, numerical animation
-and complete interaction acceptance remain at their respective milestone gates. Detailed findings live in the
-[audit catalog](niri-config-schema-coverage.md) and [history](tiling-history.md).
+The first [executable parser batch](niri-parser-reference-fixtures.md) passed
+16 independent contracts against pinned niri-config. It corrected the inferred
+rejection of explicit MRU filter="all"; source annotations alone were insufficient.
+Recorded provenance separates these reference runs from driftwm implementation CI.
+
+Next A0: expand remaining parser/scalar/error contracts and nonzero-gap/fractional-
+frame geometry/operation traces, retaining independent expected results and
+reference provenance. Watcher/UI/client/hardware, keymap/protocol, capture/privacy,
+numerical animation and complete interaction acceptance remain at their respective
+milestone gates. The initial parser batch does not close A0 or feature-expansion
+acceptance. Detailed findings live in the [audit catalog](niri-config-schema-coverage.md)
+and [history](tiling-history.md).
 
 Existing P2/P13 stabilization may continue while P0 is incomplete. P0 is the
 semantic prerequisite before expanding sizing, interactions or ownership; the
@@ -513,7 +519,7 @@ renderer work without closing a named remaining gate.
 | B2 — controlled gates delivered | General framed canvas resize entry, odd extents/nonzero geometry; 12 solid and 12 patterned fractional-client scenes | SSD/CSD grow/shrink, changed offsets, recapture release, popup size/anchor and independent settled transparency/opacity; static scales only |
 | B3 — controlled gates delivered | Capped/minified stale fallback, client-region blur, view/output matrices and five scoped capture allocation failures | 90 allocation scenes cover reply/timeout/exit and subsequent recovery; content-only fractional bake padding fixed; GPU-offscreen/mode evidence remains distinct from hardware scanout |
 | B4 — controlled gates delivered | Direct remap, ready-peer disconnect, protocol unmap/remap, group supersession and sole-output removal/recovery during held/mixed resize | 12 GPU scenes per lifecycle matrix plus hermetic restore/peer/output and stage re-enrollment regressions; output loss leaves tiling and rejects placeholder enrollment; these bounded gates do not prove every lifecycle combination or real DRM hotplug |
-| A0 — in progress, semantic prerequisite | Source triage delivered; independent parser/merge/error and geometry/operation fixtures, argument/consumer permutations and retained-scope decisions remain | 576 field /186 action source reviews, 14 indexed modules /18 source paths and 25 root nodes /24 Config fields; generator guards coverage; executable reference acceptance is pending and source links are not Exact |
+| A0 — in progress, semantic prerequisite | Source triage delivered; first 16 parser contracts delivered; remaining parser/scalar and geometry/operation fixtures, argument/consumer permutations and scope decisions remain | 576 field /186 action source reviews, 14 indexed modules /18 source paths and 25 root nodes /24 Config fields; generator guards coverage; 16 reference parser tests passed; broader executable acceptance is pending and source links are not Exact |
 | Feature expansion | P3 sizing/settings, then dependency-ready P4/P5 work | Source-derived size/topology/view fixtures and documented public settings; retain canvas regressions |
 
 A0 can be taken before any stabilization batch, and must be completed before

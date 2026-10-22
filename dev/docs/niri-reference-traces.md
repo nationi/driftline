@@ -140,3 +140,11 @@ commit transactions remain necessary for already mapped windows.
 Update the source derivation and expected snapshots together when extending the
 corpus. Do not regenerate expected values from driftwm's own geometry output.
 Changing the pinned revision requires a separate baseline review.
+
+
+## Separate executable parser evidence
+
+The [pinned parser corpus](niri-parser-reference-fixtures.md) now executes 16
+configuration contracts against actual niri-config with recorded provenance.
+It does not execute or upgrade the 60 source-derived geometry snapshots above.
+Reference-executed geometry with nonzero gaps/frame extents remains next A0 work.

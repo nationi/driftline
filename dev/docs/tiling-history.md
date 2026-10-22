@@ -2969,3 +2969,33 @@ or Rust CI rerun for docs/tooling; implementation evidence remains B4. No push/
 install/TTY claim. Next A0 is executable independent pinned parser/merge/error
 fixtures (include/duplicates/optional malformed/MRU-first-bind/on-off), followed
 by nonzero-gap/fractional-frame geometry/operation evidence and retained gates.
+
+
+## 2026-10-23 — first executable pinned parser contracts
+
+Added driftwm-owned Rust integration fixtures and an isolated Python runner. The
+runner archives exact clean reference source, adds only the fixture in a temporary
+workspace and runs locked niri-config tests with separate scratch/build paths.
+Provenance includes reference/archive/lock/fixture/log hashes, toolchain versions,
+command, UTC start, Cargo/runner exit and test summaries. Output paths/build cache
+inside the reference checkout are rejected. Original checkout stayed clean.
+
+Final actual run: 16 passed, zero failed, zero ignored. Contracts cover include
+position/nested base, same-file duplicate roots, required/optional missing files,
+malformed/other-I/O optional failures with watch list, recursive and 9/10 depth,
+first/later MRU binds, on/off precedence, retained omitted values, MRU bind shape,
+filter acceptance and fresh cursor parse. Three initial fixture strings had
+invalid KDL node separators and were corrected. A subsequent valid-syntax run
+passed 15 and disproved one source expectation: explicit filter="all" is accepted.
+Pinned knuffel-derive DecodeScalar includes the unit variant despite the annotation.
+The MRU audit is corrected; the retained contract checks typed All for omitted/
+explicit values and rejection of unknown filter. This supersedes the historical
+source-only All-filter inference recorded above, not the other delivered audits.
+
+Validation passed: actual locked reference target, Python syntax, fixture rustfmt,
+report/hash provenance and path/revision guards, deterministic source inventory,
+local/pinned links and diff checks. No compositor implementation changed; no
+watcher/UI/Wayland/GPU/hardware run or full driftwm CI rerun for manual reference
+tooling. Implementation evidence remains B4. No push/install/TTY claim. Next A0:
+remaining parser/scalar error contracts and independent nonzero-gap/frame geometry/
+operation traces. All source rows plus this first batch do not establish parity.

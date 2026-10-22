@@ -99,3 +99,13 @@ pixel evidence comes from NVIDIA RTX 3060, not an assumed Mesa software renderer
 Record automated checks and manual observations separately in
 [the maintained status](tiling-status.md), with detailed logs in
 [history](tiling-history.md).
+
+
+## Manual pinned-reference contracts
+
+The [niri parser reference corpus](niri-parser-reference-fixtures.md) runs
+maintained Rust fixtures against an archived clean pinned niri checkout using
+`dev/scripts/niri-config-reference.py`. It builds only the niri-config test target,
+keeps separate dependency/cache/provenance and leaves driftwm's lockfile/runtime
+unchanged. This manual external-reference gate is separate from ordinary driftwm
+CI; it validates reference contracts before differential implementation fixtures.

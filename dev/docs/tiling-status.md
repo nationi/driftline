@@ -63,18 +63,22 @@ mode. These are documented fallbacks, not reference-compatible behavior.
 
 ## Verified evidence and its limits
 
-Latest A0 documentation/tooling validation: the
-[root/misc audit](niri-root-misc-audit.md) adds 51 row links: 24 Config storage
-fields, 25 misc fields and two previously traced workspace identity/preference
-fields now linked per row. All 576 named fields and all 186 actions now have
-scoped source-review evidence. This completes source triage only: root/exclusion
-links are not behavioral acceptance. Positional includes, per-file duplicate
-roots, optional/error boundaries, fresh parse versus live reload, watcher repair,
-cursor timers, decoration snapshot/Tiled hints and on-demand satellite/reload
-were traced. Generator requires a scoped audit link for every field. Syntax,
-deterministic output, full sets, old keys/action statuses, local/pinned links and
-negative coverage guards were checked. No runtime/config change or executable
-parity claim; implementation CI remains B4.
+Latest A0 executable reference evidence: the
+[pinned parser corpus](niri-parser-reference-fixtures.md) ran 16 Rust contract
+tests against actual niri-config at the pinned revision: 16 passed, zero failed,
+zero ignored. The runner archives a clean checkout, injects only the maintained
+external fixture, uses --locked and separate build/scratch paths, and records
+reference/archive/lock/fixture/log hashes plus compiler and results. Original
+reference and driftwm lockfile/runtime remained unchanged. Contracts cover
+positional/nested includes, duplicate/error/optional/depth/watch-list behavior,
+MRU first/later binds and on/off merge, filter acceptance and fresh cursor parse.
+One source inference was disproved: explicit filter="all" is accepted; corrected
+MRU audit and typed-result/unknown-filter assertions record the finding. Initial
+fixture separator errors were corrected separately and are not semantic findings.
+Runner path/revision guards, Python syntax, Rust fixture formatting, provenance,
+source inventory/links and diff checks passed. All 576 fields /186 actions retain
+source links; this small parser corpus does not prove driftwm parity, watcher/UI/
+geometry/protocol/GPU behavior or complete A0. Implementation CI remains B4.
 
 Latest validation gate: `/tmp/driftwm-b4-output-ci.log`, exit 0: full
 `dev/scripts/ci-local`, 369 library cases, 1490 binary cases including ignored
@@ -186,15 +190,15 @@ unresolved; use direct TTY for visual acceptance.
 
 ## Next work
 
-Next work: **A0/P0 independent executable pinned-reference parser/merge/error
-fixtures**, niri `12de51d6a60baad8896366920278a24f17921f52`. Start with positional
-includes, per-file duplicates, optional missing versus malformed include,
-first-custom MRU binds and on/off precedence; distinguish accepted Config from
-partial decoder construction and persist provenance/results. Then extend nonzero-
-gap/fractional-frame geometry and operation traces, comparing independent expected
-results rather than reproducing driftwm algorithms. All 576 fields /186 actions
-have source triage, but argument/consumer permutations and retained integration/
-input/backend/capture/numerical behavior still gate A0/P0 and feature expansion.
+Next work: **A0/P0 expand executable reference contracts and nonzero-gap geometry
+fixtures**, niri `12de51d6a60baad8896366920278a24f17921f52`. The initial 16 parser
+contracts are delivered; extend scalar/duplicate/include edge cases as needed,
+and start independent fixed/proportional frame geometry/operation evidence with
+nonzero gaps, borders and work-area offsets. Keep accepted reference parser data
+separate from source-derived Stage snapshots and implementation comparisons.
+Watcher/MRU UI, consumer permutations and retained input/backend/capture/numerical
+milestone gates remain open. Source coverage plus 16 reference tests does not
+close A0/P0 or authorize feature expansion.
 Do not repeat delivered audits or restart B matrices. A0/P0 gates feature
 expansion; source coverage and scoped review do not prove complete niri parity.
 Controlled SSD scale-change release is
