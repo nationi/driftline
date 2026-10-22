@@ -1,8 +1,8 @@
 # Tiling development status and handoff
 
 Updated 2026-10-22. Integration checkpoint: `8c17428`; upstream `7ce05ed` is
-included. Controlled B1/B2/B3 gates are delivered; B4 remap, disconnect and
-ready/pending-peer supersession coverage is added.
+included. Named controlled B1–B4 stabilization gates are delivered; this does
+not establish complete P2/P13 acceptance or niri parity.
 The persistent development branch is `nationi/development`. This handoff was reconciled with Git;
 see the [roadmap queue](niri-tiling-parity-plan.md#execution-queue-and-acceptance-gates)
 for task order and acceptance. Older “next” statements in the
@@ -57,10 +57,19 @@ mode. These are documented fallbacks, not reference-compatible behavior.
 
 ## Verified evidence and its limits
 
-Latest validation gate: `/tmp/driftwm-b4-supersede-ci.log`, exit 0: full
-`dev/scripts/ci-local`, 369 library cases, 1488 binary cases including ignored
-GPU scenarios, integration suites and isolated soak. Dedicated B4 supersession
-gate: `/tmp/driftwm-b4-supersede.log`, 12 SSD/CSD scenes at 1x/1.25x/1.5x,
+Latest validation gate: `/tmp/driftwm-b4-output-ci.log`, exit 0: full
+`dev/scripts/ci-local`, 369 library cases, 1490 binary cases including ignored
+GPU scenarios, integration suites and isolated soak. Dedicated B4 output gate:
+`/tmp/driftwm-b4-output.log`, 12 SSD/CSD scenes at 1x/1.25x/1.5x, held/mixed
+resize with a ready peer, stalled peer and popup, plus a hermetic regression.
+Sole-output removal now explicitly leaves tiling before teardown: queued buffers
+are released, retained images/animations and output GPU state drain, and clients
+leave the removed output. A disconnected placeholder cannot start tiling.
+Re-adding an output with the same name retires the placeholder; manual tiling
+re-entry uses a fresh layout ID, preserves window IDs, restores focus/membership
+and shows the latest body/popup pixels without a repeated animation. This uses
+the shared backend policy and simulated globals, not actual DRM unplug/replug.
+Dedicated B4 supersession gate: `/tmp/driftwm-b4-supersede.log`, 12 SSD/CSD scenes at 1x/1.25x/1.5x,
 ordinary held or recaptured mixed resize, two independent clients and a popup.
 A new width request releases the old queued buffer while retaining the pending
 peer. The held frame remains exact; a newly ready buffer still waits for the
@@ -68,7 +77,7 @@ other peer. Release continuity stays within two bytes and settled frames contain
 only the latest body colors. Stable IDs, focus/output membership, zero retained
 snapshots/pending configures/crossfades and no repeated animation are checked.
 The existing hermetic queued-buffer supersession scenario also passed. No
-production fix was needed for these controlled cases; output removal remains B4.
+production fix was needed for these controlled supersession cases.
 Dedicated B4 protocol gate:
 `/tmp/driftwm-b4-protocol.log`, 12 SSD/CSD scenes at 1x/1.25x/1.5x with held
 or recaptured mixed content and a popup, plus a hermetic ready-peer scenario.
@@ -158,18 +167,18 @@ unresolved; use direct TTY for visual acceptance.
 
 ## Next work
 
-Next implementation: **B4 output removal during retained motion**.
-Direct compositor remap, ready-peer disconnect, protocol unmap/remap and
-supersession with ready/pending peers have controlled coverage. Inspect fixture
-output removal and backend teardown policy, then exercise removing the sole
-output while a held or recaptured mixed resize is active. Verify mode exit,
-transaction wakeup, removal of retained GPU state and safe recovery when an
-output is added again. This is single-output lifecycle coverage, not P11
-independent multi-output ownership. Require no stale IDs, images or transactions,
-no duplicate animation and correct surviving focus/output membership. B3's named controlled allocation,
-stale-content and view/output gates are delivered; residual hardware/zoom/effect
-combinations do not establish universal parity. Keep the expensive independent
-GPU orientation oracle outside timed commit groups.
+Next work: **A0/P0 semantic audit**, starting with public layout-option decoders
+and defaults at pinned niri `12de51d6a60baad8896366920278a24f17921f52`.
+The named controlled B1–B4 matrices are delivered. Do not restart renderer
+matrices or expand sizing/interactions before this semantic prerequisite.
+Inspect the inventory generator and custom decoders; account for decoded option
+names, defaults, addressing and lifecycle, linking each claim to pinned symbols
+and driftwm evidence. Keep unverified behavior explicitly unverified and extend
+source-derived reference traces beyond the current zero-gap/scale-1 subset.
+The roadmap remains authoritative; completing these bounded lifecycle gates does
+not close P2/P13 or independent multi-output ownership (P11). Hardware unplug,
+zoom/effect/constraint combinations and broader lifecycle permutations remain
+unproven. Keep expensive GPU orientation oracles outside timed commit groups.
 Controlled SSD scale-change release is
 fixed: retain the native title raster separately, blend old/current premultiplied
 pixels before window opacity, and carry mixed title pixels through recapture.
@@ -192,9 +201,9 @@ height shrink and combined shrink (1600x800/900x800/1200x600/900x600), with exac
 proportional-width/native-height offers and complete release/recapture checks.
 A separate seven-transform scene verifies actual GPU orientation against an
 independent upright render. Real DRM scanout is not tested. Zoom, every degraded/effect/minification path,
-other GPU failure APIs and multi-output ownership remain unproven. B4 retains
-output removal and broader lifecycle combinations. Full tiling multi-output
-support remains P11; enrolling a second output still leaves tiling.
+other GPU failure APIs and multi-output ownership remain unproven. The controlled
+B4 lifecycle gates are delivered; broader combinations remain unproven. Full
+tiling multi-output support remains P11; enrolling a second output still leaves tiling.
 Degraded coverage also adds 12 stale-minification scenes and 24 client-region blur
 scenes (grow/shrink, SSD/CSD, 1x/1.25x/1.5x, reply/timeout). Rendered blur differences
 stay within the independently transformed client region, region-only restoration

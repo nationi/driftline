@@ -167,11 +167,12 @@ impl DriftWm {
             return;
         };
         if self.space.outputs().count() != 1
+            || self.disconnected_outputs.contains(&output.name())
             || self.is_fullscreen()
             || !self.interactive_move.is_empty()
         {
             tracing::warn!(
-                "Scrolling tiling currently requires one output and no active move or fullscreen"
+                "Scrolling tiling currently requires one connected output and no active move or fullscreen"
             );
             return;
         }
@@ -480,6 +481,7 @@ impl DriftWm {
             return;
         };
         if self.stage.tiling_layout_id() != Some(view.layout_id)
+            || self.disconnected_outputs.contains(&view.output.name())
             || self.space.outputs().count() != 1
             || self.active_output().as_ref() != Some(&view.output)
             || self.zoom() != 1.0

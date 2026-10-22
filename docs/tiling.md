@@ -187,6 +187,10 @@ and mixed resize, popup cleanup and releasing a ready peer when another window
 unmaps. Controlled two-client checks also cover replacing a held resize group
 with a new width request: queued old buffers are released, pending peers stay
 in the group, and retained content blends into the latest buffers without
-replaying the animation on unchanged commits. Other lifecycle combinations
-remain experimental.
+replaying the animation on unchanged commits. Disconnecting the only monitor
+leaves tiling, releases pending buffers and restores canvas mode. Tiling cannot
+start on the virtual placeholder while no monitor is connected; after a monitor
+returns it can be enabled again. Controlled checks cover held/mixed resize and
+reconnecting a same-name output through the shared backend policy; real hardware
+unplug/replug and other lifecycle combinations remain experimental.
 Complete visual atomicity and all animation transitions are not implemented yet.

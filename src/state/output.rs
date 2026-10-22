@@ -230,6 +230,7 @@ impl DriftWm {
     /// `active_outputs` bookkeeping likewise stays with the caller, symmetric with
     /// where it was inserted.
     pub fn output_disconnected(&mut self, output: &Output, is_last: bool) {
+        self.prepare_tiling_operation(super::TilingOperation::LayoutInvalidated);
         // Send wl_surface.leave while clients' wl_output proxies are still valid.
         // Once the global is disabled, clients destroy their proxy on
         // global_remove — a leave sent after that (normally by the next

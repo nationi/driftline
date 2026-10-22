@@ -2313,3 +2313,53 @@ transaction/lifecycle parity or hardware scanout evidence.
 Next remaining B4 gate: sole-output removal during held/mixed motion and recovery
 after re-adding an output. Independent multi-output tiling remains P11; A0/P0
 semantic audit still precedes feature expansion.
+
+## 2026-10-22 — B4 sole-output removal and recovery
+
+`removing_the_only_output_cancels_held_or_mixed_tiling_and_recovers` reproduced
+an actual bug: the last removed output remains mapped as a virtual placeholder,
+so `refresh_tiling` still saw one active output and retained the tiling session,
+images and pending group despite no renderer remaining for that monitor.
+The shared `output_disconnected` policy now invokes the existing layout-
+invalidation transition before output teardown. It cancels/wakes transactions,
+restores canvas and drops tiling images. Both entry and refresh reject outputs
+listed in `disconnected_outputs`, so the placeholder cannot admit a new session.
+The existing output-leave ordering before disabling the global is preserved.
+
+Dedicated `/tmp/driftwm-b4-output.log` passed: 12 real GLES scenes, SSD/CSD at
+1x/1.25x/1.5x, ordinary held or actually rendered/recaptured mixed resize, two
+independent clients and a blue popup. One client has a ready buffer queued while
+the other stalls. Removal releases the ready buffer to its target geometry;
+layout membership, snapshots, pending configures, animations/crossfades and
+per-output animated GPU content drain. Actual client output memberships become
+empty. Attempting ToggleTiling while only the placeholder exists is rejected.
+Clients answer the canvas restore offers while headless. Re-adding an output
+with the same name creates a different Output object and retires the placeholder.
+Explicit tiling re-entry creates a fresh layout ID and keeps both window IDs.
+After replies, focus agrees with selection, both clients enter the replacement
+output, and the frame shows latest green/yellow bodies plus blue popup, without
+obsolete magenta pixels. Unchanged commits neither restart animation nor alter
+the settled frame. Renderer caches are removed before GL uninstall; fixture
+teardown checks resource baselines.
+
+Hermetic
+`removing_the_last_output_releases_ready_buffers_and_rejects_placeholder_tiling`
+independently covers queued-buffer release, original canvas size offers,
+placeholder rejection and same-name reconnect/re-entry with stable IDs. Its
+initial version accidentally acked a previously consumed configure after
+re-entry; it now receives the new configure before acknowledging it, matching
+the protocol handshake used by the GPU scenario.
+
+Full `dev/scripts/ci-local` passed (`/tmp/driftwm-b4-output-ci.log`, exit 0):
+369 library cases, 1490 binary non-soak cases, integration suites and isolated
+soak, including formatting, locked build and strict all-target clippy. No pure
+stage/layout/config algorithm changed, so no additional deep property run was
+needed. No push, installation or manual TTY acceptance. Output removal is driven
+through the actual shared disconnect policy and simulated global removal; these
+are surfaceless NVIDIA checks, not actual DRM connector unplug/replug.
+
+All named controlled B1–B4 gates are now delivered. Next is A0/P0 semantic audit
+of custom decoders, public layout option names/defaults and ID-addressed actions,
+then wider source-derived operation fixtures. Do not infer full P2/P13 acceptance
+or niri parity, or restart renderer matrices instead of completing this semantic
+prerequisite. Independent multi-output tiling remains P11.

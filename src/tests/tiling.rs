@@ -1460,3 +1460,48 @@ fn protocol_unmap_releases_a_ready_peer_and_remap_waits_for_a_buffer() {
     assert!(f.state().stage.is_tiled(bid));
     assert_eq!(f.state().stage.tiled_columns().len(), 2);
 }
+
+#[test]
+fn removing_the_last_output_releases_ready_buffers_and_rejects_placeholder_tiling() {
+    let mut f = Fixture::new();
+    let output = f.add_output(1, (1200, 800));
+    let first = f.add_client();
+    let second = f.add_client();
+    let a = map_window(&mut f, first, "a", (400, 300));
+    let b = map_window(&mut f, second, "b", (350, 250));
+    let wa = window_by_app_id(&mut f, "a").unwrap();
+    let wb = window_by_app_id(&mut f, "b").unwrap();
+    let ids = [f.state().stage.id_of(&wa), f.state().stage.id_of(&wb)];
+    f.state().execute_action(&Action::ToggleTiling);
+    let target = last_configured(&mut f, first, &a);
+    last_configured(&mut f, second, &b);
+    adopt_last_configure(&mut f, first, &a);
+    assert_eq!(wa.geometry().size, (400, 300).into());
+    f.remove_output(&output);
+    f.double_roundtrip(first);
+    assert_eq!(wa.geometry().size, target.into());
+    assert!(f.state().tiling_view.is_none());
+    assert!(f.state().stage.tiled_columns().is_empty());
+    assert_eq!(f.state().tiling_pending_configures(), 0);
+    f.state().execute_action(&Action::ToggleTiling);
+    assert!(f.state().tiling_view.is_none());
+    assert_eq!(last_configured(&mut f, first, &a), (400, 300));
+    assert_eq!(last_configured(&mut f, second, &b), (350, 250));
+    adopt_last_configure(&mut f, first, &a);
+    adopt_last_configure(&mut f, second, &b);
+    let reconnected = f.add_output(1, (1200, 800));
+    assert_ne!(output, reconnected);
+    assert!(f.state().disconnected_outputs.is_empty());
+    f.state().execute_action(&Action::ToggleTiling);
+    assert!(f.state().tiling_view.is_some());
+    last_configured(&mut f, first, &a);
+    last_configured(&mut f, second, &b);
+    adopt_last_configure(&mut f, first, &a);
+    adopt_last_configure(&mut f, second, &b);
+    f.double_roundtrip(first);
+    assert_eq!(f.state().tiling_pending_configures(), 0);
+    assert_eq!(
+        [f.state().stage.id_of(&wa), f.state().stage.id_of(&wb)],
+        ids
+    );
+}
