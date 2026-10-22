@@ -103,14 +103,14 @@ Outside = explicit non-layout scope exclusion. Never infer Exact from a similar 
 | `MoveWindowUp` | Layout | Partial | move-tiled-window up | src/tests/tiling.rs; src/stage/tiling.rs tests |
 | `MoveWindowDownOrToWorkspaceDown` | Layout | Missing | — | P4/P6–P14; no parity evidence yet |
 | `MoveWindowUpOrToWorkspaceUp` | Layout | Missing | — | P4/P6–P14; no parity evidence yet |
-| `ConsumeOrExpelWindowLeft` | Layout | Missing | — | P4/P6–P14; no parity evidence yet |
-| `ConsumeOrExpelWindowLeftById` | Layout | Missing | — | P4/P6–P14; no parity evidence yet |
-| `ConsumeOrExpelWindowRight` | Layout | Missing | — | P4/P6–P14; no parity evidence yet |
-| `ConsumeOrExpelWindowRightById` | Layout | Missing | — | P4/P6–P14; no parity evidence yet |
-| `ConsumeWindowIntoColumn` | Layout | Partial | consume-window-into-column (topology/focus subset) | src/tests/tiling.rs; src/stage/tiling.rs tests |
-| `ExpelWindowFromColumn` | Layout | Partial | expel-window-from-column (topology/focus subset) | src/tests/tiling.rs; src/stage/tiling.rs tests |
-| `SwapWindowLeft` | Layout | Missing | — | P4/P6–P14; no parity evidence yet |
-| `SwapWindowRight` | Layout | Missing | — | P4/P6–P14; no parity evidence yet |
+| `ConsumeOrExpelWindowLeft` | Layout | Missing | — | P4/P6–P14; no parity evidence yet; [preset/topology action audit](niri-preset-topology-action-audit.md) |
+| `ConsumeOrExpelWindowLeftById` | Layout | Missing | — | P4/P6–P14; no parity evidence yet; [preset/topology action audit](niri-preset-topology-action-audit.md) |
+| `ConsumeOrExpelWindowRight` | Layout | Missing | — | P4/P6–P14; no parity evidence yet; [preset/topology action audit](niri-preset-topology-action-audit.md) |
+| `ConsumeOrExpelWindowRightById` | Layout | Missing | — | P4/P6–P14; no parity evidence yet; [preset/topology action audit](niri-preset-topology-action-audit.md) |
+| `ConsumeWindowIntoColumn` | Layout | Partial | consume-window-into-column (topology/focus subset) | src/tests/tiling.rs; src/stage/tiling.rs tests; [preset/topology action audit](niri-preset-topology-action-audit.md) |
+| `ExpelWindowFromColumn` | Layout | Partial | expel-window-from-column (topology/focus subset) | src/tests/tiling.rs; src/stage/tiling.rs tests; [preset/topology action audit](niri-preset-topology-action-audit.md) |
+| `SwapWindowLeft` | Layout | Missing | — | P4/P6–P14; no parity evidence yet; [preset/topology action audit](niri-preset-topology-action-audit.md) |
+| `SwapWindowRight` | Layout | Missing | — | P4/P6–P14; no parity evidence yet; [preset/topology action audit](niri-preset-topology-action-audit.md) |
 | `ToggleColumnTabbedDisplay` | Layout | Missing | — | P4/P6–P14; no parity evidence yet |
 | `SetColumnDisplay` | Layout | Missing | — | P4/P6–P14; no parity evidence yet |
 | `CenterColumn` | Layout | Missing | — | P4/P6–P14; no parity evidence yet |
@@ -166,21 +166,21 @@ Outside = explicit non-layout scope exclusion. Never infer Exact from a similar 
 | `SetWindowWidthById` | Layout | Missing | — | P4/P6–P14; no parity evidence yet; [size/transfer action audit](niri-size-transfer-action-audit.md) |
 | `SetWindowHeight` | Layout | Missing | — | P4/P6–P14; no parity evidence yet; [size/transfer action audit](niri-size-transfer-action-audit.md) |
 | `SetWindowHeightById` | Layout | Missing | — | P4/P6–P14; no parity evidence yet; [size/transfer action audit](niri-size-transfer-action-audit.md) |
-| `ResetWindowHeight` | Layout | Missing | — | P4/P6–P14; no parity evidence yet |
-| `ResetWindowHeightById` | Layout | Missing | — | P4/P6–P14; no parity evidence yet |
-| `SwitchPresetColumnWidth` | Layout | Partial | cycle-column-width (different presets/units) | src/tests/tiling.rs; src/stage/tiling.rs tests |
-| `SwitchPresetColumnWidthBack` | Layout | Missing | — | P4/P6–P14; no parity evidence yet |
-| `SwitchPresetWindowWidth` | Layout | Missing | — | P4/P6–P14; no parity evidence yet |
-| `SwitchPresetWindowWidthBack` | Layout | Missing | — | P4/P6–P14; no parity evidence yet |
-| `SwitchPresetWindowWidthById` | Layout | Missing | — | P4/P6–P14; no parity evidence yet |
-| `SwitchPresetWindowWidthBackById` | Layout | Missing | — | P4/P6–P14; no parity evidence yet |
-| `SwitchPresetWindowHeight` | Layout | Missing | — | P4/P6–P14; no parity evidence yet |
-| `SwitchPresetWindowHeightBack` | Layout | Missing | — | P4/P6–P14; no parity evidence yet |
-| `SwitchPresetWindowHeightById` | Layout | Missing | — | P4/P6–P14; no parity evidence yet |
-| `SwitchPresetWindowHeightBackById` | Layout | Missing | — | P4/P6–P14; no parity evidence yet |
-| `MaximizeColumn` | Layout | Missing | — | P4/P6–P14; no parity evidence yet |
-| `MaximizeWindowToEdges` | Layout | Missing | — | P4/P6–P14; no parity evidence yet |
-| `MaximizeWindowToEdgesById` | Layout | Missing | — | P4/P6–P14; no parity evidence yet |
+| `ResetWindowHeight` | Layout | Missing | — | P4/P6–P14; no parity evidence yet; [preset/topology action audit](niri-preset-topology-action-audit.md) |
+| `ResetWindowHeightById` | Layout | Missing | — | P4/P6–P14; no parity evidence yet; [preset/topology action audit](niri-preset-topology-action-audit.md) |
+| `SwitchPresetColumnWidth` | Layout | Partial | cycle-column-width (different presets/units) | src/tests/tiling.rs; src/stage/tiling.rs tests; [preset/topology action audit](niri-preset-topology-action-audit.md) |
+| `SwitchPresetColumnWidthBack` | Layout | Missing | — | P4/P6–P14; no parity evidence yet; [preset/topology action audit](niri-preset-topology-action-audit.md) |
+| `SwitchPresetWindowWidth` | Layout | Missing | — | P4/P6–P14; no parity evidence yet; [preset/topology action audit](niri-preset-topology-action-audit.md) |
+| `SwitchPresetWindowWidthBack` | Layout | Missing | — | P4/P6–P14; no parity evidence yet; [preset/topology action audit](niri-preset-topology-action-audit.md) |
+| `SwitchPresetWindowWidthById` | Layout | Missing | — | P4/P6–P14; no parity evidence yet; [preset/topology action audit](niri-preset-topology-action-audit.md) |
+| `SwitchPresetWindowWidthBackById` | Layout | Missing | — | P4/P6–P14; no parity evidence yet; [preset/topology action audit](niri-preset-topology-action-audit.md) |
+| `SwitchPresetWindowHeight` | Layout | Missing | — | P4/P6–P14; no parity evidence yet; [preset/topology action audit](niri-preset-topology-action-audit.md) |
+| `SwitchPresetWindowHeightBack` | Layout | Missing | — | P4/P6–P14; no parity evidence yet; [preset/topology action audit](niri-preset-topology-action-audit.md) |
+| `SwitchPresetWindowHeightById` | Layout | Missing | — | P4/P6–P14; no parity evidence yet; [preset/topology action audit](niri-preset-topology-action-audit.md) |
+| `SwitchPresetWindowHeightBackById` | Layout | Missing | — | P4/P6–P14; no parity evidence yet; [preset/topology action audit](niri-preset-topology-action-audit.md) |
+| `MaximizeColumn` | Layout | Missing | — | P4/P6–P14; no parity evidence yet; [preset/topology action audit](niri-preset-topology-action-audit.md) |
+| `MaximizeWindowToEdges` | Layout | Missing | — | P4/P6–P14; no parity evidence yet; [preset/topology action audit](niri-preset-topology-action-audit.md) |
+| `MaximizeWindowToEdgesById` | Layout | Missing | — | P4/P6–P14; no parity evidence yet; [preset/topology action audit](niri-preset-topology-action-audit.md) |
 | `SetColumnWidth` | Layout | Missing | — | P4/P6–P14; no parity evidence yet; [size/transfer action audit](niri-size-transfer-action-audit.md) |
 | `ExpandColumnToAvailableWidth` | Layout | Missing | — | P4/P6–P14; no parity evidence yet |
 | `SwitchLayout` | Outside | Outside | unrelated compositor action | roadmap scope; reconsider if layout-visible |

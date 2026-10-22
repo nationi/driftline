@@ -2805,3 +2805,26 @@ revision, diff check. No niri/parser/GPU execution or Rust CI rerun for docs/too
 implementation evidence remains B4. No push/install/TTY claim. Next A0: remaining
 preset/reset/maximize/consume/swap and directional/previous/next compound families,
 misc/root/recent-windows semantics and independent executable reference fixtures.
+
+
+## A0 preset sizing and column topology action audit
+
+Reviewed 23 more action consumers (51 scoped action rows overall), adding no
+named schema fields (496/576 review links). Preset cycling distinguishes stored
+index from ordered candidate search with strict one-pixel allowance and window/
+tile units; floating indices and scrolling weights/reload differ. Reset affects
+a selected normal tile but all tabbed heights. Full-width and maximized-to-edges
+are separate states; stacked extraction and floating restoration remain distinct
+from canvas fit/fullscreen. Conditional consume/expel selects by source cardinality;
+first-consume/last-expel retain their separate boundary/selection policies. Swap
+uses actual no-op edge guards, selected-slot exchange, drained source recreation
+and target activation, with a pinned animation interruption workaround.
+
+Validation passed: Python syntax, deterministic generation, preserved 576 field
+keys / 186 action keys and statuses, existing 496 schema links, 23 new links and
+51 disjoint action rows, local/pinned links/anchors, clean exact reference and
+diff checks. No niri/client/parser/GPU execution or Rust CI rerun for docs/tooling;
+implementation evidence remains B4. No push/install/TTY claim. Next A0:
+directional/previous/next compound monitor/workspace behavior, centering/available
+width and remaining target actions, misc/root/recent-windows and independent
+reference fixtures. Integration Partial/Unverified gates remain open.

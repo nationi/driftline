@@ -213,6 +213,9 @@ def schema_structs(source):
         yield match.group(1), re.findall(r"^    pub (\w+):", block(source, match.group(0)), re.M)
 
 
+PRESET_TOPOLOGY_ACTION_AUDIT = set("SwitchPresetColumnWidth SwitchPresetColumnWidthBack SwitchPresetWindowWidth SwitchPresetWindowWidthBack SwitchPresetWindowWidthById SwitchPresetWindowWidthBackById SwitchPresetWindowHeight SwitchPresetWindowHeightBack SwitchPresetWindowHeightById SwitchPresetWindowHeightBackById ResetWindowHeight ResetWindowHeightById MaximizeColumn MaximizeWindowToEdges MaximizeWindowToEdgesById ConsumeOrExpelWindowLeft ConsumeOrExpelWindowLeftById ConsumeOrExpelWindowRight ConsumeOrExpelWindowRightById ConsumeWindowIntoColumn ExpelWindowFromColumn SwapWindowLeft SwapWindowRight".split())
+
+
 SIZE_TRANSFER_ACTION_AUDIT = set("SetWindowWidth SetWindowWidthById SetWindowHeight SetWindowHeightById SetColumnWidth MoveFloatingWindowById MoveWindowToWorkspace MoveWindowToWorkspaceById MoveColumnToWorkspace MoveWorkspaceToIndex MoveWorkspaceToIndexByRef MoveWindowToMonitor MoveWindowToMonitorById MoveColumnToMonitor MoveWorkspaceToMonitor MoveWorkspaceToMonitorByRef".split())
 
 
@@ -473,6 +476,8 @@ def generate(root):
     assert set(skipped).issubset(names) and len(set(skipped)) == len(skipped)
     assert ACTION_ADDRESS_AUDIT.issubset(names), "Reviewed action names must exist"
     assert SIZE_TRANSFER_ACTION_AUDIT.issubset(names), "Reviewed size/transfer actions must exist"
+    assert PRESET_TOPOLOGY_ACTION_AUDIT.issubset(names), "Reviewed preset/topology actions must exist"
+    assert not PRESET_TOPOLOGY_ACTION_AUDIT & (ACTION_ADDRESS_AUDIT | SIZE_TRANSFER_ACTION_AUDIT), "Scoped topology actions must not overlap"
     assert not ACTION_ADDRESS_AUDIT & SIZE_TRANSFER_ACTION_AUDIT, "Scoped action audit sets must not overlap"
     lines = [
         "# Niri tiling parity inventory", "",
@@ -517,6 +522,8 @@ def generate(root):
             evidence += "; [action address audit](niri-binding-address-audit.md#scoped-ordinal-and-previous-selection)"
         if name in SIZE_TRANSFER_ACTION_AUDIT:
             evidence += "; [size/transfer action audit](niri-size-transfer-action-audit.md)"
+        if name in PRESET_TOPOLOGY_ACTION_AUDIT:
+            evidence += "; [preset/topology action audit](niri-preset-topology-action-audit.md)"
         lines.append(f"| `{name}` | {scope} | {status} | {mapping} | {evidence} |")
     lines += ["", f"Action variants indexed: **{len(names)}**.", "", "## Action config exposure", "",
         f"Derived config decoder variants: **{len(names) - len(skipped)}**; skipped variants: **{len(skipped)}**.",
