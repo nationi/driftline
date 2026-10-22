@@ -13,8 +13,9 @@ border/shadow and tab/insert-hint decoding and merges. The
 [lifecycle audit](niri-config-lifecycle-audit.md) traces override order and
 scoped window-rule initial-map/reload consumers. The [effects audit](niri-effects-config-audit.md)
 adds radius/workspace-shadow/blur/background-effect decoding and consumers.
-This seven-module index is not the entire public config; root/misc and
-layer-rule coverage still need reconciliation. Unscoped behavior stays open.
+The [schema coverage audit](niri-config-schema-coverage.md) accounts for all
+18 source files, 25 root nodes and 14 indexed modules. Fields are source
+inventory, not a completed public decoder/consumer audit. Unscoped behavior stays open.
 P0 reference operation fixtures and the custom-decoder audit remain unfinished.
 
 Status: Partial = related implementation, not full equivalence; Divergent = known
@@ -214,12 +215,99 @@ Outside = explicit non-layout scope exclusion. Never infer Exact from a similar 
 
 Action variants indexed: **186**.
 
+## Module coverage
+
+| Source file | Scope | Index | Named fields | Coverage / exclusion reason |
+| --- | --- | --- | --- | --- |
+| `lib.rs` | Mixed/root | Indexed | 24 | Config fields plus custom root-node dispatch; internal helpers are not public keys |
+| `layout.rs` | Layout | Indexed | 34 | Column geometry, defaults and partial layout overrides |
+| `appearance.rs` | Layout/integration | Indexed | 132 | Decoration, geometry, blur and effect values |
+| `gestures.rs` | Layout/integration | Indexed | 23 | View scrolling, workspace switching and hot corners |
+| `animations.rs` | Layout | Indexed | 40 | Movement, resize and workspace/overview transitions |
+| `window_rule.rs` | Layout/integration | Indexed | 52 | Window matching, opening, sizing and dynamic appearance |
+| `workspace.rs` | Layout | Indexed | 3 | Named workspace routing and layout overrides |
+| `output.rs` | Layout/integration | Indexed | 34 | Output owners, modes/scales and layout overrides |
+| `misc.rs` | Mixed | Indexed | 31 | Includes Overview/OverviewPart; unrelated process/UI settings are explicitly excluded by root scope |
+| `layer_rule.rs` | Integration | Indexed | 13 | Layer matching, placement/backdrop and effects; full semantic audit pending |
+| `input.rs` | Mixed/integration | Indexed | 103 | Focus, warping, workspace policy and modifiers coexist with device settings; no blanket exclusion |
+| `debug.rs` | Mixed/integration | Indexed | 44 | Transaction, resize/focus and output toggles coexist with backend flags; no blanket exclusion |
+| `binds.rs` | Layout/integration | Indexed | 14 | Public bindings/actions and switch events; aliases/units/addressing need audit |
+| `recent_windows.rs` | Layout/integration | Indexed | 29 | MRU focus overlay and previews; distinct from unrelated help UI |
+| `error.rs` | Infrastructure | Infrastructure only | 4 | Diagnostic/result payloads, not configurable option schemas; named fields intentionally not indexed |
+| `macros.rs` | Infrastructure | Infrastructure only | 0 | Merge helpers, audited through their consumer schemas; no named option fields |
+| `utils.rs` | Infrastructure | Infrastructure only | 0 | Custom scalar/wrapper decoders, audited through consumers; declarations are not standalone option trees |
+| `utils/merge_with.rs` | Infrastructure | Infrastructure only | 0 | Merge trait implementation helper; no configurable option fields |
+
+## Public root decoder nodes
+
+`include` is a custom decoder directive, not a missing Config field. Singular
+public node names such as `output` and `window-rule` are not plural Rust fields.
+
+| Public root node | Config field | Scope | Status | Evidence / next audit |
+| --- | --- | --- | --- | --- |
+| `input` | `Config.input` | Integration | Unverified | Includes focus/warping/workspace policy; audit per field; [coverage](niri-config-schema-coverage.md) |
+| `cursor` | `Config.cursor` | Integration | Unverified | Cursor interaction/visibility boundaries not audited; [coverage](niri-config-schema-coverage.md) |
+| `clipboard` | `Config.clipboard` | Outside | Outside | Selection policy, not tiling topology or sizing; [coverage](niri-config-schema-coverage.md) |
+| `hotkey-overlay` | `Config.hotkey_overlay` | Outside | Outside | Shortcut help UI, not workspace overview or MRU focus; [coverage](niri-config-schema-coverage.md) |
+| `config-notification` | `Config.config_notification` | Outside | Outside | Config-error notification presentation, not layout policy; [coverage](niri-config-schema-coverage.md) |
+| `animations` | `Config.animations` | Layout | Unverified | Layout movement/resize and workspace/overview transitions; [coverage](niri-config-schema-coverage.md) |
+| `blur` | `Config.blur` | Layout/integration | Partial | Tuning/effect-selection source audit exists; runtime parity not established; [coverage](niri-config-schema-coverage.md) |
+| `gestures` | `Config.gestures` | Layout/integration | Unverified | Scrolling/workspace gesture policy remains unaudited; [coverage](niri-config-schema-coverage.md) |
+| `overview` | `Config.overview` | Layout | Missing | Overview exists in pinned schema; no reference overview implementation; [coverage](niri-config-schema-coverage.md) |
+| `xwayland-satellite` | `Config.xwayland_satellite` | Integration | Unverified | Client/protocol integration; reconsider layout-visible lifecycle effects; [coverage](niri-config-schema-coverage.md) |
+| `switch-events` | `Config.switch_events` | Integration | Unverified | Lid/output actions may affect layout lifecycle; [coverage](niri-config-schema-coverage.md) |
+| `debug` | `Config.debug` | Integration | Unverified | Mixed layout-visible transaction/focus flags and backend controls; [coverage](niri-config-schema-coverage.md) |
+| `output` | `Config.outputs` | Layout/integration | Partial | Repeated output configs; ownership/layout/name/mode surface not fully audited; [coverage](niri-config-schema-coverage.md) |
+| `spawn-at-startup` | `Config.spawn_at_startup` | Outside | Outside | Process launch list; resulting window map remains in layout scope; [coverage](niri-config-schema-coverage.md) |
+| `spawn-sh-at-startup` | `Config.spawn_sh_at_startup` | Outside | Outside | Shell process launch; not a tiling action contract; [coverage](niri-config-schema-coverage.md) |
+| `window-rule` | `Config.window_rules` | Layout/integration | Partial | Scoped decoder/lifecycle audits exist; remaining fields and fixtures pending; [coverage](niri-config-schema-coverage.md) |
+| `layer-rule` | `Config.layer_rules` | Integration | Unverified | Previously omitted layer/effect schema; semantic audit still pending; [coverage](niri-config-schema-coverage.md) |
+| `workspace` | `Config.workspaces` | Layout | Missing | Named workspace/layout hierarchy not implemented; [coverage](niri-config-schema-coverage.md) |
+| `binds` | `Config.binds` | Layout/integration | Unverified | Action inventory is not a public binding alias/decoder audit; [coverage](niri-config-schema-coverage.md) |
+| `environment` | `Config.environment` | Outside | Outside | Child-process environment, not layout behavior; [coverage](niri-config-schema-coverage.md) |
+| `prefer-no-csd` | `Config.prefer_no_csd` | Integration | Unverified | Decoration negotiation/tiled-state behavior can affect layout; [coverage](niri-config-schema-coverage.md) |
+| `screenshot-path` | `Config.screenshot_path` | Outside | Outside | Destination filename policy; capture/effect behavior remains separately in scope; [coverage](niri-config-schema-coverage.md) |
+| `layout` | `Config.layout` | Layout | Partial | Top-level names/defaults audited; full option behavior/fixtures remain partial; [coverage](niri-config-schema-coverage.md) |
+| `recent-windows` | `Config.recent_windows` | Layout/integration | Missing | MRU focus overlay/preview configuration has no parity implementation; [coverage](niri-config-schema-coverage.md) |
+| `include` | — | Infrastructure | Unverified | Custom positional decoder directive with no Config field; full path/error behavior pending; [coverage](niri-config-schema-coverage.md) |
+
 ## Configuration source index
 
 Includes complete named public-struct field sets in these reference modules,
 including partial/override schemas and non-layout fields. A row is not necessarily
 a directly bindable configuration key. Shared nested types are listed at their
 own definitions; tuple wrappers and enums are indexed by declaration below.
+
+### `lib.rs`
+
+| Schema field | Status | Mapping / next audit |
+| --- | --- | --- |
+| `Config.input` | Unverified | Root `input`: Includes focus/warping/workspace policy; audit per field; [schema coverage](niri-config-schema-coverage.md) |
+| `Config.outputs` | Partial | Root `output`: Repeated output configs; ownership/layout/name/mode surface not fully audited; [schema coverage](niri-config-schema-coverage.md) |
+| `Config.spawn_at_startup` | Outside | Root `spawn-at-startup`: Process launch list; resulting window map remains in layout scope; [schema coverage](niri-config-schema-coverage.md) |
+| `Config.spawn_sh_at_startup` | Outside | Root `spawn-sh-at-startup`: Shell process launch; not a tiling action contract; [schema coverage](niri-config-schema-coverage.md) |
+| `Config.layout` | Partial | Root `layout`: Top-level names/defaults audited; full option behavior/fixtures remain partial; [schema coverage](niri-config-schema-coverage.md) |
+| `Config.prefer_no_csd` | Unverified | Root `prefer-no-csd`: Decoration negotiation/tiled-state behavior can affect layout; [schema coverage](niri-config-schema-coverage.md) |
+| `Config.cursor` | Unverified | Root `cursor`: Cursor interaction/visibility boundaries not audited; [schema coverage](niri-config-schema-coverage.md) |
+| `Config.screenshot_path` | Outside | Root `screenshot-path`: Destination filename policy; capture/effect behavior remains separately in scope; [schema coverage](niri-config-schema-coverage.md) |
+| `Config.clipboard` | Outside | Root `clipboard`: Selection policy, not tiling topology or sizing; [schema coverage](niri-config-schema-coverage.md) |
+| `Config.hotkey_overlay` | Outside | Root `hotkey-overlay`: Shortcut help UI, not workspace overview or MRU focus; [schema coverage](niri-config-schema-coverage.md) |
+| `Config.config_notification` | Outside | Root `config-notification`: Config-error notification presentation, not layout policy; [schema coverage](niri-config-schema-coverage.md) |
+| `Config.animations` | Unverified | Root `animations`: Layout movement/resize and workspace/overview transitions; [schema coverage](niri-config-schema-coverage.md) |
+| `Config.blur` | Partial | Root `blur`: Tuning/effect-selection source audit exists; runtime parity not established; [schema coverage](niri-config-schema-coverage.md) |
+| `Config.gestures` | Unverified | Root `gestures`: Scrolling/workspace gesture policy remains unaudited; [schema coverage](niri-config-schema-coverage.md) |
+| `Config.overview` | Missing | Root `overview`: Overview exists in pinned schema; no reference overview implementation; [schema coverage](niri-config-schema-coverage.md) |
+| `Config.environment` | Outside | Root `environment`: Child-process environment, not layout behavior; [schema coverage](niri-config-schema-coverage.md) |
+| `Config.xwayland_satellite` | Unverified | Root `xwayland-satellite`: Client/protocol integration; reconsider layout-visible lifecycle effects; [schema coverage](niri-config-schema-coverage.md) |
+| `Config.window_rules` | Partial | Root `window-rule`: Scoped decoder/lifecycle audits exist; remaining fields and fixtures pending; [schema coverage](niri-config-schema-coverage.md) |
+| `Config.layer_rules` | Unverified | Root `layer-rule`: Previously omitted layer/effect schema; semantic audit still pending; [schema coverage](niri-config-schema-coverage.md) |
+| `Config.binds` | Unverified | Root `binds`: Action inventory is not a public binding alias/decoder audit; [schema coverage](niri-config-schema-coverage.md) |
+| `Config.switch_events` | Unverified | Root `switch-events`: Lid/output actions may affect layout lifecycle; [schema coverage](niri-config-schema-coverage.md) |
+| `Config.debug` | Unverified | Root `debug`: Mixed layout-visible transaction/focus flags and backend controls; [schema coverage](niri-config-schema-coverage.md) |
+| `Config.workspaces` | Missing | Root `workspace`: Named workspace/layout hierarchy not implemented; [schema coverage](niri-config-schema-coverage.md) |
+| `Config.recent_windows` | Missing | Root `recent-windows`: MRU focus overlay/preview configuration has no parity implementation; [schema coverage](niri-config-schema-coverage.md) |
+
+Declared types to check for nested values/custom decoding: `Config`, `ConfigPath`, `ConfigPart`.
 
 ### `layout.rs`
 
@@ -588,7 +676,283 @@ Declared types to check for nested values/custom decoding: `Workspace`, `Workspa
 
 Declared types to check for nested values/custom decoding: `Outputs`, `Mode`, `Modeline`, `Output`, `OutputName`, `Position`, `MaxBpc`, `Vrr`.
 
-Named schema fields indexed: **318**.
+### `misc.rs`
+
+| Schema field | Status | Mapping / next audit |
+| --- | --- | --- |
+| `SpawnAtStartup.command` | Outside | Process/selection/help/error-UI setting; explicit root-scope exclusion; [schema coverage](niri-config-schema-coverage.md) |
+| `SpawnShAtStartup.command` | Outside | Process/selection/help/error-UI setting; explicit root-scope exclusion; [schema coverage](niri-config-schema-coverage.md) |
+| `Cursor.xcursor_theme` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
+| `Cursor.xcursor_size` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
+| `Cursor.hide_when_typing` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
+| `Cursor.hide_after_inactive_ms` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
+| `CursorPart.xcursor_theme` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
+| `CursorPart.xcursor_size` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
+| `CursorPart.hide_when_typing` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
+| `CursorPart.hide_after_inactive_ms` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
+| `HotkeyOverlay.skip_at_startup` | Outside | Process/selection/help/error-UI setting; explicit root-scope exclusion; [schema coverage](niri-config-schema-coverage.md) |
+| `HotkeyOverlay.hide_not_bound` | Outside | Process/selection/help/error-UI setting; explicit root-scope exclusion; [schema coverage](niri-config-schema-coverage.md) |
+| `HotkeyOverlayPart.skip_at_startup` | Outside | Process/selection/help/error-UI setting; explicit root-scope exclusion; [schema coverage](niri-config-schema-coverage.md) |
+| `HotkeyOverlayPart.hide_not_bound` | Outside | Process/selection/help/error-UI setting; explicit root-scope exclusion; [schema coverage](niri-config-schema-coverage.md) |
+| `ConfigNotification.disable_failed` | Outside | Process/selection/help/error-UI setting; explicit root-scope exclusion; [schema coverage](niri-config-schema-coverage.md) |
+| `ConfigNotificationPart.disable_failed` | Outside | Process/selection/help/error-UI setting; explicit root-scope exclusion; [schema coverage](niri-config-schema-coverage.md) |
+| `Clipboard.disable_primary` | Outside | Process/selection/help/error-UI setting; explicit root-scope exclusion; [schema coverage](niri-config-schema-coverage.md) |
+| `ClipboardPart.disable_primary` | Outside | Process/selection/help/error-UI setting; explicit root-scope exclusion; [schema coverage](niri-config-schema-coverage.md) |
+| `Overview.zoom` | Missing | No reference overview; decoded zoom/backdrop/workspace-shadow surface is indexed; [schema coverage](niri-config-schema-coverage.md) |
+| `Overview.backdrop_color` | Missing | No reference overview; decoded zoom/backdrop/workspace-shadow surface is indexed; [schema coverage](niri-config-schema-coverage.md) |
+| `Overview.workspace_shadow` | Missing | No reference overview; decoded zoom/backdrop/workspace-shadow surface is indexed; [schema coverage](niri-config-schema-coverage.md) |
+| `OverviewPart.zoom` | Missing | No reference overview; decoded zoom/backdrop/workspace-shadow surface is indexed; [schema coverage](niri-config-schema-coverage.md) |
+| `OverviewPart.backdrop_color` | Missing | No reference overview; decoded zoom/backdrop/workspace-shadow surface is indexed; [schema coverage](niri-config-schema-coverage.md) |
+| `OverviewPart.workspace_shadow` | Missing | No reference overview; decoded zoom/backdrop/workspace-shadow surface is indexed; [schema coverage](niri-config-schema-coverage.md) |
+| `EnvironmentVariable.name` | Outside | Process/selection/help/error-UI setting; explicit root-scope exclusion; [schema coverage](niri-config-schema-coverage.md) |
+| `EnvironmentVariable.value` | Outside | Process/selection/help/error-UI setting; explicit root-scope exclusion; [schema coverage](niri-config-schema-coverage.md) |
+| `XwaylandSatellite.off` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
+| `XwaylandSatellite.path` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
+| `XwaylandSatellitePart.off` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
+| `XwaylandSatellitePart.on` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
+| `XwaylandSatellitePart.path` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
+
+Declared types to check for nested values/custom decoding: `SpawnAtStartup`, `SpawnShAtStartup`, `Cursor`, `CursorPart`, `ScreenshotPath`, `HotkeyOverlay`, `HotkeyOverlayPart`, `ConfigNotification`, `ConfigNotificationPart`, `Clipboard`, `ClipboardPart`, `Overview`, `OverviewPart`, `Environment`, `EnvironmentVariable`, `XwaylandSatellite`, `XwaylandSatellitePart`.
+
+### `layer_rule.rs`
+
+| Schema field | Status | Mapping / next audit |
+| --- | --- | --- |
+| `LayerRule.matches` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
+| `LayerRule.excludes` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
+| `LayerRule.opacity` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
+| `LayerRule.block_out_from` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
+| `LayerRule.shadow` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
+| `LayerRule.geometry_corner_radius` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
+| `LayerRule.place_within_backdrop` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
+| `LayerRule.baba_is_float` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
+| `LayerRule.background_effect` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
+| `LayerRule.popups` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
+| `Match.namespace` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
+| `Match.at_startup` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
+| `Match.layer` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
+
+Declared types to check for nested values/custom decoding: `LayerRule`, `Match`.
+
+### `input.rs`
+
+| Schema field | Status | Mapping / next audit |
+| --- | --- | --- |
+| `Input.keyboard` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
+| `Input.touchpad` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
+| `Input.mouse` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
+| `Input.trackpoint` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
+| `Input.trackball` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
+| `Input.tablet` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
+| `Input.touch` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
+| `Input.disable_power_key_handling` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
+| `Input.warp_mouse_to_focus` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
+| `Input.focus_follows_mouse` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
+| `Input.workspace_auto_back_and_forth` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
+| `Input.mod_key` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
+| `Input.mod_key_nested` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
+| `InputPart.keyboard` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
+| `InputPart.touchpad` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
+| `InputPart.mouse` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
+| `InputPart.trackpoint` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
+| `InputPart.trackball` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
+| `InputPart.tablet` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
+| `InputPart.touch` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
+| `InputPart.disable_power_key_handling` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
+| `InputPart.warp_mouse_to_focus` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
+| `InputPart.focus_follows_mouse` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
+| `InputPart.workspace_auto_back_and_forth` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
+| `InputPart.mod_key` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
+| `InputPart.mod_key_nested` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
+| `Keyboard.xkb` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
+| `Keyboard.repeat_delay` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
+| `Keyboard.repeat_rate` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
+| `Keyboard.track_layout` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
+| `Keyboard.numlock` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
+| `KeyboardPart.xkb` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
+| `KeyboardPart.repeat_delay` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
+| `KeyboardPart.repeat_rate` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
+| `KeyboardPart.track_layout` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
+| `KeyboardPart.numlock` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
+| `Xkb.rules` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
+| `Xkb.model` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
+| `Xkb.layout` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
+| `Xkb.variant` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
+| `Xkb.options` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
+| `Xkb.file` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
+| `ScrollFactor.base` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
+| `ScrollFactor.horizontal` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
+| `ScrollFactor.vertical` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
+| `Touchpad.off` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
+| `Touchpad.tap` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
+| `Touchpad.dwt` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
+| `Touchpad.dwtp` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
+| `Touchpad.drag` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
+| `Touchpad.drag_lock` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
+| `Touchpad.natural_scroll` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
+| `Touchpad.click_method` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
+| `Touchpad.accel_speed` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
+| `Touchpad.accel_profile` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
+| `Touchpad.scroll_method` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
+| `Touchpad.scroll_button` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
+| `Touchpad.scroll_button_lock` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
+| `Touchpad.tap_button_map` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
+| `Touchpad.left_handed` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
+| `Touchpad.disabled_on_external_mouse` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
+| `Touchpad.middle_emulation` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
+| `Touchpad.scroll_factor` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
+| `Touchpad.pinch_sensitivity` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
+| `Mouse.off` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
+| `Mouse.natural_scroll` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
+| `Mouse.accel_speed` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
+| `Mouse.accel_profile` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
+| `Mouse.scroll_method` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
+| `Mouse.scroll_button` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
+| `Mouse.scroll_button_lock` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
+| `Mouse.left_handed` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
+| `Mouse.middle_emulation` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
+| `Mouse.scroll_factor` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
+| `Trackpoint.off` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
+| `Trackpoint.natural_scroll` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
+| `Trackpoint.accel_speed` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
+| `Trackpoint.accel_profile` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
+| `Trackpoint.scroll_method` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
+| `Trackpoint.scroll_button` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
+| `Trackpoint.scroll_button_lock` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
+| `Trackpoint.left_handed` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
+| `Trackpoint.middle_emulation` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
+| `Trackball.off` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
+| `Trackball.natural_scroll` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
+| `Trackball.accel_speed` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
+| `Trackball.accel_profile` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
+| `Trackball.scroll_method` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
+| `Trackball.scroll_button` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
+| `Trackball.scroll_button_lock` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
+| `Trackball.left_handed` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
+| `Trackball.middle_emulation` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
+| `Tablet.off` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
+| `Tablet.calibration_matrix` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
+| `Tablet.map_to_output` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
+| `Tablet.map_to_focused_output` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
+| `Tablet.map_to_focused_window` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
+| `Tablet.left_handed` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
+| `Touch.off` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
+| `Touch.calibration_matrix` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
+| `Touch.map_to_output` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
+| `FocusFollowsMouse.max_scroll_amount` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
+| `WarpMouseToFocus.mode` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
+
+Declared types to check for nested values/custom decoding: `Input`, `InputPart`, `Keyboard`, `KeyboardPart`, `Xkb`, `TrackLayout`, `ScrollFactor`, `Touchpad`, `Mouse`, `Trackpoint`, `Trackball`, `ClickMethod`, `AccelProfile`, `ScrollMethod`, `TapButtonMap`, `Tablet`, `Touch`, `FocusFollowsMouse`, `WarpMouseToFocus`, `WarpMouseToFocusMode`, `ModKey`.
+
+### `debug.rs`
+
+| Schema field | Status | Mapping / next audit |
+| --- | --- | --- |
+| `Debug.preview_render` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
+| `Debug.dbus_interfaces_in_non_session_instances` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
+| `Debug.wait_for_frame_completion_before_queueing` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
+| `Debug.enable_overlay_planes` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
+| `Debug.disable_cursor_plane` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
+| `Debug.disable_direct_scanout` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
+| `Debug.restrict_primary_scanout_to_matching_format` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
+| `Debug.force_disable_connectors_on_resume` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
+| `Debug.render_drm_device` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
+| `Debug.ignored_drm_devices` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
+| `Debug.force_pipewire_invalid_modifier` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
+| `Debug.disable_pipewire_dmabuf` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
+| `Debug.emulate_zero_presentation_time` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
+| `Debug.disable_resize_throttling` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
+| `Debug.disable_transactions` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
+| `Debug.keep_laptop_panel_on_when_lid_is_closed` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
+| `Debug.disable_monitor_names` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
+| `Debug.strict_new_window_focus_policy` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
+| `Debug.honor_xdg_activation_with_invalid_serial` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
+| `Debug.deactivate_unfocused_windows` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
+| `Debug.skip_cursor_only_updates_during_vrr` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
+| `Debug.disable_10bit_output` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
+| `DebugPart.preview_render` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
+| `DebugPart.dbus_interfaces_in_non_session_instances` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
+| `DebugPart.wait_for_frame_completion_before_queueing` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
+| `DebugPart.enable_overlay_planes` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
+| `DebugPart.disable_cursor_plane` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
+| `DebugPart.disable_direct_scanout` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
+| `DebugPart.restrict_primary_scanout_to_matching_format` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
+| `DebugPart.force_disable_connectors_on_resume` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
+| `DebugPart.render_drm_device` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
+| `DebugPart.ignored_drm_devices` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
+| `DebugPart.force_pipewire_invalid_modifier` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
+| `DebugPart.disable_pipewire_dmabuf` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
+| `DebugPart.emulate_zero_presentation_time` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
+| `DebugPart.disable_resize_throttling` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
+| `DebugPart.disable_transactions` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
+| `DebugPart.keep_laptop_panel_on_when_lid_is_closed` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
+| `DebugPart.disable_monitor_names` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
+| `DebugPart.strict_new_window_focus_policy` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
+| `DebugPart.honor_xdg_activation_with_invalid_serial` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
+| `DebugPart.deactivate_unfocused_windows` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
+| `DebugPart.skip_cursor_only_updates_during_vrr` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
+| `DebugPart.disable_10bit_output` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
+
+Declared types to check for nested values/custom decoding: `Debug`, `DebugPart`, `PreviewRender`.
+
+### `binds.rs`
+
+| Schema field | Status | Mapping / next audit |
+| --- | --- | --- |
+| `Bind.key` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
+| `Bind.action` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
+| `Bind.repeat` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
+| `Bind.cooldown` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
+| `Bind.allow_when_locked` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
+| `Bind.allow_inhibiting` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
+| `Bind.hotkey_overlay_title` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
+| `Key.trigger` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
+| `Key.modifiers` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
+| `SwitchBinds.lid_open` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
+| `SwitchBinds.lid_close` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
+| `SwitchBinds.tablet_mode_on` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
+| `SwitchBinds.tablet_mode_off` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
+| `SwitchAction.spawn` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
+
+Declared types to check for nested values/custom decoding: `Binds`, `Bind`, `Key`, `Trigger`, `SwitchBinds`, `SwitchAction`, `Action`, `WorkspaceReference`.
+
+### `recent_windows.rs`
+
+| Schema field | Status | Mapping / next audit |
+| --- | --- | --- |
+| `RecentWindows.on` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
+| `RecentWindows.debounce_ms` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
+| `RecentWindows.open_delay_ms` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
+| `RecentWindows.highlight` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
+| `RecentWindows.previews` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
+| `RecentWindows.binds` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
+| `RecentWindowsPart.on` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
+| `RecentWindowsPart.off` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
+| `RecentWindowsPart.debounce_ms` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
+| `RecentWindowsPart.open_delay_ms` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
+| `RecentWindowsPart.highlight` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
+| `RecentWindowsPart.previews` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
+| `RecentWindowsPart.binds` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
+| `MruHighlight.active_color` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
+| `MruHighlight.urgent_color` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
+| `MruHighlight.padding` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
+| `MruHighlight.corner_radius` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
+| `MruHighlightPart.active_color` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
+| `MruHighlightPart.urgent_color` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
+| `MruHighlightPart.padding` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
+| `MruHighlightPart.corner_radius` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
+| `MruPreviews.max_height` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
+| `MruPreviews.max_scale` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
+| `MruPreviewsPart.max_height` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
+| `MruPreviewsPart.max_scale` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
+| `MruBind.key` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
+| `MruBind.action` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
+| `MruBind.allow_inhibiting` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
+| `MruBind.hotkey_overlay_title` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
+
+Declared types to check for nested values/custom decoding: `RecentWindows`, `RecentWindowsPart`, `MruHighlight`, `MruHighlightPart`, `MruPreviews`, `MruPreviewsPart`, `MruBind`, `MruDirection`, `MruScope`, `MruFilter`, `MruAction`, `MruBinds`.
+
+Named schema fields indexed: **576**.
 
 ## Behavioral differences to resolve
 

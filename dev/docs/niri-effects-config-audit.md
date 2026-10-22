@@ -188,12 +188,12 @@ These are requirements for later independent fixtures, not parser executions:
 | Popup with unspecified xray plus blur request | Defaults to non-xray, unlike normal surface auto xray. |
 | Global blur off with explicit noise/saturation or xray | Blur computation is disabled; other selected effects are not universally disabled. |
 
-All named public appearance struct fields now have scoped decoder/default/local-
-merge evidence across the core and effects audits. This is not all niri config:
-the current inventory indexes seven modules and omits root/misc fields such as
-Overview/OverviewPart themselves and layer-rule schemas. The next A0 task must
-reconcile schema coverage and justified exclusions before auditing remaining
-modules and ID/index/previous/next actions. Full output/placement/capture semantics,
-BlockOutFrom application, derived structural diagnostics, geometry fixtures beyond
-zero gaps and executable differential evidence remain open. A0/P0 still gates
-feature expansion.
+All named public appearance struct fields have scoped decoder/default/local-
+merge evidence across the core and effects audits. The subsequent
+[schema coverage reconciliation](niri-config-schema-coverage.md) expands the
+inventory to all 14 option-bearing modules and records root/misc/layer-rule
+surfaces explicitly. Newly indexed containers and consumers still need semantic
+work; type reuse does not verify their application. Full output/placement/capture
+semantics, BlockOutFrom application, derived structural diagnostics, geometry
+fixtures beyond zero gaps and executable differential evidence remain open.
+A0/P0 still gates feature expansion.

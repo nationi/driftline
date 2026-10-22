@@ -158,7 +158,72 @@ def effect_status(name, field):
     return status, f"{mapping}; [radius/effect audit](niri-effects-config-audit.md#{section})"
 
 
+SCHEMA_MODULES = ("lib", "layout", "appearance", "gestures", "animations", "window_rule", "workspace", "output", "misc", "layer_rule", "input", "debug", "binds", "recent_windows")
+MODULE_COVERAGE = {
+    "lib.rs": ("Mixed/root", "Config fields plus custom root-node dispatch; internal helpers are not public keys"),
+    "layout.rs": ("Layout", "Column geometry, defaults and partial layout overrides"),
+    "appearance.rs": ("Layout/integration", "Decoration, geometry, blur and effect values"),
+    "gestures.rs": ("Layout/integration", "View scrolling, workspace switching and hot corners"),
+    "animations.rs": ("Layout", "Movement, resize and workspace/overview transitions"),
+    "window_rule.rs": ("Layout/integration", "Window matching, opening, sizing and dynamic appearance"),
+    "workspace.rs": ("Layout", "Named workspace routing and layout overrides"),
+    "output.rs": ("Layout/integration", "Output owners, modes/scales and layout overrides"),
+    "misc.rs": ("Mixed", "Includes Overview/OverviewPart; unrelated process/UI settings are explicitly excluded by root scope"),
+    "layer_rule.rs": ("Integration", "Layer matching, placement/backdrop and effects; full semantic audit pending"),
+    "input.rs": ("Mixed/integration", "Focus, warping, workspace policy and modifiers coexist with device settings; no blanket exclusion"),
+    "debug.rs": ("Mixed/integration", "Transaction, resize/focus and output toggles coexist with backend flags; no blanket exclusion"),
+    "binds.rs": ("Layout/integration", "Public bindings/actions and switch events; aliases/units/addressing need audit"),
+    "recent_windows.rs": ("Layout/integration", "MRU focus overlay and previews; distinct from unrelated help UI"),
+    "error.rs": ("Infrastructure", "Diagnostic/result payloads, not configurable option schemas; named fields intentionally not indexed"),
+    "macros.rs": ("Infrastructure", "Merge helpers, audited through their consumer schemas; no named option fields"),
+    "utils.rs": ("Infrastructure", "Custom scalar/wrapper decoders, audited through consumers; declarations are not standalone option trees"),
+    "utils/merge_with.rs": ("Infrastructure", "Merge trait implementation helper; no configurable option fields"),
+}
+ROOT_NODES = {
+    "input": ("input", "Integration", "Unverified", "Includes focus/warping/workspace policy; audit per field"),
+    "cursor": ("cursor", "Integration", "Unverified", "Cursor interaction/visibility boundaries not audited"),
+    "clipboard": ("clipboard", "Outside", "Outside", "Selection policy, not tiling topology or sizing"),
+    "hotkey-overlay": ("hotkey_overlay", "Outside", "Outside", "Shortcut help UI, not workspace overview or MRU focus"),
+    "config-notification": ("config_notification", "Outside", "Outside", "Config-error notification presentation, not layout policy"),
+    "animations": ("animations", "Layout", "Unverified", "Layout movement/resize and workspace/overview transitions"),
+    "blur": ("blur", "Layout/integration", "Partial", "Tuning/effect-selection source audit exists; runtime parity not established"),
+    "gestures": ("gestures", "Layout/integration", "Unverified", "Scrolling/workspace gesture policy remains unaudited"),
+    "overview": ("overview", "Layout", "Missing", "Overview exists in pinned schema; no reference overview implementation"),
+    "xwayland-satellite": ("xwayland_satellite", "Integration", "Unverified", "Client/protocol integration; reconsider layout-visible lifecycle effects"),
+    "switch-events": ("switch_events", "Integration", "Unverified", "Lid/output actions may affect layout lifecycle"),
+    "debug": ("debug", "Integration", "Unverified", "Mixed layout-visible transaction/focus flags and backend controls"),
+    "output": ("outputs", "Layout/integration", "Partial", "Repeated output configs; ownership/layout/name/mode surface not fully audited"),
+    "spawn-at-startup": ("spawn_at_startup", "Outside", "Outside", "Process launch list; resulting window map remains in layout scope"),
+    "spawn-sh-at-startup": ("spawn_sh_at_startup", "Outside", "Outside", "Shell process launch; not a tiling action contract"),
+    "window-rule": ("window_rules", "Layout/integration", "Partial", "Scoped decoder/lifecycle audits exist; remaining fields and fixtures pending"),
+    "layer-rule": ("layer_rules", "Integration", "Unverified", "Previously omitted layer/effect schema; semantic audit still pending"),
+    "workspace": ("workspaces", "Layout", "Missing", "Named workspace/layout hierarchy not implemented"),
+    "binds": ("binds", "Layout/integration", "Unverified", "Action inventory is not a public binding alias/decoder audit"),
+    "environment": ("environment", "Outside", "Outside", "Child-process environment, not layout behavior"),
+    "prefer-no-csd": ("prefer_no_csd", "Integration", "Unverified", "Decoration negotiation/tiled-state behavior can affect layout"),
+    "screenshot-path": ("screenshot_path", "Outside", "Outside", "Destination filename policy; capture/effect behavior remains separately in scope"),
+    "layout": ("layout", "Layout", "Partial", "Top-level names/defaults audited; full option behavior/fixtures remain partial"),
+    "recent-windows": ("recent_windows", "Layout/integration", "Missing", "MRU focus overlay/preview configuration has no parity implementation"),
+    "include": (None, "Infrastructure", "Unverified", "Custom positional decoder directive with no Config field; full path/error behavior pending"),
+}
+
+
+def schema_structs(source):
+    for match in re.finditer(r"^pub struct (\w+)[^;\n{]*\{", source, re.M):
+        yield match.group(1), re.findall(r"^    pub (\w+):", block(source, match.group(0)), re.M)
+
+
 def config_status(module, name, field):
+    coverage_link = "[schema coverage](niri-config-schema-coverage.md)"
+    if module == "lib" and name == "Config":
+        node, (_, _, status, reason) = next((node, spec) for node, spec in ROOT_NODES.items() if spec[0] == field)
+        return status, f"Root `{node}`: {reason}; {coverage_link}"
+    if module == "misc" and name in {"Overview", "OverviewPart"}:
+        return "Missing", f"No reference overview; decoded zoom/backdrop/workspace-shadow surface is indexed; {coverage_link}"
+    if module == "misc" and name in {"SpawnAtStartup", "SpawnShAtStartup", "Clipboard", "ClipboardPart", "HotkeyOverlay", "HotkeyOverlayPart", "ConfigNotification", "ConfigNotificationPart", "EnvironmentVariable"}:
+        return "Outside", f"Process/selection/help/error-UI setting; explicit root-scope exclusion; {coverage_link}"
+    if module in {"misc", "layer_rule", "input", "debug", "binds", "recent_windows"}:
+        return "Unverified", f"Newly indexed surface; public decoder/default/consumer audit pending; {coverage_link}"
     if module == "appearance" and name in EFFECT_AUDIT_FIELDS:
         return effect_status(name, field)
     if module == "window_rule" and field in EFFECT_CONSUMER_FIELDS.get(name, "").split():
@@ -190,6 +255,13 @@ def generate(root):
     if revision != REVISION:
         raise SystemExit(f"Expected {REVISION}, found {revision}; do not silently change the baseline")
     source_root = root / "niri-config/src"
+    paths = {str(path.relative_to(source_root)) for path in source_root.rglob("*.rs")}
+    assert paths == set(MODULE_COVERAGE), "Every pinned source file needs a coverage/exclusion entry"
+    sources = {path: (source_root / path).read_text() for path in paths}
+    root_nodes = re.findall(r'^                "([\w-]+)" =>', block(sources["lib.rs"], "impl<S> knuffel::DecodeChildren<S> for ConfigPart"), re.M)
+    assert len(root_nodes) == len(ROOT_NODES) and set(root_nodes) == set(ROOT_NODES), "Every root decoder node needs scope evidence"
+    root_fields = dict(schema_structs(sources["lib.rs"]))["Config"]
+    assert set(root_fields) == {spec[0] for spec in ROOT_NODES.values() if spec[0] is not None}, "Root node aliases must cover Config fields"
     actions = block((source_root / "binds.rs").read_text(), "pub enum Action {")
     names = re.findall(r"^    ([A-Z]\w*)\b", actions, re.M)
     assert names and len(set(names)) == len(names)
@@ -207,8 +279,9 @@ def generate(root):
         "[lifecycle audit](niri-config-lifecycle-audit.md) traces override order and",
         "scoped window-rule initial-map/reload consumers. The [effects audit](niri-effects-config-audit.md)",
         "adds radius/workspace-shadow/blur/background-effect decoding and consumers.",
-        "This seven-module index is not the entire public config; root/misc and",
-        "layer-rule coverage still need reconciliation. Unscoped behavior stays open.",
+        "The [schema coverage audit](niri-config-schema-coverage.md) accounts for all",
+        "18 source files, 25 root nodes and 14 indexed modules. Fields are source",
+        "inventory, not a completed public decoder/consumer audit. Unscoped behavior stays open.",
         "P0 reference operation fixtures and the custom-decoder audit remain unfinished.", "",
         "Status: Partial = related implementation, not full equivalence; Divergent = known",
         "semantic difference; Missing = no matching tiling action; Unverified = not audited;",
@@ -220,18 +293,32 @@ def generate(root):
     for name in names:
         scope, status, mapping, evidence = action_status(name)
         lines.append(f"| `{name}` | {scope} | {status} | {mapping} | {evidence} |")
-    lines += ["", f"Action variants indexed: **{len(names)}**.", "", "## Configuration source index", "",
+    lines += ["", f"Action variants indexed: **{len(names)}**.", "", "## Module coverage", "",
+        "| Source file | Scope | Index | Named fields | Coverage / exclusion reason |",
+        "| --- | --- | --- | --- | --- |"]
+    for path, (scope, reason) in MODULE_COVERAGE.items():
+        indexed = path.removesuffix(".rs") in SCHEMA_MODULES
+        field_count = sum(len(fields) for _, fields in schema_structs(sources[path]))
+        lines.append(f"| `{path}` | {scope} | {'Indexed' if indexed else 'Infrastructure only'} | {field_count} | {reason} |")
+    lines += ["", "## Public root decoder nodes", "",
+        "`include` is a custom decoder directive, not a missing Config field. Singular",
+        "public node names such as `output` and `window-rule` are not plural Rust fields.", "",
+        "| Public root node | Config field | Scope | Status | Evidence / next audit |",
+        "| --- | --- | --- | --- | --- |"]
+    for node in root_nodes:
+        field, scope, status, reason = ROOT_NODES[node]
+        storage = f"`Config.{field}`" if field else "—"
+        lines.append(f"| `{node}` | {storage} | {scope} | {status} | {reason}; [coverage](niri-config-schema-coverage.md) |")
+    lines += ["", "## Configuration source index", "",
         "Includes complete named public-struct field sets in these reference modules,",
         "including partial/override schemas and non-layout fields. A row is not necessarily",
         "a directly bindable configuration key. Shared nested types are listed at their",
         "own definitions; tuple wrappers and enums are indexed by declaration below.", ""]
     count = 0
-    for module in ["layout", "appearance", "gestures", "animations", "window_rule", "workspace", "output"]:
-        source = (source_root / f"{module}.rs").read_text()
+    for module in SCHEMA_MODULES:
+        source = sources[f"{module}.rs"]
         lines += [f"### `{module}.rs`", "", "| Schema field | Status | Mapping / next audit |", "| --- | --- | --- |"]
-        for match in re.finditer(r"^pub struct (\w+)[^;\n{]*\{", source, re.M):
-            name = match.group(1)
-            fields = re.findall(r"^    pub (\w+):", block(source, match.group(0)), re.M)
+        for name, fields in schema_structs(source):
             if module == "layout" and name in {"Layout", "LayoutPart"}:
                 assert set(fields) == set(LAYOUT_AUDIT), "Layout audit must account for every field"
             if module == "appearance" and name in APPEARANCE_AUDIT_FIELDS:

@@ -148,8 +148,9 @@ acceptance alone is not a geometry acceptance gate.
 ## Next audit
 
 Core appearance, radius/workspace-shadow/background effects and scoped lifecycle
-have source audits. Reconcile coverage beyond the current seven-module inventory
-next, including root/misc and layer-rule surfaces. Remaining naming/matching
-and rule fields, ID/index/previous/next actions and independent decoder/geometry
+have source audits. The [schema coverage audit](niri-config-schema-coverage.md)
+now includes root/misc, layer rules and other previously omitted modules. Their
+semantics, remaining naming/matching and rule fields, ID/index/previous/next
+actions and independent decoder/geometry
 fixtures stay open. A0/P0 is unfinished; these source tables do not authorize
 new settings or imply runtime parity.

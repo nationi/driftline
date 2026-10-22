@@ -193,8 +193,8 @@ Source-derived probes for later independent fixtures:
 
 Remaining work includes complete override/placement permutations and decoder
 coverage for unscoped rule fields, floating position and output/workspace naming;
-coverage reconciliation beyond the seven indexed modules (including root/misc
-and layer rules); other config modules;
+semantic work on newly indexed root/misc, layer rules and other modules from
+the [schema coverage audit](niri-config-schema-coverage.md);
 ID/index/previous/next actions; and independent executable reference fixtures.
 The [effects audit](niri-effects-config-audit.md) covers CornerRadius/workspace-
 shadow/blur/background effects and scoped consumers. A0/P0 remains open.

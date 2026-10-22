@@ -19,6 +19,7 @@ for task order and acceptance. Older “next” statements in the
 | Color/gradient, border/shadow, tab/insert-hint decoding and merges | [Appearance audit](niri-appearance-config-audit.md) |
 | Override precedence, rule matching, initial map and reload | [Lifecycle audit](niri-config-lifecycle-audit.md) |
 | Radius, workspace shadow, blur and background-effect policy | [Effects audit](niri-effects-config-audit.md) |
+| Entire source-file/root-node coverage and exclusions | [Schema coverage](niri-config-schema-coverage.md) |
 | Source-derived fixture assumptions | [Reference traces](niri-reference-traces.md) |
 | Local preview launch, keys and return path | [TTY guide](tty-preview.md) |
 | Per-batch results and investigation logs | [History](tiling-history.md) |
@@ -61,19 +62,18 @@ mode. These are documented fallbacks, not reference-compatible behavior.
 
 ## Verified evidence and its limits
 
-Latest A0 documentation/tooling validation: scoped source evidence covers 34
-layout rows, 98 core appearance fields, 33 lifecycle rows and 41 radius/effect
-rows (34 remaining appearance fields + seven window/popup consumers). The
-[effects audit](niri-effects-config-audit.md) records parser/runtime pass bounds,
-asymmetric radius decoding, workspace-height normalization, tri-state blur and
-explicit empty-region suppression, popup xray default and driftwm differences.
-All 132 named public appearance fields have scoped source evidence; the current
-seven-module 318-field inventory is not the whole public config. Root/misc
-(including Overview itself) and layer rules need coverage reconciliation next.
-Generator syntax, deterministic output, 186 actions / 318 fields, 206 scoped
-links, local anchors, pinned targets and clean source checks passed. These are
-source reviews, not execution of niri or a differential oracle. No runtime/config
-change; the last full implementation gate remains below.
+Latest A0 documentation/tooling validation: the [schema coverage audit](niri-config-schema-coverage.md)
+accounts for all 18 source files (14 indexed modules, four infrastructure paths),
+25 public root decoder nodes and their 24 Config storage fields. The inventory
+expanded from 318 to 576 module-qualified named fields, retaining all 186 action
+variants and the previous 206 scoped semantic-audit links (34 layout + 98 core
+appearance + 33 lifecycle + 41 effects). Newly indexed root/misc, layer, input,
+debug, binds and MRU surfaces remain Unverified unless existing evidence or
+explicit scope exclusions justify otherwise. Complete source indexing is not a
+complete public decoder/consumer audit. Syntax, deterministic regeneration,
+source/root coverage sets, preservation of old rows/actions, uniqueness, links
+and pinned clean source checks passed. No runtime/config change; implementation
+CI remains the B4 gate below.
 
 Latest validation gate: `/tmp/driftwm-b4-output-ci.log`, exit 0: full
 `dev/scripts/ci-local`, 369 library cases, 1490 binary cases including ignored
@@ -185,17 +185,17 @@ unresolved; use direct TTY for visual acceptance.
 
 ## Next work
 
-Next work: **A0/P0 schema coverage reconciliation** at pinned niri
-`12de51d6a60baad8896366920278a24f17921f52`. Inventory the niri-config modules and
-root Config surface against the seven indexed modules. Add missing layout-visible
-surfaces (at least root/misc Overview and layer-rule/effect settings), record
-justified exclusions, and avoid treating internal resolved fields as public keys.
-Then finish remaining module/rule/naming decoders and ID/index/previous/next
-actions, plus independent fixtures beyond zero gaps. Existing layout, appearance,
-effect and scoped lifecycle audits are recorded; do not restart them or silently
-change driftwm's sticky/empty-region effect policy. A0/P0 remains the prerequisite
-for feature expansion. Controlled B1–B4 matrices are delivered; full P2/P13, P11
-ownership, hardware unplug and every lifecycle permutation remain unproven.
+Next work: **A0/P0 LayerRule/Match and Overview consumer audit** at pinned niri
+`12de51d6a60baad8896366920278a24f17921f52`. The schema coverage gap is reconciled:
+all source paths and root aliases now have inclusion/exclusion reasons. Audit
+newly indexed layer matching/defaults/reload/backdrop/effect consumers and
+Overview zoom/backdrop/shadow/entry behavior, without inferring semantics from
+shared value types. Then remaining input focus/warp/workspace policy, debug layout
+flags, animations/gestures, output/workspace names, unscoped rules and public
+binding/ID/index/previous/next actions; independent fixtures beyond zero gaps
+remain required. Do not repeat delivered source audits, restart B matrices or
+silently change driftwm's effect policy. A0/P0 gates feature expansion; indexing
+576 fields does not close semantic parity, P2/P13 acceptance or P11 ownership.
 Controlled SSD scale-change release is
 fixed: retain the native title raster separately, blend old/current premultiplied
 pixels before window opacity, and carry mixed title pixels through recapture.

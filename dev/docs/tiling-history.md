@@ -2546,3 +2546,48 @@ value types are indexed), and root Config/layer-rule surfaces are absent. Next
 A0 task is schema coverage reconciliation with explicit exclusions and missing
 layout-visible nodes before the remaining decoder/action audit and independent
 fixture expansion. A0/P0 remains open and gates feature expansion.
+
+## 2026-10-22 — A0 entire source/root schema reconciliation
+
+Added `dev/docs/niri-config-schema-coverage.md` and expanded the generator from
+seven selected modules / 318 named fields to 14 indexed modules / 576 fields.
+Added root Config, misc, layer_rule, input, debug, binds and recent_windows:
+258 additional rows. All previous 318 schema rows and 186 Action variants remain.
+The manifest accounts for all 18 niri-config/src Rust paths, explicitly handling
+error.rs, macros.rs, utils.rs and utils/merge_with.rs as infrastructure. error.rs's
+four result/diagnostic fields are not configurable nodes and are excluded from
+the schema row count. Custom scalar/merge helpers remain audited through their
+consumers, rather than invented as independent public option trees.
+
+The actual ConfigPart root dispatch has 25 public nodes mapped to 24 Config
+fields; include is a custom directive without a backing field. The generator
+extracts root arms and validates them against curated aliases/scopes, plus all
+Config fields and the complete source-file set. Root output/window-rule/workspace
+aliases are recorded as singular public nodes, not guessed from plural storage.
+A generated module coverage table and root-node table expose every decision.
+
+Mixed files cannot be blanket-excluded: input contains focus/warp/workspace
+policy, debug contains transaction/resize/focus switches, misc contains Overview,
+layer rules affect scene/backdrop/effects, binds has public action/switch-event
+surfaces and recent_windows is relevant MRU focus UI. New rows remain Unverified
+unless scoped evidence or explicit exclusions justify a label. Process launch /
+environment, selection clipboard policy, screenshot destination naming, help UI
+and config-error notification presentation are explicitly Outside, with related
+window map/capture/overview behavior kept separately in scope. Overview/Part is
+now visible as six Missing container settings; canvas zoom is not reference
+overview equivalence. Its runtime consumers and layer semantics are next.
+
+Validation: Python syntax without bytecode files; deterministic byte-identical
+regeneration; 18 source coverage entries / 14 indexed modules; 25 root nodes / 24
+storage fields; 576 unique module-qualified schema rows; preservation of previous
+318 rows and Action table; unchanged 206 scoped semantic links; local targets /
+anchors, pinned source paths, clean reference SHA and `git diff --check`. Source
+reference remains `12de51d6a60baad8896366920278a24f17921f52`. This closes the known
+source-index coverage gap, not complete public decoder/lifecycle or parity work.
+No runtime/config change, full CI rerun, niri execution, push, installation or
+TTY acceptance; implementation CI remains `/tmp/driftwm-b4-output-ci.log`.
+
+Next A0: LayerRule/Match and Overview/OverviewPart defaults and actual consumers,
+then input focus/warp/workspace policy, debug layout flags, animation/gesture /
+remaining naming/rule decoders, public binding/action addressing and independent
+fixture expansion. A0/P0 stays open and gates feature expansion.

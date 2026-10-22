@@ -179,9 +179,9 @@ Source-derived probes for future independent decoder/merge fixtures:
 | `softness 1025` / `spread -1025` / tab `width -1` | Numeric decoder errors; recovery zero is not successful acceptance. |
 
 Remaining A0 work: complete override/placement permutations and independent
-fixtures, unscoped rule fields and output/workspace naming, schema coverage
-reconciliation beyond the current seven modules, and ID/index/previous/next
-actions. The effects audit covers the remaining named appearance structs, not
+fixtures, unscoped rule fields and output/workspace naming, newly indexed
+modules from the [schema coverage audit](niri-config-schema-coverage.md), and
+ID/index/previous/next actions. The effects audit covers the remaining named appearance structs, not
 every enum application or render transition. Full CSS dependency behavior,
 derive-generated structural diagnostics and visual geometry remain outside
 these source-only gates. A0/P0 remains open.
