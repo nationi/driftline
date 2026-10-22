@@ -2403,13 +2403,33 @@ fn degraded_canvas_resize_keeps_capped_live_content_when_tiling_starts() {
     for scale in [1.0, 1.25, 1.5] {
         for ssd in [false, true] {
             for reply in [false, true] {
-                check_degraded_canvas_resize(scale, ssd, reply);
+                check_degraded_canvas_resize(scale, ssd, reply, false);
             }
         }
     }
 }
 
-fn check_degraded_canvas_resize(scale: f64, ssd: bool, reply: bool) {
+#[test]
+#[ignore = "needs surfaceless EGL; run with --include-ignored"]
+fn degraded_canvas_resize_preserves_minified_content_when_tiling_starts() {
+    let _gl = gl::lock();
+    let (ready, loaded) = std::sync::mpsc::sync_channel(1);
+    driftwm::text::warm_fonts(move || {
+        let _ = ready.send(());
+    });
+    loaded
+        .recv_timeout(std::time::Duration::from_secs(10))
+        .unwrap();
+    for scale in [1.0, 1.25, 1.5] {
+        for ssd in [false, true] {
+            for reply in [false, true] {
+                check_degraded_canvas_resize(scale, ssd, reply, true);
+            }
+        }
+    }
+}
+
+fn check_degraded_canvas_resize(scale: f64, ssd: bool, reply: bool, shrinking: bool) {
     use super::{last_configured, tick_until_settled, window_by_app_id};
     use driftwm::config::Action;
     use std::time::{Duration, Instant};
@@ -2440,9 +2460,10 @@ fn check_degraded_canvas_resize(scale: f64, ssd: bool, reply: bool) {
     let id = f.state().stage.id_of(&window).unwrap();
     f.state().stage.set_position(&window, (100, 120).into());
     f.state().set_camera((0.0, 0.0).into());
+    let requested = if shrinking { (120, 60) } else { (600, 400) };
     f.state()
-        .animate_window_geometry(&window, (600, 400).into(), None);
-    f.state().send_size_configure(&window, (600, 400).into());
+        .animate_window_geometry(&window, requested.into(), None);
+    f.state().send_size_configure(&window, requested.into());
     last_configured(&mut f, client, &surface);
     let now = Instant::now();
     let tick = Duration::from_millis(16);
@@ -2453,10 +2474,10 @@ fn check_degraded_canvas_resize(scale: f64, ssd: bool, reply: bool) {
         .state()
         .animated_visual(id, (100.0, 120.0).into(), (200.0, 100.0).into());
     assert!(visual.cap_content);
-    assert!(visual.size.w > 200.0 && visual.size.h > 100.0);
+    assert_eq!(visual.size.w < 200.0 && visual.size.h < 100.0, shrinking);
     assert!(!f.state().window_animations.can_capture_canvas_geometry(id));
     let before = tiling_live_frame(&mut f, &output);
-    let content_bounds = |frame: &[u8]| {
+    let content_bounds = |frame: &[u8], extent: (f64, f64)| {
         let points: Vec<_> = frame
             .as_chunks::<4>()
             .0
@@ -2474,13 +2495,14 @@ fn check_degraded_canvas_resize(scale: f64, ssd: bool, reply: bool) {
         assert_eq!(
             (w, h),
             (
-                (200.0 * scale).round() as usize,
-                (100.0 * scale).round() as usize
+                (extent.0 * scale).round() as usize,
+                (extent.1 * scale).round() as usize
             ),
             "stale client content must never be magnified"
         );
     };
-    content_bounds(&before);
+    let extent = (visual.size.w.min(200.0), visual.size.h.min(100.0));
+    content_bounds(&before, extent);
     f.state().execute_action(&Action::ToggleTiling);
     assert_eq!(
         f.state().tiling_snapshot_count(),
@@ -2498,7 +2520,7 @@ fn check_degraded_canvas_resize(scale: f64, ssd: bool, reply: bool) {
         delta <= 2,
         "{scale}x SSD={ssd}: live fallback entry differs by {delta}"
     );
-    content_bounds(&held);
+    content_bounds(&held, extent);
     for _ in 0..3 {
         f.state().execute_action(&Action::CycleColumnWidth);
         assert_eq!(f.state().tiling_snapshot_count(), 0);
@@ -2533,7 +2555,7 @@ fn check_degraded_canvas_resize(scale: f64, ssd: bool, reply: bool) {
     assert!(!f.state().window_animations.is_active());
     let settled = tiling_live_frame(&mut f, &output);
     if !reply {
-        content_bounds(&settled);
+        content_bounds(&settled, (200.0, 100.0));
     }
     assert!(!f.state().resize_crossfades.contains_key(&id));
     f.state().execute_action(&Action::ToggleTiling);

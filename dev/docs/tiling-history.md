@@ -2050,3 +2050,47 @@ locked check, strict all-target clippy, no-run build, 368 library cases, 1479 bi
 cases including ignored GPU scenarios, integration suites and isolated soak.
 The new mode matrix and existing 84 transformed scenes pass in the full suite.
 Markdown targets and `git diff --check` passed. This batch changes tests/docs only.
+
+## 2026-10-22 — B3 stale minification and client-region blur
+
+Baseline `cdf1344`. Added
+`degraded_canvas_resize_preserves_minified_content_when_tiling_starts`, 12
+SSD/CSD scenes at 1x/1.25x/1.5x with real reply or timeout. Extend the earlier
+capped-growth fixture with a stale 200x100 → requested 120x60 case. Inject time
+to expire the start hold; require capped-policy/degraded capture ineligibility
+and independently count rendered red content bounds at the minified extent.
+Entry remains within two bytes, three supersessions preserve the current frame
+exactly, and reply/timeout cleanup returns to a nonanimated live window. The
+unanswered settled window must have its actual committed 200x100 content size.
+Original 12 capped-growth cases remain. Dedicated `/tmp/driftwm-b3-minify.log`:
+both tests / 24 scenes passed.
+
+`degraded_client_blur_follows_capped_and_minified_live_content` adds 24 scenes:
+SSD/CSD, three scales, capped growth/minification and reply/timeout. A real
+ext-background-effect client requests a partial (20,15,90,55) region over a striped
+shader backdrop through half-alpha content. After start-hold expiry, compare
+enabled and disabled frames: differences must exist and all must lie inside the
+independently transformed region bounds (two physical pixels for edge rasterization).
+Client-only blur must not leak into title/shadow or unused stale-frame space.
+Region-only re-enable restores the exact frame and does not make stale content
+capture-eligible. Tiling entry uses zero retained images and stays within two
+bytes. Real response or injected timeout drains all animations/crossfades;
+settled unset and explicit empty client regions agree, leaving no residual frost.
+Fixture counters return to baseline after normal per-output GPU teardown.
+Dedicated `/tmp/driftwm-b3-degraded-blur.log`: all 24 scenes passed.
+
+No renderer fix or tolerance/timeout change was required. These are controlled
+isotropic stale-content/effect integration gates, not every degraded lifecycle,
+anisotropic ratio, client constraint or niri effect-policy combination. B3's next
+work is scoped deterministic capture allocation failure: test parent, popup and
+resize-content bake separately, preserving transaction bounds and successful
+recovery without inducing real GPU/OOM failures. No pure stage/layout/config
+parser algorithm changed; no deep property pass is needed. No release build,
+installation, desktop restart, push or manual TTY acceptance was performed.
+
+Full `dev/scripts/ci-local` passed, exit 0
+(`/tmp/driftwm-b3-stale-effects-ci.log`): fmt, locked check, strict all-target clippy,
+no-run build, 368 library cases, 1481 binary cases including ignored GPU scenarios,
+integration suites and isolated soak. Existing mode/transform/title matrices remain
+green. Markdown targets and `git diff --check` passed. This batch adds fixture
+coverage and documentation only.

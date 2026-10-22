@@ -163,7 +163,8 @@ bounded resize transition on an otherwise settled window without restarting
 the group or repeating the animation on subsequent repaints. Degraded stale
 resize content retains its live fallback: it is not flattened into a stretched
 full-window snapshot, and starting tiling preserves its existing capped content
-and frame transform. Controlled checks cover replies, timeouts and repeated
-width changes at fixed output scales. Fullscreen/pinned transitions retain their
+and frame transform. Controlled checks cover capped growth, minification and
+client partial blur, including replies, timeouts and repeated width changes at
+fixed output scales. Fullscreen/pinned transitions retain their
 live fallback.
 Complete visual atomicity and all animation transitions are not implemented yet.

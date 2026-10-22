@@ -1921,3 +1921,179 @@ fn client_blur_mask_samples(
         bytes[3],
     ]
 }
+
+#[test]
+#[ignore = "needs surfaceless EGL; run with --include-ignored"]
+fn degraded_client_blur_follows_capped_and_minified_live_content() {
+    let _gl = gl::lock();
+    let (ready, loaded) = std::sync::mpsc::sync_channel(1);
+    driftwm::text::warm_fonts(move || {
+        let _ = ready.send(());
+    });
+    loaded
+        .recv_timeout(std::time::Duration::from_secs(10))
+        .unwrap();
+    for scale in [1.0, 1.25, 1.5] {
+        for ssd in [false, true] {
+            for shrinking in [false, true] {
+                for reply in [false, true] {
+                    check_degraded_client_blur(scale, ssd, shrinking, reply);
+                }
+            }
+        }
+    }
+}
+
+fn check_degraded_client_blur(scale: f64, ssd: bool, shrinking: bool, reply: bool) {
+    use super::{last_configured, map_window_shm, tick_until_settled, window_by_app_id};
+    use driftwm::config::Action;
+    use std::time::{Duration, Instant};
+    let Some(renderer) = gl::surfaceless_renderer("degraded client blur") else {
+        return;
+    };
+    let temp = TempDir::new();
+    let shader = temp.path().join("degraded.glsl");
+    std::fs::write(&shader, "precision highp float; varying vec2 v_coords; void main() { float s=step(0.5,fract(v_coords.x*80.0)); gl_FragColor=vec4(vec3(s),1.0); }").unwrap();
+    let config = config_toml(shader.to_str().unwrap(), 3, 1.5)
+        .replace("blur = true", "blur = false")
+        .replace("border_width = 0", "border_width = 2")
+        .replace("corner_radius = 0", "corner_radius = 8")
+        .replace("shadow = false", "shadow = true");
+    let config = if ssd {
+        config.replace("default_mode = \"client\"", "default_mode = \"server\"")
+    } else {
+        config
+    };
+    let mut f = Fixture::with_config(super::config(&config));
+    let output = f.add_output_scaled(1, (OUTPUT.0 as u16, OUTPUT.1 as u16), scale);
+    install_with_blur(&mut f, renderer);
+    let client = f.add_client();
+    let surface = map_window_shm(
+        &mut f,
+        client,
+        "frosted",
+        (240, 160),
+        (240, 160),
+        &super::render_pixels::solid_bgra(240, 160, [0, 64, 0, 128], false),
+    );
+    tick_until_settled(&mut f);
+    let window = window_by_app_id(&mut f, "frosted").unwrap();
+    let id = f.state().stage.id_of(&window).unwrap();
+    f.state().stage.set_position(&window, (100, 120).into());
+    f.state().set_camera((0.0, 0.0).into());
+    let effect = f.client(client).background_effect(&surface);
+    let region = [(20, 15, 90, 55)];
+    f.client(client).set_blur_region(&effect, Some(&region));
+    f.client(client).window(&surface).commit();
+    f.double_roundtrip(client);
+    let requested = if shrinking { (120, 80) } else { (480, 320) };
+    f.state()
+        .animate_window_geometry(&window, requested.into(), None);
+    f.state().send_size_configure(&window, requested.into());
+    last_configured(&mut f, client, &surface);
+    let tick = Duration::from_millis(16);
+    let now = Instant::now();
+    let degraded = now + Duration::from_secs(1);
+    f.state().tick_window_animations_at(tick, now);
+    f.state().tick_window_animations_at(tick, degraded);
+    let visual = f
+        .state()
+        .animated_visual(id, (100.0, 120.0).into(), (240.0, 160.0).into());
+    assert!(visual.cap_content);
+    assert!(!f.state().window_animations.can_capture_canvas_geometry(id));
+    let enabled = live_frame(&mut f, &output);
+    f.client(client).set_blur_region(&effect, None);
+    f.client(client).window(&surface).commit();
+    f.double_roundtrip(client);
+    let disabled = live_frame(&mut f, &output);
+    let sx = (visual.size.w / 240.0).min(1.0);
+    let sy = (visual.size.h / 160.0).min(1.0);
+    let bounds = (
+        ((visual.loc.x + 20.0 * sx) * scale).floor() as i32 - 2,
+        ((visual.loc.y + 15.0 * sy) * scale).floor() as i32 - 2,
+        ((visual.loc.x + 110.0 * sx) * scale).ceil() as i32 + 2,
+        ((visual.loc.y + 70.0 * sy) * scale).ceil() as i32 + 2,
+    );
+    let mut changed = 0;
+    for (x, y, pixel) in enabled.enumerate_pixels() {
+        if pixel == disabled.get_pixel(x, y) {
+            continue;
+        }
+        changed += 1;
+        assert!(
+            (x as i32) >= bounds.0
+                && (y as i32) >= bounds.1
+                && (x as i32) < bounds.2
+                && (y as i32) < bounds.3,
+            "{scale}x SSD={ssd} shrinking={shrinking}: frost leaked beyond the transformed client region at {x},{y}"
+        );
+    }
+    assert!(
+        changed > 0,
+        "client region must actually frost the striped backdrop"
+    );
+    f.client(client).set_blur_region(&effect, Some(&region));
+    f.client(client).window(&surface).commit();
+    f.double_roundtrip(client);
+    assert!(
+        enabled == live_frame(&mut f, &output),
+        "region-only commit must restore the same capped frost"
+    );
+    assert!(!f.state().window_animations.can_capture_canvas_geometry(id));
+    f.state().execute_action(&Action::ToggleTiling);
+    assert_eq!(f.state().tiling_snapshot_count(), 0);
+    let held = live_frame(&mut f, &output);
+    let delta = enabled
+        .as_raw()
+        .iter()
+        .zip(held.as_raw())
+        .map(|(a, b)| a.abs_diff(*b))
+        .max()
+        .unwrap();
+    assert!(
+        delta <= 2,
+        "{scale}x SSD={ssd} shrinking={shrinking}: degraded frost entry differs by {delta}"
+    );
+    let size = last_configured(&mut f, client, &surface);
+    if reply {
+        let w = f.client(client).window(&surface);
+        w.set_size(size.0 as u16, size.1 as u16);
+        w.attach_shm_buffer(
+            size,
+            &super::render_pixels::solid_bgra(size.0, size.1, [0, 64, 0, 128], false),
+        );
+        w.ack_last_and_commit();
+        f.double_roundtrip(client);
+    } else {
+        let expired = degraded + Duration::from_secs(1);
+        f.state().refresh_tiling_at(expired);
+        f.pump(4);
+        f.state().refresh_tiling_at(expired);
+    }
+    for i in 0..600 {
+        if !f.state().window_animations.is_active() {
+            break;
+        }
+        f.state().tick_window_animations_at(
+            tick,
+            degraded + Duration::from_secs(2) + Duration::from_millis(i * 16),
+        );
+    }
+    assert!(!f.state().window_animations.is_active());
+    assert_eq!(f.state().tiling_snapshot_count(), 0);
+    assert!(!f.state().resize_crossfades.contains_key(&id));
+    live_frame(&mut f, &output);
+    f.client(client).set_blur_region(&effect, None);
+    f.client(client).window(&surface).commit();
+    f.double_roundtrip(client);
+    let off = live_frame(&mut f, &output);
+    f.client(client).set_blur_region(&effect, Some(&[]));
+    f.client(client).window(&surface).commit();
+    f.double_roundtrip(client);
+    assert!(
+        off == live_frame(&mut f, &output),
+        "settled empty region must leave no residual frost"
+    );
+    f.state().execute_action(&Action::ToggleTiling);
+    uninstall_with_blur(&mut f, &output);
+}
