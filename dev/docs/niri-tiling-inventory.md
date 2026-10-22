@@ -8,7 +8,9 @@ variants remain separate rows. Names are Rust symbols, not guessed binding alias
 The reference has decoder attributes/custom parsers: public schema fields below
 are not automatically public keys. The [layout audit](niri-layout-config-audit.md)
 covers top-level layout names/defaults and shared size/flag/strut decoding;
-nested appearance, overrides and other schemas still need semantic auditing.
+the [appearance audit](niri-appearance-config-audit.md) covers color/gradient,
+border/shadow and tab/insert-hint decoding and merges. Overrides, remaining
+appearance types and other schemas still need semantic auditing.
 P0 reference operation fixtures and the custom-decoder audit remain unfinished.
 
 Status: Partial = related implementation, not full equivalence; Divergent = known
@@ -233,7 +235,7 @@ own definitions; tuple wrappers and enums are indexed by declaration below.
 | `Layout.default_column_display` | Missing | Public normal/tabbed setting and tabbed display missing; [public name/default audit](niri-layout-config-audit.md#public-layout-children) |
 | `Layout.gaps` | Divergent | Shared snap.gap defaults to 12 vs 16, rounds to integer; gap accounting differs; [public name/default audit](niri-layout-config-audit.md#public-layout-children) |
 | `Layout.struts` | Missing | Signed/fractional custom struts missing; layer usable area is not equivalent; [public name/default audit](niri-layout-config-audit.md#public-layout-children) |
-| `Layout.background_color` | Partial | Canvas background differs from per-layout solid default; Color decoder audit pending; [public name/default audit](niri-layout-config-audit.md#public-layout-children) |
+| `Layout.background_color` | Partial | Canvas background differs from per-layout solid default; Color grammar audited separately; [public name/default audit](niri-layout-config-audit.md#public-layout-children) |
 | `LayoutPart.focus_ring` | Missing | Separate focus-ring facility missing; [public name/default audit](niri-layout-config-audit.md#public-layout-children) |
 | `LayoutPart.border` | Partial | Native decoration border differs in grammar/defaults/placement; [public name/default audit](niri-layout-config-audit.md#public-layout-children) |
 | `LayoutPart.shadow` | Partial | Native shadow exists; reference settings/defaults not equivalent; [public name/default audit](niri-layout-config-audit.md#public-layout-children) |
@@ -248,7 +250,7 @@ own definitions; tuple wrappers and enums are indexed by declaration below.
 | `LayoutPart.default_column_display` | Missing | Public normal/tabbed setting and tabbed display missing; [public name/default audit](niri-layout-config-audit.md#public-layout-children) |
 | `LayoutPart.gaps` | Divergent | Shared snap.gap defaults to 12 vs 16, rounds to integer; gap accounting differs; [public name/default audit](niri-layout-config-audit.md#public-layout-children) |
 | `LayoutPart.struts` | Missing | Signed/fractional custom struts missing; layer usable area is not equivalent; [public name/default audit](niri-layout-config-audit.md#public-layout-children) |
-| `LayoutPart.background_color` | Partial | Canvas background differs from per-layout solid default; Color decoder audit pending; [public name/default audit](niri-layout-config-audit.md#public-layout-children) |
+| `LayoutPart.background_color` | Partial | Canvas background differs from per-layout solid default; Color grammar audited separately; [public name/default audit](niri-layout-config-audit.md#public-layout-children) |
 | `Struts.left` | Missing | No custom struts; [signed numeric/default audit](niri-layout-config-audit.md#size-decoders) |
 | `Struts.right` | Missing | No custom struts; [signed numeric/default audit](niri-layout-config-audit.md#size-decoders) |
 | `Struts.top` | Missing | No custom struts; [signed numeric/default audit](niri-layout-config-audit.md#size-decoders) |
@@ -260,46 +262,46 @@ Declared types to check for nested values/custom decoding: `Layout`, `LayoutPart
 
 | Schema field | Status | Mapping / next audit |
 | --- | --- | --- |
-| `Color.r` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
-| `Color.g` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
-| `Color.b` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
-| `Color.a` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
-| `Gradient.from` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
-| `Gradient.to` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
-| `Gradient.angle` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
-| `Gradient.relative_to` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
-| `Gradient.in_` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
-| `GradientInterpolation.color_space` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
-| `GradientInterpolation.hue_interpolation` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
+| `Color.r` | Partial | RGBA exists; internal float components are not public keys, CSS/numeric KDL grammar differs; [decoder/merge audit](niri-appearance-config-audit.md#color-and-gradient-decoding) |
+| `Color.g` | Partial | RGBA exists; internal float components are not public keys, CSS/numeric KDL grammar differs; [decoder/merge audit](niri-appearance-config-audit.md#color-and-gradient-decoding) |
+| `Color.b` | Partial | RGBA exists; internal float components are not public keys, CSS/numeric KDL grammar differs; [decoder/merge audit](niri-appearance-config-audit.md#color-and-gradient-decoding) |
+| `Color.a` | Partial | RGBA exists; internal float components are not public keys, CSS/numeric KDL grammar differs; [decoder/merge audit](niri-appearance-config-audit.md#color-and-gradient-decoding) |
+| `Gradient.from` | Missing | No gradient/interpolation configuration; [decoder/merge audit](niri-appearance-config-audit.md#color-and-gradient-decoding) |
+| `Gradient.to` | Missing | No gradient/interpolation configuration; [decoder/merge audit](niri-appearance-config-audit.md#color-and-gradient-decoding) |
+| `Gradient.angle` | Missing | No gradient/interpolation configuration; [decoder/merge audit](niri-appearance-config-audit.md#color-and-gradient-decoding) |
+| `Gradient.relative_to` | Missing | No gradient/interpolation configuration; [decoder/merge audit](niri-appearance-config-audit.md#color-and-gradient-decoding) |
+| `Gradient.in_` | Missing | No gradient/interpolation configuration; [decoder/merge audit](niri-appearance-config-audit.md#color-and-gradient-decoding) |
+| `GradientInterpolation.color_space` | Missing | No gradient/interpolation configuration; [decoder/merge audit](niri-appearance-config-audit.md#color-and-gradient-decoding) |
+| `GradientInterpolation.hue_interpolation` | Missing | No gradient/interpolation configuration; [decoder/merge audit](niri-appearance-config-audit.md#color-and-gradient-decoding) |
 | `CornerRadius.top_left` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
 | `CornerRadius.top_right` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
 | `CornerRadius.bottom_right` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
 | `CornerRadius.bottom_left` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
-| `FocusRing.off` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
-| `FocusRing.width` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
-| `FocusRing.active_color` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
-| `FocusRing.inactive_color` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
-| `FocusRing.urgent_color` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
-| `FocusRing.active_gradient` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
-| `FocusRing.inactive_gradient` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
-| `FocusRing.urgent_gradient` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
-| `Border.off` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
-| `Border.width` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
-| `Border.active_color` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
-| `Border.inactive_color` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
-| `Border.urgent_color` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
-| `Border.active_gradient` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
-| `Border.inactive_gradient` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
-| `Border.urgent_gradient` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
-| `Shadow.on` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
-| `Shadow.offset` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
-| `Shadow.softness` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
-| `Shadow.spread` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
-| `Shadow.draw_behind_window` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
-| `Shadow.color` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
-| `Shadow.inactive_color` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
-| `ShadowOffset.x` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
-| `ShadowOffset.y` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
+| `FocusRing.off` | Missing | Native borders cover a subset; separate focus ring, urgent colors and gradients missing; [decoder/merge audit](niri-appearance-config-audit.md#border-and-focus-ring-rules) |
+| `FocusRing.width` | Missing | Native borders cover a subset; separate focus ring, urgent colors and gradients missing; [decoder/merge audit](niri-appearance-config-audit.md#border-and-focus-ring-rules) |
+| `FocusRing.active_color` | Missing | Native borders cover a subset; separate focus ring, urgent colors and gradients missing; [decoder/merge audit](niri-appearance-config-audit.md#border-and-focus-ring-rules) |
+| `FocusRing.inactive_color` | Missing | Native borders cover a subset; separate focus ring, urgent colors and gradients missing; [decoder/merge audit](niri-appearance-config-audit.md#border-and-focus-ring-rules) |
+| `FocusRing.urgent_color` | Missing | Native borders cover a subset; separate focus ring, urgent colors and gradients missing; [decoder/merge audit](niri-appearance-config-audit.md#border-and-focus-ring-rules) |
+| `FocusRing.active_gradient` | Missing | Native borders cover a subset; separate focus ring, urgent colors and gradients missing; [decoder/merge audit](niri-appearance-config-audit.md#border-and-focus-ring-rules) |
+| `FocusRing.inactive_gradient` | Missing | Native borders cover a subset; separate focus ring, urgent colors and gradients missing; [decoder/merge audit](niri-appearance-config-audit.md#border-and-focus-ring-rules) |
+| `FocusRing.urgent_gradient` | Missing | Native borders cover a subset; separate focus ring, urgent colors and gradients missing; [decoder/merge audit](niri-appearance-config-audit.md#border-and-focus-ring-rules) |
+| `Border.off` | Partial | Native borders cover a subset; separate focus ring, urgent colors and gradients missing; [decoder/merge audit](niri-appearance-config-audit.md#border-and-focus-ring-rules) |
+| `Border.width` | Partial | Native borders cover a subset; separate focus ring, urgent colors and gradients missing; [decoder/merge audit](niri-appearance-config-audit.md#border-and-focus-ring-rules) |
+| `Border.active_color` | Partial | Native borders cover a subset; separate focus ring, urgent colors and gradients missing; [decoder/merge audit](niri-appearance-config-audit.md#border-and-focus-ring-rules) |
+| `Border.inactive_color` | Partial | Native borders cover a subset; separate focus ring, urgent colors and gradients missing; [decoder/merge audit](niri-appearance-config-audit.md#border-and-focus-ring-rules) |
+| `Border.urgent_color` | Missing | Native borders cover a subset; separate focus ring, urgent colors and gradients missing; [decoder/merge audit](niri-appearance-config-audit.md#border-and-focus-ring-rules) |
+| `Border.active_gradient` | Missing | Native borders cover a subset; separate focus ring, urgent colors and gradients missing; [decoder/merge audit](niri-appearance-config-audit.md#border-and-focus-ring-rules) |
+| `Border.inactive_gradient` | Missing | Native borders cover a subset; separate focus ring, urgent colors and gradients missing; [decoder/merge audit](niri-appearance-config-audit.md#border-and-focus-ring-rules) |
+| `Border.urgent_gradient` | Missing | Native borders cover a subset; separate focus ring, urgent colors and gradients missing; [decoder/merge audit](niri-appearance-config-audit.md#border-and-focus-ring-rules) |
+| `Shadow.on` | Partial | Native shadow enablement exists; parameter grammar and context-dependent on/off merges differ; [decoder/merge audit](niri-appearance-config-audit.md#shadow-rules) |
+| `Shadow.offset` | Missing | Native shadow enablement exists; parameter grammar and context-dependent on/off merges differ; [decoder/merge audit](niri-appearance-config-audit.md#shadow-rules) |
+| `Shadow.softness` | Missing | Native shadow enablement exists; parameter grammar and context-dependent on/off merges differ; [decoder/merge audit](niri-appearance-config-audit.md#shadow-rules) |
+| `Shadow.spread` | Missing | Native shadow enablement exists; parameter grammar and context-dependent on/off merges differ; [decoder/merge audit](niri-appearance-config-audit.md#shadow-rules) |
+| `Shadow.draw_behind_window` | Missing | Native shadow enablement exists; parameter grammar and context-dependent on/off merges differ; [decoder/merge audit](niri-appearance-config-audit.md#shadow-rules) |
+| `Shadow.color` | Missing | Native shadow enablement exists; parameter grammar and context-dependent on/off merges differ; [decoder/merge audit](niri-appearance-config-audit.md#shadow-rules) |
+| `Shadow.inactive_color` | Missing | Native shadow enablement exists; parameter grammar and context-dependent on/off merges differ; [decoder/merge audit](niri-appearance-config-audit.md#shadow-rules) |
+| `ShadowOffset.x` | Missing | Native shadow enablement exists; parameter grammar and context-dependent on/off merges differ; [decoder/merge audit](niri-appearance-config-audit.md#shadow-rules) |
+| `ShadowOffset.y` | Missing | Native shadow enablement exists; parameter grammar and context-dependent on/off merges differ; [decoder/merge audit](niri-appearance-config-audit.md#shadow-rules) |
 | `WorkspaceShadow.off` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
 | `WorkspaceShadow.offset` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
 | `WorkspaceShadow.softness` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
@@ -311,68 +313,68 @@ Declared types to check for nested values/custom decoding: `Layout`, `LayoutPart
 | `WorkspaceShadowPart.softness` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
 | `WorkspaceShadowPart.spread` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
 | `WorkspaceShadowPart.color` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
-| `TabIndicator.off` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
-| `TabIndicator.hide_when_single_tab` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
-| `TabIndicator.place_within_column` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
-| `TabIndicator.gap` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
-| `TabIndicator.width` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
-| `TabIndicator.length` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
-| `TabIndicator.position` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
-| `TabIndicator.gaps_between_tabs` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
-| `TabIndicator.corner_radius` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
-| `TabIndicator.active_color` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
-| `TabIndicator.inactive_color` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
-| `TabIndicator.urgent_color` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
-| `TabIndicator.active_gradient` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
-| `TabIndicator.inactive_gradient` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
-| `TabIndicator.urgent_gradient` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
-| `TabIndicatorPart.off` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
-| `TabIndicatorPart.on` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
-| `TabIndicatorPart.hide_when_single_tab` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
-| `TabIndicatorPart.place_within_column` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
-| `TabIndicatorPart.gap` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
-| `TabIndicatorPart.width` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
-| `TabIndicatorPart.length` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
-| `TabIndicatorPart.position` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
-| `TabIndicatorPart.gaps_between_tabs` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
-| `TabIndicatorPart.corner_radius` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
-| `TabIndicatorPart.active_color` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
-| `TabIndicatorPart.inactive_color` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
-| `TabIndicatorPart.urgent_color` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
-| `TabIndicatorPart.active_gradient` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
-| `TabIndicatorPart.inactive_gradient` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
-| `TabIndicatorPart.urgent_gradient` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
-| `TabIndicatorLength.total_proportion` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
-| `InsertHint.off` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
-| `InsertHint.color` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
-| `InsertHint.gradient` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
-| `InsertHintPart.off` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
-| `InsertHintPart.on` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
-| `InsertHintPart.color` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
-| `InsertHintPart.gradient` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
-| `BorderRule.off` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
-| `BorderRule.on` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
-| `BorderRule.width` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
-| `BorderRule.active_color` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
-| `BorderRule.inactive_color` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
-| `BorderRule.urgent_color` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
-| `BorderRule.active_gradient` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
-| `BorderRule.inactive_gradient` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
-| `BorderRule.urgent_gradient` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
-| `ShadowRule.off` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
-| `ShadowRule.on` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
-| `ShadowRule.offset` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
-| `ShadowRule.softness` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
-| `ShadowRule.spread` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
-| `ShadowRule.draw_behind_window` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
-| `ShadowRule.color` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
-| `ShadowRule.inactive_color` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
-| `TabIndicatorRule.active_color` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
-| `TabIndicatorRule.inactive_color` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
-| `TabIndicatorRule.urgent_color` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
-| `TabIndicatorRule.active_gradient` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
-| `TabIndicatorRule.inactive_gradient` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
-| `TabIndicatorRule.urgent_gradient` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
+| `TabIndicator.off` | Missing | No tabbed indicator or insertion-hint implementation; [decoder/merge audit](niri-appearance-config-audit.md#tab-indicator-and-insertion-hint) |
+| `TabIndicator.hide_when_single_tab` | Missing | No tabbed indicator or insertion-hint implementation; [decoder/merge audit](niri-appearance-config-audit.md#tab-indicator-and-insertion-hint) |
+| `TabIndicator.place_within_column` | Missing | No tabbed indicator or insertion-hint implementation; [decoder/merge audit](niri-appearance-config-audit.md#tab-indicator-and-insertion-hint) |
+| `TabIndicator.gap` | Missing | No tabbed indicator or insertion-hint implementation; [decoder/merge audit](niri-appearance-config-audit.md#tab-indicator-and-insertion-hint) |
+| `TabIndicator.width` | Missing | No tabbed indicator or insertion-hint implementation; [decoder/merge audit](niri-appearance-config-audit.md#tab-indicator-and-insertion-hint) |
+| `TabIndicator.length` | Missing | No tabbed indicator or insertion-hint implementation; [decoder/merge audit](niri-appearance-config-audit.md#tab-indicator-and-insertion-hint) |
+| `TabIndicator.position` | Missing | No tabbed indicator or insertion-hint implementation; [decoder/merge audit](niri-appearance-config-audit.md#tab-indicator-and-insertion-hint) |
+| `TabIndicator.gaps_between_tabs` | Missing | No tabbed indicator or insertion-hint implementation; [decoder/merge audit](niri-appearance-config-audit.md#tab-indicator-and-insertion-hint) |
+| `TabIndicator.corner_radius` | Missing | No tabbed indicator or insertion-hint implementation; [decoder/merge audit](niri-appearance-config-audit.md#tab-indicator-and-insertion-hint) |
+| `TabIndicator.active_color` | Missing | No tabbed indicator or insertion-hint implementation; [decoder/merge audit](niri-appearance-config-audit.md#tab-indicator-and-insertion-hint) |
+| `TabIndicator.inactive_color` | Missing | No tabbed indicator or insertion-hint implementation; [decoder/merge audit](niri-appearance-config-audit.md#tab-indicator-and-insertion-hint) |
+| `TabIndicator.urgent_color` | Missing | No tabbed indicator or insertion-hint implementation; [decoder/merge audit](niri-appearance-config-audit.md#tab-indicator-and-insertion-hint) |
+| `TabIndicator.active_gradient` | Missing | No tabbed indicator or insertion-hint implementation; [decoder/merge audit](niri-appearance-config-audit.md#tab-indicator-and-insertion-hint) |
+| `TabIndicator.inactive_gradient` | Missing | No tabbed indicator or insertion-hint implementation; [decoder/merge audit](niri-appearance-config-audit.md#tab-indicator-and-insertion-hint) |
+| `TabIndicator.urgent_gradient` | Missing | No tabbed indicator or insertion-hint implementation; [decoder/merge audit](niri-appearance-config-audit.md#tab-indicator-and-insertion-hint) |
+| `TabIndicatorPart.off` | Missing | No tabbed indicator or insertion-hint implementation; [decoder/merge audit](niri-appearance-config-audit.md#tab-indicator-and-insertion-hint) |
+| `TabIndicatorPart.on` | Missing | No tabbed indicator or insertion-hint implementation; [decoder/merge audit](niri-appearance-config-audit.md#tab-indicator-and-insertion-hint) |
+| `TabIndicatorPart.hide_when_single_tab` | Missing | No tabbed indicator or insertion-hint implementation; [decoder/merge audit](niri-appearance-config-audit.md#tab-indicator-and-insertion-hint) |
+| `TabIndicatorPart.place_within_column` | Missing | No tabbed indicator or insertion-hint implementation; [decoder/merge audit](niri-appearance-config-audit.md#tab-indicator-and-insertion-hint) |
+| `TabIndicatorPart.gap` | Missing | No tabbed indicator or insertion-hint implementation; [decoder/merge audit](niri-appearance-config-audit.md#tab-indicator-and-insertion-hint) |
+| `TabIndicatorPart.width` | Missing | No tabbed indicator or insertion-hint implementation; [decoder/merge audit](niri-appearance-config-audit.md#tab-indicator-and-insertion-hint) |
+| `TabIndicatorPart.length` | Missing | No tabbed indicator or insertion-hint implementation; [decoder/merge audit](niri-appearance-config-audit.md#tab-indicator-and-insertion-hint) |
+| `TabIndicatorPart.position` | Missing | No tabbed indicator or insertion-hint implementation; [decoder/merge audit](niri-appearance-config-audit.md#tab-indicator-and-insertion-hint) |
+| `TabIndicatorPart.gaps_between_tabs` | Missing | No tabbed indicator or insertion-hint implementation; [decoder/merge audit](niri-appearance-config-audit.md#tab-indicator-and-insertion-hint) |
+| `TabIndicatorPart.corner_radius` | Missing | No tabbed indicator or insertion-hint implementation; [decoder/merge audit](niri-appearance-config-audit.md#tab-indicator-and-insertion-hint) |
+| `TabIndicatorPart.active_color` | Missing | No tabbed indicator or insertion-hint implementation; [decoder/merge audit](niri-appearance-config-audit.md#tab-indicator-and-insertion-hint) |
+| `TabIndicatorPart.inactive_color` | Missing | No tabbed indicator or insertion-hint implementation; [decoder/merge audit](niri-appearance-config-audit.md#tab-indicator-and-insertion-hint) |
+| `TabIndicatorPart.urgent_color` | Missing | No tabbed indicator or insertion-hint implementation; [decoder/merge audit](niri-appearance-config-audit.md#tab-indicator-and-insertion-hint) |
+| `TabIndicatorPart.active_gradient` | Missing | No tabbed indicator or insertion-hint implementation; [decoder/merge audit](niri-appearance-config-audit.md#tab-indicator-and-insertion-hint) |
+| `TabIndicatorPart.inactive_gradient` | Missing | No tabbed indicator or insertion-hint implementation; [decoder/merge audit](niri-appearance-config-audit.md#tab-indicator-and-insertion-hint) |
+| `TabIndicatorPart.urgent_gradient` | Missing | No tabbed indicator or insertion-hint implementation; [decoder/merge audit](niri-appearance-config-audit.md#tab-indicator-and-insertion-hint) |
+| `TabIndicatorLength.total_proportion` | Missing | No tabbed indicator or insertion-hint implementation; [decoder/merge audit](niri-appearance-config-audit.md#tab-indicator-and-insertion-hint) |
+| `InsertHint.off` | Missing | No tabbed indicator or insertion-hint implementation; [decoder/merge audit](niri-appearance-config-audit.md#tab-indicator-and-insertion-hint) |
+| `InsertHint.color` | Missing | No tabbed indicator or insertion-hint implementation; [decoder/merge audit](niri-appearance-config-audit.md#tab-indicator-and-insertion-hint) |
+| `InsertHint.gradient` | Missing | No tabbed indicator or insertion-hint implementation; [decoder/merge audit](niri-appearance-config-audit.md#tab-indicator-and-insertion-hint) |
+| `InsertHintPart.off` | Missing | No tabbed indicator or insertion-hint implementation; [decoder/merge audit](niri-appearance-config-audit.md#tab-indicator-and-insertion-hint) |
+| `InsertHintPart.on` | Missing | No tabbed indicator or insertion-hint implementation; [decoder/merge audit](niri-appearance-config-audit.md#tab-indicator-and-insertion-hint) |
+| `InsertHintPart.color` | Missing | No tabbed indicator or insertion-hint implementation; [decoder/merge audit](niri-appearance-config-audit.md#tab-indicator-and-insertion-hint) |
+| `InsertHintPart.gradient` | Missing | No tabbed indicator or insertion-hint implementation; [decoder/merge audit](niri-appearance-config-audit.md#tab-indicator-and-insertion-hint) |
+| `BorderRule.off` | Partial | Native borders cover a subset; separate focus ring, urgent colors and gradients missing; [decoder/merge audit](niri-appearance-config-audit.md#border-and-focus-ring-rules) |
+| `BorderRule.on` | Partial | Native borders cover a subset; separate focus ring, urgent colors and gradients missing; [decoder/merge audit](niri-appearance-config-audit.md#border-and-focus-ring-rules) |
+| `BorderRule.width` | Partial | Native borders cover a subset; separate focus ring, urgent colors and gradients missing; [decoder/merge audit](niri-appearance-config-audit.md#border-and-focus-ring-rules) |
+| `BorderRule.active_color` | Partial | Native borders cover a subset; separate focus ring, urgent colors and gradients missing; [decoder/merge audit](niri-appearance-config-audit.md#border-and-focus-ring-rules) |
+| `BorderRule.inactive_color` | Partial | Native borders cover a subset; separate focus ring, urgent colors and gradients missing; [decoder/merge audit](niri-appearance-config-audit.md#border-and-focus-ring-rules) |
+| `BorderRule.urgent_color` | Missing | Native borders cover a subset; separate focus ring, urgent colors and gradients missing; [decoder/merge audit](niri-appearance-config-audit.md#border-and-focus-ring-rules) |
+| `BorderRule.active_gradient` | Missing | Native borders cover a subset; separate focus ring, urgent colors and gradients missing; [decoder/merge audit](niri-appearance-config-audit.md#border-and-focus-ring-rules) |
+| `BorderRule.inactive_gradient` | Missing | Native borders cover a subset; separate focus ring, urgent colors and gradients missing; [decoder/merge audit](niri-appearance-config-audit.md#border-and-focus-ring-rules) |
+| `BorderRule.urgent_gradient` | Missing | Native borders cover a subset; separate focus ring, urgent colors and gradients missing; [decoder/merge audit](niri-appearance-config-audit.md#border-and-focus-ring-rules) |
+| `ShadowRule.off` | Partial | Native shadow enablement exists; parameter grammar and context-dependent on/off merges differ; [decoder/merge audit](niri-appearance-config-audit.md#shadow-rules) |
+| `ShadowRule.on` | Partial | Native shadow enablement exists; parameter grammar and context-dependent on/off merges differ; [decoder/merge audit](niri-appearance-config-audit.md#shadow-rules) |
+| `ShadowRule.offset` | Missing | Native shadow enablement exists; parameter grammar and context-dependent on/off merges differ; [decoder/merge audit](niri-appearance-config-audit.md#shadow-rules) |
+| `ShadowRule.softness` | Missing | Native shadow enablement exists; parameter grammar and context-dependent on/off merges differ; [decoder/merge audit](niri-appearance-config-audit.md#shadow-rules) |
+| `ShadowRule.spread` | Missing | Native shadow enablement exists; parameter grammar and context-dependent on/off merges differ; [decoder/merge audit](niri-appearance-config-audit.md#shadow-rules) |
+| `ShadowRule.draw_behind_window` | Missing | Native shadow enablement exists; parameter grammar and context-dependent on/off merges differ; [decoder/merge audit](niri-appearance-config-audit.md#shadow-rules) |
+| `ShadowRule.color` | Missing | Native shadow enablement exists; parameter grammar and context-dependent on/off merges differ; [decoder/merge audit](niri-appearance-config-audit.md#shadow-rules) |
+| `ShadowRule.inactive_color` | Missing | Native shadow enablement exists; parameter grammar and context-dependent on/off merges differ; [decoder/merge audit](niri-appearance-config-audit.md#shadow-rules) |
+| `TabIndicatorRule.active_color` | Missing | No tabbed indicator or insertion-hint implementation; [decoder/merge audit](niri-appearance-config-audit.md#tab-indicator-and-insertion-hint) |
+| `TabIndicatorRule.inactive_color` | Missing | No tabbed indicator or insertion-hint implementation; [decoder/merge audit](niri-appearance-config-audit.md#tab-indicator-and-insertion-hint) |
+| `TabIndicatorRule.urgent_color` | Missing | No tabbed indicator or insertion-hint implementation; [decoder/merge audit](niri-appearance-config-audit.md#tab-indicator-and-insertion-hint) |
+| `TabIndicatorRule.active_gradient` | Missing | No tabbed indicator or insertion-hint implementation; [decoder/merge audit](niri-appearance-config-audit.md#tab-indicator-and-insertion-hint) |
+| `TabIndicatorRule.inactive_gradient` | Missing | No tabbed indicator or insertion-hint implementation; [decoder/merge audit](niri-appearance-config-audit.md#tab-indicator-and-insertion-hint) |
+| `TabIndicatorRule.urgent_gradient` | Missing | No tabbed indicator or insertion-hint implementation; [decoder/merge audit](niri-appearance-config-audit.md#tab-indicator-and-insertion-hint) |
 | `Blur.off` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
 | `Blur.passes` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
 | `Blur.offset` | Unverified | Inspect decoder and reference behavior; no verified option mapping |

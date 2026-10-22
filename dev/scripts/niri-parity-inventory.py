@@ -62,11 +62,48 @@ LAYOUT_AUDIT = {
     "default_column_display": ("Missing", "Public normal/tabbed setting and tabbed display missing"),
     "gaps": ("Divergent", "Shared snap.gap defaults to 12 vs 16, rounds to integer; gap accounting differs"),
     "struts": ("Missing", "Signed/fractional custom struts missing; layer usable area is not equivalent"),
-    "background_color": ("Partial", "Canvas background differs from per-layout solid default; Color decoder audit pending"),
+    "background_color": ("Partial", "Canvas background differs from per-layout solid default; Color grammar audited separately"),
 }
 
 
+APPEARANCE_AUDIT_FIELDS = {
+    "Color": "r g b a",
+    "Gradient": "from to angle relative_to in_",
+    "GradientInterpolation": "color_space hue_interpolation",
+    "FocusRing": "off width active_color inactive_color urgent_color active_gradient inactive_gradient urgent_gradient",
+    "Border": "off width active_color inactive_color urgent_color active_gradient inactive_gradient urgent_gradient",
+    "Shadow": "on offset softness spread draw_behind_window color inactive_color",
+    "ShadowOffset": "x y",
+    "TabIndicator": "off hide_when_single_tab place_within_column gap width length position gaps_between_tabs corner_radius active_color inactive_color urgent_color active_gradient inactive_gradient urgent_gradient",
+    "TabIndicatorPart": "off on hide_when_single_tab place_within_column gap width length position gaps_between_tabs corner_radius active_color inactive_color urgent_color active_gradient inactive_gradient urgent_gradient",
+    "TabIndicatorLength": "total_proportion",
+    "InsertHint": "off color gradient",
+    "InsertHintPart": "off on color gradient",
+    "BorderRule": "off on width active_color inactive_color urgent_color active_gradient inactive_gradient urgent_gradient",
+    "ShadowRule": "off on offset softness spread draw_behind_window color inactive_color",
+    "TabIndicatorRule": "active_color inactive_color urgent_color active_gradient inactive_gradient urgent_gradient",
+}
+
+
+def appearance_status(name, field):
+    if name == "Color":
+        status, mapping, section = "Partial", "RGBA exists; internal float components are not public keys, CSS/numeric KDL grammar differs", "color-and-gradient-decoding"
+    elif name in {"Gradient", "GradientInterpolation"}:
+        status, mapping, section = "Missing", "No gradient/interpolation configuration", "color-and-gradient-decoding"
+    elif name in {"Border", "BorderRule", "FocusRing"}:
+        status = "Partial" if name != "FocusRing" and field in {"off", "on", "width", "active_color", "inactive_color"} else "Missing"
+        mapping, section = "Native borders cover a subset; separate focus ring, urgent colors and gradients missing", "border-and-focus-ring-rules"
+    elif name in {"Shadow", "ShadowRule", "ShadowOffset"}:
+        status = "Partial" if name != "ShadowOffset" and field in {"on", "off"} else "Missing"
+        mapping, section = "Native shadow enablement exists; parameter grammar and context-dependent on/off merges differ", "shadow-rules"
+    else:
+        status, mapping, section = "Missing", "No tabbed indicator or insertion-hint implementation", "tab-indicator-and-insertion-hint"
+    return status, f"{mapping}; [decoder/merge audit](niri-appearance-config-audit.md#{section})"
+
+
 def config_status(module, name, field):
+    if module == "appearance" and name in APPEARANCE_AUDIT_FIELDS:
+        return appearance_status(name, field)
     if module == "layout" and name in {"Layout", "LayoutPart"}:
         status, mapping = LAYOUT_AUDIT[field]
         return status, f"{mapping}; [public name/default audit](niri-layout-config-audit.md#public-layout-children)"
@@ -94,7 +131,9 @@ def generate(root):
         "The reference has decoder attributes/custom parsers: public schema fields below",
         "are not automatically public keys. The [layout audit](niri-layout-config-audit.md)",
         "covers top-level layout names/defaults and shared size/flag/strut decoding;",
-        "nested appearance, overrides and other schemas still need semantic auditing.",
+        "the [appearance audit](niri-appearance-config-audit.md) covers color/gradient,",
+        "border/shadow and tab/insert-hint decoding and merges. Overrides, remaining",
+        "appearance types and other schemas still need semantic auditing.",
         "P0 reference operation fixtures and the custom-decoder audit remain unfinished.", "",
         "Status: Partial = related implementation, not full equivalence; Divergent = known",
         "semantic difference; Missing = no matching tiling action; Unverified = not audited;",
@@ -120,6 +159,8 @@ def generate(root):
             fields = re.findall(r"^    pub (\w+):", block(source, match.group(0)), re.M)
             if module == "layout" and name in {"Layout", "LayoutPart"}:
                 assert set(fields) == set(LAYOUT_AUDIT), "Layout audit must account for every field"
+            if module == "appearance" and name in APPEARANCE_AUDIT_FIELDS:
+                assert set(fields) == set(APPEARANCE_AUDIT_FIELDS[name].split()), "Appearance audit must account for every field"
             for field in fields:
                 count += 1
                 status, mapping = config_status(module, name, field)

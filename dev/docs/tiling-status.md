@@ -16,6 +16,7 @@ for task order and acceptance. Older “next” statements in the
 | Objective, dependencies and acceptance gates | [Parity roadmap](niri-tiling-parity-plan.md) |
 | Pinned symbols and conservative compatibility labels | [Generated inventory](niri-tiling-inventory.md) |
 | Decoded layout options, defaults and merge semantics | [Configuration audit](niri-layout-config-audit.md) |
+| Color/gradient, border/shadow, tab/insert-hint decoding and merges | [Appearance audit](niri-appearance-config-audit.md) |
 | Source-derived fixture assumptions | [Reference traces](niri-reference-traces.md) |
 | Local preview launch, keys and return path | [TTY guide](tty-preview.md) |
 | Per-batch results and investigation logs | [History](tiling-history.md) |
@@ -58,15 +59,16 @@ mode. These are documented fallbacks, not reference-compatible behavior.
 
 ## Verified evidence and its limits
 
-Latest A0 documentation/tooling validation: all 15 top-level layout options,
-size/flag/strut decoders and root-border/workspace restrictions were inspected
-against the clean pinned checkout. The [configuration audit](niri-layout-config-audit.md)
-records source-derived cases and gaps; it does not claim parser execution.
-The inventory generator now labels 34 `Layout`/`LayoutPart`/`Struts` rows from
-that evidence and checks complete top-level field coverage. Regeneration is
-byte-identical, still indexes 186 actions / 318 schema fields, and local links,
-Python syntax and diff checks passed. No Rust/runtime/config change was made;
-the last full implementation validation remains the B4 gate below.
+Latest A0 documentation/tooling validation: the top-level layout audit covers 34
+Layout/LayoutPart/Struts rows. The [appearance audit](niri-appearance-config-audit.md)
+adds 98 fields in 15 structs: Color/Gradient/interpolation, border/focus-ring,
+shadow/offset, tab indicator and insert hint, including decoder shapes and local
+merge rules. Both use the clean pinned source and source-derived probes, not
+execution of niri's parser. The generator links all 132 scoped rows and guards
+field completeness; other appearance schemas remain unverified. Deterministic
+regeneration retains 186 actions / 318 schema fields. Python syntax, audited-row
+counts, local links/anchors, pinned source targets and diff checks passed. No
+Rust/runtime/config change was made; the last full implementation gate is below.
 
 Latest validation gate: `/tmp/driftwm-b4-output-ci.log`, exit 0: full
 `dev/scripts/ci-local`, 369 library cases, 1490 binary cases including ignored
@@ -178,17 +180,17 @@ unresolved; use direct TTY for visual acceptance.
 
 ## Next work
 
-Next work: **A0/P0 nested appearance decoder audit** at pinned niri
-`12de51d6a60baad8896366920278a24f17921f52`: Color, BorderRule, ShadowRule,
-TabIndicatorPart and InsertHintPart, including public child/property names,
-defaults, validation and merge precedence. Top-level layout names/defaults and
-shared size/flag/strut decoding are recorded in the configuration audit; do not
-repeat that inventory or treat source review as executable parser parity.
-After appearance, audit output/workspace/window-rule override order and lifecycle,
-remaining schemas and ID/index/previous/next actions; extend reference fixtures
-beyond the current zero-gap subset. A0/P0 remains open and precedes feature
-expansion. Named controlled B1–B4 matrices are delivered; do not restart renderer
-matrices as a substitute for this semantic prerequisite. P2/P13 full acceptance,
+Next work: **A0/P0 override precedence and lifecycle audit** at pinned niri
+`12de51d6a60baad8896366920278a24f17921f52`: trace global/output/workspace layout
+parts and window rules through resolution, initial map and reload. Account for
+explicit empty/default values, rule composition versus resolved appearance
+merges (especially shadow on/off), and unsupported driftwm lifecycle semantics.
+Top-level layout and core appearance decoder/local-merge audits are recorded;
+do not repeat them or treat source review as executable parity. Remaining
+CornerRadius/workspace-shadow/blur/background-effect schemas, other modules,
+ID/index/previous/next actions and reference fixtures beyond zero gaps stay open.
+A0/P0 precedes feature expansion. Named controlled B1–B4 matrices are delivered;
+do not restart renderer matrices as a substitute. Full P2/P13 acceptance,
 independent multi-output ownership (P11), hardware unplug and broader lifecycle
 combinations remain unproven. Keep expensive GPU oracles outside timed groups.
 Controlled SSD scale-change release is

@@ -2,8 +2,10 @@
 
 Reference: `12de51d6a60baad8896366920278a24f17921f52`. This A0/P0 batch audits
 all 15 top-level `Layout` / `LayoutPart` fields, their public KDL names, defaults
-and the shared size/flag/strut decoders. It does not complete the nested appearance,
-window-rule, output/workspace override or action-addressing audit. No driftwm
+and the shared size/flag/strut decoders. Core appearance decoding and merging is
+covered by the [appearance audit](niri-appearance-config-audit.md); remaining
+appearance types, window rules, output/workspace overrides and action addressing
+still need auditing. No driftwm
 configuration or runtime behavior changes in this batch.
 
 Evidence is source inspection of the pinned checkout, not execution of niri's
@@ -30,15 +32,15 @@ KDL names below are decoded child-node names, not TOML keys. `Layout` is the
 resolved value; `LayoutPart` carries optional overrides. An omitted child in a
 part preserves the inherited value. Defaults describe `Layout::default`, not
 values explicitly set in the shipped example config. Nested appearance defaults
-here are summaries only; their complete public child/property grammars remain
-the next audit batch.
+here are summaries; their public child/property grammars and local merges are
+recorded in the appearance audit.
 
 | Public child | Shape and reference default | driftwm evidence / compatibility |
 | --- | --- | --- |
 | `focus-ring` | `BorderRule` subtree; enabled, width 4; active RGBA8 `(127,200,255,255)`, inactive `(80,80,80,255)`, urgent `(155,0,0,255)` | Missing as a separate niri focus-ring facility. Native decoration borders are not a verified equivalent. |
 | `border` | `BorderRule` subtree; off, width 4; active `(255,200,127,255)`, inactive/urgent as above. Root empty-subtree exception below. | Partial: `[decorations]` border width/colors exist, but appearance grammar, defaults, gradients and placement semantics differ. |
 | `shadow` | `ShadowRule` subtree; off; offset `(0,5)`, softness 30, spread 5, draw-behind-window false, color RGBA8 `(0,0,0,119)`, inactive override absent | Partial: driftwm has native shadows; no equivalence for these options or defaults has been established. |
-| `tab-indicator` | `TabIndicatorPart` subtree; enabled, left, width 4, gap 5, length total-proportion 0.5; hide-when-single-tab/place-within-column false; gaps-between-tabs/corner-radius 0 | Missing: no tabbed column/indicator implementation. Complete nested grammar remains unaudited. |
+| `tab-indicator` | `TabIndicatorPart` subtree; enabled, left, width 4, gap 5, length total-proportion 0.5; hide-when-single-tab/place-within-column false; gaps-between-tabs/corner-radius 0 | Missing: no tabbed column/indicator implementation. Nested grammar is recorded in the appearance audit. |
 | `insert-hint` | `InsertHintPart` subtree; enabled, RGBA8 `(127,200,255,128)`, gradient absent | Missing: no layout-native insertion hint. Workspace override restrictions below. |
 | `preset-column-widths` | Children `proportion <f64>` or `fixed <i32>`; default proportions `[1/3, 1/2, 2/3]`; empty list resets to these defaults after merge | Divergent: `Stage::cycle_column_width` hardcodes `[1/3, 1/2, 1]`, with no public list, fixed presets or matching-index behavior. |
 | `default-column-width` | Optional single `PresetSize` child; default `proportion 0.5`. Empty subtree explicitly resolves to `None`. | Partial: `ColumnWidth::default()` is 0.5, but no public setting, client-chosen default or nested override semantics. |
@@ -49,7 +51,7 @@ the next audit batch.
 | `default-column-display` | One string, exactly `"normal"` or `"tabbed"`; default normal | Missing configurable display mode; current normal columns do not establish parity for tabs or rule overrides. |
 | `gaps` | One integer/decimal in inclusive `[0,65535]`; resolved `f64`, default 16 | Divergent: shared `[snap].gap` defaults to 12 and is rounded to an integer in `refresh_tiling`; geometry/gap accounting differs. |
 | `struts` | Subtree with `left`, `right`, `top`, `bottom`; each integer/decimal in inclusive `[-65535,65535]`, omitted sides 0 | Missing public struts. Layer-shell usable area already exists, but does not supply this additional signed/fractional adjustment. |
-| `background-color` | `Color` child; default unpremultiplied RGBA `(0.25,0.25,0.25,1)` | Partial: driftwm's configurable canvas background defaults to a dot grid; it is not a per-layout/workspace solid-color equivalent. Complete Color decoding remains unaudited. |
+| `background-color` | `Color` child; default unpremultiplied RGBA `(0.25,0.25,0.25,1)` | Partial: driftwm's configurable canvas background defaults to a dot grid; it is not a per-layout/workspace solid-color equivalent. Color decoding is recorded in the appearance audit. |
 
 Driftwm sources: [column policy](../../src/stage/tiling.rs),
 [pure width/geometry](../../src/layout/scrolling/mod.rs),
@@ -143,8 +145,11 @@ acceptance alone is not a geometry acceptance gate.
 
 ## Next audit
 
-Audit nested appearance child/property decoders and merge rules first, including
-Color, BorderRule, ShadowRule, TabIndicatorPart and InsertHintPart. Then cover
-output/workspace/window-rule override precedence and lifecycle, remaining indexed
-schemas and ID/index/previous/next action addressing. A0/P0 remains open; no new
-public setting or action should be added merely on the strength of this table.
+Audit global/output/workspace/window-rule override precedence and lifecycle.
+The appearance audit records Color, Gradient, BorderRule, ShadowRule,
+TabIndicatorPart and InsertHintPart grammar and local merges, including
+context-dependent shadow flag precedence; their application contexts still
+need tracing. Remaining appearance schemas (CornerRadius, workspace shadows,
+blur/background effects), other indexed modules and ID/index/previous/next
+action addressing are open. A0/P0 remains unfinished; no new public setting or
+action should be added merely on the strength of these source tables.

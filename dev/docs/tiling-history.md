@@ -2406,3 +2406,50 @@ Next A0 batch: nested appearance decoders/merges (Color, BorderRule, ShadowRule,
 TabIndicatorPart, InsertHintPart), then override lifecycle and the remaining
 schema/action-addressing audit. Independent reference fixture expansion remains
 required. A0/P0 is open; do not expand features or restart delivered B matrices.
+
+## 2026-10-22 — A0 core appearance decoders and local merges
+
+Added `dev/docs/niri-appearance-config-audit.md`, covering 98 named fields in
+15 reference structs: Color, Gradient, GradientInterpolation, FocusRing, Border,
+BorderRule, Shadow, ShadowOffset, ShadowRule, TabIndicator, TabIndicatorPart,
+TabIndicatorLength, TabIndicatorRule, InsertHint and InsertHintPart. Public child
+versus property names, ranges, defaults, helper enum spellings and local merging
+are linked to pinned appearance/macros/utils sources. The checkout remains clean
+at `12de51d6a60baad8896366920278a24f17921f52`.
+
+Findings: Color accepts one delegated CSS string or exactly four u8 components,
+with unpremultiplied internal float representation. Gradient uses required string
+properties from/to, i16 angle default 180, relative-to window/workspace-view and
+public `in` (not Rust `in_`). The custom interpolation parser permits four color
+spaces and optional hue methods only for oklch. `Gradient::from(Color)` instead
+uses angle 0. Present colors clear inherited gradients; a gradient in the same
+part then wins independently of textual node order. A present shadow offset
+replaces both axes, so x-only resets y to zero. Tab length and flag omission are
+distinct from an empty length or explicit false flag.
+
+Resolved Border/FocusRing/TabIndicator/InsertHint give on precedence when both
+presence flags are set. Resolved Shadow gives off precedence; composing two
+ShadowRule values instead normalizes flags with on precedence. This is recorded
+as separate operations, with application contexts deferred to the override
+lifecycle audit. It must not be silently flattened into one generic flag rule.
+TabIndicatorRule is color/gradient-only, not a full TabIndicatorPart grammar.
+Driftwm's hex-byte colors, two native border colors and shadow boolean remain
+partial/narrower counterparts; gradients, urgent colors, separate focus rings,
+tab indicators and insertion hints remain missing. No Exact claim was added.
+
+The generator now links these 98 rows plus the prior 34 layout rows to the two
+audits, and validates complete field sets for each scoped struct. CornerRadius,
+workspace shadows, blur/background effects and other schema rows remain
+unverified. Updated the earlier layout audit's stale pending-appearance wording.
+Validation passed: Python syntax without bytecode artifacts, deterministic
+byte-identical regeneration, 186 actions / 318 fields, 132 scoped audit links,
+local targets/anchors, pinned reference source targets and `git diff --check`.
+This is source review, not execution of niri or its parser, differential rendering
+or a new Rust parity test. No runtime/config change, full CI rerun, push,
+installation or manual TTY acceptance; the previous implementation CI gate
+remains `/tmp/driftwm-b4-output-ci.log`.
+
+Next: A0 global/output/workspace/window-rule override order, initial-map/reload
+lifecycle and which merge path each context uses, then remaining schemas/action
+addressing and independent fixture expansion. A0/P0 remains open and continues
+to gate feature expansion; delivered B1–B4 renderer matrices are not restarted.
