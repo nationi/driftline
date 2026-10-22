@@ -1,8 +1,8 @@
 # Tiling development status and handoff
 
 Updated 2026-10-22. Integration checkpoint: `8c17428`; upstream `7ce05ed` is
-included. Controlled B1/B2/B3 gates are delivered; B4 direct-remap and
-surviving-peer disconnect and protocol unmap/remap coverage is added.
+included. Controlled B1/B2/B3 gates are delivered; B4 remap, disconnect and
+ready/pending-peer supersession coverage is added.
 The persistent development branch is `nationi/development`. This handoff was reconciled with Git;
 see the [roadmap queue](niri-tiling-parity-plan.md#execution-queue-and-acceptance-gates)
 for task order and acceptance. Older “next” statements in the
@@ -57,9 +57,19 @@ mode. These are documented fallbacks, not reference-compatible behavior.
 
 ## Verified evidence and its limits
 
-Latest validation gate: `/tmp/driftwm-b4-protocol-ci.log`, exit 0: full
-`dev/scripts/ci-local`, 369 library cases, 1487 binary cases including ignored
-GPU scenarios, integration suites and isolated soak. Dedicated B4 protocol gate:
+Latest validation gate: `/tmp/driftwm-b4-supersede-ci.log`, exit 0: full
+`dev/scripts/ci-local`, 369 library cases, 1488 binary cases including ignored
+GPU scenarios, integration suites and isolated soak. Dedicated B4 supersession
+gate: `/tmp/driftwm-b4-supersede.log`, 12 SSD/CSD scenes at 1x/1.25x/1.5x,
+ordinary held or recaptured mixed resize, two independent clients and a popup.
+A new width request releases the old queued buffer while retaining the pending
+peer. The held frame remains exact; a newly ready buffer still waits for the
+other peer. Release continuity stays within two bytes and settled frames contain
+only the latest body colors. Stable IDs, focus/output membership, zero retained
+snapshots/pending configures/crossfades and no repeated animation are checked.
+The existing hermetic queued-buffer supersession scenario also passed. No
+production fix was needed for these controlled cases; output removal remains B4.
+Dedicated B4 protocol gate:
 `/tmp/driftwm-b4-protocol.log`, 12 SSD/CSD scenes at 1x/1.25x/1.5x with held
 or recaptured mixed content and a popup, plus a hermetic ready-peer scenario.
 Null-buffer unmap removes layout membership and retained animation state without
@@ -148,14 +158,15 @@ unresolved; use direct TTY for visual acceptance.
 
 ## Next work
 
-Next implementation: **B4 supersession during retained motion**.
-Direct compositor remap, motion-time disconnect with a ready surviving peer and
-protocol null-buffer unmap/remap have controlled coverage. Inspect the existing
-queued-buffer supersession integration test and pixel recapture helpers, then
-cover superseding a group with a ready peer and another pending client during
-actual mixed motion. Output removal remains the later B4 gate. Require no stale
-IDs, images or transactions, no duplicate animation, and correct surviving
-focus/output membership. B3's named controlled allocation,
+Next implementation: **B4 output removal during retained motion**.
+Direct compositor remap, ready-peer disconnect, protocol unmap/remap and
+supersession with ready/pending peers have controlled coverage. Inspect fixture
+output removal and backend teardown policy, then exercise removing the sole
+output while a held or recaptured mixed resize is active. Verify mode exit,
+transaction wakeup, removal of retained GPU state and safe recovery when an
+output is added again. This is single-output lifecycle coverage, not P11
+independent multi-output ownership. Require no stale IDs, images or transactions,
+no duplicate animation and correct surviving focus/output membership. B3's named controlled allocation,
 stale-content and view/output gates are delivered; residual hardware/zoom/effect
 combinations do not establish universal parity. Keep the expensive independent
 GPU orientation oracle outside timed commit groups.
@@ -182,7 +193,7 @@ proportional-width/native-height offers and complete release/recapture checks.
 A separate seven-transform scene verifies actual GPU orientation against an
 independent upright render. Real DRM scanout is not tested. Zoom, every degraded/effect/minification path,
 other GPU failure APIs and multi-output ownership remain unproven. B4 retains
-broader supersession and output removal. Full tiling multi-output
+output removal and broader lifecycle combinations. Full tiling multi-output
 support remains P11; enrolling a second output still leaves tiling.
 Degraded coverage also adds 12 stale-minification scenes and 24 client-region blur
 scenes (grow/shrink, SSD/CSD, 1x/1.25x/1.5x, reply/timeout). Rendered blur differences

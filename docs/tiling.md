@@ -184,5 +184,9 @@ while the empty tiling session remains available. To show the same toplevel
 again, the client starts a fresh initial configure handshake with an empty
 commit; its first buffer returns it to the layout. Controlled checks cover held
 and mixed resize, popup cleanup and releasing a ready peer when another window
-unmaps. Other lifecycle combinations remain experimental.
+unmaps. Controlled two-client checks also cover replacing a held resize group
+with a new width request: queued old buffers are released, pending peers stay
+in the group, and retained content blends into the latest buffers without
+replaying the animation on unchanged commits. Other lifecycle combinations
+remain experimental.
 Complete visual atomicity and all animation transitions are not implemented yet.

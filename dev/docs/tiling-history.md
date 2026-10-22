@@ -2270,3 +2270,46 @@ Next B4 gate: group supersession during retained motion with ready/pending peers
 output removal follows. These are bounded compositor integration checks; A0/P0
 semantic audit still precedes feature expansion and full multi-output tiling
 remains P11. GPU evidence is surfaceless NVIDIA, not hardware scanout.
+
+## 2026-10-22 — B4 group supersession with ready and pending peers
+
+Added real GLES regression
+`superseding_held_or_mixed_tiling_groups_preserves_ready_and_pending_peers` in
+`src/tests/render_pixels.rs`: 12 SSD/CSD scenes at 1x/1.25x/1.5x, two independent
+clients and a blue popup. Existing hermetic
+`superseding_a_group_releases_its_queued_buffer_and_keeps_pending_peers` already
+checks queued-buffer release and deferred placement, but had no rendered pixels
+or interrupted mixed-resize coverage.
+
+Ordinary scenes enter tiling with one ready green buffer and the other client
+stalled. Mixed scenes first answer both offers, tick 16 ms and actually render
+the crossfade, then consume a neighbor to capture that moving picture into a
+new group. In both variants the first client answers and remains blocked by the
+second. Cycling column width supersedes the group. The old queued buffer is
+released to committed geometry while the held full frame remains byte-identical
+and all three parent/popup images remain retained. In mixed scenes the new
+first-client width reply is independently queued, still unable to release the
+frame until the second client answers. Both latest committed sizes are checked.
+
+The release frame must stay within two bytes of the held frame. Latest buffers
+use distinct cyan/yellow colors (ordinary first peer keeps green), so settled
+frames independently reject obsolete magenta and mixed old green content while
+retaining the blue popup. Stable stage IDs, structural/keyboard focus and actual
+client-side output membership are checked for both surviving clients. Snapshots,
+pending configures and crossfades drain; unchanged client commits cannot restart
+animation or change the settled frame. Output GPU caches are removed before GL
+uninstall and fixture teardown checks resource baselines.
+
+Dedicated `/tmp/driftwm-b4-supersede.log` passed: the 12 GPU scenes and existing
+hermetic supersession regression. No production change was required for these
+controlled cases. Full `dev/scripts/ci-local` passed
+(`/tmp/driftwm-b4-supersede-ci.log`, exit 0): 369 library cases, 1488 binary
+non-soak cases, integration suites and isolated soak; formatting, locked build
+and strict all-target clippy included. No pure stage/layout/config algorithm
+changed, so no new deep property pass was required. No push, installation or
+manual TTY acceptance. This is controlled compositor integration, not universal
+transaction/lifecycle parity or hardware scanout evidence.
+
+Next remaining B4 gate: sole-output removal during held/mixed motion and recovery
+after re-adding an output. Independent multi-output tiling remains P11; A0/P0
+semantic audit still precedes feature expansion.

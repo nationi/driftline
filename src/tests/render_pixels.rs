@@ -3652,3 +3652,193 @@ fn check_protocol_tiling_remap(scale: f64, ssd: bool, mixed: bool) {
     f.state().render.remove_output(&output.name());
     gl::uninstall(&mut f);
 }
+
+#[test]
+#[ignore = "needs surfaceless EGL; run with --include-ignored"]
+fn superseding_held_or_mixed_tiling_groups_preserves_ready_and_pending_peers() {
+    let _gl = gl::lock();
+    for scale in [1.0, 1.25, 1.5] {
+        for ssd in [false, true] {
+            for mixed in [false, true] {
+                check_superseded_tiling_peers(scale, ssd, mixed);
+            }
+        }
+    }
+}
+
+fn check_superseded_tiling_peers(scale: f64, ssd: bool, mixed: bool) {
+    use super::{last_configured, tick_until_settled, window_by_app_id};
+    use driftwm::config::{Action, Direction};
+    let Some(renderer) = gl::surfaceless_renderer("supersede tiling peers") else {
+        return;
+    };
+    let config = config_toml(true).replace("corner_radius = 0", "corner_radius = 8");
+    let config = if ssd {
+        format!("{config}\n[[window_rules]]\napp_id = \"*\"\ndecoration = \"server\"\n")
+    } else {
+        config
+    };
+    let mut f = Fixture::with_config(super::config(&config));
+    let output = f.add_output_scaled(1, (1200, 800), scale);
+    gl::install(&mut f, renderer);
+    let first = f.add_client();
+    let second = f.add_client();
+    let a = map_window_shm(
+        &mut f,
+        first,
+        "survivor",
+        (200, 100),
+        (200, 100),
+        &solid_bgra(200, 100, CONTENT_BGRA, false),
+    );
+    let b = map_window_shm(
+        &mut f,
+        second,
+        "departing",
+        (200, 100),
+        (200, 100),
+        &solid_bgra(200, 100, [255, 0, 255, 255], false),
+    );
+    tick_until_settled(&mut f);
+    let wa = window_by_app_id(&mut f, "survivor").unwrap();
+    let wb = window_by_app_id(&mut f, "departing").unwrap();
+    let aid = f.state().stage.id_of(&wa).unwrap();
+    let bid = f.state().stage.id_of(&wb).unwrap();
+    colored_tiling_popup(&mut f, first, &a, (180, 51), [255, 0, 0, 255]);
+    tiling_live_frame(&mut f, &output);
+    f.state().execute_action(&Action::ToggleTiling);
+    if mixed {
+        for (client, surface, color) in [
+            (first, &a, [0, 255, 0, 255]),
+            (second, &b, [255, 0, 255, 255]),
+        ] {
+            let size = last_configured(&mut f, client, surface);
+            let w = f.client(client).window(surface);
+            w.set_size(size.0 as u16, size.1 as u16);
+            w.attach_shm_buffer(size, &solid_bgra(size.0, size.1, color, false));
+            w.ack_last_and_commit();
+            f.double_roundtrip(client);
+        }
+        f.double_roundtrip(first);
+        f.state()
+            .tick_window_animations(std::time::Duration::from_millis(16));
+        tiling_live_frame(&mut f, &output);
+        assert!(f.state().resize_crossfades.contains_key(&aid));
+        f.state()
+            .execute_action(&Action::FocusColumn(Direction::Left));
+        f.state().execute_action(&Action::ConsumeWindowIntoColumn);
+    }
+    let target = last_configured(&mut f, first, &a);
+    last_configured(&mut f, second, &b);
+    let before = wa.geometry().size;
+    let held = tiling_live_frame(&mut f, &output);
+    let w = f.client(first).window(&a);
+    w.set_size(target.0 as u16, target.1 as u16);
+    w.attach_shm_buffer(
+        target,
+        &solid_bgra(target.0, target.1, [0, 255, 0, 255], false),
+    );
+    w.ack_last_and_commit();
+    f.double_roundtrip(first);
+    assert_eq!(
+        wa.geometry().size,
+        before,
+        "ready peer must wait for the group"
+    );
+    assert_eq!(f.state().tiling_snapshot_count(), 3);
+    assert_eq!(tiling_live_frame(&mut f, &output), held);
+    f.state().execute_action(&Action::CycleColumnWidth);
+    let next_a = last_configured(&mut f, first, &a);
+    let next_b = last_configured(&mut f, second, &b);
+    f.double_roundtrip(first);
+    assert_eq!(
+        wa.geometry().size,
+        target.into(),
+        "supersession must release the queued old buffer"
+    );
+    assert!(f.state().tiling_pending_configures() > 0);
+    assert_eq!(f.state().tiling_snapshot_count(), 3);
+    assert!(
+        tiling_live_frame(&mut f, &output) == held,
+        "{scale}x SSD={ssd} mixed={mixed}: supersession changed the held image"
+    );
+    if mixed {
+        assert_ne!(next_a, target);
+        let w = f.client(first).window(&a);
+        w.set_size(next_a.0 as u16, next_a.1 as u16);
+        w.attach_shm_buffer(
+            next_a,
+            &solid_bgra(next_a.0, next_a.1, [255, 255, 0, 255], false),
+        );
+        w.ack_last_and_commit();
+        f.double_roundtrip(first);
+        assert_eq!(
+            wa.geometry().size,
+            target.into(),
+            "new ready buffer must still wait for the pending peer"
+        );
+        assert!(tiling_live_frame(&mut f, &output) == held);
+    }
+    let w = f.client(second).window(&b);
+    w.set_size(next_b.0 as u16, next_b.1 as u16);
+    w.attach_shm_buffer(
+        next_b,
+        &solid_bgra(next_b.0, next_b.1, [0, 255, 255, 255], false),
+    );
+    w.ack_last_and_commit();
+    f.double_roundtrip(second);
+    f.double_roundtrip(first);
+    assert_eq!(wa.geometry().size, next_a.into());
+    assert_eq!(wb.geometry().size, next_b.into());
+    assert_eq!(f.state().tiling_snapshot_count(), 0);
+    assert_eq!(f.state().tiling_pending_configures(), 0);
+    let released = tiling_live_frame(&mut f, &output);
+    let delta = released
+        .iter()
+        .zip(&held)
+        .map(|(a, b)| a.abs_diff(*b))
+        .max()
+        .unwrap();
+    assert!(
+        delta <= 2,
+        "{scale}x SSD={ssd} mixed={mixed}: superseded release differs by {delta}"
+    );
+    tick_until_settled(&mut f);
+    assert!(!f.state().resize_crossfades.contains_key(&aid));
+    assert!(!f.state().resize_crossfades.contains_key(&bid));
+    assert_eq!(f.state().stage.id_of(&wa), Some(aid));
+    assert_eq!(f.state().stage.id_of(&wb), Some(bid));
+    let expected_focus = if mixed { aid } else { bid };
+    assert_eq!(f.state().stage.active_tile(), Some(expected_focus));
+    let focused = f.state().focused_element().unwrap();
+    assert_eq!(f.state().stage.id_of(&focused), Some(expected_focus));
+    f.state().refresh_window_outputs();
+    for (client, surface) in [(first, &a), (second, &b)] {
+        f.double_roundtrip(client);
+        let c = f.client(client);
+        let memberships = &c.state.surface_outputs[surface];
+        assert_eq!(memberships.len(), 1);
+        assert_eq!(c.state.outputs[&memberships[0]], output.name());
+    }
+    let settled = tiling_live_frame(&mut f, &output);
+    let expected_a = if mixed {
+        [0, 255, 255, 255]
+    } else {
+        [0, 255, 0, 255]
+    };
+    assert!(settled.as_chunks::<4>().0.contains(&expected_a));
+    assert!(settled.as_chunks::<4>().0.contains(&[255, 255, 0, 255]));
+    assert!(!settled.as_chunks::<4>().0.contains(&[255, 0, 255, 255]));
+    if mixed {
+        assert!(!settled.as_chunks::<4>().0.contains(&[0, 255, 0, 255]));
+    }
+    assert!(settled.as_chunks::<4>().0.contains(&[0, 0, 255, 255]));
+    for (client, surface) in [(first, &a), (second, &b)] {
+        f.client(client).window(surface).commit();
+        f.double_roundtrip(client);
+    }
+    assert!(!f.state().window_animations.is_active());
+    assert!(tiling_live_frame(&mut f, &output) == settled);
+    f.state().render.remove_output(&output.name());
+    gl::uninstall(&mut f);
+}
