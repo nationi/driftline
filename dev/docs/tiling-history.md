@@ -2851,3 +2851,25 @@ for docs/tooling; implementation evidence remains B4. No push/install/TTY claim.
 Next A0: remaining local/under-pointer focus/reorder, tabs/floating/fullscreen/
 overview and target/state actions, misc/root/recent-windows and independent
 executable reference fixtures. Integration/physics/hardware gates remain open.
+
+
+## A0 local focus and layout-state action audit
+
+Reviewed 39 more action consumers (130 scoped rows overall), adding no named
+schema rows (496/576 review links). Traced local/wrapping/vertical-then-column
+focus, direct under-pointer workspace dispatch, reorder view offsets, polite
+close, tab transitions clearing expanded state, floating membership/active-domain
+policy and its interactive-move branch. Real fullscreen extraction/restoration
+and windowed-fullscreen protocol hint/serial-commit state are separate paths.
+Overview set operations are idempotent against desired state, distinct from
+animated progress. Driftwm canvas exit fallbacks are not reference membership
+preservation; existing Partial/Missing/Divergent status is retained.
+
+Validation passed: Python syntax, deterministic 576 field /186 action /136–50
+config exposure inventory, preserved keys/statuses and 496 schema links, 39 new
+links and 130 disjoint action review rows, local/pinned links/anchors and exact
+clean reference, diff checks. No niri/input/protocol/GPU execution or Rust CI rerun
+for docs/tooling; implementation evidence remains B4. No push/install/TTY claim.
+Next A0: workspace up/down/move/name and remaining opacity/urgency/cast/integration/
+internal action scope, misc/root/recent-windows and independent executable
+reference fixtures. Full protocol/topology/input/render acceptance remains open.

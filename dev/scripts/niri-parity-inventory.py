@@ -213,6 +213,9 @@ def schema_structs(source):
         yield match.group(1), re.findall(r"^    pub (\w+):", block(source, match.group(0)), re.M)
 
 
+LOCAL_STATE_ACTION_AUDIT = set("CloseWindow FocusColumnLeft FocusColumnLeftUnderMouse FocusColumnRight FocusColumnRightUnderMouse FocusWindowDown FocusWindowUp FocusWindowDownOrColumnLeft FocusWindowDownOrColumnRight FocusWindowUpOrColumnLeft FocusWindowUpOrColumnRight FocusWindowTop FocusWindowBottom FocusWindowDownOrTop FocusWindowUpOrBottom MoveColumnLeft MoveColumnRight MoveColumnToFirst MoveColumnToLast MoveWindowDown MoveWindowUp ToggleColumnTabbedDisplay SetColumnDisplay ToggleWindowFloating ToggleWindowFloatingById MoveWindowToFloating MoveWindowToFloatingById MoveWindowToTiling MoveWindowToTilingById FocusFloating FocusTiling SwitchFocusBetweenFloatingAndTiling FullscreenWindow FullscreenWindowById ToggleWindowedFullscreen ToggleWindowedFullscreenById ToggleOverview OpenOverview CloseOverview".split())
+
+
 NAVIGATION_VIEW_ACTION_AUDIT = set("FocusWindowOrMonitorUp FocusWindowOrMonitorDown FocusColumnOrMonitorLeft FocusColumnOrMonitorRight MoveColumnLeftOrToMonitorLeft MoveColumnRightOrToMonitorRight MoveWindowDownOrToWorkspaceDown MoveWindowUpOrToWorkspaceUp FocusWindowOrWorkspaceDown FocusWindowOrWorkspaceUp FocusMonitorLeft FocusMonitorRight FocusMonitorDown FocusMonitorUp FocusMonitorPrevious FocusMonitorNext FocusMonitor CenterColumn CenterWindow CenterWindowById CenterVisibleColumns ExpandColumnToAvailableWidth MoveWindowToMonitorLeft MoveWindowToMonitorRight MoveWindowToMonitorDown MoveWindowToMonitorUp MoveWindowToMonitorPrevious MoveWindowToMonitorNext MoveColumnToMonitorLeft MoveColumnToMonitorRight MoveColumnToMonitorDown MoveColumnToMonitorUp MoveColumnToMonitorPrevious MoveColumnToMonitorNext MoveWorkspaceToMonitorLeft MoveWorkspaceToMonitorRight MoveWorkspaceToMonitorDown MoveWorkspaceToMonitorUp MoveWorkspaceToMonitorPrevious MoveWorkspaceToMonitorNext".split())
 
 
@@ -481,6 +484,8 @@ def generate(root):
     assert SIZE_TRANSFER_ACTION_AUDIT.issubset(names), "Reviewed size/transfer actions must exist"
     assert PRESET_TOPOLOGY_ACTION_AUDIT.issubset(names), "Reviewed preset/topology actions must exist"
     assert NAVIGATION_VIEW_ACTION_AUDIT.issubset(names), "Reviewed navigation/view actions must exist"
+    assert LOCAL_STATE_ACTION_AUDIT.issubset(names), "Reviewed local/state actions must exist"
+    assert not LOCAL_STATE_ACTION_AUDIT & (ACTION_ADDRESS_AUDIT | SIZE_TRANSFER_ACTION_AUDIT | PRESET_TOPOLOGY_ACTION_AUDIT | NAVIGATION_VIEW_ACTION_AUDIT), "Local/state audit sets must not overlap"
     assert not NAVIGATION_VIEW_ACTION_AUDIT & (ACTION_ADDRESS_AUDIT | SIZE_TRANSFER_ACTION_AUDIT | PRESET_TOPOLOGY_ACTION_AUDIT), "Navigation action audit sets must not overlap"
     assert not PRESET_TOPOLOGY_ACTION_AUDIT & (ACTION_ADDRESS_AUDIT | SIZE_TRANSFER_ACTION_AUDIT), "Scoped topology actions must not overlap"
     assert not ACTION_ADDRESS_AUDIT & SIZE_TRANSFER_ACTION_AUDIT, "Scoped action audit sets must not overlap"
@@ -531,6 +536,8 @@ def generate(root):
             evidence += "; [preset/topology action audit](niri-preset-topology-action-audit.md)"
         if name in NAVIGATION_VIEW_ACTION_AUDIT:
             evidence += "; [navigation/view action audit](niri-navigation-view-action-audit.md)"
+        if name in LOCAL_STATE_ACTION_AUDIT:
+            evidence += "; [local/state action audit](niri-local-state-action-audit.md)"
         lines.append(f"| `{name}` | {scope} | {status} | {mapping} | {evidence} |")
     lines += ["", f"Action variants indexed: **{len(names)}**.", "", "## Action config exposure", "",
         f"Derived config decoder variants: **{len(names) - len(skipped)}**; skipped variants: **{len(skipped)}**.",
