@@ -128,7 +128,42 @@ LIFECYCLE_WINDOW_FIELDS = {
 MATCH_AUDIT_FIELDS = "app_id title is_active is_focused is_active_in_column is_floating is_window_cast_target is_urgent at_startup"
 
 
+EFFECT_AUDIT_FIELDS = {
+    "CornerRadius": "top_left top_right bottom_right bottom_left",
+    "WorkspaceShadow": "off offset softness spread color",
+    "WorkspaceShadowPart": "off on offset softness spread color",
+    "Blur": "off passes offset noise saturation",
+    "BlurPart": "off on passes offset noise saturation",
+    "BackgroundEffectRule": "xray blur noise saturation",
+    "BackgroundEffect": "xray blur noise saturation",
+}
+EFFECT_CONSUMER_FIELDS = {
+    "WindowRule": "geometry_corner_radius clip_to_geometry background_effect",
+    "PopupsRule": "geometry_corner_radius background_effect",
+    "ResolvedPopupsRules": "geometry_corner_radius background_effect",
+}
+
+
+def effect_status(name, field):
+    if name == "CornerRadius":
+        status, mapping, section = "Partial", "Scalar integer clipping exists; four-corner/fractional grammar and geometry policy differ", "corner-radius-decoding-and-consumers"
+    elif name in {"WorkspaceShadow", "WorkspaceShadowPart"}:
+        status, mapping, section = "Missing", "No overview workspace shadow; reference normalizes by logical view height", "workspace-shadows"
+    elif name in {"Blur", "BlurPart"}:
+        status = "Missing" if field in {"noise", "saturation"} else "Partial"
+        mapping, section = "Kawase tuning exists with different defaults; reference parse/runtime pass bounds differ", "blur-tuning-and-background-effect-rules"
+    else:
+        status = "Divergent" if field == "blur" else "Missing"
+        mapping, section = "Reference optional blur veto/xray/noise/saturation differs from driftwm rule-or-default frost", "client-regions-popup-rules-and-policy-differences"
+    return status, f"{mapping}; [radius/effect audit](niri-effects-config-audit.md#{section})"
+
+
 def config_status(module, name, field):
+    if module == "appearance" and name in EFFECT_AUDIT_FIELDS:
+        return effect_status(name, field)
+    if module == "window_rule" and field in EFFECT_CONSUMER_FIELDS.get(name, "").split():
+        status = "Divergent" if name == "WindowRule" and field != "clip_to_geometry" else "Missing"
+        return status, "No equivalent independent geometry/popup/effect rule policy; [radius/effect audit](niri-effects-config-audit.md)"
     lifecycle_link = "[precedence/lifecycle audit](niri-config-lifecycle-audit.md)"
     if module == "window_rule" and name == "WindowRule" and field in LIFECYCLE_WINDOW_FIELDS:
         status, mapping = LIFECYCLE_WINDOW_FIELDS[field]
@@ -168,10 +203,12 @@ def generate(root):
         "are not automatically public keys. The [layout audit](niri-layout-config-audit.md)",
         "covers top-level layout names/defaults and shared size/flag/strut decoding;",
         "the [appearance audit](niri-appearance-config-audit.md) covers color/gradient,",
-        "border/shadow and tab/insert-hint decoding and merges. Overrides, remaining",
-        "appearance types and other schemas still need semantic auditing. The",
+        "border/shadow and tab/insert-hint decoding and merges. The",
         "[lifecycle audit](niri-config-lifecycle-audit.md) traces override order and",
-        "scoped window-rule initial-map/reload consumers; unscoped behavior stays open.",
+        "scoped window-rule initial-map/reload consumers. The [effects audit](niri-effects-config-audit.md)",
+        "adds radius/workspace-shadow/blur/background-effect decoding and consumers.",
+        "This seven-module index is not the entire public config; root/misc and",
+        "layer-rule coverage still need reconciliation. Unscoped behavior stays open.",
         "P0 reference operation fixtures and the custom-decoder audit remain unfinished.", "",
         "Status: Partial = related implementation, not full equivalence; Divergent = known",
         "semantic difference; Missing = no matching tiling action; Unverified = not audited;",
@@ -199,6 +236,10 @@ def generate(root):
                 assert set(fields) == set(LAYOUT_AUDIT), "Layout audit must account for every field"
             if module == "appearance" and name in APPEARANCE_AUDIT_FIELDS:
                 assert set(fields) == set(APPEARANCE_AUDIT_FIELDS[name].split()), "Appearance audit must account for every field"
+            if module == "appearance" and name in EFFECT_AUDIT_FIELDS:
+                assert set(fields) == set(EFFECT_AUDIT_FIELDS[name].split()), "Effect audit must account for every field"
+            if module == "window_rule" and name in EFFECT_CONSUMER_FIELDS:
+                assert set(EFFECT_CONSUMER_FIELDS[name].split()).issubset(fields), "Effect consumers must exist in pinned schema"
             if module == "window_rule" and name == "Match":
                 assert set(fields) == set(MATCH_AUDIT_FIELDS.split()), "Match audit must account for every property"
             if module == "window_rule" and name == "WindowRule":

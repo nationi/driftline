@@ -193,7 +193,10 @@ Source-derived probes for later independent fixtures:
 
 Remaining work includes complete override/placement permutations and decoder
 coverage for unscoped rule fields, floating position and output/workspace naming;
-CornerRadius/workspace-shadow/blur/background-effect schemas; other config modules;
+coverage reconciliation beyond the seven indexed modules (including root/misc
+and layer rules); other config modules;
 ID/index/previous/next actions; and independent executable reference fixtures.
-A0/P0 remains open. These source traces neither implement missing driftwm settings
+The [effects audit](niri-effects-config-audit.md) covers CornerRadius/workspace-
+shadow/blur/background effects and scoped consumers. A0/P0 remains open.
+These source traces neither implement missing driftwm settings
 nor establish exact runtime/configuration parity.

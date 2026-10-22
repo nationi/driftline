@@ -3,8 +3,9 @@
 Reference: `12de51d6a60baad8896366920278a24f17921f52`. This A0/P0 batch audits
 all 15 top-level `Layout` / `LayoutPart` fields, their public KDL names, defaults
 and the shared size/flag/strut decoders. Core appearance decoding and merging is
-covered by the [appearance audit](niri-appearance-config-audit.md); remaining
-appearance types and action addressing still need auditing. Scoped override and
+covered by the [appearance audit](niri-appearance-config-audit.md); effect
+consumers are covered in the [effects audit](niri-effects-config-audit.md).
+Other schemas and action addressing still need auditing. Scoped override and
 window-rule consumers are traced in the [lifecycle audit](niri-config-lifecycle-audit.md). No driftwm
 configuration or runtime behavior changes in this batch.
 
@@ -146,10 +147,9 @@ acceptance alone is not a geometry acceptance gate.
 
 ## Next audit
 
-The lifecycle audit now traces scoped global/output/workspace/window-rule
-precedence, initial configure/map and reload consumers, including which shadow
-merge path is used. Complete placement/reload permutations still need executable
-fixtures. Audit remaining CornerRadius, workspace shadows and blur/background
-effects next; other indexed modules, naming/matching details, unscoped rule
-fields and ID/index/previous/next actions remain open. A0/P0 is unfinished; these
-source tables do not authorize new public settings or imply runtime parity.
+Core appearance, radius/workspace-shadow/background effects and scoped lifecycle
+have source audits. Reconcile coverage beyond the current seven-module inventory
+next, including root/misc and layer-rule surfaces. Remaining naming/matching
+and rule fields, ID/index/previous/next actions and independent decoder/geometry
+fixtures stay open. A0/P0 is unfinished; these source tables do not authorize
+new settings or imply runtime parity.

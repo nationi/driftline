@@ -9,10 +9,12 @@ The reference has decoder attributes/custom parsers: public schema fields below
 are not automatically public keys. The [layout audit](niri-layout-config-audit.md)
 covers top-level layout names/defaults and shared size/flag/strut decoding;
 the [appearance audit](niri-appearance-config-audit.md) covers color/gradient,
-border/shadow and tab/insert-hint decoding and merges. Overrides, remaining
-appearance types and other schemas still need semantic auditing. The
+border/shadow and tab/insert-hint decoding and merges. The
 [lifecycle audit](niri-config-lifecycle-audit.md) traces override order and
-scoped window-rule initial-map/reload consumers; unscoped behavior stays open.
+scoped window-rule initial-map/reload consumers. The [effects audit](niri-effects-config-audit.md)
+adds radius/workspace-shadow/blur/background-effect decoding and consumers.
+This seven-module index is not the entire public config; root/misc and
+layer-rule coverage still need reconciliation. Unscoped behavior stays open.
 P0 reference operation fixtures and the custom-decoder audit remain unfinished.
 
 Status: Partial = related implementation, not full equivalence; Divergent = known
@@ -275,10 +277,10 @@ Declared types to check for nested values/custom decoding: `Layout`, `LayoutPart
 | `Gradient.in_` | Missing | No gradient/interpolation configuration; [decoder/merge audit](niri-appearance-config-audit.md#color-and-gradient-decoding) |
 | `GradientInterpolation.color_space` | Missing | No gradient/interpolation configuration; [decoder/merge audit](niri-appearance-config-audit.md#color-and-gradient-decoding) |
 | `GradientInterpolation.hue_interpolation` | Missing | No gradient/interpolation configuration; [decoder/merge audit](niri-appearance-config-audit.md#color-and-gradient-decoding) |
-| `CornerRadius.top_left` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
-| `CornerRadius.top_right` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
-| `CornerRadius.bottom_right` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
-| `CornerRadius.bottom_left` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
+| `CornerRadius.top_left` | Partial | Scalar integer clipping exists; four-corner/fractional grammar and geometry policy differ; [radius/effect audit](niri-effects-config-audit.md#corner-radius-decoding-and-consumers) |
+| `CornerRadius.top_right` | Partial | Scalar integer clipping exists; four-corner/fractional grammar and geometry policy differ; [radius/effect audit](niri-effects-config-audit.md#corner-radius-decoding-and-consumers) |
+| `CornerRadius.bottom_right` | Partial | Scalar integer clipping exists; four-corner/fractional grammar and geometry policy differ; [radius/effect audit](niri-effects-config-audit.md#corner-radius-decoding-and-consumers) |
+| `CornerRadius.bottom_left` | Partial | Scalar integer clipping exists; four-corner/fractional grammar and geometry policy differ; [radius/effect audit](niri-effects-config-audit.md#corner-radius-decoding-and-consumers) |
 | `FocusRing.off` | Missing | Native borders cover a subset; separate focus ring, urgent colors and gradients missing; [decoder/merge audit](niri-appearance-config-audit.md#border-and-focus-ring-rules) |
 | `FocusRing.width` | Missing | Native borders cover a subset; separate focus ring, urgent colors and gradients missing; [decoder/merge audit](niri-appearance-config-audit.md#border-and-focus-ring-rules) |
 | `FocusRing.active_color` | Missing | Native borders cover a subset; separate focus ring, urgent colors and gradients missing; [decoder/merge audit](niri-appearance-config-audit.md#border-and-focus-ring-rules) |
@@ -304,17 +306,17 @@ Declared types to check for nested values/custom decoding: `Layout`, `LayoutPart
 | `Shadow.inactive_color` | Missing | Native shadow enablement exists; parameter grammar and context-dependent on/off merges differ; [decoder/merge audit](niri-appearance-config-audit.md#shadow-rules) |
 | `ShadowOffset.x` | Missing | Native shadow enablement exists; parameter grammar and context-dependent on/off merges differ; [decoder/merge audit](niri-appearance-config-audit.md#shadow-rules) |
 | `ShadowOffset.y` | Missing | Native shadow enablement exists; parameter grammar and context-dependent on/off merges differ; [decoder/merge audit](niri-appearance-config-audit.md#shadow-rules) |
-| `WorkspaceShadow.off` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
-| `WorkspaceShadow.offset` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
-| `WorkspaceShadow.softness` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
-| `WorkspaceShadow.spread` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
-| `WorkspaceShadow.color` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
-| `WorkspaceShadowPart.off` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
-| `WorkspaceShadowPart.on` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
-| `WorkspaceShadowPart.offset` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
-| `WorkspaceShadowPart.softness` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
-| `WorkspaceShadowPart.spread` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
-| `WorkspaceShadowPart.color` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
+| `WorkspaceShadow.off` | Missing | No overview workspace shadow; reference normalizes by logical view height; [radius/effect audit](niri-effects-config-audit.md#workspace-shadows) |
+| `WorkspaceShadow.offset` | Missing | No overview workspace shadow; reference normalizes by logical view height; [radius/effect audit](niri-effects-config-audit.md#workspace-shadows) |
+| `WorkspaceShadow.softness` | Missing | No overview workspace shadow; reference normalizes by logical view height; [radius/effect audit](niri-effects-config-audit.md#workspace-shadows) |
+| `WorkspaceShadow.spread` | Missing | No overview workspace shadow; reference normalizes by logical view height; [radius/effect audit](niri-effects-config-audit.md#workspace-shadows) |
+| `WorkspaceShadow.color` | Missing | No overview workspace shadow; reference normalizes by logical view height; [radius/effect audit](niri-effects-config-audit.md#workspace-shadows) |
+| `WorkspaceShadowPart.off` | Missing | No overview workspace shadow; reference normalizes by logical view height; [radius/effect audit](niri-effects-config-audit.md#workspace-shadows) |
+| `WorkspaceShadowPart.on` | Missing | No overview workspace shadow; reference normalizes by logical view height; [radius/effect audit](niri-effects-config-audit.md#workspace-shadows) |
+| `WorkspaceShadowPart.offset` | Missing | No overview workspace shadow; reference normalizes by logical view height; [radius/effect audit](niri-effects-config-audit.md#workspace-shadows) |
+| `WorkspaceShadowPart.softness` | Missing | No overview workspace shadow; reference normalizes by logical view height; [radius/effect audit](niri-effects-config-audit.md#workspace-shadows) |
+| `WorkspaceShadowPart.spread` | Missing | No overview workspace shadow; reference normalizes by logical view height; [radius/effect audit](niri-effects-config-audit.md#workspace-shadows) |
+| `WorkspaceShadowPart.color` | Missing | No overview workspace shadow; reference normalizes by logical view height; [radius/effect audit](niri-effects-config-audit.md#workspace-shadows) |
 | `TabIndicator.off` | Missing | No tabbed indicator or insertion-hint implementation; [decoder/merge audit](niri-appearance-config-audit.md#tab-indicator-and-insertion-hint) |
 | `TabIndicator.hide_when_single_tab` | Missing | No tabbed indicator or insertion-hint implementation; [decoder/merge audit](niri-appearance-config-audit.md#tab-indicator-and-insertion-hint) |
 | `TabIndicator.place_within_column` | Missing | No tabbed indicator or insertion-hint implementation; [decoder/merge audit](niri-appearance-config-audit.md#tab-indicator-and-insertion-hint) |
@@ -377,25 +379,25 @@ Declared types to check for nested values/custom decoding: `Layout`, `LayoutPart
 | `TabIndicatorRule.active_gradient` | Missing | No tabbed indicator or insertion-hint implementation; [decoder/merge audit](niri-appearance-config-audit.md#tab-indicator-and-insertion-hint) |
 | `TabIndicatorRule.inactive_gradient` | Missing | No tabbed indicator or insertion-hint implementation; [decoder/merge audit](niri-appearance-config-audit.md#tab-indicator-and-insertion-hint) |
 | `TabIndicatorRule.urgent_gradient` | Missing | No tabbed indicator or insertion-hint implementation; [decoder/merge audit](niri-appearance-config-audit.md#tab-indicator-and-insertion-hint) |
-| `Blur.off` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
-| `Blur.passes` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
-| `Blur.offset` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
-| `Blur.noise` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
-| `Blur.saturation` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
-| `BlurPart.off` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
-| `BlurPart.on` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
-| `BlurPart.passes` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
-| `BlurPart.offset` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
-| `BlurPart.noise` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
-| `BlurPart.saturation` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
-| `BackgroundEffectRule.xray` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
-| `BackgroundEffectRule.blur` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
-| `BackgroundEffectRule.noise` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
-| `BackgroundEffectRule.saturation` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
-| `BackgroundEffect.xray` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
-| `BackgroundEffect.blur` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
-| `BackgroundEffect.noise` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
-| `BackgroundEffect.saturation` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
+| `Blur.off` | Partial | Kawase tuning exists with different defaults; reference parse/runtime pass bounds differ; [radius/effect audit](niri-effects-config-audit.md#blur-tuning-and-background-effect-rules) |
+| `Blur.passes` | Partial | Kawase tuning exists with different defaults; reference parse/runtime pass bounds differ; [radius/effect audit](niri-effects-config-audit.md#blur-tuning-and-background-effect-rules) |
+| `Blur.offset` | Partial | Kawase tuning exists with different defaults; reference parse/runtime pass bounds differ; [radius/effect audit](niri-effects-config-audit.md#blur-tuning-and-background-effect-rules) |
+| `Blur.noise` | Missing | Kawase tuning exists with different defaults; reference parse/runtime pass bounds differ; [radius/effect audit](niri-effects-config-audit.md#blur-tuning-and-background-effect-rules) |
+| `Blur.saturation` | Missing | Kawase tuning exists with different defaults; reference parse/runtime pass bounds differ; [radius/effect audit](niri-effects-config-audit.md#blur-tuning-and-background-effect-rules) |
+| `BlurPart.off` | Partial | Kawase tuning exists with different defaults; reference parse/runtime pass bounds differ; [radius/effect audit](niri-effects-config-audit.md#blur-tuning-and-background-effect-rules) |
+| `BlurPart.on` | Partial | Kawase tuning exists with different defaults; reference parse/runtime pass bounds differ; [radius/effect audit](niri-effects-config-audit.md#blur-tuning-and-background-effect-rules) |
+| `BlurPart.passes` | Partial | Kawase tuning exists with different defaults; reference parse/runtime pass bounds differ; [radius/effect audit](niri-effects-config-audit.md#blur-tuning-and-background-effect-rules) |
+| `BlurPart.offset` | Partial | Kawase tuning exists with different defaults; reference parse/runtime pass bounds differ; [radius/effect audit](niri-effects-config-audit.md#blur-tuning-and-background-effect-rules) |
+| `BlurPart.noise` | Missing | Kawase tuning exists with different defaults; reference parse/runtime pass bounds differ; [radius/effect audit](niri-effects-config-audit.md#blur-tuning-and-background-effect-rules) |
+| `BlurPart.saturation` | Missing | Kawase tuning exists with different defaults; reference parse/runtime pass bounds differ; [radius/effect audit](niri-effects-config-audit.md#blur-tuning-and-background-effect-rules) |
+| `BackgroundEffectRule.xray` | Missing | Reference optional blur veto/xray/noise/saturation differs from driftwm rule-or-default frost; [radius/effect audit](niri-effects-config-audit.md#client-regions-popup-rules-and-policy-differences) |
+| `BackgroundEffectRule.blur` | Divergent | Reference optional blur veto/xray/noise/saturation differs from driftwm rule-or-default frost; [radius/effect audit](niri-effects-config-audit.md#client-regions-popup-rules-and-policy-differences) |
+| `BackgroundEffectRule.noise` | Missing | Reference optional blur veto/xray/noise/saturation differs from driftwm rule-or-default frost; [radius/effect audit](niri-effects-config-audit.md#client-regions-popup-rules-and-policy-differences) |
+| `BackgroundEffectRule.saturation` | Missing | Reference optional blur veto/xray/noise/saturation differs from driftwm rule-or-default frost; [radius/effect audit](niri-effects-config-audit.md#client-regions-popup-rules-and-policy-differences) |
+| `BackgroundEffect.xray` | Missing | Reference optional blur veto/xray/noise/saturation differs from driftwm rule-or-default frost; [radius/effect audit](niri-effects-config-audit.md#client-regions-popup-rules-and-policy-differences) |
+| `BackgroundEffect.blur` | Divergent | Reference optional blur veto/xray/noise/saturation differs from driftwm rule-or-default frost; [radius/effect audit](niri-effects-config-audit.md#client-regions-popup-rules-and-policy-differences) |
+| `BackgroundEffect.noise` | Missing | Reference optional blur veto/xray/noise/saturation differs from driftwm rule-or-default frost; [radius/effect audit](niri-effects-config-audit.md#client-regions-popup-rules-and-policy-differences) |
+| `BackgroundEffect.saturation` | Missing | Reference optional blur veto/xray/noise/saturation differs from driftwm rule-or-default frost; [radius/effect audit](niri-effects-config-audit.md#client-regions-popup-rules-and-policy-differences) |
 
 Declared types to check for nested values/custom decoding: `Color`, `Gradient`, `GradientRelativeTo`, `GradientInterpolation`, `GradientColorSpace`, `HueInterpolation`, `CornerRadius`, `FocusRing`, `Border`, `Shadow`, `ShadowOffset`, `WorkspaceShadow`, `WorkspaceShadowPart`, `TabIndicator`, `TabIndicatorPart`, `TabIndicatorLength`, `TabIndicatorPosition`, `InsertHint`, `InsertHintPart`, `BlockOutFrom`, `BorderRule`, `ShadowRule`, `TabIndicatorRule`, `Blur`, `BlurPart`, `BackgroundEffectRule`, `BackgroundEffect`.
 
@@ -502,8 +504,8 @@ Declared types to check for nested values/custom decoding: `Animations`, `Animat
 | `WindowRule.tab_indicator` | Missing | No per-window tab-indicator rule; [precedence/lifecycle audit](niri-config-lifecycle-audit.md) |
 | `WindowRule.draw_border_with_background` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
 | `WindowRule.opacity` | Divergent | Mapped appearance rule is sticky; reference recomputes metadata/state/reload matches; [precedence/lifecycle audit](niri-config-lifecycle-audit.md) |
-| `WindowRule.geometry_corner_radius` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
-| `WindowRule.clip_to_geometry` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
+| `WindowRule.geometry_corner_radius` | Divergent | No equivalent independent geometry/popup/effect rule policy; [radius/effect audit](niri-effects-config-audit.md) |
+| `WindowRule.clip_to_geometry` | Missing | No equivalent independent geometry/popup/effect rule policy; [radius/effect audit](niri-effects-config-audit.md) |
 | `WindowRule.baba_is_float` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
 | `WindowRule.block_out_from` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
 | `WindowRule.variable_refresh_rate` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
@@ -512,14 +514,14 @@ Declared types to check for nested values/custom decoding: `Animations`, `Animat
 | `WindowRule.scroll_factor` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
 | `WindowRule.pinch_sensitivity` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
 | `WindowRule.tiled_state` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
-| `WindowRule.background_effect` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
+| `WindowRule.background_effect` | Divergent | No equivalent independent geometry/popup/effect rule policy; [radius/effect audit](niri-effects-config-audit.md) |
 | `WindowRule.popups` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
 | `PopupsRule.opacity` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
-| `PopupsRule.geometry_corner_radius` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
-| `PopupsRule.background_effect` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
+| `PopupsRule.geometry_corner_radius` | Missing | No equivalent independent geometry/popup/effect rule policy; [radius/effect audit](niri-effects-config-audit.md) |
+| `PopupsRule.background_effect` | Missing | No equivalent independent geometry/popup/effect rule policy; [radius/effect audit](niri-effects-config-audit.md) |
 | `ResolvedPopupsRules.opacity` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
-| `ResolvedPopupsRules.geometry_corner_radius` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
-| `ResolvedPopupsRules.background_effect` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
+| `ResolvedPopupsRules.geometry_corner_radius` | Missing | No equivalent independent geometry/popup/effect rule policy; [radius/effect audit](niri-effects-config-audit.md) |
+| `ResolvedPopupsRules.background_effect` | Missing | No equivalent independent geometry/popup/effect rule policy; [radius/effect audit](niri-effects-config-audit.md) |
 | `Match.app_id` | Divergent | Regex/dynamic match properties differ from mapped app/title glob rules; [precedence/lifecycle audit](niri-config-lifecycle-audit.md) |
 | `Match.title` | Divergent | Regex/dynamic match properties differ from mapped app/title glob rules; [precedence/lifecycle audit](niri-config-lifecycle-audit.md) |
 | `Match.is_active` | Missing | Regex/dynamic match properties differ from mapped app/title glob rules; [precedence/lifecycle audit](niri-config-lifecycle-audit.md) |

@@ -5,7 +5,7 @@ Color, Gradient/interpolation, BorderRule/FocusRing/Border, ShadowRule/Shadow/
 ShadowOffset, TabIndicatorPart/TabIndicator/Length, TabIndicatorRule and
 InsertHintPart/InsertHint: 98 named schema fields across 15 structs. The enum
 spellings they use are recorded too. CornerRadius, workspace shadows, blur and
-background-effect rules remain separate audit work. Runtime override precedence
+background effects are recorded in the [effects audit](niri-effects-config-audit.md). Runtime override precedence
 is traced separately in the [lifecycle audit](niri-config-lifecycle-audit.md); it
 is not inferred from these local merges.
 
@@ -179,7 +179,9 @@ Source-derived probes for future independent decoder/merge fixtures:
 | `softness 1025` / `spread -1025` / tab `width -1` | Numeric decoder errors; recovery zero is not successful acceptance. |
 
 Remaining A0 work: complete override/placement permutations and independent
-fixtures beyond the scoped lifecycle audit; unaudited appearance schemas (CornerRadius, workspace shadows, blur/background effects); remaining
-configuration modules; ID/index/previous/next action addressing; wider independent
-operation fixtures. Full CSS parser dependency behavior, all derive-generated
-structural diagnostics and visual geometry remain outside this source-only gate.
+fixtures, unscoped rule fields and output/workspace naming, schema coverage
+reconciliation beyond the current seven modules, and ID/index/previous/next
+actions. The effects audit covers the remaining named appearance structs, not
+every enum application or render transition. Full CSS dependency behavior,
+derive-generated structural diagnostics and visual geometry remain outside
+these source-only gates. A0/P0 remains open.

@@ -2502,3 +2502,47 @@ or TTY acceptance; implementation CI remains `/tmp/driftwm-b4-output-ci.log`.
 Next A0: remaining appearance/effect decoders and consumers (CornerRadius,
 workspace shadows, blur/background effects), then remaining schemas/actions and
 independent fixture expansion. A0/P0 stays open and gates feature expansion.
+
+## 2026-10-22 — A0 radii, workspace shadows and effect selection
+
+Added `dev/docs/niri-effects-config-audit.md` against clean pinned reference
+`12de51d6a60baad8896366920278a24f17921f52`. It covers 34 fields in the seven
+remaining named appearance structs and seven window/popup consumer fields:
+41 new source-index links, 206 scoped links total. All 132 named public
+appearance fields now have scoped decoder/default/local-merge evidence across
+the core and effects audits, without claiming complete renderer/config parity.
+
+CornerRadius accepts one or four positional numbers, clockwise TL/TR/BR/BL;
+integers go through i16 while decimals use f32, negatives emit errors. Recorded
+fit/expansion and windowed-fullscreen/geometry-clip consumers. WorkspaceShadow is
+under overview.workspace-shadow, enabled by default; offset/softness/spread
+normalize to logical workspace view height / 1080. Blur passes decode as u8 but
+rendering clamps to 1–31; global tuning defaults differ from driftwm and do not
+request every window's blur.
+
+BackgroundEffect preserves optional blur/xray/noise/saturation overrides.
+Nonempty client regions request blur unless explicitly vetoed; a rule can force
+blur with no client region, but an explicitly empty region suppresses the effect
+render. Visible normal-surface effects default xray on, while popups default it
+off. Global blur.off gates blur execution rather than every other selected
+effect; noise/saturation defaults depend on actual blur execution. Region dirty
+state is committed before recomputation/damage. Capture block-out and clipping
+branches are recorded without claiming every capture/transition path audited.
+Driftwm's sticky rule OR global blur and empty/clipped-region fallback are
+explicit divergences, not modified by this source audit.
+
+The generator validates the seven complete struct field sets and seven scoped
+consumer names, linking them to the effects audit. Validation passed: syntax
+without bytecode artifacts, deterministic byte-identical regeneration, unchanged
+186 actions / 318 indexed fields, 34+98+33+41 audit links, local targets/anchors,
+pinned source paths and clean checkout, `git diff --check`. No execution of niri,
+new Rust parity tests, runtime/config change or full CI rerun; implementation
+validation remains `/tmp/driftwm-b4-output-ci.log`. No push, installation or TTY
+acceptance.
+
+Coverage finding: the generator indexes seven selected modules, not the entire
+public config. Overview/OverviewPart live in misc.rs (though workspace-shadow
+value types are indexed), and root Config/layer-rule surfaces are absent. Next
+A0 task is schema coverage reconciliation with explicit exclusions and missing
+layout-visible nodes before the remaining decoder/action audit and independent
+fixture expansion. A0/P0 remains open and gates feature expansion.
