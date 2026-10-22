@@ -125,7 +125,9 @@ acceptance remains open. The [output/window rule audit](niri-output-window-rule-
 adds 42 links, completing named rows in those modules; DRM/protocol/render and
 parser acceptance remains open. The [binding/address audit](niri-binding-address-audit.md)
 adds 14 named bind fields, source-derived config exposure and 12 scoped action
-consumers. Next A0: remaining action families/argument decoders, misc/root/
-recent-windows semantics and independent reference fixtures. Document
+consumers. The [size/transfer action audit](niri-size-transfer-action-audit.md) adds
+16 selected enum-payload consumers without adding schema rows. Next A0: remaining
+topology/preset/directional action families, misc/root/recent-windows semantics
+and independent reference fixtures. Document
 concrete exclusions as needed. Independent decoder/geometry/operation fixtures beyond zero gaps remain required; no Exact
 or overall-completion claim follows from covering the source file list.

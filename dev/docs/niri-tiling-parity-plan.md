@@ -482,6 +482,10 @@ Only then describe the implementation as complete niri tiling parity.
 
 ## Execution queue and acceptance gates
 
+The [size/transfer action audit](niri-size-transfer-action-audit.md) traces change
+scalar parsing, context-specific units and 16 selected transfer/size consumers.
+Presets/topology/directional families and executable reference acceptance stay open.
+
 The [binding/address audit](niri-binding-address-audit.md) covers named bind
 fields, config exposure and 12 scoped ID/ordinal/previous/workspace consumers.
 Remaining action families/arguments and complete acceptance contexts stay open.
@@ -517,7 +521,7 @@ renderer work without closing a named remaining gate.
 | B2 — controlled gates delivered | General framed canvas resize entry, odd extents/nonzero geometry; 12 solid and 12 patterned fractional-client scenes | SSD/CSD grow/shrink, changed offsets, recapture release, popup size/anchor and independent settled transparency/opacity; static scales only |
 | B3 — controlled gates delivered | Capped/minified stale fallback, client-region blur, view/output matrices and five scoped capture allocation failures | 90 allocation scenes cover reply/timeout/exit and subsequent recovery; content-only fractional bake padding fixed; GPU-offscreen/mode evidence remains distinct from hardware scanout |
 | B4 — controlled gates delivered | Direct remap, ready-peer disconnect, protocol unmap/remap, group supersession and sole-output removal/recovery during held/mixed resize | 12 GPU scenes per lifecycle matrix plus hermetic restore/peer/output and stage re-enrollment regressions; output loss leaves tiling and rejects placeholder enrollment; these bounded gates do not prove every lifecycle combination or real DRM hotplug |
-| A0 — in progress, semantic prerequisite | Layout/appearance/effects/scoped lifecycle, layer/overview, all named input, layout debug, animation/gesture and output identity consumers reviewed; remaining decoders/actions/fixtures and backend acceptance stay open | 496 scoped reviewed rows; 12 scoped action consumers (including explicit exclusions and retained Unverified integration gates); inventory covers 576 fields in 14 modules, all 18 source paths and 25 root nodes / 24 Config fields; source coverage is not an Exact claim or executable oracle |
+| A0 — in progress, semantic prerequisite | Layout/appearance/effects/scoped lifecycle, layer/overview, all named input, layout debug, animation/gesture and output identity consumers reviewed; remaining decoders/actions/fixtures and backend acceptance stay open | 496 scoped reviewed rows; 28 scoped action consumers (including explicit exclusions and retained Unverified integration gates); inventory covers 576 fields in 14 modules, all 18 source paths and 25 root nodes / 24 Config fields; source coverage is not an Exact claim or executable oracle |
 | Feature expansion | P3 sizing/settings, then dependency-ready P4/P5 work | Source-derived size/topology/view fixtures and documented public settings; retain canvas regressions |
 
 A0 can be taken before any stabilization batch, and must be completed before

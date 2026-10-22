@@ -125,17 +125,17 @@ Outside = explicit non-layout scope exclusion. Never infer Exact from a similar 
 | `FocusWorkspacePrevious` | Layout | Missing | — | P4/P6–P14; no parity evidence yet; [action address audit](niri-binding-address-audit.md#scoped-ordinal-and-previous-selection) |
 | `MoveWindowToWorkspaceDown` | Layout | Missing | — | P4/P6–P14; no parity evidence yet |
 | `MoveWindowToWorkspaceUp` | Layout | Missing | — | P4/P6–P14; no parity evidence yet |
-| `MoveWindowToWorkspace` | Layout | Missing | — | P4/P6–P14; no parity evidence yet |
-| `MoveWindowToWorkspaceById` | Layout | Missing | — | P4/P6–P14; no parity evidence yet |
+| `MoveWindowToWorkspace` | Layout | Missing | — | P4/P6–P14; no parity evidence yet; [size/transfer action audit](niri-size-transfer-action-audit.md) |
+| `MoveWindowToWorkspaceById` | Layout | Missing | — | P4/P6–P14; no parity evidence yet; [size/transfer action audit](niri-size-transfer-action-audit.md) |
 | `MoveColumnToWorkspaceDown` | Layout | Missing | — | P4/P6–P14; no parity evidence yet |
 | `MoveColumnToWorkspaceUp` | Layout | Missing | — | P4/P6–P14; no parity evidence yet |
-| `MoveColumnToWorkspace` | Layout | Missing | — | P4/P6–P14; no parity evidence yet |
+| `MoveColumnToWorkspace` | Layout | Missing | — | P4/P6–P14; no parity evidence yet; [size/transfer action audit](niri-size-transfer-action-audit.md) |
 | `MoveWorkspaceDown` | Layout | Missing | — | P4/P6–P14; no parity evidence yet |
 | `MoveWorkspaceUp` | Layout | Missing | — | P4/P6–P14; no parity evidence yet |
-| `MoveWorkspaceToIndex` | Layout | Missing | — | P4/P6–P14; no parity evidence yet |
-| `MoveWorkspaceToIndexByRef` | Layout | Missing | — | P4/P6–P14; no parity evidence yet |
-| `MoveWorkspaceToMonitorByRef` | Layout | Missing | — | P4/P6–P14; no parity evidence yet |
-| `MoveWorkspaceToMonitor` | Layout | Missing | — | P4/P6–P14; no parity evidence yet |
+| `MoveWorkspaceToIndex` | Layout | Missing | — | P4/P6–P14; no parity evidence yet; [size/transfer action audit](niri-size-transfer-action-audit.md) |
+| `MoveWorkspaceToIndexByRef` | Layout | Missing | — | P4/P6–P14; no parity evidence yet; [size/transfer action audit](niri-size-transfer-action-audit.md) |
+| `MoveWorkspaceToMonitorByRef` | Layout | Missing | — | P4/P6–P14; no parity evidence yet; [size/transfer action audit](niri-size-transfer-action-audit.md) |
+| `MoveWorkspaceToMonitor` | Layout | Missing | — | P4/P6–P14; no parity evidence yet; [size/transfer action audit](niri-size-transfer-action-audit.md) |
 | `SetWorkspaceName` | Layout | Missing | — | P4/P6–P14; no parity evidence yet |
 | `SetWorkspaceNameByRef` | Layout | Missing | — | P4/P6–P14; no parity evidence yet |
 | `UnsetWorkspaceName` | Layout | Missing | — | P4/P6–P14; no parity evidence yet |
@@ -153,19 +153,19 @@ Outside = explicit non-layout scope exclusion. Never infer Exact from a similar 
 | `MoveWindowToMonitorUp` | Layout | Missing | — | P4/P6–P14; no parity evidence yet |
 | `MoveWindowToMonitorPrevious` | Layout | Missing | — | P4/P6–P14; no parity evidence yet |
 | `MoveWindowToMonitorNext` | Layout | Missing | — | P4/P6–P14; no parity evidence yet |
-| `MoveWindowToMonitor` | Layout | Missing | — | P4/P6–P14; no parity evidence yet |
-| `MoveWindowToMonitorById` | Layout | Missing | — | P4/P6–P14; no parity evidence yet |
+| `MoveWindowToMonitor` | Layout | Missing | — | P4/P6–P14; no parity evidence yet; [size/transfer action audit](niri-size-transfer-action-audit.md) |
+| `MoveWindowToMonitorById` | Layout | Missing | — | P4/P6–P14; no parity evidence yet; [size/transfer action audit](niri-size-transfer-action-audit.md) |
 | `MoveColumnToMonitorLeft` | Layout | Missing | — | P4/P6–P14; no parity evidence yet |
 | `MoveColumnToMonitorRight` | Layout | Missing | — | P4/P6–P14; no parity evidence yet |
 | `MoveColumnToMonitorDown` | Layout | Missing | — | P4/P6–P14; no parity evidence yet |
 | `MoveColumnToMonitorUp` | Layout | Missing | — | P4/P6–P14; no parity evidence yet |
 | `MoveColumnToMonitorPrevious` | Layout | Missing | — | P4/P6–P14; no parity evidence yet |
 | `MoveColumnToMonitorNext` | Layout | Missing | — | P4/P6–P14; no parity evidence yet |
-| `MoveColumnToMonitor` | Layout | Missing | — | P4/P6–P14; no parity evidence yet |
-| `SetWindowWidth` | Layout | Missing | — | P4/P6–P14; no parity evidence yet |
-| `SetWindowWidthById` | Layout | Missing | — | P4/P6–P14; no parity evidence yet |
-| `SetWindowHeight` | Layout | Missing | — | P4/P6–P14; no parity evidence yet |
-| `SetWindowHeightById` | Layout | Missing | — | P4/P6–P14; no parity evidence yet |
+| `MoveColumnToMonitor` | Layout | Missing | — | P4/P6–P14; no parity evidence yet; [size/transfer action audit](niri-size-transfer-action-audit.md) |
+| `SetWindowWidth` | Layout | Missing | — | P4/P6–P14; no parity evidence yet; [size/transfer action audit](niri-size-transfer-action-audit.md) |
+| `SetWindowWidthById` | Layout | Missing | — | P4/P6–P14; no parity evidence yet; [size/transfer action audit](niri-size-transfer-action-audit.md) |
+| `SetWindowHeight` | Layout | Missing | — | P4/P6–P14; no parity evidence yet; [size/transfer action audit](niri-size-transfer-action-audit.md) |
+| `SetWindowHeightById` | Layout | Missing | — | P4/P6–P14; no parity evidence yet; [size/transfer action audit](niri-size-transfer-action-audit.md) |
 | `ResetWindowHeight` | Layout | Missing | — | P4/P6–P14; no parity evidence yet |
 | `ResetWindowHeightById` | Layout | Missing | — | P4/P6–P14; no parity evidence yet |
 | `SwitchPresetColumnWidth` | Layout | Partial | cycle-column-width (different presets/units) | src/tests/tiling.rs; src/stage/tiling.rs tests |
@@ -181,7 +181,7 @@ Outside = explicit non-layout scope exclusion. Never infer Exact from a similar 
 | `MaximizeColumn` | Layout | Missing | — | P4/P6–P14; no parity evidence yet |
 | `MaximizeWindowToEdges` | Layout | Missing | — | P4/P6–P14; no parity evidence yet |
 | `MaximizeWindowToEdgesById` | Layout | Missing | — | P4/P6–P14; no parity evidence yet |
-| `SetColumnWidth` | Layout | Missing | — | P4/P6–P14; no parity evidence yet |
+| `SetColumnWidth` | Layout | Missing | — | P4/P6–P14; no parity evidence yet; [size/transfer action audit](niri-size-transfer-action-audit.md) |
 | `ExpandColumnToAvailableWidth` | Layout | Missing | — | P4/P6–P14; no parity evidence yet |
 | `SwitchLayout` | Outside | Outside | unrelated compositor action | roadmap scope; reconsider if layout-visible |
 | `ShowHotkeyOverlay` | Outside | Outside | unrelated compositor action | roadmap scope; reconsider if layout-visible |
@@ -200,7 +200,7 @@ Outside = explicit non-layout scope exclusion. Never infer Exact from a similar 
 | `FocusFloating` | Layout | Missing | — | P4/P6–P14; no parity evidence yet |
 | `FocusTiling` | Layout | Missing | — | P4/P6–P14; no parity evidence yet |
 | `SwitchFocusBetweenFloatingAndTiling` | Layout | Missing | — | P4/P6–P14; no parity evidence yet |
-| `MoveFloatingWindowById` | Layout | Missing | — | P4/P6–P14; no parity evidence yet |
+| `MoveFloatingWindowById` | Layout | Missing | — | P4/P6–P14; no parity evidence yet; [size/transfer action audit](niri-size-transfer-action-audit.md) |
 | `ToggleWindowRuleOpacity` | Outside | Outside | unrelated compositor action | roadmap scope; reconsider if layout-visible |
 | `ToggleWindowRuleOpacityById` | Outside | Outside | unrelated compositor action | roadmap scope; reconsider if layout-visible |
 | `SetDynamicCastWindow` | Outside | Outside | unrelated compositor action | roadmap scope; reconsider if layout-visible |

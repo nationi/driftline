@@ -2782,3 +2782,26 @@ clean pinned revision and diff checks. No niri/parser/input execution or full
 Rust CI rerun for docs/tooling; implementation evidence remains B4. No push/
 install/TTY claim. Next A0: SizeChange/PositionChange and remaining compound/target
 action families, misc/root/recent-windows and independent executable fixtures.
+
+
+## A0 size/position scalars and scoped transfer actions
+
+Reviewed SizeChange/PositionChange sign/unit parsing and 16 selected action
+consumers (28 scoped action rows overall). Fixed sizes are i32 versus f64 position;
+percentage adjustment means percentage points. Traced scrolling content/tile/gap
+conversion and height allocation constraints, floating expected-size units and
+stored floating position updates for tiled targets. Explicit-ID ordinal workspace
+transfer resolves on its source monitor; active/ID monitor moves differ in focus/
+cursor behavior. Pinned floating column output transfer drops its supplied
+workspace index and bool in its delegation branch; this is source evidence for
+future execution, not an accepted compatibility change. Workspace reorder and
+window transfer have different index validation/clamping and boundary maintenance.
+
+No named field review links were added: total remains 496 of 576 schema rows.
+Validation passed: Python syntax, deterministic 576 fields / 186 actions /136–50
+config exposure, preserved keys/statuses and prior links, 16 new source links,
+disjoint existing/new action sets, local/pinned links/anchors and clean reference
+revision, diff check. No niri/parser/GPU execution or Rust CI rerun for docs/tooling;
+implementation evidence remains B4. No push/install/TTY claim. Next A0: remaining
+preset/reset/maximize/consume/swap and directional/previous/next compound families,
+misc/root/recent-windows semantics and independent executable reference fixtures.

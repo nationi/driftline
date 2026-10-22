@@ -64,17 +64,18 @@ mode. These are documented fallbacks, not reference-compatible behavior.
 ## Verified evidence and its limits
 
 Latest A0 documentation/tooling validation: the
-[binding/address audit](niri-binding-address-audit.md) adds 14 schema review links
-(496 total) and source evidence on 12 selected action rows. The generator lists
-50 config-skipped Action variants versus 136 derived variants, keeping source
-symbols separate from public config availability. Key/flag/duplicate/override
-shapes, cooldown/repeat/lock/inhibition consumers and selected ID/ordinal/previous/
-workspace reference paths are traced. The other action families/argument decoders
-and full contexts stay open. Review does not change behavior status to Exact.
-Inventory remains 576 fields, 186 actions, 18 paths / 14 modules and 25 root nodes /
-24 Config fields. Syntax, deterministic generation, exact binds field coverage,
-source exposure sets, previous keys/action statuses and local/pinned links were
-checked. No runtime or public config change; implementation CI remains B4.
+[size/transfer action audit](niri-size-transfer-action-audit.md) adds source links
+on 16 action rows (28 scoped action rows total). SizeChange/PositionChange parsing,
+content/tile/gap units, floating stored-position behavior and selected workspace/
+monitor/reorder target/focus paths are traced. Explicit-ID ordinal transfer uses
+the source window's monitor; floating column output transfer has a pinned branch
+that discards supplied target index/focus bool. These edges require execution
+before implementation decisions. Named-schema review count stays 496/576; enum
+payload audit does not create new schema rows. Inventory remains 186 actions,
+18 paths / 14 modules, 25 root nodes / 24 Config fields and 136 derived versus
+50 config-skipped variants. Syntax, deterministic generation, disjoint action
+sets, old keys/statuses and local/pinned links were checked. No runtime/config
+change or executable parity claim; implementation CI remains B4.
 
 Latest validation gate: `/tmp/driftwm-b4-output-ci.log`, exit 0: full
 `dev/scripts/ci-local`, 369 library cases, 1490 binary cases including ignored
@@ -186,13 +187,14 @@ unresolved; use direct TTY for visual acceptance.
 
 ## Next work
 
-Next work: **A0/P0 remaining action families and argument decoders**, pinned niri
-`12de51d6a60baad8896366920278a24f17921f52`: SizeChange/PositionChange, compound
-monitor/workspace actions and target variants. The 12 reviewed addressing rows
-do not close all 186 actions. Remaining misc/root/recent-windows semantics and
-independent executable reference fixtures beyond zero gaps also stay open.
-Retained input/backend/capture acceptance and full numerical animation/gesture/
-layer/overview permutations remain required. Source review is not implementation.
+Next work: **A0/P0 remaining topology/sizing and directional action families**,
+pinned niri `12de51d6a60baad8896366920278a24f17921f52`: presets/reset/maximize,
+consume/expel/swap, directional/previous/next monitor/workspace compound fallback
+and remaining target variants. The 28 scoped action rows do not close all 186
+variants. Misc/root/recent-windows semantics and independent executable reference
+fixtures beyond zero gaps remain open, along with retained input/backend/capture
+and full numerical animation/gesture/layer/overview acceptance. Source review
+is not implementation or permission to skip feature-expansion gates.
 Do not repeat delivered audits or restart B matrices. A0/P0 gates feature
 expansion; source coverage and scoped review do not prove complete niri parity.
 Controlled SSD scale-change release is

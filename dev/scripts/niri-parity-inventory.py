@@ -213,6 +213,9 @@ def schema_structs(source):
         yield match.group(1), re.findall(r"^    pub (\w+):", block(source, match.group(0)), re.M)
 
 
+SIZE_TRANSFER_ACTION_AUDIT = set("SetWindowWidth SetWindowWidthById SetWindowHeight SetWindowHeightById SetColumnWidth MoveFloatingWindowById MoveWindowToWorkspace MoveWindowToWorkspaceById MoveColumnToWorkspace MoveWorkspaceToIndex MoveWorkspaceToIndexByRef MoveWindowToMonitor MoveWindowToMonitorById MoveColumnToMonitor MoveWorkspaceToMonitor MoveWorkspaceToMonitorByRef".split())
+
+
 BIND_AUDIT_FIELDS = {
     ("binds", "Bind"): "key action repeat cooldown allow_when_locked allow_inhibiting hotkey_overlay_title",
     ("binds", "Key"): "trigger modifiers",
@@ -469,6 +472,8 @@ def generate(root):
     skipped = re.findall(r"^    #\[knuffel\(skip\)\]\n    ([A-Z]\w*)", actions, re.M)
     assert set(skipped).issubset(names) and len(set(skipped)) == len(skipped)
     assert ACTION_ADDRESS_AUDIT.issubset(names), "Reviewed action names must exist"
+    assert SIZE_TRANSFER_ACTION_AUDIT.issubset(names), "Reviewed size/transfer actions must exist"
+    assert not ACTION_ADDRESS_AUDIT & SIZE_TRANSFER_ACTION_AUDIT, "Scoped action audit sets must not overlap"
     lines = [
         "# Niri tiling parity inventory", "",
         f"Reference: `{REVISION}`. Rebuild with `python3 dev/scripts/niri-parity-inventory.py /tmp/niri > dev/docs/niri-tiling-inventory.md`.", "",
@@ -510,6 +515,8 @@ def generate(root):
         scope, status, mapping, evidence = action_status(name)
         if name in ACTION_ADDRESS_AUDIT:
             evidence += "; [action address audit](niri-binding-address-audit.md#scoped-ordinal-and-previous-selection)"
+        if name in SIZE_TRANSFER_ACTION_AUDIT:
+            evidence += "; [size/transfer action audit](niri-size-transfer-action-audit.md)"
         lines.append(f"| `{name}` | {scope} | {status} | {mapping} | {evidence} |")
     lines += ["", f"Action variants indexed: **{len(names)}**.", "", "## Action config exposure", "",
         f"Derived config decoder variants: **{len(names) - len(skipped)}**; skipped variants: **{len(skipped)}**.",
