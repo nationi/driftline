@@ -56,9 +56,11 @@ mode. These are documented fallbacks, not reference-compatible behavior.
 
 ## Verified evidence and its limits
 
-Latest validation gate: `/tmp/driftwm-b3-title-ci.log`, exit 0: full
-`dev/scripts/ci-local`, 368 library cases, 1474 binary cases including ignored
-GPU scenarios, integration suites and isolated soak. Dedicated title gate
+Latest validation gate: `/tmp/driftwm-b3-views-ci.log`, exit 0: full
+`dev/scripts/ci-local`, 368 library cases, 1476 binary cases including ignored
+GPU scenarios, integration suites and isolated soak. Dedicated view gate
+`/tmp/driftwm-b3-views.log` passed all three tests / 36 scenes, including 24 new
+fractional-camera/mode-height cases. Dedicated title gate
 `/tmp/driftwm-b3-ssd.log` passed all 12 CSD/SSD scale-change scenes with opacity
 0.6, title-alpha checks and repeated mixed recapture/release. Dedicated degraded gate
 `/tmp/driftwm-b3-degraded.log` passed 12 SSD/CSD capped live-fallback scenes. Dedicated fractional-client
@@ -102,8 +104,10 @@ unresolved; use direct TTY for visual acceptance.
 
 ## Next work
 
-Next implementation: continue **B3** with output mode/transform changes and
-arbitrary fractional camera positions. Controlled SSD scale-change release is
+Next implementation: continue **B3** with rotated/reflected output transforms,
+then mode width/shrink cases. Extend the GPU fixture to use the actual output
+transform: its current RGBA helper always renders `Transform::Normal`, so merely
+changing output metadata cannot establish scanout-transform acceptance. Controlled SSD scale-change release is
 fixed: retain the native title raster separately, blend old/current premultiplied
 pixels before window opacity, and carry mixed title pixels through recapture.
 At the current output scale, title/border/shadow must share the same rounded
@@ -112,8 +116,12 @@ band height; body mask title coverage remains a separate quantity.
 Delivered B3 subsets: 12 stale/capped live-fallback scenes and 12 CSD/SSD output
 scale + camera scenes (ordinary/mixed snapshot, opacity 0.6, repeated recapture/
 release, independent native popup bounds, translated pixels and title-alpha
-sample). Scales cover 1→1.25, 1.25→1.5, 1.5→1. These are controlled integration
-gates, not all output transitions. Zoom, every degraded/effect/minification path,
+sample). Scales cover 1→1.25, 1.25→1.5, 1.5→1. Another 12 scenes cover camera
+(16.4,12.2), including fractional physical displacement, and 12 scenes cover mode
+height growth 1200x800→1200x1000. They retain popup anchors, release/recapture
+continuity and independent configure-height checks. Mode application is simulated
+at the backend-success boundary; real DRM modesetting is not exercised. These
+are controlled integration gates, not all output transitions. Zoom, every degraded/effect/minification path,
 allocation failures and multi-output ownership remain unproven. B4 retains
 broader motion-time remap/output removal. Full tiling multi-output support remains
 P11; enrolling a second output still leaves tiling.

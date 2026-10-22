@@ -146,8 +146,9 @@ popup anchoring at 1x/1.25x/1.5x output scales, including fractional client buff
 and geometry-offset changes during repeated resize. Scale changes during the
 transition retain and blend the old SSD title raster with the new one, separately
 from body content. Controlled CSD/SSD checks cover 1→1.25, 1.25→1.5 and 1.5→1
-with camera movement and repeated recapture. Other output transitions remain
-experimental.
+with camera movement and repeated recapture. Additional checks cover fractional
+camera positions and a taller output mode during held resize. Other output
+transitions, including rotation/reflection, remain experimental.
 During grouped resize, native compositor title-bar coverage blends separately
 from body pixels, preserving its height and rounded corners. Global blur config
 reloads retain the held image and blend toward the new policy when the client

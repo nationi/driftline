@@ -1924,3 +1924,44 @@ locked check, strict all-target clippy, no-run build, 368 library cases, 1474 bi
 cases including ignored GPU scenarios, integration suites and isolated soak.
 Existing B1 mixed-policy/reload/cancellation, B2 framed/fractional and B3 degraded
 fallback scenarios remain green. Markdown targets and `git diff --check` passed.
+
+## 2026-10-22 — B3 fractional camera and output mode height changes
+
+Baseline `382bb18`. Extended the shared view-change fixture with an explicit
+scenario enum, preserving the original 12 scale-transition scenes.
+`held_tiling_images_release_after_fractional_physical_camera_motion` adds 12
+SSD/CSD scenes at 1x/1.25x/1.5x with ordinary/mixed snapshots, opacity 0.6,
+rounded chrome/shadow and native popup overhang. Camera (16.4,12.2) introduces
+fractional physical positions at those scales. Independently compute the popup
+anchor's rounded displacement from the parent's held visual origin; require
+native popup dimensions, first release/mixed recapture/second release within two
+bytes, title alpha 153±2 and eventual crossfade cleanup. Original integral-camera
+scenes retain their whole-image translated oracle; fractional motion instead uses
+its independent rounded-anchor oracle plus the complete release comparisons.
+
+`held_tiling_images_survive_output_mode_height_changes` adds 12 scenes with
+1200x800→1200x1000 at the same static scales/decoration/mixed combinations.
+Real config reload must queue a custom mode intent with the requested dimensions.
+The fixture models successful backend completion: publish current/preferred mode,
+arrange layers, resize fullscreen policy, invalidate output caches and mark output
+configuration dirty. Then reflow the pending tiling group and require the offered
+content height to equal new logical viewport height minus native bar/borders.
+Render the complete taller target, retain the integral camera-translation oracle,
+and reuse release/recapture/title/popup/cleanup checks. This is compositor policy
+and successful-mode-application coverage; it does not invoke DRM modesetting.
+
+No production fix was required by these 24 new scenes. Dedicated
+`/tmp/driftwm-b3-views.log` runs all three view tests (36 scenes). B3 remains open
+for actual rotation/reflection, mode width changes/shrink and other listed gaps.
+The existing `render_elements_to_rgba` fixture fixes `Transform::Normal`; extend
+that helper for actual rotated/reflected rendering before claiming transform
+acceptance. Changing output metadata alone would be insufficient. No pure stage,
+layout or config-parser algorithm changed; no extra deep property pass is needed.
+No release build, installation, desktop restart, push or manual TTY acceptance
+was performed.
+
+Full `dev/scripts/ci-local` passed, exit 0 (`/tmp/driftwm-b3-views-ci.log`): fmt,
+locked check, strict all-target clippy, no-run build, 368 library cases, 1476 binary
+cases including ignored GPU scenarios, integration suites and isolated soak.
+Dedicated view gate passed all 36 scenes. Markdown targets and
+`git diff --check` passed. This batch changes tests/documentation only.

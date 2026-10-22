@@ -2515,13 +2515,66 @@ fn held_tiling_images_survive_output_scale_and_camera_changes() {
     for (from, to) in [(1.0, 1.25), (1.25, 1.5), (1.5, 1.0)] {
         for ssd in [false, true] {
             for mixed in [false, true] {
-                check_tiling_scale_change(from, to, ssd, mixed);
+                check_tiling_view_change(from, to, ssd, mixed, TilingViewChange::Scale);
             }
         }
     }
 }
 
-fn check_tiling_scale_change(from: f64, to: f64, ssd: bool, mixed: bool) {
+#[test]
+#[ignore = "needs surfaceless EGL; run with --include-ignored"]
+fn held_tiling_images_release_after_fractional_physical_camera_motion() {
+    let _gl = gl::lock();
+    let (ready, loaded) = std::sync::mpsc::sync_channel(1);
+    driftwm::text::warm_fonts(move || {
+        let _ = ready.send(());
+    });
+    loaded
+        .recv_timeout(std::time::Duration::from_secs(10))
+        .unwrap();
+    for scale in [1.0, 1.25, 1.5] {
+        for ssd in [false, true] {
+            for mixed in [false, true] {
+                check_tiling_view_change(
+                    scale,
+                    scale,
+                    ssd,
+                    mixed,
+                    TilingViewChange::FractionalCamera,
+                );
+            }
+        }
+    }
+}
+
+#[test]
+#[ignore = "needs surfaceless EGL; run with --include-ignored"]
+fn held_tiling_images_survive_output_mode_height_changes() {
+    let _gl = gl::lock();
+    let (ready, loaded) = std::sync::mpsc::sync_channel(1);
+    driftwm::text::warm_fonts(move || {
+        let _ = ready.send(());
+    });
+    loaded
+        .recv_timeout(std::time::Duration::from_secs(10))
+        .unwrap();
+    for scale in [1.0, 1.25, 1.5] {
+        for ssd in [false, true] {
+            for mixed in [false, true] {
+                check_tiling_view_change(scale, scale, ssd, mixed, TilingViewChange::TallerMode);
+            }
+        }
+    }
+}
+
+#[derive(Clone, Copy)]
+enum TilingViewChange {
+    Scale,
+    FractionalCamera,
+    TallerMode,
+}
+
+fn check_tiling_view_change(from: f64, to: f64, ssd: bool, mixed: bool, change: TilingViewChange) {
     use super::{last_configured, tick_until_settled, window_by_app_id};
     use driftwm::config::Action;
     let Some(renderer) = gl::surfaceless_renderer("held output scale change") else {
@@ -2559,6 +2612,7 @@ fn check_tiling_scale_change(from: f64, to: f64, ssd: bool, mixed: bool) {
     tiling_live_frame(&mut f, &output);
     f.state().execute_action(&Action::ToggleTiling);
     assert_eq!(f.state().tiling_snapshot_count(), 2);
+    let mut held_origin = smithay::utils::Point::from((100.0, 120.0));
     if mixed {
         let size = last_configured(&mut f, client, &surface);
         let w = f.client(client).window(&surface);
@@ -2569,38 +2623,107 @@ fn check_tiling_scale_change(from: f64, to: f64, ssd: bool, mixed: bool) {
         f.state()
             .tick_window_animations(std::time::Duration::from_millis(16));
         tiling_live_frame(&mut f, &output);
+        held_origin = f
+            .state()
+            .window_animations
+            .geometry_visual_rect(id)
+            .unwrap()
+            .loc;
         f.state().execute_action(&Action::CycleColumnWidth);
         assert_eq!(f.state().tiling_snapshot_count(), 2);
     }
+    let image_height = if matches!(change, TilingViewChange::TallerMode) {
+        1000
+    } else {
+        800
+    };
     let config = format!(
-        "{config}\n[[outputs]]\nname = {:?}\nmode = \"1200x800\"\nscale = {to}\n",
+        "{config}\n[[outputs]]\nname = {:?}\nmode = \"1200x{image_height}\"\nscale = {to}\n",
         output.name()
     );
     f.state().reload_config_from_contents(&config);
     assert_eq!(output.current_scale().fractional_scale(), to);
+    if matches!(change, TilingViewChange::TallerMode) {
+        let intent = f
+            .state()
+            .pending_mode_changes
+            .remove(&output.name())
+            .expect("backend mode request");
+        assert!(matches!(
+            intent,
+            crate::state::ModeIntent::Custom {
+                w: 1200,
+                h: 1000,
+                ..
+            }
+        ));
+        let mode = smithay::output::Mode {
+            size: (1200, 1000).into(),
+            refresh: 60_000,
+        };
+        output.change_current_state(Some(mode), None, None, None);
+        output.set_preferred(mode);
+        smithay::desktop::layer_map_for_output(&output).arrange();
+        let size = crate::state::output_logical_size(&output);
+        f.state().resize_fullscreen_for_output(&output, size);
+        f.state().render.remove_output(&output.name());
+        f.state().output_config_dirty = true;
+    }
     assert!(f.state().pending_mode_changes.is_empty());
     let stationary = tiling_live_frame(&mut f, &output);
-    f.state().set_camera((16.0, 12.0).into());
+    let camera = if matches!(change, TilingViewChange::FractionalCamera) {
+        (16.4, 12.2)
+    } else {
+        (16.0, 12.0)
+    };
+    f.state().set_camera(camera.into());
     f.state().refresh_tiling();
     assert!(f.state().tiling_view.is_some());
     assert_eq!(f.state().tiling_snapshot_count(), 2);
     let held = tiling_live_frame(&mut f, &output);
-    let dx = (16.0 * to).round() as usize;
-    let dy = (12.0 * to).round() as usize;
-    let mut camera_delta = 0;
-    for y in 0..800 - dy {
-        for x in 0..1200 - dx {
-            let destination = (y * 1200 + x) * 4;
-            let source = ((y + dy) * 1200 + x + dx) * 4;
-            for channel in 0..4 {
-                camera_delta = camera_delta
-                    .max(held[destination + channel].abs_diff(stationary[source + channel]));
+    if !matches!(change, TilingViewChange::FractionalCamera) {
+        let dx = (16.0 * to).round() as usize;
+        let dy = (12.0 * to).round() as usize;
+        let mut camera_delta = 0;
+        for y in 0..image_height - dy {
+            for x in 0..1200 - dx {
+                let destination = (y * 1200 + x) * 4;
+                let source = ((y + dy) * 1200 + x + dx) * 4;
+                for channel in 0..4 {
+                    camera_delta = camera_delta
+                        .max(held[destination + channel].abs_diff(stationary[source + channel]));
+                }
             }
         }
+        assert!(
+            camera_delta <= 2,
+            "{from}→{to} SSD={ssd} mixed={mixed}: camera translation differs by {camera_delta}"
+        );
     }
-    assert!(
-        camera_delta <= 2,
-        "{from}→{to} SSD={ssd} mixed={mixed}: camera translation differs by {camera_delta}"
+    let popup_origin = |frame: &[u8]| {
+        let points: Vec<_> = frame
+            .as_chunks::<4>()
+            .0
+            .iter()
+            .enumerate()
+            .filter(|(_, p)| p[2] > 100 && p[0] < 100)
+            .map(|(i, _)| ((i % 1200) as i32, (i / 1200) as i32))
+            .collect();
+        (
+            points.iter().map(|p| p.0).min().unwrap(),
+            points.iter().map(|p| p.1).min().unwrap(),
+        )
+    };
+    let old_popup = popup_origin(&stationary);
+    let new_popup = popup_origin(&held);
+    let expected = (
+        ((held_origin.x - camera.0) * to).round() as i32 - (held_origin.x * to).round() as i32,
+        ((held_origin.y - camera.1) * to).round() as i32 - (held_origin.y * to).round() as i32,
+    );
+    assert_eq!(
+        (new_popup.0 - old_popup.0, new_popup.1 - old_popup.1),
+        expected,
+        "fractional camera motion must preserve the popup's parent anchor"
     );
     let points: Vec<_> = held
         .as_chunks::<4>()
@@ -2620,6 +2743,14 @@ fn check_tiling_scale_change(from: f64, to: f64, ssd: bool, mixed: bool) {
         "popup must use the new output scale"
     );
     let size = last_configured(&mut f, client, &surface);
+    if matches!(change, TilingViewChange::TallerMode) {
+        let chrome = f.state().element_chrome(&window);
+        let expected_height = (1000.0 / to).round() as i32 - chrome.bar - 2 * chrome.border;
+        assert_eq!(
+            size.1, expected_height,
+            "new mode must reflow the tile to the new usable height"
+        );
+    }
     let w = f.client(client).window(&surface);
     w.set_size(size.0 as u16, size.1 as u16);
     w.attach_shm_buffer(size, &solid_bgra(size.0, size.1, [0, 255, 0, 255], false));
