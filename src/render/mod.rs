@@ -16,6 +16,8 @@ mod suspended;
 mod tile_chunks;
 mod tile_chunks_tiff;
 mod tile_worker;
+mod title;
+pub(crate) use title::{TitleCrossfade, TitlePixels};
 
 pub use background::{BackgroundElement, init_background, update_background_element};
 pub(crate) use blur::compile_blur_shaders;
@@ -1037,28 +1039,16 @@ pub fn compose_frame(
             if let Some(bar) = snapshot.bar.take() {
                 let loc = bar.rect.loc.to_physical_precise_round(scale);
                 let dst = Rectangle::new(loc, painted_size(bar.rect.size, scale));
-                if let Ok(element) = MemoryRenderBufferRenderElement::from_buffer(
+                if let Some(element) = bar.buffer.element(
                     renderer,
-                    loc.to_f64(),
-                    &bar.buffer,
-                    Some(bar.opacity as f32),
-                    None,
-                    None,
-                    Kind::Unspecified,
+                    dst,
+                    output_scale,
+                    zoom,
+                    bar.opacity,
+                    snapshot.chrome_animation,
                 ) {
                     bar_index = Some(zoomed_normal.len() - start);
-                    let element = PixelSnapRescaleElement::from_element(
-                        TrimmedElement::from_element(element, dst),
-                        (0, 0).into(),
-                        zoom,
-                    );
-                    if let Some(a) = snapshot.chrome_animation {
-                        zoomed_normal.push(OutputRenderElements::AnimatedTrimmedDecoration(
-                            WindowTransformElement::new(element, a.origin, a.offset, a.scale),
-                        ));
-                    } else {
-                        zoomed_normal.push(OutputRenderElements::TrimmedDecoration(element));
-                    }
+                    zoomed_normal.push(element);
                 }
             }
             zoomed_normal.extend(snapshot.elements);
@@ -1652,13 +1642,6 @@ pub fn compose_frame(
                 .decorations
                 .get(&DecorationKey::Surface(wl_surface.id()))
             {
-                let bar_physical: Point<f64, Physical> =
-                    Point::from((bar_loc_phys.x as f64, bar_loc_phys.y as f64 - bar_h_phys));
-                let bar_alpha = if chrome_opacity < 1.0 {
-                    Some(chrome_opacity as f32)
-                } else {
-                    None
-                };
                 // The bar takes the border's inner width so it stops where the
                 // content does instead of covering the ring's inner stroke.
                 let bar_dst = Rectangle::new(
@@ -1668,33 +1651,29 @@ pub fn compose_frame(
                         scale,
                     ),
                 );
-                if let Ok(bar_elem) = MemoryRenderBufferRenderElement::from_buffer(
+                let pixels = element_id
+                    .and_then(|id| {
+                        let resize = state.resize_crossfades.get_mut(&id)?;
+                        let weight = resize.title_weight();
+                        resize.title.as_mut()?.blend(
+                            renderer,
+                            &deco.title_bar,
+                            bar_dst.size,
+                            output_scale,
+                            weight,
+                        )
+                    })
+                    .unwrap_or_else(|| TitlePixels::Memory(deco.title_bar.clone()));
+                if let Some(element) = pixels.element(
                     renderer,
-                    bar_physical,
-                    &deco.title_bar,
-                    bar_alpha,
-                    None,
-                    None,
-                    Kind::Unspecified,
+                    bar_dst,
+                    output_scale,
+                    zoom,
+                    chrome_opacity,
+                    chrome_animation,
                 ) {
                     blur_bar_index = Some(target.len() - elem_start);
-                    let bar_elem = PixelSnapRescaleElement::from_element(
-                        TrimmedElement::from_element(bar_elem, bar_dst),
-                        Point::<i32, Physical>::from((0, 0)),
-                        zoom,
-                    );
-                    if let Some(animation) = chrome_animation {
-                        target.push(OutputRenderElements::AnimatedTrimmedDecoration(
-                            WindowTransformElement::new(
-                                bar_elem,
-                                animation.origin,
-                                animation.offset,
-                                animation.scale,
-                            ),
-                        ));
-                    } else {
-                        target.push(OutputRenderElements::TrimmedDecoration(bar_elem));
-                    }
+                    target.push(element);
                 }
             }
             content_at = target.len();

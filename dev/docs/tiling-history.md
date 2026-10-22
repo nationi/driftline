@@ -1878,3 +1878,49 @@ locked check, strict all-target clippy, no-run build, 368 library cases, 1474 bi
 cases including ignored GPU scenarios, integration suites and isolated soak.
 Markdown targets and `git diff --check` passed. This passing suite covers only
 the explicitly scoped CSD-scale/SSD-camera matrix, not the SSD scale defect above.
+
+## 2026-10-22 — B3 retained native SSD title pixels across scale changes
+
+Baseline `ddbbe20`. Re-enabled SSD scale transitions in the failing matrix and
+localized the 174-byte first-release difference. Native title rerasterization
+accounted for most of it; after retaining title pixels, a 28-byte difference
+remained around border/shadow. Their held geometry still used the title band's
+old-scale rounded height. Recompute native held border/shadow bands at the current
+output scale, matching the title and live chrome. Ordinary SSD snapshots now keep
+the native title separately rather than baking it into the body.
+
+`render/title.rs` represents title pixels as the original immutable memory buffer
+or a retained mixed texture with explicit physical extent. Each resize transition
+owns an optional title source and one reusable mixed target. First release uses
+the original raster path exactly. Subsequent frames add old/new premultiplied
+pixels with the body's crossfade weights before applying window opacity; restore
+source-over GL blending even on drawing failure. Capture transfers the mixed
+texture into the next source, so recapture does not revert to the live title.
+Old title/buffer targets follow the existing resize/snapshot cleanup lifetime;
+no separate compositor-wide collection is added. These title pixels are separate
+from B1's scalar blur title coverage.
+
+`held_tiling_images_survive_output_scale_and_camera_changes` replaces the former
+CSD-scale/SSD-camera-only test and includes all 12 CSD/SSD scale-change scenes:
+1→1.25, 1.25→1.5, 1.5→1, ordinary/mixed snapshots, rounded chrome/shadow, opacity
+0.6, actual changed buffer dimensions and native popups. Independent camera-shift
+and popup-size assertions remain. First release, post-scale mid-animation
+recapture and its release stay within two bytes. A title-interior sample requires
+alpha 153±2, preventing source-over opacity accumulation. Animations and title
+crossfades drain with the parent resize; fixture counters return to baseline.
+Dedicated `/tmp/driftwm-b3-ssd.log` passed all 12 scenes. The earlier 174-byte SSD
+defect is closed for this matrix; no tolerance was increased.
+
+B3 remains partial: output mode/transform changes and nonintegral physical camera
+translations are next; zoom, other degraded/effect/minification/allocation failures
+and B4 lifecycles remain open. Multi-output tiling is still P11. This is native
+SSD compositor integration, not a claim of an identical niri decoration scheme.
+No pure stage/layout/config parsing algorithm changed, so no additional deep
+property pass is required. No installation, release build, desktop restart, push
+or manual TTY acceptance was performed.
+
+Full `dev/scripts/ci-local` passed, exit 0 (`/tmp/driftwm-b3-title-ci.log`): fmt,
+locked check, strict all-target clippy, no-run build, 368 library cases, 1474 binary
+cases including ignored GPU scenarios, integration suites and isolated soak.
+Existing B1 mixed-policy/reload/cancellation, B2 framed/fractional and B3 degraded
+fallback scenarios remain green. Markdown targets and `git diff --check` passed.

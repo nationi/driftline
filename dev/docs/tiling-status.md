@@ -1,6 +1,6 @@
 # Tiling development status and handoff
 
-Updated 2026-10-21. Integration checkpoint: `8c17428`; upstream `7ce05ed` is
+Updated 2026-10-22. Integration checkpoint: `8c17428`; upstream `7ce05ed` is
 included. Controlled B1/B2 gates are delivered; B3 live-fallback and controlled camera/CSD-scale coverage is added.
 The persistent development branch is `nationi/development`. This handoff was reconciled with Git;
 see the [roadmap queue](niri-tiling-parity-plan.md#execution-queue-and-acceptance-gates)
@@ -56,10 +56,11 @@ mode. These are documented fallbacks, not reference-compatible behavior.
 
 ## Verified evidence and its limits
 
-Latest validation gate: `/tmp/driftwm-b3-view-ci.log`, exit 0: full
+Latest validation gate: `/tmp/driftwm-b3-title-ci.log`, exit 0: full
 `dev/scripts/ci-local`, 368 library cases, 1474 binary cases including ignored
-GPU scenarios, integration suites and isolated soak. Dedicated view gate
-`/tmp/driftwm-b3-view.log` passed six CSD-scale and six SSD-camera scenes. Dedicated degraded gate
+GPU scenarios, integration suites and isolated soak. Dedicated title gate
+`/tmp/driftwm-b3-ssd.log` passed all 12 CSD/SSD scale-change scenes with opacity
+0.6, title-alpha checks and repeated mixed recapture/release. Dedicated degraded gate
 `/tmp/driftwm-b3-degraded.log` passed 12 SSD/CSD capped live-fallback scenes. Dedicated fractional-client
 gate `/tmp/driftwm-b2-fractional.log` passed 12 scenes with patterned/transparent
 content, changed offsets and both recapture response size directions.
@@ -101,23 +102,21 @@ unresolved; use direct TTY for visual acceptance.
 
 ## Next work
 
-Next implementation: **B3 SSD scale-change release discontinuity**. A controlled
-1x → 1.25x reload while holding an ordinary SSD snapshot produced a 174-byte
-channel jump on release. Current native SSD title rerasterization does not retain
-the old raster through the body transition. Localize the changed pixels, then
-retain/blend native title pixels and extents separately from body/mask coverage;
-include first release, mixed recapture and completion at both scale directions.
-Do not hide this with larger tolerances, disable the scenario permanently or
-claim general scale-change acceptance. See the reproducible fixture in history.
+Next implementation: continue **B3** with output mode/transform changes and
+arbitrary fractional camera positions. Controlled SSD scale-change release is
+fixed: retain the native title raster separately, blend old/current premultiplied
+pixels before window opacity, and carry mixed title pixels through recapture.
+At the current output scale, title/border/shadow must share the same rounded
+band height; body mask title coverage remains a separate quantity.
 
-Delivered B3 subsets: 12 stale/capped SSD/CSD live-fallback scenes, six CSD scale
-changes and six SSD camera-only scenes. Camera motion compares against an
-independent physical translation; popup size follows the selected output scale.
-These do not cover SSD scale changes, arbitrary fractional camera positions,
-zoom, every degraded/effect/minification path, allocation failure, output
-transforms/mode changes or multi-output ownership. B4 retains broader motion-time
-remap/output removal. Full tiling multi-output support remains P11; enrolling a
-second output still leaves tiling.
+Delivered B3 subsets: 12 stale/capped live-fallback scenes and 12 CSD/SSD output
+scale + camera scenes (ordinary/mixed snapshot, opacity 0.6, repeated recapture/
+release, independent native popup bounds, translated pixels and title-alpha
+sample). Scales cover 1→1.25, 1.25→1.5, 1.5→1. These are controlled integration
+gates, not all output transitions. Zoom, every degraded/effect/minification path,
+allocation failures and multi-output ownership remain unproven. B4 retains
+broader motion-time remap/output removal. Full tiling multi-output support remains
+P11; enrolling a second output still leaves tiling.
 
 Controlled B2 gates now include 12 solid 1x-client scenes and 12 patterned
 fractional-client scenes: odd extents, SSD/CSD, canvas grow/shrink, changed

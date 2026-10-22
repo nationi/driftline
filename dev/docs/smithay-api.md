@@ -694,3 +694,12 @@ restore both `clear_tex_program_override()` and source-over blending on errors.
 `map_texture(&mapping)` supports direct GPU-mask coverage assertions. A texture's
 `Texture::size()` is in Buffer coordinates; do not compare it directly with a
 Physical size.
+
+`MemoryRenderBufferRenderElement::from_buffer(renderer, location, buffer, alpha,
+src: Option<Rectangle<f64, Logical>>, size: Option<Size<i32, Logical>>, kind)`
+imports the memory buffer using its own stored scale/transform. With both `src`
+and `size` absent it selects the buffer's native logical extent. Preserve that
+path for the first retained-title frame; a texture blend uses explicit physical
+output bounds. `TextureBuffer::from_texture(&renderer, texture, scale, transform,
+opaque_regions)` wraps an already allocated texture without copying its pixels;
+clones must not be overwritten while a retained snapshot owns them.

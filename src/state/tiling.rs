@@ -47,7 +47,7 @@ struct TilingSnapshot {
     border: Option<crate::render::SnapshotBorder>,
     opacity: f64,
     native_chrome: bool,
-    bar: Option<smithay::backend::renderer::element::memory::MemoryRenderBuffer>,
+    bar: Option<crate::render::TitlePixels>,
 }
 
 pub(crate) struct TilingSnapshotElements {
@@ -62,7 +62,7 @@ pub(crate) struct TilingSnapshotElements {
 }
 
 pub(crate) struct TilingSnapshotBar {
-    pub buffer: smithay::backend::renderer::element::memory::MemoryRenderBuffer,
+    pub buffer: crate::render::TitlePixels,
     pub rect: smithay::utils::Rectangle<f64, Logical>,
     pub opacity: f64,
 }
@@ -1098,6 +1098,7 @@ impl DriftWm {
                 None
             };
             let native_chrome = crossfading
+                || blur.bar_height.is_some()
                 || self.window_animations.open_progress(id).is_some()
                 || (has_geometry && (!translating || client_effect));
             let chrome = self
@@ -1151,9 +1152,21 @@ impl DriftWm {
             });
             // Decoration updates replace their buffer, so this clone retains
             // the native-size title pixels across a superseding resize.
-            let bar = native_chrome
-                .then(|| chrome.and_then(|c| c.bar.map(|(b, _)| b.clone())))
-                .flatten();
+            let bar = self
+                .resize_crossfades
+                .get(&id)
+                .and_then(|resize| resize.title.as_ref())
+                .map(|title| title.retained(backend.renderer()))
+                .or_else(|| {
+                    native_chrome
+                        .then(|| {
+                            chrome.and_then(|c| {
+                                c.bar
+                                    .map(|(b, _)| crate::render::TitlePixels::Memory(b.clone()))
+                            })
+                        })
+                        .flatten()
+                });
             // Separate chrome preserves live alpha blending and output-space
             // rounding. Shadows also stay below frost instead of in its mask.
             let chrome = chrome.map(|mut c| {
@@ -1248,6 +1261,7 @@ impl DriftWm {
                         })
                         .flatten();
                     if let Some(resize) = resize.as_mut() {
+                        resize.title = bar.clone().map(crate::render::TitleCrossfade::new);
                         resize.retain_blur_mask(
                             mask_policy.as_ref().unwrap_or(&blur),
                             retained_mask.clone(),
@@ -1543,7 +1557,9 @@ impl DriftWm {
             blur,
             border: snapshot.border.clone().map(|mut border| {
                 if snapshot.native_chrome {
-                    let bar = base.loc.y - border.inner.loc.y;
+                    let bar = (f64::from(snapshot.blur.bar_height.unwrap_or(0)) * output_scale)
+                        .round()
+                        / output_scale;
                     border.inner = smithay::utils::Rectangle::new(
                         frame.loc - Point::from((0.0, bar)),
                         (frame.size.w, frame.size.h + bar).into(),
@@ -1555,7 +1571,9 @@ impl DriftWm {
             shadow: snapshot.shadow.clone().map(|mut shadow| {
                 if snapshot.native_chrome {
                     let bw = f64::from(shadow.border_width);
-                    let bar = base.loc.y - shadow.body.loc.y - bw;
+                    let bar = (f64::from(snapshot.blur.bar_height.unwrap_or(0)) * output_scale)
+                        .round()
+                        / output_scale;
                     shadow.body = smithay::utils::Rectangle::new(
                         frame.loc - Point::from((bw, bar + bw)),
                         (frame.size.w + 2.0 * bw, frame.size.h + bar + 2.0 * bw).into(),

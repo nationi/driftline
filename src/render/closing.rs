@@ -320,6 +320,7 @@ impl ResizeCaptures {
 /// live content. Both pictures share one premultiplied composite, so translucent
 /// pixels keep their alpha while the geometry leg plays.
 pub(crate) struct ResizeCrossfade {
+    pub(crate) title: Option<super::TitleCrossfade>,
     native_initial: bool,
     blur_source: Option<BlurMaskSource>,
     blur_policy: Option<super::SnapshotBlur>,
@@ -487,11 +488,16 @@ impl BlurMaskSource {
 }
 
 impl ResizeCrossfade {
+    pub(crate) fn title_weight(&self) -> f32 {
+        crossfade_out_alpha(self.progress, self.grew)
+    }
+
     pub(crate) fn from_retained_content(
         buffer: TextureBuffer<GlesTexture>,
         texels: Size<i32, Physical>,
     ) -> Self {
         Self {
+            title: None,
             native_initial: true,
             blur_source: None,
             blur_policy: None,
@@ -912,6 +918,7 @@ pub(crate) fn resize_crossfade(
         }
     };
     Some(ResizeCrossfade {
+        title: None,
         native_initial: false,
         blur_source: None,
         blur_policy: None,

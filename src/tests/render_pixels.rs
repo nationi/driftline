@@ -2503,7 +2503,7 @@ fn check_degraded_canvas_resize(scale: f64, ssd: bool, reply: bool) {
 
 #[test]
 #[ignore = "needs surfaceless EGL; run with --include-ignored"]
-fn held_tiling_images_survive_csd_scale_and_ssd_camera_changes() {
+fn held_tiling_images_survive_output_scale_and_camera_changes() {
     let _gl = gl::lock();
     let (ready, loaded) = std::sync::mpsc::sync_channel(1);
     driftwm::text::warm_fonts(move || {
@@ -2515,7 +2515,7 @@ fn held_tiling_images_survive_csd_scale_and_ssd_camera_changes() {
     for (from, to) in [(1.0, 1.25), (1.25, 1.5), (1.5, 1.0)] {
         for ssd in [false, true] {
             for mixed in [false, true] {
-                check_tiling_scale_change(from, if ssd { from } else { to }, ssd, mixed);
+                check_tiling_scale_change(from, to, ssd, mixed);
             }
         }
     }
@@ -2527,7 +2527,12 @@ fn check_tiling_scale_change(from: f64, to: f64, ssd: bool, mixed: bool) {
     let Some(renderer) = gl::surfaceless_renderer("held output scale change") else {
         return;
     };
-    let config = config_toml(true).replace("corner_radius = 0", "corner_radius = 8");
+    let config = config_toml(true)
+        .replace("corner_radius = 0", "corner_radius = 8")
+        .replace(
+            "[decorations]",
+            "[decorations]\nopacity = 0.6\nopacity_focused = 0.6",
+        );
     let config = if ssd {
         format!("{config}\n[[window_rules]]\napp_id = \"scaled\"\ndecoration = \"server\"\n")
     } else {
@@ -2602,7 +2607,7 @@ fn check_tiling_scale_change(from: f64, to: f64, ssd: bool, mixed: bool) {
         .0
         .iter()
         .enumerate()
-        .filter(|(_, p)| **p == [0, 0, 255, 255])
+        .filter(|(_, p)| p[2] > 100 && p[0] < 100)
         .map(|(i, _)| (i % 1200, i / 1200))
         .collect();
     let width =
@@ -2631,6 +2636,58 @@ fn check_tiling_scale_change(from: f64, to: f64, ssd: bool, mixed: bool) {
     assert!(
         delta <= 2,
         "{from}→{to} SSD={ssd} mixed={mixed}: scale-change release differs by {delta}"
+    );
+    f.state()
+        .tick_window_animations(std::time::Duration::from_millis(16));
+    let mixed_frame = tiling_live_frame(&mut f, &output);
+    if ssd {
+        let visual = f
+            .state()
+            .window_animations
+            .geometry_visual_rect(id)
+            .unwrap();
+        let camera = f.state().camera();
+        let x = ((visual.loc.x - camera.x + visual.size.w / 2.0) * to).round() as usize;
+        let y = ((visual.loc.y
+            - camera.y
+            - f64::from(f.state().config.decorations.title_bar_height) / 2.0)
+            * to)
+            .round() as usize;
+        let alpha = mixed_frame[(y * 1200 + x) * 4 + 3];
+        assert!(
+            alpha.abs_diff(153) <= 2,
+            "title alpha must not accumulate: {alpha}"
+        );
+    }
+    f.state().execute_action(&Action::CycleColumnWidth);
+    let recaptured = tiling_live_frame(&mut f, &output);
+    let delta = mixed_frame
+        .iter()
+        .zip(&recaptured)
+        .map(|(a, b)| a.abs_diff(*b))
+        .max()
+        .unwrap();
+    assert!(
+        delta <= 2,
+        "{from}→{to} SSD={ssd} mixed={mixed}: title recapture differs by {delta}"
+    );
+    let size = last_configured(&mut f, client, &surface);
+    let w = f.client(client).window(&surface);
+    w.set_size(size.0 as u16, size.1 as u16);
+    w.attach_shm_buffer(size, &solid_bgra(size.0, size.1, CONTENT_BGRA, false));
+    w.ack_last_and_commit();
+    f.double_roundtrip(client);
+    assert_eq!(f.state().tiling_snapshot_count(), 0);
+    let resumed = tiling_live_frame(&mut f, &output);
+    let delta = recaptured
+        .iter()
+        .zip(&resumed)
+        .map(|(a, b)| a.abs_diff(*b))
+        .max()
+        .unwrap();
+    assert!(
+        delta <= 2,
+        "{from}→{to} SSD={ssd} mixed={mixed}: title recapture release differs by {delta}"
     );
     tick_until_settled(&mut f);
     tiling_live_frame(&mut f, &output);
