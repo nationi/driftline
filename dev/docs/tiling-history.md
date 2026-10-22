@@ -2363,3 +2363,46 @@ of custom decoders, public layout option names/defaults and ID-addressed actions
 then wider source-derived operation fixtures. Do not infer full P2/P13 acceptance
 or niri parity, or restart renderer matrices instead of completing this semantic
 prerequisite. Independent multi-output tiling remains P11.
+
+## 2026-10-22 — A0 top-level layout option and decoder audit
+
+Added `dev/docs/niri-layout-config-audit.md` with all 15 public `LayoutPart`
+children, `Layout::default` values, compatible/missing/divergent driftwm evidence
+and links to pinned source symbols. Audited `DefaultPresetSize`, `PresetSize`,
+`Flag`, `FloatOrInt`, `Struts`, column-display parsing and the root layout decoder's
+border exception. The reference checkout remains clean at
+`12de51d6a60baad8896366920278a24f17921f52`.
+
+Key findings for later implementation: reference presets are 1/3, 1/2, 2/3 rather
+than driftwm's 1/3, 1/2, full; default gaps are 16 rather than 12. Omitted default
+width inherits, an empty width wrapper explicitly clears it, while empty preset
+lists restore built-ins. Flags can explicitly override to false. Struts accept
+signed fractional values and replace as a whole, resetting omitted sides to
+zero. Empty root `border {}` enables borders through a compatibility exception
+that does not apply to includes; empty `shadow {}` does not enable shadows.
+Workspace layout rejects insert-hint and empty-workspace-above-first. Public
+fixed presets use content units; proportional presets use gap-aware tile units,
+unlike driftwm's current frame-width policy. A source-derived 1200-wide/gap-16
+half-width probe yields 576 reference tile pixels versus 600 driftwm frame pixels
+with zero chrome, exposing a difference absent from the zero-gap trace corpus.
+
+The manual inventory generator now links 30 Layout/LayoutPart rows and four
+Struts rows to the audit, with complete top-level field-set checks. Known defaults
+are classified conservatively; no Exact status was added. Nested appearance
+field rows remain unverified pending their full grammar/merge audit. Removed a
+stale generated reminder to add distinct consume/expel actions, which already
+exist; their full boundary/ID/tab/view audit is still pending.
+
+Validation: Python source compiles without writing bytecode; generation against
+the clean pinned checkout is deterministic and byte-identical to the committed
+inventory, still 186 actions / 318 named schema fields. Audited-row counts, local
+link targets/anchors, pinned reference source targets and `git diff --check`
+passed. This is source review and documentation/tooling validation, not execution
+of the niri parser, a differential layout oracle or new Rust parity tests. No
+runtime/config change, full CI rerun, push, installation or TTY acceptance. The
+last full implementation gate remains `/tmp/driftwm-b4-output-ci.log`.
+
+Next A0 batch: nested appearance decoders/merges (Color, BorderRule, ShadowRule,
+TabIndicatorPart, InsertHintPart), then override lifecycle and the remaining
+schema/action-addressing audit. Independent reference fixture expansion remains
+required. A0/P0 is open; do not expand features or restart delivered B matrices.

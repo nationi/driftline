@@ -6,7 +6,9 @@ This is a source-symbol inventory, not a claim that semantic parity is tested.
 All Action variants are included to make exclusions visible; `ById` and internal
 variants remain separate rows. Names are Rust symbols, not guessed binding aliases.
 The reference has decoder attributes/custom parsers: public schema fields below
-must still be checked against decoded option names, defaults and lifecycle rules.
+are not automatically public keys. The [layout audit](niri-layout-config-audit.md)
+covers top-level layout names/defaults and shared size/flag/strut decoding;
+nested appearance, overrides and other schemas still need semantic auditing.
 P0 reference operation fixtures and the custom-decoder audit remain unfinished.
 
 Status: Partial = related implementation, not full equivalence; Divergent = known
@@ -217,40 +219,40 @@ own definitions; tuple wrappers and enums are indexed by declaration below.
 
 | Schema field | Status | Mapping / next audit |
 | --- | --- | --- |
-| `Layout.focus_ring` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
-| `Layout.border` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
-| `Layout.shadow` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
-| `Layout.tab_indicator` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
-| `Layout.insert_hint` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
-| `Layout.preset_column_widths` | Partial | Hardcoded widths / shared snap.gap; P3 dedicated tiling settings and units missing |
-| `Layout.default_column_width` | Partial | Hardcoded widths / shared snap.gap; P3 dedicated tiling settings and units missing |
-| `Layout.preset_window_heights` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
-| `Layout.center_focused_column` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
-| `Layout.always_center_single_column` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
-| `Layout.empty_workspace_above_first` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
-| `Layout.default_column_display` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
-| `Layout.gaps` | Partial | Hardcoded widths / shared snap.gap; P3 dedicated tiling settings and units missing |
-| `Layout.struts` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
-| `Layout.background_color` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
-| `LayoutPart.focus_ring` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
-| `LayoutPart.border` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
-| `LayoutPart.shadow` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
-| `LayoutPart.tab_indicator` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
-| `LayoutPart.insert_hint` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
-| `LayoutPart.preset_column_widths` | Partial | Hardcoded widths / shared snap.gap; P3 dedicated tiling settings and units missing |
-| `LayoutPart.default_column_width` | Partial | Hardcoded widths / shared snap.gap; P3 dedicated tiling settings and units missing |
-| `LayoutPart.preset_window_heights` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
-| `LayoutPart.center_focused_column` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
-| `LayoutPart.always_center_single_column` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
-| `LayoutPart.empty_workspace_above_first` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
-| `LayoutPart.default_column_display` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
-| `LayoutPart.gaps` | Partial | Hardcoded widths / shared snap.gap; P3 dedicated tiling settings and units missing |
-| `LayoutPart.struts` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
-| `LayoutPart.background_color` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
-| `Struts.left` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
-| `Struts.right` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
-| `Struts.top` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
-| `Struts.bottom` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
+| `Layout.focus_ring` | Missing | Separate focus-ring facility missing; [public name/default audit](niri-layout-config-audit.md#public-layout-children) |
+| `Layout.border` | Partial | Native decoration border differs in grammar/defaults/placement; [public name/default audit](niri-layout-config-audit.md#public-layout-children) |
+| `Layout.shadow` | Partial | Native shadow exists; reference settings/defaults not equivalent; [public name/default audit](niri-layout-config-audit.md#public-layout-children) |
+| `Layout.tab_indicator` | Missing | Tabbed columns and indicator missing; [public name/default audit](niri-layout-config-audit.md#public-layout-children) |
+| `Layout.insert_hint` | Missing | Layout-native insertion hint missing; [public name/default audit](niri-layout-config-audit.md#public-layout-children) |
+| `Layout.preset_column_widths` | Divergent | Hardcoded 1/3, 1/2, full vs reference 1/3, 1/2, 2/3; units/empty-list reset missing; [public name/default audit](niri-layout-config-audit.md#public-layout-children) |
+| `Layout.default_column_width` | Partial | Default 0.5 agrees; public setting and omitted/empty/client-choice semantics missing; [public name/default audit](niri-layout-config-audit.md#public-layout-children) |
+| `Layout.preset_window_heights` | Missing | Height presets and cycling missing; [public name/default audit](niri-layout-config-audit.md#public-layout-children) |
+| `Layout.center_focused_column` | Partial | Reveal/fit subset; no public never/always/on-overflow policy; [public name/default audit](niri-layout-config-audit.md#public-layout-children) |
+| `Layout.always_center_single_column` | Missing | Dedicated setting/policy missing; [public name/default audit](niri-layout-config-audit.md#public-layout-children) |
+| `Layout.empty_workspace_above_first` | Missing | Workspace lifecycle missing; workspace override disallows this node; [public name/default audit](niri-layout-config-audit.md#public-layout-children) |
+| `Layout.default_column_display` | Missing | Public normal/tabbed setting and tabbed display missing; [public name/default audit](niri-layout-config-audit.md#public-layout-children) |
+| `Layout.gaps` | Divergent | Shared snap.gap defaults to 12 vs 16, rounds to integer; gap accounting differs; [public name/default audit](niri-layout-config-audit.md#public-layout-children) |
+| `Layout.struts` | Missing | Signed/fractional custom struts missing; layer usable area is not equivalent; [public name/default audit](niri-layout-config-audit.md#public-layout-children) |
+| `Layout.background_color` | Partial | Canvas background differs from per-layout solid default; Color decoder audit pending; [public name/default audit](niri-layout-config-audit.md#public-layout-children) |
+| `LayoutPart.focus_ring` | Missing | Separate focus-ring facility missing; [public name/default audit](niri-layout-config-audit.md#public-layout-children) |
+| `LayoutPart.border` | Partial | Native decoration border differs in grammar/defaults/placement; [public name/default audit](niri-layout-config-audit.md#public-layout-children) |
+| `LayoutPart.shadow` | Partial | Native shadow exists; reference settings/defaults not equivalent; [public name/default audit](niri-layout-config-audit.md#public-layout-children) |
+| `LayoutPart.tab_indicator` | Missing | Tabbed columns and indicator missing; [public name/default audit](niri-layout-config-audit.md#public-layout-children) |
+| `LayoutPart.insert_hint` | Missing | Layout-native insertion hint missing; [public name/default audit](niri-layout-config-audit.md#public-layout-children) |
+| `LayoutPart.preset_column_widths` | Divergent | Hardcoded 1/3, 1/2, full vs reference 1/3, 1/2, 2/3; units/empty-list reset missing; [public name/default audit](niri-layout-config-audit.md#public-layout-children) |
+| `LayoutPart.default_column_width` | Partial | Default 0.5 agrees; public setting and omitted/empty/client-choice semantics missing; [public name/default audit](niri-layout-config-audit.md#public-layout-children) |
+| `LayoutPart.preset_window_heights` | Missing | Height presets and cycling missing; [public name/default audit](niri-layout-config-audit.md#public-layout-children) |
+| `LayoutPart.center_focused_column` | Partial | Reveal/fit subset; no public never/always/on-overflow policy; [public name/default audit](niri-layout-config-audit.md#public-layout-children) |
+| `LayoutPart.always_center_single_column` | Missing | Dedicated setting/policy missing; [public name/default audit](niri-layout-config-audit.md#public-layout-children) |
+| `LayoutPart.empty_workspace_above_first` | Missing | Workspace lifecycle missing; workspace override disallows this node; [public name/default audit](niri-layout-config-audit.md#public-layout-children) |
+| `LayoutPart.default_column_display` | Missing | Public normal/tabbed setting and tabbed display missing; [public name/default audit](niri-layout-config-audit.md#public-layout-children) |
+| `LayoutPart.gaps` | Divergent | Shared snap.gap defaults to 12 vs 16, rounds to integer; gap accounting differs; [public name/default audit](niri-layout-config-audit.md#public-layout-children) |
+| `LayoutPart.struts` | Missing | Signed/fractional custom struts missing; layer usable area is not equivalent; [public name/default audit](niri-layout-config-audit.md#public-layout-children) |
+| `LayoutPart.background_color` | Partial | Canvas background differs from per-layout solid default; Color decoder audit pending; [public name/default audit](niri-layout-config-audit.md#public-layout-children) |
+| `Struts.left` | Missing | No custom struts; [signed numeric/default audit](niri-layout-config-audit.md#size-decoders) |
+| `Struts.right` | Missing | No custom struts; [signed numeric/default audit](niri-layout-config-audit.md#size-decoders) |
+| `Struts.top` | Missing | No custom struts; [signed numeric/default audit](niri-layout-config-audit.md#size-decoders) |
+| `Struts.bottom` | Missing | No custom struts; [signed numeric/default audit](niri-layout-config-audit.md#size-decoders) |
 
 Declared types to check for nested values/custom decoding: `Layout`, `LayoutPart`, `PresetSize`, `DefaultPresetSize`, `Struts`, `CenterFocusedColumn`.
 
@@ -585,7 +587,7 @@ Named schema fields indexed: **318**.
 ## Behavioral differences to resolve
 
 - Consume pulls into the active column in the reference; our move action sends the focused tile to a neighbor.
-- Reference expel and directional consume-or-expel differ from our focused-tile expel. Add distinct actions; retain compatibility.
+- Distinct first-consume/last-expel actions exist; complete boundary, ID-targeted, tab and view behavior remains unaudited.
 - Reference width presets include 2/3, proportional widths account for gaps and fixed widths have specific content/frame units.
 - Automatic tile heights use reference weighting semantics; equal content heights are not equivalent with mixed decorations.
 - Current fullscreen, floating exclusion, generic momentum and one-output fallback are not parity implementations.

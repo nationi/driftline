@@ -15,6 +15,7 @@ for task order and acceptance. Older “next” statements in the
 | Available behavior and configuration | [User guide](../../docs/tiling.md) |
 | Objective, dependencies and acceptance gates | [Parity roadmap](niri-tiling-parity-plan.md) |
 | Pinned symbols and conservative compatibility labels | [Generated inventory](niri-tiling-inventory.md) |
+| Decoded layout options, defaults and merge semantics | [Configuration audit](niri-layout-config-audit.md) |
 | Source-derived fixture assumptions | [Reference traces](niri-reference-traces.md) |
 | Local preview launch, keys and return path | [TTY guide](tty-preview.md) |
 | Per-batch results and investigation logs | [History](tiling-history.md) |
@@ -56,6 +57,16 @@ are unfinished. A second output and many conflicting canvas actions leave the
 mode. These are documented fallbacks, not reference-compatible behavior.
 
 ## Verified evidence and its limits
+
+Latest A0 documentation/tooling validation: all 15 top-level layout options,
+size/flag/strut decoders and root-border/workspace restrictions were inspected
+against the clean pinned checkout. The [configuration audit](niri-layout-config-audit.md)
+records source-derived cases and gaps; it does not claim parser execution.
+The inventory generator now labels 34 `Layout`/`LayoutPart`/`Struts` rows from
+that evidence and checks complete top-level field coverage. Regeneration is
+byte-identical, still indexes 186 actions / 318 schema fields, and local links,
+Python syntax and diff checks passed. No Rust/runtime/config change was made;
+the last full implementation validation remains the B4 gate below.
 
 Latest validation gate: `/tmp/driftwm-b4-output-ci.log`, exit 0: full
 `dev/scripts/ci-local`, 369 library cases, 1490 binary cases including ignored
@@ -167,18 +178,19 @@ unresolved; use direct TTY for visual acceptance.
 
 ## Next work
 
-Next work: **A0/P0 semantic audit**, starting with public layout-option decoders
-and defaults at pinned niri `12de51d6a60baad8896366920278a24f17921f52`.
-The named controlled B1–B4 matrices are delivered. Do not restart renderer
-matrices or expand sizing/interactions before this semantic prerequisite.
-Inspect the inventory generator and custom decoders; account for decoded option
-names, defaults, addressing and lifecycle, linking each claim to pinned symbols
-and driftwm evidence. Keep unverified behavior explicitly unverified and extend
-source-derived reference traces beyond the current zero-gap/scale-1 subset.
-The roadmap remains authoritative; completing these bounded lifecycle gates does
-not close P2/P13 or independent multi-output ownership (P11). Hardware unplug,
-zoom/effect/constraint combinations and broader lifecycle permutations remain
-unproven. Keep expensive GPU orientation oracles outside timed commit groups.
+Next work: **A0/P0 nested appearance decoder audit** at pinned niri
+`12de51d6a60baad8896366920278a24f17921f52`: Color, BorderRule, ShadowRule,
+TabIndicatorPart and InsertHintPart, including public child/property names,
+defaults, validation and merge precedence. Top-level layout names/defaults and
+shared size/flag/strut decoding are recorded in the configuration audit; do not
+repeat that inventory or treat source review as executable parser parity.
+After appearance, audit output/workspace/window-rule override order and lifecycle,
+remaining schemas and ID/index/previous/next actions; extend reference fixtures
+beyond the current zero-gap subset. A0/P0 remains open and precedes feature
+expansion. Named controlled B1–B4 matrices are delivered; do not restart renderer
+matrices as a substitute for this semantic prerequisite. P2/P13 full acceptance,
+independent multi-output ownership (P11), hardware unplug and broader lifecycle
+combinations remain unproven. Keep expensive GPU oracles outside timed groups.
 Controlled SSD scale-change release is
 fixed: retain the native title raster separately, blend old/current premultiplied
 pixels before window opacity, and carry mixed title pixels through recapture.

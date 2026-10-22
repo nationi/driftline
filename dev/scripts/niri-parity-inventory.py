@@ -47,6 +47,36 @@ def action_status(name):
     return "Outside", "Outside", "unrelated compositor action", "roadmap scope; reconsider if layout-visible"
 
 
+LAYOUT_AUDIT = {
+    "focus_ring": ("Missing", "Separate focus-ring facility missing"),
+    "border": ("Partial", "Native decoration border differs in grammar/defaults/placement"),
+    "shadow": ("Partial", "Native shadow exists; reference settings/defaults not equivalent"),
+    "tab_indicator": ("Missing", "Tabbed columns and indicator missing"),
+    "insert_hint": ("Missing", "Layout-native insertion hint missing"),
+    "preset_column_widths": ("Divergent", "Hardcoded 1/3, 1/2, full vs reference 1/3, 1/2, 2/3; units/empty-list reset missing"),
+    "default_column_width": ("Partial", "Default 0.5 agrees; public setting and omitted/empty/client-choice semantics missing"),
+    "preset_window_heights": ("Missing", "Height presets and cycling missing"),
+    "center_focused_column": ("Partial", "Reveal/fit subset; no public never/always/on-overflow policy"),
+    "always_center_single_column": ("Missing", "Dedicated setting/policy missing"),
+    "empty_workspace_above_first": ("Missing", "Workspace lifecycle missing; workspace override disallows this node"),
+    "default_column_display": ("Missing", "Public normal/tabbed setting and tabbed display missing"),
+    "gaps": ("Divergent", "Shared snap.gap defaults to 12 vs 16, rounds to integer; gap accounting differs"),
+    "struts": ("Missing", "Signed/fractional custom struts missing; layer usable area is not equivalent"),
+    "background_color": ("Partial", "Canvas background differs from per-layout solid default; Color decoder audit pending"),
+}
+
+
+def config_status(module, name, field):
+    if module == "layout" and name in {"Layout", "LayoutPart"}:
+        status, mapping = LAYOUT_AUDIT[field]
+        return status, f"{mapping}; [public name/default audit](niri-layout-config-audit.md#public-layout-children)"
+    if module == "layout" and name == "Struts":
+        return "Missing", "No custom struts; [signed numeric/default audit](niri-layout-config-audit.md#size-decoders)"
+    if module == "window_rule" and field in {"default_column_width", "default_window_height", "default_column_display", "open_floating"}:
+        return "Missing", "P3/P8/P10 lifecycle-aware tiling window rules"
+    return "Unverified", "Inspect decoder and reference behavior; no verified option mapping"
+
+
 def generate(root):
     revision = subprocess.check_output(["git", "-C", str(root), "rev-parse", "HEAD"], text=True).strip()
     if revision != REVISION:
@@ -62,7 +92,9 @@ def generate(root):
         "All Action variants are included to make exclusions visible; `ById` and internal",
         "variants remain separate rows. Names are Rust symbols, not guessed binding aliases.",
         "The reference has decoder attributes/custom parsers: public schema fields below",
-        "must still be checked against decoded option names, defaults and lifecycle rules.",
+        "are not automatically public keys. The [layout audit](niri-layout-config-audit.md)",
+        "covers top-level layout names/defaults and shared size/flag/strut decoding;",
+        "nested appearance, overrides and other schemas still need semantic auditing.",
         "P0 reference operation fixtures and the custom-decoder audit remain unfinished.", "",
         "Status: Partial = related implementation, not full equivalence; Divergent = known",
         "semantic difference; Missing = no matching tiling action; Unverified = not audited;",
@@ -86,22 +118,17 @@ def generate(root):
         for match in re.finditer(r"^pub struct (\w+)[^;\n{]*\{", source, re.M):
             name = match.group(1)
             fields = re.findall(r"^    pub (\w+):", block(source, match.group(0)), re.M)
+            if module == "layout" and name in {"Layout", "LayoutPart"}:
+                assert set(fields) == set(LAYOUT_AUDIT), "Layout audit must account for every field"
             for field in fields:
                 count += 1
-                status = "Unverified"
-                mapping = "Inspect decoder and reference behavior; no verified option mapping"
-                if module == "layout" and field in {"preset_column_widths", "default_column_width", "gaps"}:
-                    status = "Partial"
-                    mapping = "Hardcoded widths / shared snap.gap; P3 dedicated tiling settings and units missing"
-                if module == "window_rule" and field in {"default_column_width", "default_window_height", "default_column_display", "open_floating"}:
-                    status = "Missing"
-                    mapping = "P3/P8/P10 lifecycle-aware tiling window rules"
+                status, mapping = config_status(module, name, field)
                 lines.append(f"| `{name}.{field}` | {status} | {mapping} |")
         types = re.findall(r"^pub (?:struct|enum) (\w+)", source, re.M)
         lines += ["", "Declared types to check for nested values/custom decoding: " + ", ".join(f"`{t}`" for t in types) + ".", ""]
     lines += [f"Named schema fields indexed: **{count}**.", "", "## Behavioral differences to resolve", "",
         "- Consume pulls into the active column in the reference; our move action sends the focused tile to a neighbor.",
-        "- Reference expel and directional consume-or-expel differ from our focused-tile expel. Add distinct actions; retain compatibility.",
+        "- Distinct first-consume/last-expel actions exist; complete boundary, ID-targeted, tab and view behavior remains unaudited.",
         "- Reference width presets include 2/3, proportional widths account for gaps and fixed widths have specific content/frame units.",
         "- Automatic tile heights use reference weighting semantics; equal content heights are not equivalent with mixed decorations.",
         "- Current fullscreen, floating exclusion, generic momentum and one-output fallback are not parity implementations.",

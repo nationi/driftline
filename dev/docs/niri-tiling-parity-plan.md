@@ -1,7 +1,8 @@
 # Niri tiling parity: execution plan
 
 Status (2026-10-22): integration checkpoint `8c17428`; named controlled B1–B4
-stabilization gates are delivered. A0 semantic audit is next. Single-container
+stabilization gates are delivered. A0 top-level layout decoder audit is recorded;
+nested appearance/overrides/actions remain. Single-container
 topology and bounded commit groups are established; reference semantics and
 rendering acceptance remain partial.
 This document supersedes the remaining delivery sequence in
@@ -133,6 +134,9 @@ Two concrete semantic traps must be captured before adding aliases:
 The [source inventory](niri-tiling-inventory.md) indexes all 186 reference Action
 variants and 318 named schema fields. Its statuses are conservative; a complete
 custom-decoder audit and reference operation fixtures are still pending.
+The [configuration audit](niri-layout-config-audit.md) covers all 15 top-level
+layout names/defaults and shared size/flag/strut decoding; nested appearance,
+override lifecycle and action addressing remain open.
 
 Tasks:
 
@@ -473,7 +477,7 @@ renderer work without closing a named remaining gate.
 | B2 — controlled gates delivered | General framed canvas resize entry, odd extents/nonzero geometry; 12 solid and 12 patterned fractional-client scenes | SSD/CSD grow/shrink, changed offsets, recapture release, popup size/anchor and independent settled transparency/opacity; static scales only |
 | B3 — controlled gates delivered | Capped/minified stale fallback, client-region blur, view/output matrices and five scoped capture allocation failures | 90 allocation scenes cover reply/timeout/exit and subsequent recovery; content-only fractional bake padding fixed; GPU-offscreen/mode evidence remains distinct from hardware scanout |
 | B4 — controlled gates delivered | Direct remap, ready-peer disconnect, protocol unmap/remap, group supersession and sole-output removal/recovery during held/mixed resize | 12 GPU scenes per lifecycle matrix plus hermetic restore/peer/output and stage re-enrollment regressions; output loss leaves tiling and rejects placeholder enrollment; these bounded gates do not prove every lifecycle combination or real DRM hotplug |
-| A0 — semantic prerequisite | Finish P0 custom decoders, defaults, public options and ID-addressed actions | Inventory rows cite pinned source, driftwm behavior and exact/partial/divergent evidence; extend reference traces beyond the zero-gap subset |
+| A0 — in progress, semantic prerequisite | Top-level layout names/defaults and size/flag/strut decoders audited; nested appearance, override lifecycle, remaining schemas and ID-addressed actions remain | 34 layout schema rows link to pinned-source audit; no Exact claims or executable parser oracle; extend reference traces beyond the zero-gap subset |
 | Feature expansion | P3 sizing/settings, then dependency-ready P4/P5 work | Source-derived size/topology/view fixtures and documented public settings; retain canvas regressions |
 
 A0 can be taken before any stabilization batch, and must be completed before
