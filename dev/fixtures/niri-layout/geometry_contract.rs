@@ -2,18 +2,35 @@ use super::*;
 use niri_config::PresetSize;
 
 fn configured_layout(width: PresetSize) -> Layout<TestWindow> {
+    configured_scaled_layout(width, 1., 16., 4., [40., 40., 20., 20.])
+}
+
+fn configured_scaled_layout(
+    width: PresetSize,
+    scale: f64,
+    gaps: f64,
+    border: f64,
+    struts: [f64; 4],
+) -> Layout<TestWindow> {
     let mut options = Options::default();
-    options.layout.gaps = 16.;
+    options.layout.gaps = gaps;
     options.layout.border.off = false;
-    options.layout.border.width = 4.;
+    options.layout.border.width = border;
     options.layout.default_column_width = Some(width);
     options.layout.struts = Struts {
-        left: FloatOrInt(40.),
-        right: FloatOrInt(40.),
-        top: FloatOrInt(20.),
-        bottom: FloatOrInt(20.),
+        left: FloatOrInt(struts[0]),
+        right: FloatOrInt(struts[1]),
+        top: FloatOrInt(struts[2]),
+        bottom: FloatOrInt(struts[3]),
     };
-    let mut layout = check_ops_with_options(options, [Op::AddOutput(1)]);
+    let mut layout = check_ops_with_options(
+        options,
+        [Op::AddScaledOutput {
+            id: 1,
+            scale,
+            layout_config: None,
+        }],
+    );
     layout.add_window(
         TestWindow::new(TestWindowParams::new(1)),
         AddWindowTarget::Auto,
@@ -116,4 +133,64 @@ fn consume_splits_frame_height_and_preserves_gap() {
         .collect();
     positions.sort_by_key(|entry| entry.0);
     assert_eq!(positions, vec![(1, 56., 36.), (2, 56., 368.)]);
+}
+
+fn assert_near(actual: f64, expected: f64) {
+    assert!(
+        (actual - expected).abs() < 1e-9,
+        "actual {actual}, expected {expected}"
+    );
+}
+
+fn assert_fractional_geometry(
+    scale: f64,
+    content: (i32, i32),
+    frame: (f64, f64),
+    offset: f64,
+    origin: (f64, f64),
+) {
+    let mut layout = configured_scaled_layout(
+        PresetSize::Proportion(0.5),
+        scale,
+        3.,
+        1.,
+        [10.1, 9.9, 5.1, 4.9],
+    );
+    check_ops_on_layout(&mut layout, [Op::AdvanceAnimations { msec_delta: 10000 }]);
+    let (_, _, ws) = layout
+        .workspaces()
+        .find(|(_, _, ws)| ws.windows().next().is_some())
+        .unwrap();
+    let (_, geometry) = ws.tiles_with_ipc_layouts().next().unwrap();
+    assert_eq!(geometry.window_size, content);
+    assert_near(geometry.tile_size.0, frame.0);
+    assert_near(geometry.tile_size.1, frame.1);
+    assert_near(geometry.window_offset_in_tile.0, offset);
+    assert_near(geometry.window_offset_in_tile.1, offset);
+    let (_, pos, _) = ws.tiles_with_render_positions().next().unwrap();
+    assert_near(pos.x, origin.0);
+    assert_near(pos.y, origin.1);
+}
+
+#[test]
+fn quarter_scale_rounds_gap_border_and_strut_origin_in_physical_pixels() {
+    // 1024×576 logical; gap 4 physical, border 1 physical; width floors while auto height rounds.
+    assert_fractional_geometry(1.25, (495, 558), (496.8, 560.), 0.8, (13.6, 8.8));
+}
+
+#[test]
+fn half_scale_rounds_half_pixel_gap_and_border_up() {
+    // Gap 4.5→5 physical and border 1.5→2 physical.
+    assert_fractional_geometry(
+        1.5,
+        (408, 460),
+        (1232. / 3., 1388. / 3.),
+        4. / 3.,
+        (14., 26. / 3.),
+    );
+}
+
+#[test]
+fn double_scale_rounds_auto_height_after_fractional_struts() {
+    assert_fractional_geometry(2., (303, 342), (305., 344.), 1., (13.5, 8.5));
 }

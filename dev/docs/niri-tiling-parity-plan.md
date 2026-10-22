@@ -4,7 +4,7 @@ Status (2026-10-23): integration checkpoint `8c17428`; named controlled B1–B4
 stabilization gates are delivered. A0 source triage now covers all 576 named
 schema fields and 186 action variants, including explicit exclusions and retained
 Unverified integration. Independent parser/merge/error and geometry/operation
-fixtures beyond the first 16 passing parser and five geometry contracts, argument/consumer
+fixtures beyond the first 16 passing parser and eight geometry contracts, argument/consumer
 permutations and scope decisions remain open.
 Single-container topology and bounded commit groups are established; reference
 semantics and rendering acceptance remain partial.
@@ -505,8 +505,13 @@ five contracts in the pinned library layout harness: nonzero gaps, borders,
 struts, fixed/proportional width, explicit resize, origins and two-window consume.
 These are headless reference contracts at scale 1, not driftwm comparison results.
 
-Next A0: expand remaining parser/scalar/error contracts, fractional frame/working-
-area rounding and longer geometry/operation traces, retaining independent results and
+Three further reference contracts now pass at static scale 1.25/1.5/2, with
+fractional struts and physical gap/border/visual-size rounding. Auto height rounds
+to nearest integer, unlike width flooring. This is not output-transition evidence.
+
+Next A0: expand remaining parser/scalar/error contracts and longer consume/expel/
+resize traces with fractional frames and sequential height allocation, retaining
+independent results and
 reference provenance. Watcher/UI/client/hardware, keymap/protocol, capture/privacy,
 numerical animation and complete interaction acceptance remain at their respective
 milestone gates. The initial parser batch does not close A0 or feature-expansion

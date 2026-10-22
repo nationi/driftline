@@ -22,7 +22,7 @@ Default D-Bus/systemd/screencast features are outside this contract.
 
 ## Independent expectations
 
-The output is 1280×720 logical pixels at scale 1. Struts reserve 40 on each
+The base output is 1280×720 physical pixels, also logical pixels at scale 1. Struts reserve 40 on each
 horizontal side and 20 on each vertical side, leaving 1200×680. Gaps are 16;
 borders are enabled at width 4. Windows accept requested sizes and have no
 constraints, titlebars or tab indicators. The helper explicitly passes the
@@ -45,14 +45,47 @@ Expected constants come from these dimensioned examples, rather than a copy of
 niri's implementation formula. Assertions inspect actual client geometry and
 IPC tile dimensions/decoration offsets; the origin assertion uses settled render
 positions. These are reference assertions, not a driftwm differential comparison.
-Fractional scales, broader stacking/consume/expel sequences, client constraints,
-tabs, transactions,
-view physics and layer-shell exclusive zones remain open.
+Scale transitions, broader stacking/consume/expel sequences, client constraints,
+tabs, transactions, view physics and layer-shell exclusive zones remain open.
+
+## Fractional-scale expectations
+
+Three additional static-scale cases use the same 1280×720 physical mode, gap 3,
+border 1 and struts left/right/top/bottom 10.1/9.9/5.1/4.9 logical pixels. The
+selected width is one half of the usable strip. The client accepts integer
+logical dimensions. Visual client size is then rounded to physical pixels before
+adding the physically rounded border to obtain frame size.
+
+| Scale | Gap (physical) | Border (physical) | Client size (logical) | Frame size (logical) | Frame origin (logical) |
+| --- | --- | --- | --- | --- | --- |
+| 1.25 | 4 | 1 | 495×558 | 496.8×560 | (13.6, 8.8) |
+| 1.5 | 5 | 2 | 408×460 | (1232/3)×(1388/3) | (14, 26/3) |
+| 2 | 6 | 2 | 303×342 | 305×344 | (13.5, 8.5) |
+
+At 1.25, the logical view is 1024×576. The left strut begins at physical
+12.625, so usable content starts at physical 13, or logical 10.4; the top starts
+at physical 7, or logical 5.6. With opposite struts retained, usable dimensions
+are 1003.7×565.5. Two half-width frame budgets plus three 3.2-logical gaps fill
+the width: each budget is 497.05. Removing two 0.8 borders leaves 495.45; the
+client receives width 495. Auto height instead rounds its 557.5 content budget
+to nearest integer 558. Visual content is then aligned to physical pixels:
+495×558 logical becomes 619×698 physical, or 495.2×558.4 logical. Adding the two
+borders gives a 496.8×560 frame. Its height can exceed its allocation; width
+flooring does not apply to auto-height allocation. Origin adds one rounded gap to each rounded work-area coordinate.
+
+At 1.5, the configured gap and border land on physical half pixels and round
+up to 5 and 2. Usable dimensions after strut-origin alignment are
+832.766666…×469.766666…. Half-width client budget is 408.716666…, and full-height
+budget is 460.433333…; width floors and auto height rounds to nearest. The 2× case
+retains the fractional strut remainder even though border and gap already align
+exactly: the auto-height budget 341.6 rounds to 342. Floating-point
+assertions allow only 1e-9 logical pixels; client dimensions remain exact.
+These static checks do not exercise output scale transitions or GPU rasterization.
 
 ## Recorded result
 
 The [recorded report](../fixtures/niri-layout/geometry-contract-evidence.json) and
-[log](../fixtures/niri-layout/geometry-contract-evidence.log) show five passed,
+[log](../fixtures/niri-layout/geometry-contract-evidence.log) show eight passed,
 zero failed and zero ignored tests; the other 203 library tests were filtered out.
 The reference checkout remained clean. Hashes identify the archived reference,
 lockfile, maintained fixture and run log. A zero-test run is rejected even when

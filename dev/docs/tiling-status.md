@@ -63,17 +63,22 @@ mode. These are documented fallbacks, not reference-compatible behavior.
 
 ## Verified evidence and its limits
 
-Latest A0 geometry evidence: [five executable layout contracts](niri-geometry-reference-fixtures.md)
-passed against pinned niri's library test harness: fixed/proportional widths,
-fixed resize, frame origin and consume into a two-window column. Cases use gaps
-16, borders 4 and nonzero struts on a 1280×720 output at scale 1. Actual IPC/client
-sizes and settled positions match independent dimensioned expectations. Archived
-reference, lock, fixture and log hashes are retained. The runner rejects zero-test
-success; parser regression also passed all 16 contracts. Initial harness mistakes
-(binary target and omitted enrollment width) are recorded in history. This does
-not validate driftwm geometry or fractional scale/constraint/expel permutations.
-Next: fractional frame/working-area rounding and longer operation traces before
-differential implementation acceptance. Implementation CI remains B4.
+Latest A0 geometry evidence: [eight executable layout contracts](niri-geometry-reference-fixtures.md)
+passed against pinned niri's library harness. The original five cover fixed/
+proportional widths, resize, origins and two-window consume at scale 1. Three
+new static cases use scale 1.25/1.5/2, gap 3, border 1 and fractional struts.
+Client sizes, IPC frame dimensions/border offsets and settled positions match
+independent dimensioned expectations. Two distinctions were established by
+execution and source review: Auto height rounds to nearest integer while width
+floors; visual client size then rounds in physical pixels before adding border.
+At 1.25 a 495×558 client therefore has a 496.8×560 frame. Initial expectations
+that conflated these stages are corrected and recorded in history. Reference/
+archive/lock/fixture/log hashes and clean checkout are retained. No driftwm
+runtime changes or full CI rerun; implementation evidence remains B4. This does
+not establish scale-transition, constraint, GPU or differential driftwm parity.
+Next: longer consume/expel/resize traces, including sequential height allocation
+and fractional gaps/frames, plus remaining parser/consumer contracts before
+feature-expansion acceptance.
 
 A0 parser reference evidence: the
 [pinned parser corpus](niri-parser-reference-fixtures.md) ran 16 Rust contract

@@ -3033,3 +3033,34 @@ runtime changes or full implementation CI rerun; B4 remains the implementation
 gate. No push/install/TTY claim. Next A0: fractional frame/working-area rounding,
 longer consume/expel/resize traces and remaining parser/consumer contracts before
 differential implementation acceptance. This batch does not close A0.
+
+
+## 2026-10-23 — static fractional reference geometry
+
+Extended the same pinned layout fixture with three independent dimensioned cases
+at scale 1.25/1.5/2 on a 1280×720 physical output. Inputs are gap 3, border 1 and
+struts 10.1/9.9/5.1/4.9. Exact client dimensions and near-exact (1e-9 logical)
+frame size, border offset and settled origin are checked. All eight contracts
+passed, zero failed/ignored; the other 203 library tests were filtered out.
+Fresh report/log hashes bind the expanded fixture to this actual reference run.
+
+The first expanded run passed six and failed two: the source-derived arithmetic
+incorrectly floored Auto height as though it were proportional width. Reviewing
+Column::update_tile_sizes_with_transaction showed nearest-integer window height
+allocation before request_tile_size, yielding 558 at 1.25 and 342 at 2. A second
+run passed seven and exposed a separate visual-size assumption: Tile::window_size
+rounds raw client geometry to physical pixels before adding borders. At 1.25,
+495×558 client pixels become 495.2×558.4 visual pixels and a 496.8×560 frame.
+The final expectations reflect both verified stages; this was reference contract
+refinement, not a driftwm runtime fix. A0 geometry evidence must preserve the
+distinction between raw client, visual client, frame and allocation dimensions.
+
+Validation passed: actual eight-test pinned library run with --locked and no
+default features, fixture rustfmt, cargo fmt check, deterministic 576-field/
+186-action inventory and local/pinned links, reference/archive/lock/fixture/log
+hashes, original reference cleanliness and diff checks. Runner/parser unchanged;
+the existing 16-parser-contract evidence remains separate. Full driftwm CI was
+not rerun for external fixtures/docs; implementation gate remains B4. No push,
+install, TTY, GPU or scale-transition claim. Next A0: longer consume/expel/resize
+reference traces with fractional frame/gap and sequential height rounding, plus
+remaining parser and consumer acceptance. These static cases do not close A0.
