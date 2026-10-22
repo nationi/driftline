@@ -2736,3 +2736,26 @@ checks. No niri/parser/hardware execution or full Rust CI rerun for docs/tooling
 implementation evidence remains B4. No push/install/TTY claim. Next A0: unscoped
 output/window-rule fields, public action/binding addressing and independent
 reference fixtures; retained input/backend/capture/interaction gates remain open.
+
+
+## A0 remaining output and window-rule source audit
+
+Reviewed 28 output and 14 window-rule fields (42 new links, 482 overall), completing
+named row evidence in both modules. Traced runtime scale clamp/representation,
+orientation/winit transform, sorted non-overlapping placement fallback, startup
+focus, mode/modeline/CVT/advertised fallback and connector bpc/VRR consumers.
+Deprecated output color fallback is conditional on an existing layout part in
+the traced path; it is not an unconditional global fallback. Dynamic scalar
+rules distinguish protocol tiled hints, bob motion, border/background, activation,
+input multipliers, popup opacity/type/privacy and on-demand VRR surface ownership.
+Floating default insets use working-area/tile geometry and yield to stored position.
+No runtime/config behavior changed; no parser/DRM/pixel parity is inferred.
+
+Validation passed: Python syntax, deterministic generation, 576 previous field
+keys / 186 actions, 42 new links and complete combined named output/window-rule
+evidence coverage, local/pinned links/anchors, exact clean reference revision and
+diff check. No niri/parser/GPU execution or full Rust CI rerun for documentation/
+tooling; implementation evidence remains B4. No push/install/TTY claim. Next A0:
+public binding/action addressing plus remaining misc/root/recent-windows semantics
+and independent executable reference fixtures. Hardware/input/capture and complete
+animation/gesture/overview acceptance remains open.

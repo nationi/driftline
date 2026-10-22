@@ -64,17 +64,17 @@ mode. These are documented fallbacks, not reference-compatible behavior.
 ## Verified evidence and its limits
 
 Latest A0 documentation/tooling validation: the
-[device input audit](niri-device-input-audit.md) adds 89 source-review links
-(440 total), completing links for all 103 named input fields. It records keyboard
-field merge versus whole-device/Xkb replacement, enum/numeric shapes, repeat and
-per-surface layout policy, keymap reload/state restoration, backend Mod defaults,
-device classification/default setters, calibration fallback and tablet/touch
-target precedence. Most rows deliberately remain Unverified integration;
-source coverage is not hardware/keymap/protocol parity. Inventory remains 576
-fields, 186 actions, 18 paths / 14 modules and 25 root nodes / 24 Config fields.
-Syntax, deterministic generation, exact combined input coverage, field existence,
-old row/action preservation and local/pinned links were checked. No runtime or
-public config change; implementation CI remains B4.
+[output/window rule audit](niri-output-window-rule-audit.md) adds 42 review links
+(482 total): 28 output and 14 window-rule fields. All named rows in those modules
+now have source-review links. Runtime scale clamp/N/120 representation, output
+ordering/overlap fallback, startup focus, modes/modelines/max-bpc, VRR visibility,
+dynamic scalar/protocol/popup rules and working-area floating placement are
+traced. Decoder acceptance and actual DRM/render/protocol parity remain open;
+Unverified hardware rows are retained. Inventory remains 576 fields, 186 actions,
+18 paths / 14 modules and 25 root nodes / 24 Config fields. Syntax, deterministic
+generation, field existence/combined evidence coverage, old row/action preservation
+and local/pinned links were checked. No runtime or public config change;
+implementation CI remains B4.
 
 Latest validation gate: `/tmp/driftwm-b4-output-ci.log`, exit 0: full
 `dev/scripts/ci-local`, 369 library cases, 1490 binary cases including ignored
@@ -186,13 +186,13 @@ unresolved; use direct TTY for visual acceptance.
 
 ## Next work
 
-Next work: **A0/P0 unscoped output and window-rule fields**, at pinned niri
-`12de51d6a60baad8896366920278a24f17921f52`, then public binding/ID/index/previous/
-next action addressing and independent executable reference fixtures beyond zero
-gaps. Named input fields now have source-review coverage; retained Unverified
-input/backend/capture gates still need acceptance or justified scope decisions.
-Numerical animation/gesture behavior and full layer/overview permutations remain
-open. Do not confuse reviewed source rows with implemented reference behavior.
+Next work: **A0/P0 public binding/action addressing**, at pinned niri
+`12de51d6a60baad8896366920278a24f17921f52`: bind grammar, ID/index/name/previous/
+next selection and action boundaries. Remaining misc/recent-windows and root
+integration semantics also need explicit review. Independent executable reference
+fixtures beyond zero gaps, input/backend/capture acceptance and complete numerical
+animation/gesture/layer/overview permutations remain open. Reviewed named fields
+are not implemented reference behavior or completed parser/hardware acceptance.
 Do not repeat delivered audits or restart B matrices. A0/P0 gates feature
 expansion; source coverage and scoped review do not prove complete niri parity.
 Controlled SSD scale-change release is

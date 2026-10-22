@@ -121,7 +121,9 @@ The [input/output integration audit](niri-input-output-integration-audit.md) add
 Only the DBus-export switch is newly Outside; retained Unverified backend/capture
 rows remain open. The [device input audit](niri-device-input-audit.md) adds 89
 links and completes all 103 named input fields; Unverified device/keymap/protocol
-acceptance remains open. Next A0: unscoped output/rule fields, public binding/action
-addressing and independent reference fixtures. Document
+acceptance remains open. The [output/window rule audit](niri-output-window-rule-audit.md)
+adds 42 links, completing named rows in those modules; DRM/protocol/render and
+parser acceptance remains open. Next A0: public binding/action addressing,
+remaining misc/root/recent-windows semantics and independent reference fixtures. Document
 concrete exclusions as needed. Independent decoder/geometry/operation fixtures beyond zero gaps remain required; no Exact
 or overall-completion claim follows from covering the source file list.

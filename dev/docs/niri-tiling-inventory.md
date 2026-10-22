@@ -26,6 +26,8 @@ The [input/output integration consumers](niri-input-output-integration-audit.md)
 scroll/pinch delivery, identity and remaining debug scope; retained Unverified gates stay open.
 The [device input consumers](niri-device-input-audit.md) review completes named input
 source coverage; retained hardware/keymap/protocol acceptance stays open.
+The [output/window rule consumers](niri-output-window-rule-audit.md) review completes
+named rows in those modules; runtime/hardware/decoder fixtures remain open.
 P0 reference operation fixtures and the custom-decoder audit remain unfinished.
 
 Status: Partial = related implementation, not full equivalence; Divergent = known
@@ -591,7 +593,7 @@ Declared types to check for nested values/custom decoding: `Animations`, `Animat
 | `WindowRule.open_fullscreen` | Divergent | Fullscreen rules use canvas transitions, not retained tiling topology; [precedence/lifecycle audit](niri-config-lifecycle-audit.md) |
 | `WindowRule.open_floating` | Missing | No layout-native floating opening policy; [precedence/lifecycle audit](niri-config-lifecycle-audit.md) |
 | `WindowRule.open_focused` | Partial | focus_on_open exists; token/smart/strict reference policy not equivalent; [precedence/lifecycle audit](niri-config-lifecycle-audit.md) |
-| `WindowRule.on_xdg_activate` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
+| `WindowRule.on_xdg_activate` | Missing | Dynamic protocol/render/input/popup policy differs or dedicated rule is missing; [output/window rule audit](niri-output-window-rule-audit.md#remaining-window-scalar-and-popup-consumers) |
 | `WindowRule.min_width` | Missing | Client constraints exist; rule-level extra constraint missing; [precedence/lifecycle audit](niri-config-lifecycle-audit.md) |
 | `WindowRule.min_height` | Missing | Client constraints exist; rule-level extra constraint missing; [precedence/lifecycle audit](niri-config-lifecycle-audit.md) |
 | `WindowRule.max_width` | Missing | Client constraints exist; rule-level extra constraint missing; [precedence/lifecycle audit](niri-config-lifecycle-audit.md) |
@@ -600,24 +602,24 @@ Declared types to check for nested values/custom decoding: `Animations`, `Animat
 | `WindowRule.border` | Divergent | Native border rules are stored at mapping, not dynamically recomputed; [precedence/lifecycle audit](niri-config-lifecycle-audit.md) |
 | `WindowRule.shadow` | Divergent | Native shadow rule flags are stored at mapping; reference merges/reload differ; [precedence/lifecycle audit](niri-config-lifecycle-audit.md) |
 | `WindowRule.tab_indicator` | Missing | No per-window tab-indicator rule; [precedence/lifecycle audit](niri-config-lifecycle-audit.md) |
-| `WindowRule.draw_border_with_background` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
+| `WindowRule.draw_border_with_background` | Missing | Dynamic protocol/render/input/popup policy differs or dedicated rule is missing; [output/window rule audit](niri-output-window-rule-audit.md#remaining-window-scalar-and-popup-consumers) |
 | `WindowRule.opacity` | Divergent | Mapped appearance rule is sticky; reference recomputes metadata/state/reload matches; [precedence/lifecycle audit](niri-config-lifecycle-audit.md) |
 | `WindowRule.geometry_corner_radius` | Divergent | No equivalent independent geometry/popup/effect rule policy; [radius/effect audit](niri-effects-config-audit.md) |
 | `WindowRule.clip_to_geometry` | Missing | No equivalent independent geometry/popup/effect rule policy; [radius/effect audit](niri-effects-config-audit.md) |
-| `WindowRule.baba_is_float` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
-| `WindowRule.block_out_from` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
-| `WindowRule.variable_refresh_rate` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
+| `WindowRule.baba_is_float` | Missing | Dynamic protocol/render/input/popup policy differs or dedicated rule is missing; [output/window rule audit](niri-output-window-rule-audit.md#remaining-window-scalar-and-popup-consumers) |
+| `WindowRule.block_out_from` | Missing | Dynamic protocol/render/input/popup policy differs or dedicated rule is missing; [output/window rule audit](niri-output-window-rule-audit.md#remaining-window-scalar-and-popup-consumers) |
+| `WindowRule.variable_refresh_rate` | Missing | Dynamic protocol/render/input/popup policy differs or dedicated rule is missing; [output/window rule audit](niri-output-window-rule-audit.md#remaining-window-scalar-and-popup-consumers) |
 | `WindowRule.default_column_display` | Missing | No normal/tabbed column default rule; [precedence/lifecycle audit](niri-config-lifecycle-audit.md) |
 | `WindowRule.default_floating_position` | Missing | Generic canvas position is not reference floating initial placement; [precedence/lifecycle audit](niri-config-lifecycle-audit.md) |
-| `WindowRule.scroll_factor` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
-| `WindowRule.pinch_sensitivity` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
-| `WindowRule.tiled_state` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
+| `WindowRule.scroll_factor` | Divergent | Dynamic protocol/render/input/popup policy differs or dedicated rule is missing; [output/window rule audit](niri-output-window-rule-audit.md#remaining-window-scalar-and-popup-consumers) |
+| `WindowRule.pinch_sensitivity` | Divergent | Dynamic protocol/render/input/popup policy differs or dedicated rule is missing; [output/window rule audit](niri-output-window-rule-audit.md#remaining-window-scalar-and-popup-consumers) |
+| `WindowRule.tiled_state` | Divergent | Dynamic protocol/render/input/popup policy differs or dedicated rule is missing; [output/window rule audit](niri-output-window-rule-audit.md#remaining-window-scalar-and-popup-consumers) |
 | `WindowRule.background_effect` | Divergent | No equivalent independent geometry/popup/effect rule policy; [radius/effect audit](niri-effects-config-audit.md) |
-| `WindowRule.popups` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
-| `PopupsRule.opacity` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
+| `WindowRule.popups` | Missing | Dynamic protocol/render/input/popup policy differs or dedicated rule is missing; [output/window rule audit](niri-output-window-rule-audit.md#remaining-window-scalar-and-popup-consumers) |
+| `PopupsRule.opacity` | Missing | Dynamic protocol/render/input/popup policy differs or dedicated rule is missing; [output/window rule audit](niri-output-window-rule-audit.md#remaining-window-scalar-and-popup-consumers) |
 | `PopupsRule.geometry_corner_radius` | Missing | No equivalent independent geometry/popup/effect rule policy; [radius/effect audit](niri-effects-config-audit.md) |
 | `PopupsRule.background_effect` | Missing | No equivalent independent geometry/popup/effect rule policy; [radius/effect audit](niri-effects-config-audit.md) |
-| `ResolvedPopupsRules.opacity` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
+| `ResolvedPopupsRules.opacity` | Missing | Dynamic protocol/render/input/popup policy differs or dedicated rule is missing; [output/window rule audit](niri-output-window-rule-audit.md#remaining-window-scalar-and-popup-consumers) |
 | `ResolvedPopupsRules.geometry_corner_radius` | Missing | No equivalent independent geometry/popup/effect rule policy; [radius/effect audit](niri-effects-config-audit.md) |
 | `ResolvedPopupsRules.background_effect` | Missing | No equivalent independent geometry/popup/effect rule policy; [radius/effect audit](niri-effects-config-audit.md) |
 | `Match.app_id` | Divergent | Regex/dynamic match properties differ from mapped app/title glob rules; [precedence/lifecycle audit](niri-config-lifecycle-audit.md) |
@@ -629,9 +631,9 @@ Declared types to check for nested values/custom decoding: `Animations`, `Animat
 | `Match.is_window_cast_target` | Missing | Regex/dynamic match properties differ from mapped app/title glob rules; [precedence/lifecycle audit](niri-config-lifecycle-audit.md) |
 | `Match.is_urgent` | Missing | Regex/dynamic match properties differ from mapped app/title glob rules; [precedence/lifecycle audit](niri-config-lifecycle-audit.md) |
 | `Match.at_startup` | Missing | Regex/dynamic match properties differ from mapped app/title glob rules; [precedence/lifecycle audit](niri-config-lifecycle-audit.md) |
-| `FloatingPosition.x` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
-| `FloatingPosition.y` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
-| `FloatingPosition.relative_to` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
+| `FloatingPosition.x` | Missing | Reference stored/default working-area floating placement missing; [output/window rule audit](niri-output-window-rule-audit.md#floating-position) |
+| `FloatingPosition.y` | Missing | Reference stored/default working-area floating placement missing; [output/window rule audit](niri-output-window-rule-audit.md#floating-position) |
+| `FloatingPosition.relative_to` | Missing | Reference stored/default working-area floating placement missing; [output/window rule audit](niri-output-window-rule-audit.md#floating-position) |
 
 Declared types to check for nested values/custom decoding: `WindowRule`, `PopupsRule`, `ResolvedPopupsRules`, `Match`, `FloatingPosition`, `OnXdgActivate`, `RelativeTo`.
 
@@ -649,40 +651,40 @@ Declared types to check for nested values/custom decoding: `Workspace`, `Workspa
 
 | Schema field | Status | Mapping / next audit |
 | --- | --- | --- |
-| `Mode.custom` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
-| `Mode.mode` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
-| `Modeline.clock` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
-| `Modeline.hdisplay` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
-| `Modeline.hsync_start` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
-| `Modeline.hsync_end` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
-| `Modeline.htotal` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
-| `Modeline.vdisplay` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
-| `Modeline.vsync_start` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
-| `Modeline.vsync_end` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
-| `Modeline.vtotal` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
-| `Modeline.hsync_polarity` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
-| `Modeline.vsync_polarity` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
-| `Output.off` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
+| `Mode.custom` | Unverified | Public decode and selected runtime/fallback consumers traced; independent output/hardware acceptance open; [output/window rule audit](niri-output-window-rule-audit.md#modes-modelines-and-connector-properties) |
+| `Mode.mode` | Unverified | Public decode and selected runtime/fallback consumers traced; independent output/hardware acceptance open; [output/window rule audit](niri-output-window-rule-audit.md#modes-modelines-and-connector-properties) |
+| `Modeline.clock` | Unverified | Public decode and selected runtime/fallback consumers traced; independent output/hardware acceptance open; [output/window rule audit](niri-output-window-rule-audit.md#modes-modelines-and-connector-properties) |
+| `Modeline.hdisplay` | Unverified | Public decode and selected runtime/fallback consumers traced; independent output/hardware acceptance open; [output/window rule audit](niri-output-window-rule-audit.md#modes-modelines-and-connector-properties) |
+| `Modeline.hsync_start` | Unverified | Public decode and selected runtime/fallback consumers traced; independent output/hardware acceptance open; [output/window rule audit](niri-output-window-rule-audit.md#modes-modelines-and-connector-properties) |
+| `Modeline.hsync_end` | Unverified | Public decode and selected runtime/fallback consumers traced; independent output/hardware acceptance open; [output/window rule audit](niri-output-window-rule-audit.md#modes-modelines-and-connector-properties) |
+| `Modeline.htotal` | Unverified | Public decode and selected runtime/fallback consumers traced; independent output/hardware acceptance open; [output/window rule audit](niri-output-window-rule-audit.md#modes-modelines-and-connector-properties) |
+| `Modeline.vdisplay` | Unverified | Public decode and selected runtime/fallback consumers traced; independent output/hardware acceptance open; [output/window rule audit](niri-output-window-rule-audit.md#modes-modelines-and-connector-properties) |
+| `Modeline.vsync_start` | Unverified | Public decode and selected runtime/fallback consumers traced; independent output/hardware acceptance open; [output/window rule audit](niri-output-window-rule-audit.md#modes-modelines-and-connector-properties) |
+| `Modeline.vsync_end` | Unverified | Public decode and selected runtime/fallback consumers traced; independent output/hardware acceptance open; [output/window rule audit](niri-output-window-rule-audit.md#modes-modelines-and-connector-properties) |
+| `Modeline.vtotal` | Unverified | Public decode and selected runtime/fallback consumers traced; independent output/hardware acceptance open; [output/window rule audit](niri-output-window-rule-audit.md#modes-modelines-and-connector-properties) |
+| `Modeline.hsync_polarity` | Unverified | Public decode and selected runtime/fallback consumers traced; independent output/hardware acceptance open; [output/window rule audit](niri-output-window-rule-audit.md#modes-modelines-and-connector-properties) |
+| `Modeline.vsync_polarity` | Unverified | Public decode and selected runtime/fallback consumers traced; independent output/hardware acceptance open; [output/window rule audit](niri-output-window-rule-audit.md#modes-modelines-and-connector-properties) |
+| `Output.off` | Unverified | Public decode and selected runtime/fallback consumers traced; independent output/hardware acceptance open; [output/window rule audit](niri-output-window-rule-audit.md#output-defaults-and-runtime-geometry) |
 | `Output.name` | Divergent | Exact connector/* lookup differs from ASCII-insensitive connector or metadata identity; [input/output integration audit](niri-input-output-integration-audit.md#output-identity-and-lookup) |
-| `Output.scale` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
-| `Output.transform` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
-| `Output.position` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
-| `Output.max_bpc` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
-| `Output.mode` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
-| `Output.modeline` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
-| `Output.variable_refresh_rate` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
-| `Output.focus_at_startup` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
-| `Output.background_color` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
-| `Output.backdrop_color` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
-| `Output.hot_corners` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
+| `Output.scale` | Divergent | Public decode and selected runtime/fallback consumers traced; independent output/hardware acceptance open; [output/window rule audit](niri-output-window-rule-audit.md#output-defaults-and-runtime-geometry) |
+| `Output.transform` | Unverified | Public decode and selected runtime/fallback consumers traced; independent output/hardware acceptance open; [output/window rule audit](niri-output-window-rule-audit.md#output-defaults-and-runtime-geometry) |
+| `Output.position` | Divergent | Public decode and selected runtime/fallback consumers traced; independent output/hardware acceptance open; [output/window rule audit](niri-output-window-rule-audit.md#output-defaults-and-runtime-geometry) |
+| `Output.max_bpc` | Unverified | Public decode and selected runtime/fallback consumers traced; independent output/hardware acceptance open; [output/window rule audit](niri-output-window-rule-audit.md#modes-modelines-and-connector-properties) |
+| `Output.mode` | Unverified | Public decode and selected runtime/fallback consumers traced; independent output/hardware acceptance open; [output/window rule audit](niri-output-window-rule-audit.md#modes-modelines-and-connector-properties) |
+| `Output.modeline` | Unverified | Public decode and selected runtime/fallback consumers traced; independent output/hardware acceptance open; [output/window rule audit](niri-output-window-rule-audit.md#modes-modelines-and-connector-properties) |
+| `Output.variable_refresh_rate` | Unverified | Public decode and selected runtime/fallback consumers traced; independent output/hardware acceptance open; [output/window rule audit](niri-output-window-rule-audit.md#modes-modelines-and-connector-properties) |
+| `Output.focus_at_startup` | Unverified | Public decode and selected runtime/fallback consumers traced; independent output/hardware acceptance open; [output/window rule audit](niri-output-window-rule-audit.md#output-defaults-and-runtime-geometry) |
+| `Output.background_color` | Divergent | Public decode and selected runtime/fallback consumers traced; independent output/hardware acceptance open; [output/window rule audit](niri-output-window-rule-audit.md#output-defaults-and-runtime-geometry) |
+| `Output.backdrop_color` | Divergent | Public decode and selected runtime/fallback consumers traced; independent output/hardware acceptance open; [output/window rule audit](niri-output-window-rule-audit.md#output-defaults-and-runtime-geometry) |
+| `Output.hot_corners` | Divergent | Public decode and selected runtime/fallback consumers traced; independent output/hardware acceptance open; [output/window rule audit](niri-output-window-rule-audit.md#output-defaults-and-runtime-geometry) |
 | `Output.layout` | Missing | No per-output/workspace tiling layout hierarchy; [precedence/lifecycle audit](niri-config-lifecycle-audit.md) |
 | `OutputName.connector` | Divergent | Exact connector/* lookup differs from ASCII-insensitive connector or metadata identity; [input/output integration audit](niri-input-output-integration-audit.md#output-identity-and-lookup) |
 | `OutputName.make` | Divergent | Exact connector/* lookup differs from ASCII-insensitive connector or metadata identity; [input/output integration audit](niri-input-output-integration-audit.md#output-identity-and-lookup) |
 | `OutputName.model` | Divergent | Exact connector/* lookup differs from ASCII-insensitive connector or metadata identity; [input/output integration audit](niri-input-output-integration-audit.md#output-identity-and-lookup) |
 | `OutputName.serial` | Divergent | Exact connector/* lookup differs from ASCII-insensitive connector or metadata identity; [input/output integration audit](niri-input-output-integration-audit.md#output-identity-and-lookup) |
-| `Position.x` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
-| `Position.y` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
-| `Vrr.on_demand` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
+| `Position.x` | Divergent | Public decode and selected runtime/fallback consumers traced; independent output/hardware acceptance open; [output/window rule audit](niri-output-window-rule-audit.md#output-defaults-and-runtime-geometry) |
+| `Position.y` | Divergent | Public decode and selected runtime/fallback consumers traced; independent output/hardware acceptance open; [output/window rule audit](niri-output-window-rule-audit.md#output-defaults-and-runtime-geometry) |
+| `Vrr.on_demand` | Unverified | Public decode and selected runtime/fallback consumers traced; independent output/hardware acceptance open; [output/window rule audit](niri-output-window-rule-audit.md#modes-modelines-and-connector-properties) |
 
 Declared types to check for nested values/custom decoding: `Outputs`, `Mode`, `Modeline`, `Output`, `OutputName`, `Position`, `MaxBpc`, `Vrr`.
 

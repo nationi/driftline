@@ -213,6 +213,35 @@ def schema_structs(source):
         yield match.group(1), re.findall(r"^    pub (\w+):", block(source, match.group(0)), re.M)
 
 
+OUTPUT_RULE_AUDIT_FIELDS = {
+    ("output", "Mode"): "custom mode",
+    ("output", "Modeline"): "clock hdisplay hsync_start hsync_end htotal vdisplay vsync_start vsync_end vtotal hsync_polarity vsync_polarity",
+    ("output", "Output"): "off scale transform position max_bpc mode modeline variable_refresh_rate focus_at_startup background_color backdrop_color hot_corners",
+    ("output", "Position"): "x y",
+    ("output", "Vrr"): "on_demand",
+    ("window_rule", "WindowRule"): "on_xdg_activate draw_border_with_background baba_is_float block_out_from variable_refresh_rate scroll_factor pinch_sensitivity tiled_state popups",
+    ("window_rule", "PopupsRule"): "opacity",
+    ("window_rule", "ResolvedPopupsRules"): "opacity",
+    ("window_rule", "FloatingPosition"): "x y relative_to",
+}
+
+
+def output_rule_status(module, name, field):
+    if module == "output":
+        geometry = {"off", "scale", "transform", "position", "focus_at_startup", "background_color", "backdrop_color", "hot_corners"}
+        section = "output-defaults-and-runtime-geometry" if name == "Position" or field in geometry else "modes-modelines-and-connector-properties"
+        status = "Divergent" if field in {"scale", "position", "background_color", "backdrop_color", "hot_corners"} or name == "Position" else "Unverified"
+        mapping = "Public decode and selected runtime/fallback consumers traced; independent output/hardware acceptance open"
+    elif name == "FloatingPosition":
+        section, status = "floating-position", "Missing"
+        mapping = "Reference stored/default working-area floating placement missing"
+    else:
+        section = "remaining-window-scalar-and-popup-consumers"
+        status = "Divergent" if field in {"tiled_state", "scroll_factor", "pinch_sensitivity"} else "Missing"
+        mapping = "Dynamic protocol/render/input/popup policy differs or dedicated rule is missing"
+    return status, f"{mapping}; [output/window rule audit](niri-output-window-rule-audit.md#{section})"
+
+
 DEVICE_INPUT_AUDIT_FIELDS = {
     ("input", "Input"): "keyboard touchpad mouse trackpoint trackball tablet touch disable_power_key_handling mod_key mod_key_nested",
     ("input", "InputPart"): "keyboard touchpad mouse trackpoint trackball tablet touch disable_power_key_handling mod_key mod_key_nested",
@@ -358,6 +387,8 @@ def layer_overview_status(name, field):
 
 
 def config_status(module, name, field):
+    if field in OUTPUT_RULE_AUDIT_FIELDS.get((module, name), "").split():
+        return output_rule_status(module, name, field)
     if field in DEVICE_INPUT_AUDIT_FIELDS.get((module, name), "").split():
         return device_input_status(name, field)
     if field in INTEGRATION_AUDIT_FIELDS.get((module, name), "").split():
@@ -444,6 +475,8 @@ def generate(root):
         "scroll/pinch delivery, identity and remaining debug scope; retained Unverified gates stay open.",
         "The [device input consumers](niri-device-input-audit.md) review completes named input",
         "source coverage; retained hardware/keymap/protocol acceptance stays open.",
+        "The [output/window rule consumers](niri-output-window-rule-audit.md) review completes",
+        "named rows in those modules; runtime/hardware/decoder fixtures remain open.",
         "P0 reference operation fixtures and the custom-decoder audit remain unfinished.", "",
         "Status: Partial = related implementation, not full equivalence; Divergent = known",
         "semantic difference; Missing = no matching tiling action; Unverified = not audited;",
@@ -481,6 +514,10 @@ def generate(root):
         source = sources[f"{module}.rs"]
         lines += [f"### `{module}.rs`", "", "| Schema field | Status | Mapping / next audit |", "| --- | --- | --- |"]
         for name, fields in schema_structs(source):
+            if (module, name) in OUTPUT_RULE_AUDIT_FIELDS:
+                assert set(OUTPUT_RULE_AUDIT_FIELDS[(module, name)].split()).issubset(fields), "Output/rule audit fields must exist"
+            if module in {"output", "window_rule"}:
+                assert all("](" in config_status(module, name, field)[1] for field in fields), "Every output/rule field needs source review evidence"
             if module == "input":
                 reviewed = set()
                 for audit in (DEVICE_INPUT_AUDIT_FIELDS, INPUT_FOCUS_AUDIT_FIELDS, INTEGRATION_AUDIT_FIELDS):
