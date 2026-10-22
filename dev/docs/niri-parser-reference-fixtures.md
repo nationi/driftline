@@ -50,16 +50,16 @@ are created by the fixture; no user config is loaded.
 A completed run records reference revision, archive and lock hashes, fixture hash,
 compiler/Cargo versions, invocation, UTC start, exit code, test summaries and the
 original checkout's clean state. A successful run needs both Cargo success and a
-test summary. The fixture hash ties evidence to the actual assertions; a changed
+nonempty passing test summary. The fixture hash ties evidence to the actual assertions; a changed
 fixture requires fresh evidence. Logs retain compiler and individual test output.
 
 This first corpus does not execute the compositor, watcher reload loop, MRU UI,
 Wayland clients, layout geometry, rendering or hardware. Fresh parsing differs
 from in-process reload acceptance. Include symlink/encoding/error permutations,
-all scalar diagnostics and runtime integration remain open. The next reference
-batch should extend parser edge cases and nonzero-gap/fractional-frame geometry
-or operation traces before treating source-derived Stage snapshots as a
-reference-executed differential oracle.
+all scalar diagnostics and runtime integration remain open. The separate [geometry corpus](niri-geometry-reference-fixtures.md) now executes
+five nonzero-gap/frame contracts. Remaining parser edges, fractional frame cases
+and operation traces must be extended before treating source-derived Stage
+snapshots as a reference-executed differential oracle.
 
 ## Recorded result and corrected assumption
 

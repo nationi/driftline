@@ -1,0 +1,14 @@
+   Compiling niri-config v26.4.0 (/tmp/driftwm-niri-reference-qgplbj41/reference/niri-config)
+   Compiling niri v26.4.0 (/tmp/driftwm-niri-reference-qgplbj41/reference)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 35.80s
+     Running unittests src/lib.rs (/tmp/driftwm-niri-config-target-12de51d/debug/deps/niri-eb4e10e11e1fac69)
+
+running 5 tests
+test layout::tests::driftwm_geometry_contract::explicit_fixed_resize_uses_content_width ... ok
+test layout::tests::driftwm_geometry_contract::fixed_width_is_content_width_with_border_added_outside ... ok
+test layout::tests::driftwm_geometry_contract::consume_splits_frame_height_and_preserves_gap ... ok
+test layout::tests::driftwm_geometry_contract::half_width_divides_work_area_after_inter_column_gap ... ok
+test layout::tests::driftwm_geometry_contract::struts_shift_frame_origin_beyond_outer_gaps ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 203 filtered out; finished in 0.00s
+

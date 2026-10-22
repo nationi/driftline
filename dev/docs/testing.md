@@ -105,7 +105,13 @@ Record automated checks and manual observations separately in
 
 The [niri parser reference corpus](niri-parser-reference-fixtures.md) runs
 maintained Rust fixtures against an archived clean pinned niri checkout using
-`dev/scripts/niri-config-reference.py`. It builds only the niri-config test target,
+`dev/scripts/niri-config-reference.py`. The default suite builds only the niri-config test target,
 keeps separate dependency/cache/provenance and leaves driftwm's lockfile/runtime
 unchanged. This manual external-reference gate is separate from ordinary driftwm
 CI; it validates reference contracts before differential implementation fixtures.
+
+Use `--suite geometry` for the [executable layout contracts](niri-geometry-reference-fixtures.md).
+This builds the pinned root niri library test target without default features and runs
+only the injected geometry module. Native build dependencies are still required;
+the test runtime needs no display or GPU. Keep executable reference evidence
+separate from the older source-derived Stage fixtures.

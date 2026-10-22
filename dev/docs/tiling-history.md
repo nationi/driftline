@@ -2999,3 +2999,37 @@ watcher/UI/Wayland/GPU/hardware run or full driftwm CI rerun for manual referenc
 tooling. Implementation evidence remains B4. No push/install/TTY claim. Next A0:
 remaining parser/scalar error contracts and independent nonzero-gap/frame geometry/
 operation traces. All source rows plus this first batch do not establish parity.
+
+
+## 2026-10-23 — first executable pinned geometry contracts
+
+Extended the archived reference runner with a geometry suite that injects a child
+module into niri's existing library layout test harness. It uses the pinned
+lockfile, no default features, two build jobs and the separate reference cache.
+Native dependencies compiled successfully; no compositor/display/GPU ran.
+
+Five contracts passed, zero failed/ignored, with 203 other library tests filtered.
+The 1280×720 scale-1 output has gaps 16, border 4 and struts 40/40/20/20. Fixed
+300 content yields 308 frame width; half-width yields 576 frame/568 content;
+fixed resize to 400 yields 408 frame. Origins are (56,36). Consume gives two
+316-high frames/308-high content with origins (56,36)/(56,368). Assertions inspect
+real simulated-client geometry, IPC frame/selection indices and settled render
+positions against independent dimensioned constants. Provenance/logs retained.
+
+Initial runner selection used the binary target, which has no layout unit tests;
+the corrected library command runs them. A new guard rejects zero passing tests
+instead of treating Cargo exit 0 as acceptance. A valid library run initially
+passed two and failed three: Op::AddWindow passes width=None and therefore keeps
+the client's 100-pixel width. The fixture now explicitly supplies the chosen
+initial width to Layout::add_window, matching its caller contract. Expected
+geometry constants were retained. This is a harness correction, not a compositor
+fix or a test of the Wayland initial-configure caller.
+
+Validation: five actual reference layout contracts, parser runner regression
+16/16, fixture rustfmt, cargo fmt check, Python syntax, report/fixture/lock/archive/
+log hashes, zero-test rejection, deterministic 576-field/186-action source index,
+local/pinned links and diff checks. Original reference stayed clean. No driftwm
+runtime changes or full implementation CI rerun; B4 remains the implementation
+gate. No push/install/TTY claim. Next A0: fractional frame/working-area rounding,
+longer consume/expel/resize traces and remaining parser/consumer contracts before
+differential implementation acceptance. This batch does not close A0.

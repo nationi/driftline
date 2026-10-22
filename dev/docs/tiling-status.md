@@ -63,7 +63,19 @@ mode. These are documented fallbacks, not reference-compatible behavior.
 
 ## Verified evidence and its limits
 
-Latest A0 executable reference evidence: the
+Latest A0 geometry evidence: [five executable layout contracts](niri-geometry-reference-fixtures.md)
+passed against pinned niri's library test harness: fixed/proportional widths,
+fixed resize, frame origin and consume into a two-window column. Cases use gaps
+16, borders 4 and nonzero struts on a 1280×720 output at scale 1. Actual IPC/client
+sizes and settled positions match independent dimensioned expectations. Archived
+reference, lock, fixture and log hashes are retained. The runner rejects zero-test
+success; parser regression also passed all 16 contracts. Initial harness mistakes
+(binary target and omitted enrollment width) are recorded in history. This does
+not validate driftwm geometry or fractional scale/constraint/expel permutations.
+Next: fractional frame/working-area rounding and longer operation traces before
+differential implementation acceptance. Implementation CI remains B4.
+
+A0 parser reference evidence: the
 [pinned parser corpus](niri-parser-reference-fixtures.md) ran 16 Rust contract
 tests against actual niri-config at the pinned revision: 16 passed, zero failed,
 zero ignored. The runner archives a clean checkout, injects only the maintained

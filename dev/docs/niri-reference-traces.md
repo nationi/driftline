@@ -147,4 +147,7 @@ Changing the pinned revision requires a separate baseline review.
 The [pinned parser corpus](niri-parser-reference-fixtures.md) now executes 16
 configuration contracts against actual niri-config with recorded provenance.
 It does not execute or upgrade the 60 source-derived geometry snapshots above.
-Reference-executed geometry with nonzero gaps/frame extents remains next A0 work.
+The [executable geometry corpus](niri-geometry-reference-fixtures.md) separately
+passed five actual niri layout contracts with nonzero gaps, borders and struts.
+It does not retroactively upgrade the 60 source-derived snapshots into executed
+reference evidence or establish a driftwm differential match.
