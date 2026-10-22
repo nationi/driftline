@@ -2662,3 +2662,28 @@ passed, as did git diff --check. No niri execution, Rust tests or full CI rerun
 for this docs/tooling-only change; implementation evidence remains B4. No push,
 installation or TTY acceptance. Next A0: animation/gesture consumers, remaining
 mixed input/debug scope, names/rules/actions and independent executable fixtures.
+
+
+## A0 animation and gesture source audit
+
+Audited all 40 named animation and 23 gesture fields at the pinned revision,
+including tuple-wrapper defaults/custom decoders that add no named field rows.
+Whole-event replacement contrasts with fieldwise DnD merges; root on wins over
+off but does not clear individual off. Spring/easing selection/default fallbacks,
+curve/spring validation and custom shader source/file/reload failure behavior are
+recorded. Shared clock slowdown/completion differs from unadjusted DnD time.
+Selected edge view/workspace consumers clamp and normalize penetration, delay
+nonzero entry, integrate speed and discard excess. Hot corners use output-wide
+replacement, implicit top-left, one-pixel boxes, latch/focus/grab checks and
+Overview toggles. Six notification/exit/screenshot UI-motion rows are explicitly
+Outside; workspace overview, MRU, window transitions and capture privacy remain
+in scope. Driftwm frame factors/actions/edge pan are not assumed equivalent.
+
+Validation: Python syntax, deterministic generation, 576 preserved field keys,
+186 preserved actions, 63 new review links (306 total), exact scoped field sets,
+local targets/anchors, pinned source paths/revision/clean checkout and diff checks
+passed. No runtime/config change; no niri/parser/shader execution or full Rust CI
+rerun. Implementation evidence remains the B4 gate. No push/install/TTY claim.
+Next A0: remaining mixed input/debug scope and output/workspace naming, then
+rules/action addressing and independent executable reference fixtures. Physics,
+reload and interaction acceptance still remain open.

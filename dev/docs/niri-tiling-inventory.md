@@ -20,6 +20,8 @@ The [layer/overview consumers](niri-layer-overview-audit.md) audit traces newly 
 layer rules and overview value consumers; complete interactions remain open.
 The [input focus consumers](niri-input-focus-audit.md) audit traces scoped focus, warp,
 workspace back-and-forth and five layout-visible debug flags; other fields stay open.
+The [animation/gesture consumers](niri-animation-gesture-audit.md) audit traces those
+schema fields and scoped consumers; physics/interaction execution remains open.
 P0 reference operation fixtures and the custom-decoder audit remain unfinished.
 
 Status: Partial = related implementation, not full equivalence; Divergent = known
@@ -254,9 +256,9 @@ public node names such as `output` and `window-rule` are not plural Rust fields.
 | `clipboard` | `Config.clipboard` | Outside | Outside | Selection policy, not tiling topology or sizing; [coverage](niri-config-schema-coverage.md) |
 | `hotkey-overlay` | `Config.hotkey_overlay` | Outside | Outside | Shortcut help UI, not workspace overview or MRU focus; [coverage](niri-config-schema-coverage.md) |
 | `config-notification` | `Config.config_notification` | Outside | Outside | Config-error notification presentation, not layout policy; [coverage](niri-config-schema-coverage.md) |
-| `animations` | `Config.animations` | Layout | Unverified | Layout movement/resize and workspace/overview transitions; [coverage](niri-config-schema-coverage.md) |
+| `animations` | `Config.animations` | Layout | Divergent | Frame factors differ from per-event spring/easing; scoped source audit recorded; [coverage](niri-config-schema-coverage.md) |
 | `blur` | `Config.blur` | Layout/integration | Partial | Tuning/effect-selection source audit exists; runtime parity not established; [coverage](niri-config-schema-coverage.md) |
-| `gestures` | `Config.gestures` | Layout/integration | Unverified | Scrolling/workspace gesture policy remains unaudited; [coverage](niri-config-schema-coverage.md) |
+| `gestures` | `Config.gestures` | Layout/integration | Missing | Reference DnD policy missing; hot-corner behavior differs; scoped source audit recorded; [coverage](niri-config-schema-coverage.md) |
 | `overview` | `Config.overview` | Layout | Missing | Overview exists in pinned schema; no reference overview implementation; [coverage](niri-config-schema-coverage.md) |
 | `xwayland-satellite` | `Config.xwayland_satellite` | Integration | Unverified | Client/protocol integration; reconsider layout-visible lifecycle effects; [coverage](niri-config-schema-coverage.md) |
 | `switch-events` | `Config.switch_events` | Integration | Unverified | Lid/output actions may affect layout lifecycle; [coverage](niri-config-schema-coverage.md) |
@@ -297,9 +299,9 @@ own definitions; tuple wrappers and enums are indexed by declaration below.
 | `Config.clipboard` | Outside | Root `clipboard`: Selection policy, not tiling topology or sizing; [schema coverage](niri-config-schema-coverage.md) |
 | `Config.hotkey_overlay` | Outside | Root `hotkey-overlay`: Shortcut help UI, not workspace overview or MRU focus; [schema coverage](niri-config-schema-coverage.md) |
 | `Config.config_notification` | Outside | Root `config-notification`: Config-error notification presentation, not layout policy; [schema coverage](niri-config-schema-coverage.md) |
-| `Config.animations` | Unverified | Root `animations`: Layout movement/resize and workspace/overview transitions; [schema coverage](niri-config-schema-coverage.md) |
+| `Config.animations` | Divergent | Root `animations`: Frame factors differ from per-event spring/easing; scoped source audit recorded; [schema coverage](niri-config-schema-coverage.md) |
 | `Config.blur` | Partial | Root `blur`: Tuning/effect-selection source audit exists; runtime parity not established; [schema coverage](niri-config-schema-coverage.md) |
-| `Config.gestures` | Unverified | Root `gestures`: Scrolling/workspace gesture policy remains unaudited; [schema coverage](niri-config-schema-coverage.md) |
+| `Config.gestures` | Missing | Root `gestures`: Reference DnD policy missing; hot-corner behavior differs; scoped source audit recorded; [schema coverage](niri-config-schema-coverage.md) |
 | `Config.overview` | Missing | Root `overview`: Overview exists in pinned schema; no reference overview implementation; [schema coverage](niri-config-schema-coverage.md) |
 | `Config.environment` | Outside | Root `environment`: Child-process environment, not layout behavior; [schema coverage](niri-config-schema-coverage.md) |
 | `Config.xwayland_satellite` | Unverified | Root `xwayland-satellite`: Client/protocol integration; reconsider layout-visible lifecycle effects; [schema coverage](niri-config-schema-coverage.md) |
@@ -497,29 +499,29 @@ Declared types to check for nested values/custom decoding: `Color`, `Gradient`, 
 
 | Schema field | Status | Mapping / next audit |
 | --- | --- | --- |
-| `Gestures.dnd_edge_view_scroll` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
-| `Gestures.dnd_edge_workspace_switch` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
-| `Gestures.hot_corners` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
-| `GesturesPart.dnd_edge_view_scroll` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
-| `GesturesPart.dnd_edge_workspace_switch` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
-| `GesturesPart.hot_corners` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
-| `DndEdgeViewScroll.trigger_width` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
-| `DndEdgeViewScroll.delay_ms` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
-| `DndEdgeViewScroll.max_speed` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
-| `DndEdgeViewScrollPart.trigger_width` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
-| `DndEdgeViewScrollPart.delay_ms` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
-| `DndEdgeViewScrollPart.max_speed` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
-| `DndEdgeWorkspaceSwitch.trigger_height` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
-| `DndEdgeWorkspaceSwitch.delay_ms` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
-| `DndEdgeWorkspaceSwitch.max_speed` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
-| `DndEdgeWorkspaceSwitchPart.trigger_height` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
-| `DndEdgeWorkspaceSwitchPart.delay_ms` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
-| `DndEdgeWorkspaceSwitchPart.max_speed` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
-| `HotCorners.off` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
-| `HotCorners.top_left` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
-| `HotCorners.top_right` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
-| `HotCorners.bottom_left` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
-| `HotCorners.bottom_right` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
+| `Gestures.dnd_edge_view_scroll` | Missing | Dedicated reference DnD edge view/workspace policy missing; [animation/gesture audit](niri-animation-gesture-audit.md#dnd-edge-consumers) |
+| `Gestures.dnd_edge_workspace_switch` | Missing | Dedicated reference DnD edge view/workspace policy missing; [animation/gesture audit](niri-animation-gesture-audit.md#dnd-edge-consumers) |
+| `Gestures.hot_corners` | Divergent | Configurable actions/threshold differ from one-pixel overview toggle; [animation/gesture audit](niri-animation-gesture-audit.md#hot-corner-consumers) |
+| `GesturesPart.dnd_edge_view_scroll` | Missing | Dedicated reference DnD edge view/workspace policy missing; [animation/gesture audit](niri-animation-gesture-audit.md#dnd-edge-consumers) |
+| `GesturesPart.dnd_edge_workspace_switch` | Missing | Dedicated reference DnD edge view/workspace policy missing; [animation/gesture audit](niri-animation-gesture-audit.md#dnd-edge-consumers) |
+| `GesturesPart.hot_corners` | Divergent | Configurable actions/threshold differ from one-pixel overview toggle; [animation/gesture audit](niri-animation-gesture-audit.md#hot-corner-consumers) |
+| `DndEdgeViewScroll.trigger_width` | Missing | Dedicated reference DnD edge view/workspace policy missing; [animation/gesture audit](niri-animation-gesture-audit.md#dnd-edge-consumers) |
+| `DndEdgeViewScroll.delay_ms` | Missing | Dedicated reference DnD edge view/workspace policy missing; [animation/gesture audit](niri-animation-gesture-audit.md#dnd-edge-consumers) |
+| `DndEdgeViewScroll.max_speed` | Missing | Dedicated reference DnD edge view/workspace policy missing; [animation/gesture audit](niri-animation-gesture-audit.md#dnd-edge-consumers) |
+| `DndEdgeViewScrollPart.trigger_width` | Missing | Dedicated reference DnD edge view/workspace policy missing; [animation/gesture audit](niri-animation-gesture-audit.md#dnd-edge-consumers) |
+| `DndEdgeViewScrollPart.delay_ms` | Missing | Dedicated reference DnD edge view/workspace policy missing; [animation/gesture audit](niri-animation-gesture-audit.md#dnd-edge-consumers) |
+| `DndEdgeViewScrollPart.max_speed` | Missing | Dedicated reference DnD edge view/workspace policy missing; [animation/gesture audit](niri-animation-gesture-audit.md#dnd-edge-consumers) |
+| `DndEdgeWorkspaceSwitch.trigger_height` | Missing | Dedicated reference DnD edge view/workspace policy missing; [animation/gesture audit](niri-animation-gesture-audit.md#dnd-edge-consumers) |
+| `DndEdgeWorkspaceSwitch.delay_ms` | Missing | Dedicated reference DnD edge view/workspace policy missing; [animation/gesture audit](niri-animation-gesture-audit.md#dnd-edge-consumers) |
+| `DndEdgeWorkspaceSwitch.max_speed` | Missing | Dedicated reference DnD edge view/workspace policy missing; [animation/gesture audit](niri-animation-gesture-audit.md#dnd-edge-consumers) |
+| `DndEdgeWorkspaceSwitchPart.trigger_height` | Missing | Dedicated reference DnD edge view/workspace policy missing; [animation/gesture audit](niri-animation-gesture-audit.md#dnd-edge-consumers) |
+| `DndEdgeWorkspaceSwitchPart.delay_ms` | Missing | Dedicated reference DnD edge view/workspace policy missing; [animation/gesture audit](niri-animation-gesture-audit.md#dnd-edge-consumers) |
+| `DndEdgeWorkspaceSwitchPart.max_speed` | Missing | Dedicated reference DnD edge view/workspace policy missing; [animation/gesture audit](niri-animation-gesture-audit.md#dnd-edge-consumers) |
+| `HotCorners.off` | Divergent | Configurable actions/threshold differ from one-pixel overview toggle; [animation/gesture audit](niri-animation-gesture-audit.md#hot-corner-consumers) |
+| `HotCorners.top_left` | Divergent | Configurable actions/threshold differ from one-pixel overview toggle; [animation/gesture audit](niri-animation-gesture-audit.md#hot-corner-consumers) |
+| `HotCorners.top_right` | Divergent | Configurable actions/threshold differ from one-pixel overview toggle; [animation/gesture audit](niri-animation-gesture-audit.md#hot-corner-consumers) |
+| `HotCorners.bottom_left` | Divergent | Configurable actions/threshold differ from one-pixel overview toggle; [animation/gesture audit](niri-animation-gesture-audit.md#hot-corner-consumers) |
+| `HotCorners.bottom_right` | Divergent | Configurable actions/threshold differ from one-pixel overview toggle; [animation/gesture audit](niri-animation-gesture-audit.md#hot-corner-consumers) |
 
 Declared types to check for nested values/custom decoding: `Gestures`, `GesturesPart`, `DndEdgeViewScroll`, `DndEdgeViewScrollPart`, `DndEdgeWorkspaceSwitch`, `DndEdgeWorkspaceSwitchPart`, `HotCorners`.
 
@@ -527,46 +529,46 @@ Declared types to check for nested values/custom decoding: `Gestures`, `Gestures
 
 | Schema field | Status | Mapping / next audit |
 | --- | --- | --- |
-| `Animations.off` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
-| `Animations.slowdown` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
-| `Animations.workspace_switch` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
-| `Animations.window_open` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
-| `Animations.window_close` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
-| `Animations.horizontal_view_movement` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
-| `Animations.window_movement` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
-| `Animations.window_resize` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
-| `Animations.config_notification_open_close` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
-| `Animations.exit_confirmation_open_close` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
-| `Animations.screenshot_ui_open` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
-| `Animations.overview_open_close` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
-| `Animations.recent_windows_close` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
-| `AnimationsPart.off` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
-| `AnimationsPart.on` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
-| `AnimationsPart.slowdown` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
-| `AnimationsPart.workspace_switch` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
-| `AnimationsPart.window_open` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
-| `AnimationsPart.window_close` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
-| `AnimationsPart.horizontal_view_movement` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
-| `AnimationsPart.window_movement` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
-| `AnimationsPart.window_resize` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
-| `AnimationsPart.config_notification_open_close` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
-| `AnimationsPart.exit_confirmation_open_close` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
-| `AnimationsPart.screenshot_ui_open` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
-| `AnimationsPart.overview_open_close` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
-| `AnimationsPart.recent_windows_close` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
-| `Animation.off` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
-| `Animation.kind` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
-| `EasingParams.duration_ms` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
-| `EasingParams.curve` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
-| `SpringParams.damping_ratio` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
-| `SpringParams.stiffness` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
-| `SpringParams.epsilon` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
-| `WindowOpenAnim.anim` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
-| `WindowOpenAnim.custom_shader` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
-| `WindowCloseAnim.anim` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
-| `WindowCloseAnim.custom_shader` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
-| `WindowResizeAnim.anim` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
-| `WindowResizeAnim.custom_shader` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
+| `Animations.off` | Divergent | Frame factors/retention differ from per-event spring/easing and shared clock; [animation/gesture audit](niri-animation-gesture-audit.md#animation-defaults-and-merge) |
+| `Animations.slowdown` | Divergent | Frame factors/retention differ from per-event spring/easing and shared clock; [animation/gesture audit](niri-animation-gesture-audit.md#animation-defaults-and-merge) |
+| `Animations.workspace_switch` | Divergent | Frame factors/retention differ from per-event spring/easing and shared clock; [animation/gesture audit](niri-animation-gesture-audit.md#animation-defaults-and-merge) |
+| `Animations.window_open` | Divergent | Frame factors/retention differ from per-event spring/easing and shared clock; [animation/gesture audit](niri-animation-gesture-audit.md#animation-defaults-and-merge) |
+| `Animations.window_close` | Divergent | Frame factors/retention differ from per-event spring/easing and shared clock; [animation/gesture audit](niri-animation-gesture-audit.md#animation-defaults-and-merge) |
+| `Animations.horizontal_view_movement` | Divergent | Frame factors/retention differ from per-event spring/easing and shared clock; [animation/gesture audit](niri-animation-gesture-audit.md#animation-defaults-and-merge) |
+| `Animations.window_movement` | Divergent | Frame factors/retention differ from per-event spring/easing and shared clock; [animation/gesture audit](niri-animation-gesture-audit.md#animation-defaults-and-merge) |
+| `Animations.window_resize` | Divergent | Frame factors/retention differ from per-event spring/easing and shared clock; [animation/gesture audit](niri-animation-gesture-audit.md#animation-defaults-and-merge) |
+| `Animations.config_notification_open_close` | Outside | Unrelated notification/exit-confirmation/screenshot UI motion; shared decoder still audited; [animation/gesture audit](niri-animation-gesture-audit.md#animation-defaults-and-merge) |
+| `Animations.exit_confirmation_open_close` | Outside | Unrelated notification/exit-confirmation/screenshot UI motion; shared decoder still audited; [animation/gesture audit](niri-animation-gesture-audit.md#animation-defaults-and-merge) |
+| `Animations.screenshot_ui_open` | Outside | Unrelated notification/exit-confirmation/screenshot UI motion; shared decoder still audited; [animation/gesture audit](niri-animation-gesture-audit.md#animation-defaults-and-merge) |
+| `Animations.overview_open_close` | Divergent | Frame factors/retention differ from per-event spring/easing and shared clock; [animation/gesture audit](niri-animation-gesture-audit.md#animation-defaults-and-merge) |
+| `Animations.recent_windows_close` | Divergent | Frame factors/retention differ from per-event spring/easing and shared clock; [animation/gesture audit](niri-animation-gesture-audit.md#animation-defaults-and-merge) |
+| `AnimationsPart.off` | Divergent | Frame factors/retention differ from per-event spring/easing and shared clock; [animation/gesture audit](niri-animation-gesture-audit.md#animation-defaults-and-merge) |
+| `AnimationsPart.on` | Divergent | Frame factors/retention differ from per-event spring/easing and shared clock; [animation/gesture audit](niri-animation-gesture-audit.md#animation-defaults-and-merge) |
+| `AnimationsPart.slowdown` | Divergent | Frame factors/retention differ from per-event spring/easing and shared clock; [animation/gesture audit](niri-animation-gesture-audit.md#animation-defaults-and-merge) |
+| `AnimationsPart.workspace_switch` | Divergent | Frame factors/retention differ from per-event spring/easing and shared clock; [animation/gesture audit](niri-animation-gesture-audit.md#animation-defaults-and-merge) |
+| `AnimationsPart.window_open` | Divergent | Frame factors/retention differ from per-event spring/easing and shared clock; [animation/gesture audit](niri-animation-gesture-audit.md#animation-defaults-and-merge) |
+| `AnimationsPart.window_close` | Divergent | Frame factors/retention differ from per-event spring/easing and shared clock; [animation/gesture audit](niri-animation-gesture-audit.md#animation-defaults-and-merge) |
+| `AnimationsPart.horizontal_view_movement` | Divergent | Frame factors/retention differ from per-event spring/easing and shared clock; [animation/gesture audit](niri-animation-gesture-audit.md#animation-defaults-and-merge) |
+| `AnimationsPart.window_movement` | Divergent | Frame factors/retention differ from per-event spring/easing and shared clock; [animation/gesture audit](niri-animation-gesture-audit.md#animation-defaults-and-merge) |
+| `AnimationsPart.window_resize` | Divergent | Frame factors/retention differ from per-event spring/easing and shared clock; [animation/gesture audit](niri-animation-gesture-audit.md#animation-defaults-and-merge) |
+| `AnimationsPart.config_notification_open_close` | Outside | Unrelated notification/exit-confirmation/screenshot UI motion; shared decoder still audited; [animation/gesture audit](niri-animation-gesture-audit.md#animation-defaults-and-merge) |
+| `AnimationsPart.exit_confirmation_open_close` | Outside | Unrelated notification/exit-confirmation/screenshot UI motion; shared decoder still audited; [animation/gesture audit](niri-animation-gesture-audit.md#animation-defaults-and-merge) |
+| `AnimationsPart.screenshot_ui_open` | Outside | Unrelated notification/exit-confirmation/screenshot UI motion; shared decoder still audited; [animation/gesture audit](niri-animation-gesture-audit.md#animation-defaults-and-merge) |
+| `AnimationsPart.overview_open_close` | Divergent | Frame factors/retention differ from per-event spring/easing and shared clock; [animation/gesture audit](niri-animation-gesture-audit.md#animation-defaults-and-merge) |
+| `AnimationsPart.recent_windows_close` | Divergent | Frame factors/retention differ from per-event spring/easing and shared clock; [animation/gesture audit](niri-animation-gesture-audit.md#animation-defaults-and-merge) |
+| `Animation.off` | Divergent | Frame factors/retention differ from per-event spring/easing and shared clock; [animation/gesture audit](niri-animation-gesture-audit.md#custom-animation-decoding) |
+| `Animation.kind` | Divergent | Frame factors/retention differ from per-event spring/easing and shared clock; [animation/gesture audit](niri-animation-gesture-audit.md#custom-animation-decoding) |
+| `EasingParams.duration_ms` | Divergent | Frame factors/retention differ from per-event spring/easing and shared clock; [animation/gesture audit](niri-animation-gesture-audit.md#custom-animation-decoding) |
+| `EasingParams.curve` | Divergent | Frame factors/retention differ from per-event spring/easing and shared clock; [animation/gesture audit](niri-animation-gesture-audit.md#custom-animation-decoding) |
+| `SpringParams.damping_ratio` | Divergent | Frame factors/retention differ from per-event spring/easing and shared clock; [animation/gesture audit](niri-animation-gesture-audit.md#custom-animation-decoding) |
+| `SpringParams.stiffness` | Divergent | Frame factors/retention differ from per-event spring/easing and shared clock; [animation/gesture audit](niri-animation-gesture-audit.md#custom-animation-decoding) |
+| `SpringParams.epsilon` | Divergent | Frame factors/retention differ from per-event spring/easing and shared clock; [animation/gesture audit](niri-animation-gesture-audit.md#custom-animation-decoding) |
+| `WindowOpenAnim.anim` | Divergent | Frame factors/retention differ from per-event spring/easing and shared clock; [animation/gesture audit](niri-animation-gesture-audit.md#custom-animation-decoding) |
+| `WindowOpenAnim.custom_shader` | Missing | Reference open/close/resize shader API missing; [animation/gesture audit](niri-animation-gesture-audit.md#custom-animation-decoding) |
+| `WindowCloseAnim.anim` | Divergent | Frame factors/retention differ from per-event spring/easing and shared clock; [animation/gesture audit](niri-animation-gesture-audit.md#custom-animation-decoding) |
+| `WindowCloseAnim.custom_shader` | Missing | Reference open/close/resize shader API missing; [animation/gesture audit](niri-animation-gesture-audit.md#custom-animation-decoding) |
+| `WindowResizeAnim.anim` | Divergent | Frame factors/retention differ from per-event spring/easing and shared clock; [animation/gesture audit](niri-animation-gesture-audit.md#custom-animation-decoding) |
+| `WindowResizeAnim.custom_shader` | Missing | Reference open/close/resize shader API missing; [animation/gesture audit](niri-animation-gesture-audit.md#custom-animation-decoding) |
 
 Declared types to check for nested values/custom decoding: `Animations`, `AnimationsPart`, `Animation`, `Kind`, `EasingParams`, `Curve`, `SpringParams`, `WorkspaceSwitchAnim`, `WindowOpenAnim`, `WindowCloseAnim`, `HorizontalViewMovementAnim`, `WindowMovementAnim`, `WindowResizeAnim`, `ConfigNotificationOpenCloseAnim`, `ExitConfirmationOpenCloseAnim`, `ScreenshotUiOpenAnim`, `OverviewOpenCloseAnim`, `RecentWindowsCloseAnim`.
 

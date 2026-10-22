@@ -114,8 +114,9 @@ runtime behavior, parser diagnostics or every possible public child/property.
 
 LayerRule/Match and Overview/OverviewPart now have a scoped source audit.
 The [input focus audit](niri-input-focus-audit.md) covers 18 selected input/debug
-rows; other fields remain unverified. Next A0: animation/gesture configuration
-and remaining device/backend scope, output/workspace naming, unscoped rule fields
-and public binding/action addressing. Document concrete exclusions as needed. Independent
+rows; other fields remain unverified. The [animation/gesture audit](niri-animation-gesture-audit.md)
+adds 63 reviewed rows, including six explicit exclusions for unrelated UI motion.
+Next A0: remaining device/backend scope, output/workspace naming, unscoped rule
+fields and public binding/action addressing. Document concrete exclusions as needed. Independent
 decoder/geometry/operation fixtures beyond zero gaps remain required; no Exact
 or overall-completion claim follows from covering the source file list.

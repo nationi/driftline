@@ -185,9 +185,9 @@ ROOT_NODES = {
     "clipboard": ("clipboard", "Outside", "Outside", "Selection policy, not tiling topology or sizing"),
     "hotkey-overlay": ("hotkey_overlay", "Outside", "Outside", "Shortcut help UI, not workspace overview or MRU focus"),
     "config-notification": ("config_notification", "Outside", "Outside", "Config-error notification presentation, not layout policy"),
-    "animations": ("animations", "Layout", "Unverified", "Layout movement/resize and workspace/overview transitions"),
+    "animations": ("animations", "Layout", "Divergent", "Frame factors differ from per-event spring/easing; scoped source audit recorded"),
     "blur": ("blur", "Layout/integration", "Partial", "Tuning/effect-selection source audit exists; runtime parity not established"),
-    "gestures": ("gestures", "Layout/integration", "Unverified", "Scrolling/workspace gesture policy remains unaudited"),
+    "gestures": ("gestures", "Layout/integration", "Missing", "Reference DnD policy missing; hot-corner behavior differs; scoped source audit recorded"),
     "overview": ("overview", "Layout", "Missing", "Overview exists in pinned schema; no reference overview implementation"),
     "xwayland-satellite": ("xwayland_satellite", "Integration", "Unverified", "Client/protocol integration; reconsider layout-visible lifecycle effects"),
     "switch-events": ("switch_events", "Integration", "Unverified", "Lid/output actions may affect layout lifecycle"),
@@ -211,6 +211,43 @@ ROOT_NODES = {
 def schema_structs(source):
     for match in re.finditer(r"^pub struct (\w+)[^;\n{]*\{", source, re.M):
         yield match.group(1), re.findall(r"^    pub (\w+):", block(source, match.group(0)), re.M)
+
+
+ANIMATION_GESTURE_AUDIT_FIELDS = {
+    ("animations", "Animations"): "off slowdown workspace_switch window_open window_close horizontal_view_movement window_movement window_resize config_notification_open_close exit_confirmation_open_close screenshot_ui_open overview_open_close recent_windows_close",
+    ("animations", "AnimationsPart"): "off on slowdown workspace_switch window_open window_close horizontal_view_movement window_movement window_resize config_notification_open_close exit_confirmation_open_close screenshot_ui_open overview_open_close recent_windows_close",
+    ("animations", "Animation"): "off kind",
+    ("animations", "EasingParams"): "duration_ms curve",
+    ("animations", "SpringParams"): "damping_ratio stiffness epsilon",
+    ("animations", "WindowOpenAnim"): "anim custom_shader",
+    ("animations", "WindowCloseAnim"): "anim custom_shader",
+    ("animations", "WindowResizeAnim"): "anim custom_shader",
+    ("gestures", "Gestures"): "dnd_edge_view_scroll dnd_edge_workspace_switch hot_corners",
+    ("gestures", "GesturesPart"): "dnd_edge_view_scroll dnd_edge_workspace_switch hot_corners",
+    ("gestures", "DndEdgeViewScroll"): "trigger_width delay_ms max_speed",
+    ("gestures", "DndEdgeViewScrollPart"): "trigger_width delay_ms max_speed",
+    ("gestures", "DndEdgeWorkspaceSwitch"): "trigger_height delay_ms max_speed",
+    ("gestures", "DndEdgeWorkspaceSwitchPart"): "trigger_height delay_ms max_speed",
+    ("gestures", "HotCorners"): "off top_left top_right bottom_left bottom_right",
+}
+
+
+def animation_gesture_status(module, name, field):
+    if module == "animations":
+        section = "animation-defaults-and-merge" if name.startswith("Animations") else "custom-animation-decoding"
+        if field in {"config_notification_open_close", "exit_confirmation_open_close", "screenshot_ui_open"}:
+            status, mapping = "Outside", "Unrelated notification/exit-confirmation/screenshot UI motion; shared decoder still audited"
+        elif field == "custom_shader":
+            status, mapping = "Missing", "Reference open/close/resize shader API missing"
+        else:
+            status, mapping = "Divergent", "Frame factors/retention differ from per-event spring/easing and shared clock"
+    else:
+        section = "hot-corner-consumers" if name == "HotCorners" or field == "hot_corners" else "dnd-edge-consumers"
+        if section == "hot-corner-consumers":
+            status, mapping = "Divergent", "Configurable actions/threshold differ from one-pixel overview toggle"
+        else:
+            status, mapping = "Missing", "Dedicated reference DnD edge view/workspace policy missing"
+    return status, f"{mapping}; [animation/gesture audit](niri-animation-gesture-audit.md#{section})"
 
 
 INPUT_FOCUS_AUDIT_FIELDS = {
@@ -260,6 +297,8 @@ def layer_overview_status(name, field):
 
 
 def config_status(module, name, field):
+    if (module, name) in ANIMATION_GESTURE_AUDIT_FIELDS:
+        return animation_gesture_status(module, name, field)
     if field in INPUT_FOCUS_AUDIT_FIELDS.get((module, name), "").split():
         return input_focus_status(name, field)
     if (module, name) in LAYER_OVERVIEW_AUDIT_FIELDS:
@@ -334,6 +373,8 @@ def generate(root):
         "layer rules and overview value consumers; complete interactions remain open.",
         "The [input focus consumers](niri-input-focus-audit.md) audit traces scoped focus, warp,",
         "workspace back-and-forth and five layout-visible debug flags; other fields stay open.",
+        "The [animation/gesture consumers](niri-animation-gesture-audit.md) audit traces those",
+        "schema fields and scoped consumers; physics/interaction execution remains open.",
         "P0 reference operation fixtures and the custom-decoder audit remain unfinished.", "",
         "Status: Partial = related implementation, not full equivalence; Divergent = known",
         "semantic difference; Missing = no matching tiling action; Unverified = not audited;",
@@ -371,6 +412,8 @@ def generate(root):
         source = sources[f"{module}.rs"]
         lines += [f"### `{module}.rs`", "", "| Schema field | Status | Mapping / next audit |", "| --- | --- | --- |"]
         for name, fields in schema_structs(source):
+            if (module, name) in ANIMATION_GESTURE_AUDIT_FIELDS:
+                assert set(fields) == set(ANIMATION_GESTURE_AUDIT_FIELDS[(module, name)].split()), "Animation/gesture audit must cover every field"
             if (module, name) in INPUT_FOCUS_AUDIT_FIELDS:
                 assert set(INPUT_FOCUS_AUDIT_FIELDS[(module, name)].split()).issubset(fields), "Input focus audit fields must exist"
             if (module, name) in LAYER_OVERVIEW_AUDIT_FIELDS:
