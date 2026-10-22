@@ -2601,7 +2601,41 @@ fn held_tiling_images_survive_output_mode_height_changes() {
     for scale in [1.0, 1.25, 1.5] {
         for ssd in [false, true] {
             for mixed in [false, true] {
-                check_tiling_view_change(scale, scale, ssd, mixed, TilingViewChange::TallerMode);
+                check_tiling_view_change(
+                    scale,
+                    scale,
+                    ssd,
+                    mixed,
+                    TilingViewChange::Mode(1200, 1000),
+                );
+            }
+        }
+    }
+}
+
+#[test]
+#[ignore = "needs surfaceless EGL; run with --include-ignored"]
+fn held_tiling_images_survive_mode_width_changes_and_shrink() {
+    let _gl = gl::lock();
+    let (ready, loaded) = std::sync::mpsc::sync_channel(1);
+    driftwm::text::warm_fonts(move || {
+        let _ = ready.send(());
+    });
+    loaded
+        .recv_timeout(std::time::Duration::from_secs(10))
+        .unwrap();
+    for (width, height) in [(1600, 800), (900, 800), (1200, 600), (900, 600)] {
+        for scale in [1.0, 1.25, 1.5] {
+            for ssd in [false, true] {
+                for mixed in [false, true] {
+                    check_tiling_view_change(
+                        scale,
+                        scale,
+                        ssd,
+                        mixed,
+                        TilingViewChange::Mode(width, height),
+                    );
+                }
             }
         }
     }
@@ -2611,7 +2645,7 @@ fn held_tiling_images_survive_output_mode_height_changes() {
 enum TilingViewChange {
     Scale,
     FractionalCamera,
-    TallerMode,
+    Mode(i32, i32),
     Transform(&'static str, smithay::utils::Transform),
 }
 
@@ -2710,14 +2744,16 @@ fn check_tiling_view_change(from: f64, to: f64, ssd: bool, mixed: bool, change: 
         f.state().execute_action(&Action::CycleColumnWidth);
         assert_eq!(f.state().tiling_snapshot_count(), 2);
     }
-    let image_height = if matches!(change, TilingViewChange::TallerMode) {
-        1000
+    let mode_size = if let TilingViewChange::Mode(width, height) = change {
+        (width, height)
     } else {
-        800
+        (1200, 800)
     };
     let config = format!(
-        "{config}\n[[outputs]]\nname = {:?}\nmode = \"1200x{image_height}\"\nscale = {to}\n",
-        output.name()
+        "{config}\n[[outputs]]\nname = {:?}\nmode = \"{}x{}\"\nscale = {to}\n",
+        output.name(),
+        mode_size.0,
+        mode_size.1
     );
     let config = if let TilingViewChange::Transform(name, _) = change {
         format!("{config}transform = {name:?}\n")
@@ -2729,22 +2765,18 @@ fn check_tiling_view_change(from: f64, to: f64, ssd: bool, mixed: bool, change: 
         assert_eq!(output.current_transform(), transform);
     }
     assert_eq!(output.current_scale().fractional_scale(), to);
-    if matches!(change, TilingViewChange::TallerMode) {
+    if matches!(change, TilingViewChange::Mode(_, _)) {
         let intent = f
             .state()
             .pending_mode_changes
             .remove(&output.name())
             .expect("backend mode request");
-        assert!(matches!(
-            intent,
-            crate::state::ModeIntent::Custom {
-                w: 1200,
-                h: 1000,
-                ..
-            }
-        ));
+        assert!(
+            matches!(intent, crate::state::ModeIntent::Custom { w, h, .. }
+            if (w, h) == mode_size)
+        );
         let mode = smithay::output::Mode {
-            size: (1200, 1000).into(),
+            size: mode_size.into(),
             refresh: 60_000,
         };
         output.change_current_state(Some(mode), None, None, None);
@@ -2774,7 +2806,7 @@ fn check_tiling_view_change(from: f64, to: f64, ssd: bool, mixed: bool, change: 
     let held = tiling_live_frame(&mut f, &output);
     if matches!(
         change,
-        TilingViewChange::Scale | TilingViewChange::TallerMode
+        TilingViewChange::Scale | TilingViewChange::Mode(_, _)
     ) {
         let dx = (16.0 * to).round() as usize;
         let dy = (12.0 * to).round() as usize;
@@ -2839,7 +2871,7 @@ fn check_tiling_view_change(from: f64, to: f64, ssd: bool, mixed: bool, change: 
     let size = last_configured(&mut f, client, &surface);
     if matches!(
         change,
-        TilingViewChange::TallerMode | TilingViewChange::Transform(_, _)
+        TilingViewChange::Mode(_, _) | TilingViewChange::Transform(_, _)
     ) {
         let chrome = f.state().element_chrome(&window);
         let expected_height =
@@ -2848,6 +2880,15 @@ fn check_tiling_view_change(from: f64, to: f64, ssd: bool, mixed: bool, change: 
             size.1, expected_height,
             "new mode must reflow the tile to the new usable height"
         );
+        if matches!(change, TilingViewChange::Mode(_, _)) {
+            let fraction = if mixed { 1.0 } else { 0.5 };
+            let expected_width =
+                ((frame_width as f64 / to).round() * fraction).round() as i32 - 2 * chrome.border;
+            assert_eq!(
+                size.0, expected_width,
+                "mode change must recompute proportional column width"
+            );
+        }
     }
     let w = f.client(client).window(&surface);
     w.set_size(size.0 as u16, size.1 as u16);

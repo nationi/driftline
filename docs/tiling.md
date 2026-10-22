@@ -147,7 +147,8 @@ and geometry-offset changes during repeated resize. Scale changes during the
 transition retain and blend the old SSD title raster with the new one, separately
 from body content. Controlled CSD/SSD checks cover 1→1.25, 1.25→1.5 and 1.5→1
 with camera movement and repeated recapture. Additional checks cover fractional
-camera positions and a taller output mode during held resize. Other output
+camera positions and output mode growth/shrink during held resize, with column
+width and content height recomputed from the new available area. Other output
 transitions remain experimental. Controlled GPU checks cover all rotations and
 reflections through held resize and repeated recapture; real hardware modesetting
 and every mode-size transition are not validated by these checks.

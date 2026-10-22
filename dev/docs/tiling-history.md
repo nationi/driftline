@@ -2011,3 +2011,42 @@ fmt, locked check, strict all-target clippy, no-run build, 368 library cases,
 1478 binary cases including ignored GPU scenarios, integration suites and isolated
 soak. The 84-case transformed matrix and orientation oracle pass in the full suite
 as well. Markdown targets and `git diff --check` passed.
+
+## 2026-10-22 — B3 output mode width changes and shrink
+
+Baseline `398f889`. Generalized the view fixture's successful mode-application
+scenario from a fixed taller output to explicit physical dimensions; the original
+1200x1000 height-growth test remains. Added
+`held_tiling_images_survive_mode_width_changes_and_shrink`: 48 scenes covering
+1600x800 width growth, 900x800 width shrink, 1200x600 height shrink and 900x600
+combined shrink, all from 1200x800. Each runs at 1x/1.25x/1.5x, CSD/SSD,
+ordinary/mixed retained image, opacity 0.6, rounded frame/shadow and native popup.
+
+Real config reload must queue exactly the requested mode dimensions. Model the
+backend's successful apply boundary using that intent; publish mode/preference,
+arrange layers, update fullscreen policy, invalidate render caches and mark output
+configuration dirty. Independently require content height to equal new logical
+viewport minus native chrome; proportional frame width is half the viewport for
+the initial column and full width after the fixture's first width cycle, excluding
+borders for the client offer. Both are checked before responding, not inferred
+from final pixels. Existing whole-frame integral camera translation, popup size/
+anchor, release/mixed recapture/second release <=2 bytes, title alpha 153±2 and
+resource cleanup checks run unchanged. Dedicated `/tmp/driftwm-b3-mode.log`:
+all 48 scenes passed. No production fix or tolerance/timeout change was needed.
+
+Pinned niri `Layout::update_output_size` delegates to its monitor, whose
+`update_output_size` refreshes scale, view size and working area before updating
+workspaces. This motivates checking dimensions/offers independently of retained
+pixels; it is not evidence of driftwm multi-workspace/multi-output parity. This
+fixture tests compositor policy after successful backend mode application, not
+DRM hardware modesetting. B3's next subset is degraded minification/client effects
+and capture allocation failures; other stated limits remain. No pure stage/layout/
+config parser algorithm changed, so no additional deep property pass is required.
+No release build, installation, desktop restart, push or manual TTY acceptance
+was performed.
+
+Full `dev/scripts/ci-local` passed, exit 0 (`/tmp/driftwm-b3-mode-ci.log`): fmt,
+locked check, strict all-target clippy, no-run build, 368 library cases, 1479 binary
+cases including ignored GPU scenarios, integration suites and isolated soak.
+The new mode matrix and existing 84 transformed scenes pass in the full suite.
+Markdown targets and `git diff --check` passed. This batch changes tests/docs only.

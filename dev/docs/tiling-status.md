@@ -56,9 +56,10 @@ mode. These are documented fallbacks, not reference-compatible behavior.
 
 ## Verified evidence and its limits
 
-Latest validation gate: `/tmp/driftwm-b3-transform-ci.log`, exit 0: full
-`dev/scripts/ci-local`, 368 library cases, 1478 binary cases including ignored
-GPU scenarios, integration suites and isolated soak. Transform gates:
+Latest validation gate: `/tmp/driftwm-b3-mode-ci.log`, exit 0: full
+`dev/scripts/ci-local`, 368 library cases, 1479 binary cases including ignored
+GPU scenarios, integration suites and isolated soak. Dedicated mode gate
+`/tmp/driftwm-b3-mode.log` passed 48 width-growth/shrink scenes. Transform gates:
 `/tmp/driftwm-b3-transform.log` (84 tiling scenes),
 `/tmp/driftwm-b3-orientation.log` (seven-transform pixel oracle), both passed. Dedicated view gate
 `/tmp/driftwm-b3-views.log` passed all three tests / 36 scenes, including 24 new
@@ -106,8 +107,10 @@ unresolved; use direct TTY for visual acceptance.
 
 ## Next work
 
-Next implementation: continue **B3** with mode width changes and shrink, then
-remaining degraded/effect/allocation-failure cases. Rotated/reflected GPU rendering
+Next implementation: continue **B3** with degraded stale-content minification
+and client background-effect interactions, then deterministic capture-allocation
+failure coverage. Mode width/shrink controlled gates are delivered; do not restart
+the completed mode/transform matrices. Rotated/reflected GPU rendering
 now has explicit acceptance: all seven non-normal transforms use the actual output
 damage/render path; an independent CPU pixel permutation compares against an
 upright render. Keep that expensive orientation oracle outside timed commit groups.
@@ -128,8 +131,11 @@ at the backend-success boundary; real DRM modesetting is not exercised. These
 are controlled integration gates, not all output transitions. Another 84 scenes
 cover all seven non-normal transforms, SSD/CSD, 1x/1.25x/1.5x and ordinary/mixed
 snapshots, including release/recapture, native popup anchors/title alpha and
-configure-height reflow. A separate seven-transform scene verifies actual GPU
-orientation against an independent upright render. Real DRM scanout is not tested. Zoom, every degraded/effect/minification path,
+configure-height reflow. Another 48 mode scenes cover width growth, width shrink,
+height shrink and combined shrink (1600x800/900x800/1200x600/900x600), with exact
+proportional-width/native-height offers and complete release/recapture checks.
+A separate seven-transform scene verifies actual GPU orientation against an
+independent upright render. Real DRM scanout is not tested. Zoom, every degraded/effect/minification path,
 allocation failures and multi-output ownership remain unproven. B4 retains
 broader motion-time remap/output removal. Full tiling multi-output support remains
 P11; enrolling a second output still leaves tiling.
