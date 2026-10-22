@@ -156,7 +156,10 @@ During grouped resize, native compositor title-bar coverage blends separately
 from body pixels, preserving its height and rounded corners. Global blur config
 reloads retain the held image and blend toward the new policy when the client
 responds. Controlled checks also cover leaving tiling and disconnecting during a
-held mixed transition; other lifecycle and output changes remain experimental.
+held mixed transition. Controlled two-client checks also cover a ready window
+waiting for a stalled peer: disconnecting that peer releases the ready buffer
+and preserves the surviving window’s focus and output membership. Other lifecycle
+and output changes remain experimental.
 Canvas resizes still held for a client reply can also be captured before a new
 group takes over. A late buffer arriving after the group expires can start a
 bounded resize transition on an otherwise settled window without restarting

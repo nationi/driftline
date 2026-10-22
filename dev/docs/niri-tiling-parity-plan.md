@@ -1,7 +1,7 @@
 # Niri tiling parity: execution plan
 
 Status (2026-10-22): integration checkpoint `8c17428`, with controlled B1 native-title
-mask and B2/B3 controlled gates delivered; B4 direct-remap coverage is added. Single-container
+mask and B2/B3 controlled gates delivered; B4 direct-remap and surviving-peer disconnect coverage is added. Single-container
 topology and bounded commit groups are established; reference semantics and
 rendering acceptance remain partial.
 This document supersedes the remaining delivery sequence in
@@ -472,7 +472,7 @@ renderer work without closing a named remaining gate.
 | B1 — controlled gates delivered | Mixed window-rule/client blur and native SSD title bands; global-default reload while held, mixed-title exit/disconnect | Pixel matrices below and full local CI; broader lifecycle remains B4 |
 | B2 — controlled gates delivered | General framed canvas resize entry, odd extents/nonzero geometry; 12 solid and 12 patterned fractional-client scenes | SSD/CSD grow/shrink, changed offsets, recapture release, popup size/anchor and independent settled transparency/opacity; static scales only |
 | B3 — controlled gates delivered | Capped/minified stale fallback, client-region blur, view/output matrices and five scoped capture allocation failures | 90 allocation scenes cover reply/timeout/exit and subsequent recovery; content-only fractional bake padding fixed; GPU-offscreen/mode evidence remains distinct from hardware scanout |
-| B4 — in progress | Direct remap during held/mixed resize delivered; peer disconnect, protocol remap, supersession and output removal remain | 12 GPU remap scenes plus hermetic late-restore regression; remaining cases require no stale IDs/images/transactions, no duplicate animation and correct surviving focus/output membership |
+| B4 — in progress | Direct remap and ready-peer disconnect during held/mixed resize delivered; protocol remap, supersession and output removal remain | 12 GPU remap scenes plus hermetic late-restore regression and 12 GPU surviving-peer disconnect scenes; remaining cases require no stale IDs/images/transactions, no duplicate animation and correct surviving focus/output membership |
 | A0 — semantic prerequisite | Finish P0 custom decoders, defaults, public options and ID-addressed actions | Inventory rows cite pinned source, driftwm behavior and exact/partial/divergent evidence; extend reference traces beyond the zero-gap subset |
 | Feature expansion | P3 sizing/settings, then dependency-ready P4/P5 work | Source-derived size/topology/view fixtures and documented public settings; retain canvas regressions |
 

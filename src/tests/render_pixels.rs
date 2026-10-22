@@ -3376,3 +3376,139 @@ fn check_remapped_tiling_capture(scale: f64, ssd: bool, mixed: bool) {
     f.state().render.remove_output(&output.name());
     gl::uninstall(&mut f);
 }
+
+#[test]
+#[ignore = "needs surfaceless EGL; run with --include-ignored"]
+fn disconnecting_a_held_or_mixed_tiling_peer_releases_the_survivor() {
+    let _gl = gl::lock();
+    for scale in [1.0, 1.25, 1.5] {
+        for ssd in [false, true] {
+            for mixed in [false, true] {
+                check_disconnected_tiling_peer(scale, ssd, mixed);
+            }
+        }
+    }
+}
+
+fn check_disconnected_tiling_peer(scale: f64, ssd: bool, mixed: bool) {
+    use super::{last_configured, tick_until_settled, window_by_app_id};
+    use driftwm::config::{Action, Direction};
+    let Some(renderer) = gl::surfaceless_renderer("disconnect tiling peer") else {
+        return;
+    };
+    let config = config_toml(true).replace("corner_radius = 0", "corner_radius = 8");
+    let config = if ssd {
+        format!("{config}\n[[window_rules]]\napp_id = \"*\"\ndecoration = \"server\"\n")
+    } else {
+        config
+    };
+    let mut f = Fixture::with_config(super::config(&config));
+    let output = f.add_output_scaled(1, (1200, 800), scale);
+    gl::install(&mut f, renderer);
+    let first = f.add_client();
+    let second = f.add_client();
+    let a = map_window_shm(
+        &mut f,
+        first,
+        "survivor",
+        (200, 100),
+        (200, 100),
+        &solid_bgra(200, 100, CONTENT_BGRA, false),
+    );
+    let b = map_window_shm(
+        &mut f,
+        second,
+        "departing",
+        (200, 100),
+        (200, 100),
+        &solid_bgra(200, 100, [255, 0, 255, 255], false),
+    );
+    tick_until_settled(&mut f);
+    let wa = window_by_app_id(&mut f, "survivor").unwrap();
+    let wb = window_by_app_id(&mut f, "departing").unwrap();
+    let aid = f.state().stage.id_of(&wa).unwrap();
+    let bid = f.state().stage.id_of(&wb).unwrap();
+    colored_tiling_popup(&mut f, first, &a, (180, 51), [255, 0, 0, 255]);
+    tiling_live_frame(&mut f, &output);
+    f.state().execute_action(&Action::ToggleTiling);
+    if mixed {
+        for (client, surface, color) in [
+            (first, &a, [0, 255, 0, 255]),
+            (second, &b, [255, 0, 255, 255]),
+        ] {
+            let size = last_configured(&mut f, client, surface);
+            let w = f.client(client).window(surface);
+            w.set_size(size.0 as u16, size.1 as u16);
+            w.attach_shm_buffer(size, &solid_bgra(size.0, size.1, color, false));
+            w.ack_last_and_commit();
+            f.double_roundtrip(client);
+        }
+        f.double_roundtrip(first);
+        f.state()
+            .tick_window_animations(std::time::Duration::from_millis(16));
+        tiling_live_frame(&mut f, &output);
+        assert!(f.state().resize_crossfades.contains_key(&aid));
+        f.state()
+            .execute_action(&Action::FocusColumn(Direction::Left));
+        f.state().execute_action(&Action::ConsumeWindowIntoColumn);
+    }
+    let target = last_configured(&mut f, first, &a);
+    last_configured(&mut f, second, &b);
+    let before = wa.geometry().size;
+    let held = tiling_live_frame(&mut f, &output);
+    let w = f.client(first).window(&a);
+    w.set_size(target.0 as u16, target.1 as u16);
+    w.attach_shm_buffer(
+        target,
+        &solid_bgra(target.0, target.1, [0, 255, 0, 255], false),
+    );
+    w.ack_last_and_commit();
+    f.double_roundtrip(first);
+    assert_eq!(
+        wa.geometry().size,
+        before,
+        "ready peer must wait for the group"
+    );
+    assert_eq!(f.state().tiling_snapshot_count(), 3);
+    assert_eq!(tiling_live_frame(&mut f, &output), held);
+    f.kill_client(second);
+    f.double_roundtrip(first);
+    f.double_roundtrip(first);
+    assert_eq!(wa.geometry().size, target.into());
+    assert!(f.state().stage.window_by_id(bid).is_none());
+    assert!(!f.state().resize_crossfades.contains_key(&bid));
+    assert_eq!(f.state().stage.id_of(&wa), Some(aid));
+    assert_eq!(f.state().stage.active_tile(), Some(aid));
+    let focused = f.state().focused_element().unwrap();
+    assert_eq!(f.state().stage.id_of(&focused), Some(aid));
+    // Removing a stacked peer can issue a fresh full-height offer. Answer it
+    // before checking convergence rather than waiting for the group deadline.
+    let size = last_configured(&mut f, first, &a);
+    let w = f.client(first).window(&a);
+    w.set_size(size.0 as u16, size.1 as u16);
+    w.attach_shm_buffer(size, &solid_bgra(size.0, size.1, [0, 255, 0, 255], false));
+    w.ack_last_and_commit();
+    f.double_roundtrip(first);
+    tick_until_settled(&mut f);
+    f.state().refresh_window_outputs();
+    f.double_roundtrip(first);
+    let client = f.client(first);
+    let memberships = &client.state.surface_outputs[&a];
+    assert_eq!(memberships.len(), 1);
+    assert_eq!(client.state.outputs[&memberships[0]], output.name());
+    let frame = tiling_live_frame(&mut f, &output);
+    assert!(frame.as_chunks::<4>().0.contains(&[0, 255, 0, 255]));
+    assert!(frame.as_chunks::<4>().0.contains(&[0, 0, 255, 255]));
+    assert!(!frame.as_chunks::<4>().0.contains(&[255, 0, 255, 255]));
+    assert_eq!(f.state().tiling_snapshot_count(), 0);
+    assert_eq!(f.state().tiling_pending_configures(), 0);
+    assert!(!f.state().resize_crossfades.contains_key(&aid));
+    assert!(!f.state().window_animations.is_active());
+    let w = f.client(first).window(&a);
+    w.commit();
+    f.double_roundtrip(first);
+    assert!(!f.state().window_animations.is_active());
+    assert_eq!(tiling_live_frame(&mut f, &output), frame);
+    f.state().render.remove_output(&output.name());
+    gl::uninstall(&mut f);
+}

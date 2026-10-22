@@ -110,6 +110,7 @@ pub struct State {
 
     pub globals: Vec<Global>,
     pub outputs: HashMap<WlOutput, String>,
+    pub surface_outputs: HashMap<WlSurface, Vec<WlOutput>>,
 
     pub compositor: Option<WlCompositor>,
     pub background_effect_manager: Option<ExtBackgroundEffectManagerV1>,
@@ -538,6 +539,7 @@ impl Client {
             qh: qh.clone(),
             globals: Vec::new(),
             outputs: HashMap::new(),
+            surface_outputs: HashMap::new(),
             compositor: None,
             background_effect_manager: None,
             subcompositor: None,
@@ -2112,16 +2114,24 @@ impl Dispatch<ZwlrLayerShellV1, ()> for State {
 
 impl Dispatch<WlSurface, ()> for State {
     fn event(
-        _state: &mut Self,
-        _proxy: &WlSurface,
+        state: &mut Self,
+        surface: &WlSurface,
         event: <WlSurface as wayland_client::Proxy>::Event,
         _data: &(),
         _conn: &Connection,
         _qhandle: &QueueHandle<Self>,
     ) {
         match event {
-            wl_surface::Event::Enter { .. } => (),
-            wl_surface::Event::Leave { .. } => (),
+            wl_surface::Event::Enter { output } => {
+                let outputs = state.surface_outputs.entry(surface.clone()).or_default();
+                assert!(!outputs.contains(&output), "duplicate surface enter");
+                outputs.push(output);
+            }
+            wl_surface::Event::Leave { output } => {
+                if let Some(outputs) = state.surface_outputs.get_mut(surface) {
+                    outputs.retain(|entered| entered != &output);
+                }
+            }
             wl_surface::Event::PreferredBufferScale { .. } => (),
             wl_surface::Event::PreferredBufferTransform { .. } => (),
             _ => unreachable!(),

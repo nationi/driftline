@@ -2179,3 +2179,40 @@ Full `dev/scripts/ci-local` passed, exit 0
 no-run build, 368 library cases, 1484 binary cases including ignored GPU scenarios,
 integration suites and isolated soak. Local Markdown targets and
 `git diff --check` passed.
+
+## 2026-10-22 — B4 disconnect with a ready surviving peer
+
+Added `disconnecting_a_held_or_mixed_tiling_peer_releases_the_survivor` in
+`src/tests/render_pixels.rs`: 12 real GLES scenes, SSD/CSD at 1x/1.25x/1.5x,
+ordinary held entry and recaptured mixed resize. Two independent clients render
+a red/green survivor with a blue popup and a magenta departing window. The
+mixed variant releases both initial offers, ticks 16 ms, actually renders the
+crossfade, then consumes the adjacent column to request a new grouped resize.
+Only the survivor answers. Its committed geometry remains held and its entire
+rendered frame is byte-identical until the other client disconnects.
+
+Disconnect releases the queued buffer. The departing stage ID and crossfade
+are gone; the survivor keeps its ID and becomes/remains structurally and
+keyboard focused. A possible fresh full-height offer after stacked-peer removal
+is answered explicitly, without sleeping through the group deadline. After
+settling, the actual frame contains green body/blue popup pixels and no magenta
+peer pixels; snapshots, pending configures and survivor crossfade are empty.
+A subsequent unchanged client commit neither restarts animation nor changes the
+frame. The test client's surface dispatcher now records `wl_surface.enter` /
+`leave`, so the survivor's single membership is checked against the actual
+output name rather than inferred from stage placement. Fixture teardown checks
+resource counters; per-output renderer caches are removed before GL uninstall.
+
+No production change was required for this controlled gate. Dedicated evidence:
+`/tmp/driftwm-b4-peer.log`, 12 scenes passed. Full validation:
+`/tmp/driftwm-b4-peer-ci.log`, `dev/scripts/ci-local` exit 0 (368 library cases,
+1485 binary non-soak cases, integrations and isolated soak). Formatting, strict
+all-target clippy and locked build checks passed. No pure stage/layout/config
+algorithm changed, so no extra deep proptest pass was needed. No installation,
+manual TTY acceptance or push was performed. GPU evidence remains NVIDIA
+surfaceless rendering, not hardware scanout or exhaustive lifecycle parity.
+
+Next bounded B4 task: protocol null-buffer unmap/remap during retained motion,
+including initial configure/enrollment and stale transaction/image cleanup.
+Direct compositor remap is a separate delivered scenario. Supersession and output
+removal remain; A0/P0 audit still precedes feature expansion.

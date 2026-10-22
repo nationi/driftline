@@ -1,7 +1,8 @@
 # Tiling development status and handoff
 
 Updated 2026-10-22. Integration checkpoint: `8c17428`; upstream `7ce05ed` is
-included. Controlled B1/B2/B3 gates are delivered; B4 remap coverage is added.
+included. Controlled B1/B2/B3 gates are delivered; B4 direct-remap and
+surviving-peer disconnect coverage is added.
 The persistent development branch is `nationi/development`. This handoff was reconciled with Git;
 see the [roadmap queue](niri-tiling-parity-plan.md#execution-queue-and-acceptance-gates)
 for task order and acceptance. Older “next” statements in the
@@ -56,9 +57,18 @@ mode. These are documented fallbacks, not reference-compatible behavior.
 
 ## Verified evidence and its limits
 
-Latest validation gate: `/tmp/driftwm-b4-remap-ci.log`, exit 0: full
-`dev/scripts/ci-local`, 368 library cases, 1484 binary cases including ignored
-GPU scenarios, integration suites and isolated soak. Dedicated B4 remap gate:
+Latest validation gate: `/tmp/driftwm-b4-peer-ci.log`, exit 0: full
+`dev/scripts/ci-local`, 368 library cases, 1485 binary cases including ignored
+GPU scenarios, integration suites and isolated soak. Dedicated B4 peer gate:
+`/tmp/driftwm-b4-peer.log`, 12 SSD/CSD scenes at 1x/1.25x/1.5x: an ordinary
+held group or a recaptured mixed resize waits for a stalled client while the
+survivor has a ready buffer. Disconnect releases that buffer; any full-height
+reflow is answered, retained images/crossfades/transactions settle, and a later
+repaint does not restart animation. Exact held-frame comparison, final green
+body/blue popup and absent magenta departed content, stable survivor ID, focus
+and actual client-side output membership are checked. This is controlled
+two-client disconnect coverage, not all lifecycle combinations.
+Dedicated B4 remap gate:
 `/tmp/driftwm-b4-remap.log`, 12 SSD/CSD scenes at 1x/1.25x/1.5x with ordinary
 held images or a recaptured mixed resize. Explicit remap cancels the group,
 images and crossfades; late tiling buffers and the canvas restore response must
@@ -127,12 +137,13 @@ unresolved; use direct TTY for visual acceptance.
 
 ## Next work
 
-Next implementation: **B4 motion-time disconnect with a surviving peer**.
-Direct compositor remap of held/mixed content is covered; do not confuse it with
-protocol unmap/remap. Inspect the existing settled participant-disconnect and
-single-window mixed-title disconnect tests, then add the missing retained-motion
-case with a ready peer. Supersession and output removal remain later B4 gates. Require no stale IDs, images or transactions, no duplicate animation,
-and correct surviving focus/output membership. B3's named controlled allocation,
+Next implementation: **B4 protocol unmap/remap during retained motion**.
+Direct compositor remap and motion-time disconnect with a ready surviving peer
+are covered. Inspect protocol null-buffer unmap/remap, initial configure and
+mapping-time enrollment paths before adding the missing retained-motion case.
+Supersession and output removal remain later B4 gates. Require no stale IDs,
+images or transactions, no duplicate animation, and correct surviving
+focus/output membership. B3's named controlled allocation,
 stale-content and view/output gates are delivered; residual hardware/zoom/effect
 combinations do not establish universal parity. Keep the expensive independent
 GPU orientation oracle outside timed commit groups.
@@ -159,8 +170,8 @@ proportional-width/native-height offers and complete release/recapture checks.
 A separate seven-transform scene verifies actual GPU orientation against an
 independent upright render. Real DRM scanout is not tested. Zoom, every degraded/effect/minification path,
 other GPU failure APIs and multi-output ownership remain unproven. B4 retains
-broader motion-time remap/output removal. Full tiling multi-output support remains
-P11; enrolling a second output still leaves tiling.
+protocol unmap/remap, supersession and output removal. Full tiling multi-output
+support remains P11; enrolling a second output still leaves tiling.
 Degraded coverage also adds 12 stale-minification scenes and 24 client-region blur
 scenes (grow/shrink, SSD/CSD, 1x/1.25x/1.5x, reply/timeout). Rendered blur differences
 stay within the independently transformed client region, region-only restoration
