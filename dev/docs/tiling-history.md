@@ -2873,3 +2873,26 @@ for docs/tooling; implementation evidence remains B4. No push/install/TTY claim.
 Next A0: workspace up/down/move/name and remaining opacity/urgency/cast/integration/
 internal action scope, misc/root/recent-windows and independent executable
 reference fixtures. Full protocol/topology/input/render acceptance remains open.
+
+
+## A0 workspace and mapped-window policy actions
+
+Reviewed 24 more action consumers (154 scoped rows, 32 not yet scoped), with
+schema review links unchanged at 496/576. Traced ordinary/DnD workspace switching,
+under-pointer monitor selection, window/column Smart/No transfer, reorder while
+preserving previous identity, naming/source-index behavior and remote-target
+boundary-maintenance source edge. Opacity toggle ignores a resolved rule and
+resets conditionally on changed recomputation; urgency is gated by focus and
+marks rule recomputation. Dynamic casting changes only dynamic targets, differs
+from session stop, is feature-gated and can alter cast-target match state.
+
+Corrected seven former generic Outside statuses: two opacity actions now
+Integration/Missing and five cast actions Integration/Unverified. This is scope
+correction, not runtime support or Exact evidence. Validation passed: Python
+syntax, deterministic 576 field /186 action /136–50 config exposure inventory,
+preserved field/action keys and prior links, exact seven status/scope corrections,
+24 new links and 154 disjoint action review rows, local/pinned links/anchors,
+clean exact reference and diff checks. No niri/client/PipeWire/GPU execution or
+Rust CI rerun for docs/tooling; implementation evidence remains B4. No push/
+install/TTY claim. Next A0: remaining 32 process/session/debug/capture/MRU/internal
+action scopes, misc/root/recent-windows and independent executable fixtures.

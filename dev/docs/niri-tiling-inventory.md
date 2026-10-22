@@ -117,29 +117,29 @@ Outside = explicit non-layout scope exclusion. Never infer Exact from a similar 
 | `CenterWindow` | Layout | Missing | — | P4/P6–P14; no parity evidence yet; [navigation/view action audit](niri-navigation-view-action-audit.md) |
 | `CenterWindowById` | Layout | Missing | — | P4/P6–P14; no parity evidence yet; [navigation/view action audit](niri-navigation-view-action-audit.md) |
 | `CenterVisibleColumns` | Layout | Missing | — | P4/P6–P14; no parity evidence yet; [navigation/view action audit](niri-navigation-view-action-audit.md) |
-| `FocusWorkspaceDown` | Layout | Missing | — | P4/P6–P14; no parity evidence yet |
-| `FocusWorkspaceDownUnderMouse` | Layout | Missing | — | P4/P6–P14; no parity evidence yet |
-| `FocusWorkspaceUp` | Layout | Missing | — | P4/P6–P14; no parity evidence yet |
-| `FocusWorkspaceUpUnderMouse` | Layout | Missing | — | P4/P6–P14; no parity evidence yet |
+| `FocusWorkspaceDown` | Layout | Missing | — | P4/P6–P14; no parity evidence yet; [workspace/policy action audit](niri-workspace-policy-action-audit.md) |
+| `FocusWorkspaceDownUnderMouse` | Layout | Missing | — | P4/P6–P14; no parity evidence yet; [workspace/policy action audit](niri-workspace-policy-action-audit.md) |
+| `FocusWorkspaceUp` | Layout | Missing | — | P4/P6–P14; no parity evidence yet; [workspace/policy action audit](niri-workspace-policy-action-audit.md) |
+| `FocusWorkspaceUpUnderMouse` | Layout | Missing | — | P4/P6–P14; no parity evidence yet; [workspace/policy action audit](niri-workspace-policy-action-audit.md) |
 | `FocusWorkspace` | Layout | Missing | — | P4/P6–P14; no parity evidence yet; [action address audit](niri-binding-address-audit.md#scoped-ordinal-and-previous-selection) |
 | `FocusWorkspacePrevious` | Layout | Missing | — | P4/P6–P14; no parity evidence yet; [action address audit](niri-binding-address-audit.md#scoped-ordinal-and-previous-selection) |
-| `MoveWindowToWorkspaceDown` | Layout | Missing | — | P4/P6–P14; no parity evidence yet |
-| `MoveWindowToWorkspaceUp` | Layout | Missing | — | P4/P6–P14; no parity evidence yet |
+| `MoveWindowToWorkspaceDown` | Layout | Missing | — | P4/P6–P14; no parity evidence yet; [workspace/policy action audit](niri-workspace-policy-action-audit.md) |
+| `MoveWindowToWorkspaceUp` | Layout | Missing | — | P4/P6–P14; no parity evidence yet; [workspace/policy action audit](niri-workspace-policy-action-audit.md) |
 | `MoveWindowToWorkspace` | Layout | Missing | — | P4/P6–P14; no parity evidence yet; [size/transfer action audit](niri-size-transfer-action-audit.md) |
 | `MoveWindowToWorkspaceById` | Layout | Missing | — | P4/P6–P14; no parity evidence yet; [size/transfer action audit](niri-size-transfer-action-audit.md) |
-| `MoveColumnToWorkspaceDown` | Layout | Missing | — | P4/P6–P14; no parity evidence yet |
-| `MoveColumnToWorkspaceUp` | Layout | Missing | — | P4/P6–P14; no parity evidence yet |
+| `MoveColumnToWorkspaceDown` | Layout | Missing | — | P4/P6–P14; no parity evidence yet; [workspace/policy action audit](niri-workspace-policy-action-audit.md) |
+| `MoveColumnToWorkspaceUp` | Layout | Missing | — | P4/P6–P14; no parity evidence yet; [workspace/policy action audit](niri-workspace-policy-action-audit.md) |
 | `MoveColumnToWorkspace` | Layout | Missing | — | P4/P6–P14; no parity evidence yet; [size/transfer action audit](niri-size-transfer-action-audit.md) |
-| `MoveWorkspaceDown` | Layout | Missing | — | P4/P6–P14; no parity evidence yet |
-| `MoveWorkspaceUp` | Layout | Missing | — | P4/P6–P14; no parity evidence yet |
+| `MoveWorkspaceDown` | Layout | Missing | — | P4/P6–P14; no parity evidence yet; [workspace/policy action audit](niri-workspace-policy-action-audit.md) |
+| `MoveWorkspaceUp` | Layout | Missing | — | P4/P6–P14; no parity evidence yet; [workspace/policy action audit](niri-workspace-policy-action-audit.md) |
 | `MoveWorkspaceToIndex` | Layout | Missing | — | P4/P6–P14; no parity evidence yet; [size/transfer action audit](niri-size-transfer-action-audit.md) |
 | `MoveWorkspaceToIndexByRef` | Layout | Missing | — | P4/P6–P14; no parity evidence yet; [size/transfer action audit](niri-size-transfer-action-audit.md) |
 | `MoveWorkspaceToMonitorByRef` | Layout | Missing | — | P4/P6–P14; no parity evidence yet; [size/transfer action audit](niri-size-transfer-action-audit.md) |
 | `MoveWorkspaceToMonitor` | Layout | Missing | — | P4/P6–P14; no parity evidence yet; [size/transfer action audit](niri-size-transfer-action-audit.md) |
-| `SetWorkspaceName` | Layout | Missing | — | P4/P6–P14; no parity evidence yet |
-| `SetWorkspaceNameByRef` | Layout | Missing | — | P4/P6–P14; no parity evidence yet |
-| `UnsetWorkspaceName` | Layout | Missing | — | P4/P6–P14; no parity evidence yet |
-| `UnsetWorkSpaceNameByRef` | Layout | Missing | — | P4/P6–P14; no parity evidence yet |
+| `SetWorkspaceName` | Layout | Missing | — | P4/P6–P14; no parity evidence yet; [workspace/policy action audit](niri-workspace-policy-action-audit.md) |
+| `SetWorkspaceNameByRef` | Layout | Missing | — | P4/P6–P14; no parity evidence yet; [workspace/policy action audit](niri-workspace-policy-action-audit.md) |
+| `UnsetWorkspaceName` | Layout | Missing | — | P4/P6–P14; no parity evidence yet; [workspace/policy action audit](niri-workspace-policy-action-audit.md) |
+| `UnsetWorkSpaceNameByRef` | Layout | Missing | — | P4/P6–P14; no parity evidence yet; [workspace/policy action audit](niri-workspace-policy-action-audit.md) |
 | `FocusMonitorLeft` | Layout | Missing | — | P4/P6–P14; no parity evidence yet; [navigation/view action audit](niri-navigation-view-action-audit.md) |
 | `FocusMonitorRight` | Layout | Missing | — | P4/P6–P14; no parity evidence yet; [navigation/view action audit](niri-navigation-view-action-audit.md) |
 | `FocusMonitorDown` | Layout | Missing | — | P4/P6–P14; no parity evidence yet; [navigation/view action audit](niri-navigation-view-action-audit.md) |
@@ -201,19 +201,19 @@ Outside = explicit non-layout scope exclusion. Never infer Exact from a similar 
 | `FocusTiling` | Layout | Missing | — | P4/P6–P14; no parity evidence yet; [local/state action audit](niri-local-state-action-audit.md) |
 | `SwitchFocusBetweenFloatingAndTiling` | Layout | Missing | — | P4/P6–P14; no parity evidence yet; [local/state action audit](niri-local-state-action-audit.md) |
 | `MoveFloatingWindowById` | Layout | Missing | — | P4/P6–P14; no parity evidence yet; [size/transfer action audit](niri-size-transfer-action-audit.md) |
-| `ToggleWindowRuleOpacity` | Outside | Outside | unrelated compositor action | roadmap scope; reconsider if layout-visible |
-| `ToggleWindowRuleOpacityById` | Outside | Outside | unrelated compositor action | roadmap scope; reconsider if layout-visible |
-| `SetDynamicCastWindow` | Outside | Outside | unrelated compositor action | roadmap scope; reconsider if layout-visible |
-| `SetDynamicCastWindowById` | Outside | Outside | unrelated compositor action | roadmap scope; reconsider if layout-visible |
-| `SetDynamicCastMonitor` | Outside | Outside | unrelated compositor action | roadmap scope; reconsider if layout-visible |
-| `ClearDynamicCastTarget` | Outside | Outside | unrelated compositor action | roadmap scope; reconsider if layout-visible |
-| `StopCast` | Outside | Outside | unrelated compositor action | roadmap scope; reconsider if layout-visible |
+| `ToggleWindowRuleOpacity` | Integration | Missing | Reference ignore-opacity-rule toggle missing | Mapped opacity/focus/reload acceptance remains open; [workspace/policy action audit](niri-workspace-policy-action-audit.md) |
+| `ToggleWindowRuleOpacityById` | Integration | Missing | Reference ignore-opacity-rule toggle missing | Mapped opacity/focus/reload acceptance remains open; [workspace/policy action audit](niri-workspace-policy-action-audit.md) |
+| `SetDynamicCastWindow` | Integration | Unverified | Cast target can affect rule matching/privacy; not excluded | Feature/session/target/lifecycle acceptance remains open; [workspace/policy action audit](niri-workspace-policy-action-audit.md) |
+| `SetDynamicCastWindowById` | Integration | Unverified | Cast target can affect rule matching/privacy; not excluded | Feature/session/target/lifecycle acceptance remains open; [workspace/policy action audit](niri-workspace-policy-action-audit.md) |
+| `SetDynamicCastMonitor` | Integration | Unverified | Cast target can affect rule matching/privacy; not excluded | Feature/session/target/lifecycle acceptance remains open; [workspace/policy action audit](niri-workspace-policy-action-audit.md) |
+| `ClearDynamicCastTarget` | Integration | Unverified | Cast target can affect rule matching/privacy; not excluded | Feature/session/target/lifecycle acceptance remains open; [workspace/policy action audit](niri-workspace-policy-action-audit.md) |
+| `StopCast` | Integration | Unverified | Cast target can affect rule matching/privacy; not excluded | Feature/session/target/lifecycle acceptance remains open; [workspace/policy action audit](niri-workspace-policy-action-audit.md) |
 | `ToggleOverview` | Layout | Missing | — | P4/P6–P14; no parity evidence yet; [local/state action audit](niri-local-state-action-audit.md) |
 | `OpenOverview` | Layout | Missing | — | P4/P6–P14; no parity evidence yet; [local/state action audit](niri-local-state-action-audit.md) |
 | `CloseOverview` | Layout | Missing | — | P4/P6–P14; no parity evidence yet; [local/state action audit](niri-local-state-action-audit.md) |
-| `ToggleWindowUrgent` | Integration | Unverified | existing focus/window state is not a parity test | P8/P10/P14; behavior audit pending |
-| `SetWindowUrgent` | Layout | Missing | — | P4/P6–P14; no parity evidence yet |
-| `UnsetWindowUrgent` | Integration | Unverified | existing focus/window state is not a parity test | P8/P10/P14; behavior audit pending |
+| `ToggleWindowUrgent` | Integration | Unverified | existing focus/window state is not a parity test | P8/P10/P14; behavior audit pending; [workspace/policy action audit](niri-workspace-policy-action-audit.md) |
+| `SetWindowUrgent` | Layout | Missing | — | P4/P6–P14; no parity evidence yet; [workspace/policy action audit](niri-workspace-policy-action-audit.md) |
+| `UnsetWindowUrgent` | Integration | Unverified | existing focus/window state is not a parity test | P8/P10/P14; behavior audit pending; [workspace/policy action audit](niri-workspace-policy-action-audit.md) |
 | `LoadConfigFile` | Outside | Outside | unrelated compositor action | roadmap scope; reconsider if layout-visible |
 | `MruAdvance` | Integration | Unverified | existing focus/window state is not a parity test | P8/P10/P14; behavior audit pending |
 | `MruConfirm` | Integration | Unverified | existing focus/window state is not a parity test | P8/P10/P14; behavior audit pending |

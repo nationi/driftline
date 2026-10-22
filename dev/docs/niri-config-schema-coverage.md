@@ -131,7 +131,9 @@ consumers. The [size/transfer action audit](niri-size-transfer-action-audit.md) 
 action consumers, retaining existing Partial status. The
 [navigation/view action audit](niri-navigation-view-action-audit.md) adds 40 scoped
 action consumers. The [local/state action audit](niri-local-state-action-audit.md)
-adds 39 scoped consumers. Next A0: remaining workspace/state/integration actions,
-misc/root/recent-windows semantics and independent reference fixtures. Document
+adds 39 scoped consumers. The [workspace/policy action audit](niri-workspace-policy-action-audit.md)
+adds 24, correcting seven opacity/cast generic Outside labels to integration.
+Next A0: remaining 32 action scopes, misc/root/recent-windows semantics and
+independent reference fixtures. Document
 concrete exclusions as needed. Independent decoder/geometry/operation fixtures beyond zero gaps remain required; no Exact
 or overall-completion claim follows from covering the source file list.

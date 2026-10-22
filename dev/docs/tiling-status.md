@@ -64,16 +64,18 @@ mode. These are documented fallbacks, not reference-compatible behavior.
 ## Verified evidence and its limits
 
 Latest A0 documentation/tooling validation: the
-[local/state action audit](niri-local-state-action-audit.md) adds 39 action links
-(130 scoped action rows total). It traces ordinary/wrapping/under-pointer focus,
-reorder, tab state transitions, normal/interactive floating membership, focus
-domains, real versus windowed fullscreen and Overview desired/progress behavior.
-Client serial/commit and active/background target distinctions remain separate
-from actual acceptance. Named-schema review count stays 496/576; inventory stays
-186 actions, 18 paths / 14 modules, 25 root nodes / 24 Config fields and 136
-derived / 50 config-skipped variants. Syntax, deterministic generation, disjoint
-action sets, preserved keys/statuses and local/pinned links were checked. No
-runtime/config change or executable parity claim; implementation CI remains B4.
+[workspace/policy action audit](niri-workspace-policy-action-audit.md) adds 24
+links (154 scoped action rows total). It traces workspace DnD/apparent-index,
+under-pointer switching, Smart/No transfers, reorder/previous identity, naming
+and remote-reference boundary edge, opacity ignore/recompute, focus-gated urgency,
+feature-gated dynamic targets versus session stop and cast-target rule flags.
+Seven generic Outside rows were corrected: two opacity actions Integration/Missing,
+five cast actions Integration/Unverified. Other action statuses stay unchanged.
+Named-schema review count stays 496/576; inventory stays 186 actions, 18 paths /
+14 modules, 25 root nodes / 24 Config fields and 136 derived / 50 skipped variants.
+Syntax, deterministic output, disjoint action sets, exact scope-change set and
+local/pinned links were checked. No runtime/config change or executable parity
+claim; implementation CI remains B4.
 
 Latest validation gate: `/tmp/driftwm-b4-output-ci.log`, exit 0: full
 `dev/scripts/ci-local`, 369 library cases, 1490 binary cases including ignored
@@ -185,13 +187,13 @@ unresolved; use direct TTY for visual acceptance.
 
 ## Next work
 
-Next work: **A0/P0 remaining workspace and integration/state action families**,
-pinned niri `12de51d6a60baad8896366920278a24f17921f52`: workspace up/down/move/name,
-opacity/urgency/cast and explicit remaining integration/internal scope. The 130
-scoped action rows do not close 186 variants. Misc/root/recent-windows semantics
-and independent executable reference fixtures beyond zero gaps remain open,
-along with input/backend/capture and complete numerical animation/gesture/layer/
-overview acceptance. Source review is not implementation or a waiver of gates.
+Next work: **A0/P0 remaining process/session/debug/capture/MRU/internal action
+scope**, pinned niri `12de51d6a60baad8896366920278a24f17921f52`. 154 source-linked
+actions leave 32 without scoped action audit; classify them individually rather
+than relying on generic Outside. Misc/root/recent-windows semantics and independent
+executable reference fixtures beyond zero gaps remain open, together with retained
+input/backend/capture and full numerical animation/gesture/layer/overview
+acceptance. Source review is not implementation or a waiver of feature gates.
 Do not repeat delivered audits or restart B matrices. A0/P0 gates feature
 expansion; source coverage and scoped review do not prove complete niri parity.
 Controlled SSD scale-change release is

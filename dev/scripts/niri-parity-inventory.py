@@ -16,6 +16,10 @@ def block(source, declaration):
 
 
 def action_status(name):
+    if name in {"ToggleWindowRuleOpacity", "ToggleWindowRuleOpacityById"}:
+        return "Integration", "Missing", "Reference ignore-opacity-rule toggle missing", "Mapped opacity/focus/reload acceptance remains open"
+    if name in {"SetDynamicCastWindow", "SetDynamicCastWindowById", "SetDynamicCastMonitor", "ClearDynamicCastTarget", "StopCast"}:
+        return "Integration", "Unverified", "Cast target can affect rule matching/privacy; not excluded", "Feature/session/target/lifecycle acceptance remains open"
     partial = {
         "FocusColumnLeft": "focus-column left",
         "FocusColumnRight": "focus-column right",
@@ -211,6 +215,9 @@ ROOT_NODES = {
 def schema_structs(source):
     for match in re.finditer(r"^pub struct (\w+)[^;\n{]*\{", source, re.M):
         yield match.group(1), re.findall(r"^    pub (\w+):", block(source, match.group(0)), re.M)
+
+
+WORKSPACE_POLICY_ACTION_AUDIT = set("FocusWorkspaceDown FocusWorkspaceDownUnderMouse FocusWorkspaceUp FocusWorkspaceUpUnderMouse MoveWindowToWorkspaceDown MoveWindowToWorkspaceUp MoveColumnToWorkspaceDown MoveColumnToWorkspaceUp MoveWorkspaceDown MoveWorkspaceUp SetWorkspaceName SetWorkspaceNameByRef UnsetWorkspaceName UnsetWorkSpaceNameByRef ToggleWindowRuleOpacity ToggleWindowRuleOpacityById ToggleWindowUrgent SetWindowUrgent UnsetWindowUrgent SetDynamicCastWindow SetDynamicCastWindowById SetDynamicCastMonitor ClearDynamicCastTarget StopCast".split())
 
 
 LOCAL_STATE_ACTION_AUDIT = set("CloseWindow FocusColumnLeft FocusColumnLeftUnderMouse FocusColumnRight FocusColumnRightUnderMouse FocusWindowDown FocusWindowUp FocusWindowDownOrColumnLeft FocusWindowDownOrColumnRight FocusWindowUpOrColumnLeft FocusWindowUpOrColumnRight FocusWindowTop FocusWindowBottom FocusWindowDownOrTop FocusWindowUpOrBottom MoveColumnLeft MoveColumnRight MoveColumnToFirst MoveColumnToLast MoveWindowDown MoveWindowUp ToggleColumnTabbedDisplay SetColumnDisplay ToggleWindowFloating ToggleWindowFloatingById MoveWindowToFloating MoveWindowToFloatingById MoveWindowToTiling MoveWindowToTilingById FocusFloating FocusTiling SwitchFocusBetweenFloatingAndTiling FullscreenWindow FullscreenWindowById ToggleWindowedFullscreen ToggleWindowedFullscreenById ToggleOverview OpenOverview CloseOverview".split())
@@ -485,6 +492,8 @@ def generate(root):
     assert PRESET_TOPOLOGY_ACTION_AUDIT.issubset(names), "Reviewed preset/topology actions must exist"
     assert NAVIGATION_VIEW_ACTION_AUDIT.issubset(names), "Reviewed navigation/view actions must exist"
     assert LOCAL_STATE_ACTION_AUDIT.issubset(names), "Reviewed local/state actions must exist"
+    assert WORKSPACE_POLICY_ACTION_AUDIT.issubset(names), "Reviewed workspace/policy actions must exist"
+    assert not WORKSPACE_POLICY_ACTION_AUDIT & (ACTION_ADDRESS_AUDIT | SIZE_TRANSFER_ACTION_AUDIT | PRESET_TOPOLOGY_ACTION_AUDIT | NAVIGATION_VIEW_ACTION_AUDIT | LOCAL_STATE_ACTION_AUDIT), "Workspace/policy audit sets must not overlap"
     assert not LOCAL_STATE_ACTION_AUDIT & (ACTION_ADDRESS_AUDIT | SIZE_TRANSFER_ACTION_AUDIT | PRESET_TOPOLOGY_ACTION_AUDIT | NAVIGATION_VIEW_ACTION_AUDIT), "Local/state audit sets must not overlap"
     assert not NAVIGATION_VIEW_ACTION_AUDIT & (ACTION_ADDRESS_AUDIT | SIZE_TRANSFER_ACTION_AUDIT | PRESET_TOPOLOGY_ACTION_AUDIT), "Navigation action audit sets must not overlap"
     assert not PRESET_TOPOLOGY_ACTION_AUDIT & (ACTION_ADDRESS_AUDIT | SIZE_TRANSFER_ACTION_AUDIT), "Scoped topology actions must not overlap"
@@ -538,6 +547,8 @@ def generate(root):
             evidence += "; [navigation/view action audit](niri-navigation-view-action-audit.md)"
         if name in LOCAL_STATE_ACTION_AUDIT:
             evidence += "; [local/state action audit](niri-local-state-action-audit.md)"
+        if name in WORKSPACE_POLICY_ACTION_AUDIT:
+            evidence += "; [workspace/policy action audit](niri-workspace-policy-action-audit.md)"
         lines.append(f"| `{name}` | {scope} | {status} | {mapping} | {evidence} |")
     lines += ["", f"Action variants indexed: **{len(names)}**.", "", "## Action config exposure", "",
         f"Derived config decoder variants: **{len(names) - len(skipped)}**; skipped variants: **{len(skipped)}**.",
