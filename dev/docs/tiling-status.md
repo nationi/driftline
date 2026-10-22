@@ -56,9 +56,11 @@ mode. These are documented fallbacks, not reference-compatible behavior.
 
 ## Verified evidence and its limits
 
-Latest validation gate: `/tmp/driftwm-b3-views-ci.log`, exit 0: full
-`dev/scripts/ci-local`, 368 library cases, 1476 binary cases including ignored
-GPU scenarios, integration suites and isolated soak. Dedicated view gate
+Latest validation gate: `/tmp/driftwm-b3-transform-ci.log`, exit 0: full
+`dev/scripts/ci-local`, 368 library cases, 1478 binary cases including ignored
+GPU scenarios, integration suites and isolated soak. Transform gates:
+`/tmp/driftwm-b3-transform.log` (84 tiling scenes),
+`/tmp/driftwm-b3-orientation.log` (seven-transform pixel oracle), both passed. Dedicated view gate
 `/tmp/driftwm-b3-views.log` passed all three tests / 36 scenes, including 24 new
 fractional-camera/mode-height cases. Dedicated title gate
 `/tmp/driftwm-b3-ssd.log` passed all 12 CSD/SSD scale-change scenes with opacity
@@ -104,10 +106,12 @@ unresolved; use direct TTY for visual acceptance.
 
 ## Next work
 
-Next implementation: continue **B3** with rotated/reflected output transforms,
-then mode width/shrink cases. Extend the GPU fixture to use the actual output
-transform: its current RGBA helper always renders `Transform::Normal`, so merely
-changing output metadata cannot establish scanout-transform acceptance. Controlled SSD scale-change release is
+Next implementation: continue **B3** with mode width changes and shrink, then
+remaining degraded/effect/allocation-failure cases. Rotated/reflected GPU rendering
+now has explicit acceptance: all seven non-normal transforms use the actual output
+damage/render path; an independent CPU pixel permutation compares against an
+upright render. Keep that expensive orientation oracle outside timed commit groups.
+Controlled SSD scale-change release is
 fixed: retain the native title raster separately, blend old/current premultiplied
 pixels before window opacity, and carry mixed title pixels through recapture.
 At the current output scale, title/border/shadow must share the same rounded
@@ -121,7 +125,11 @@ sample). Scales cover 1→1.25, 1.25→1.5, 1.5→1. Another 12 scenes cover cam
 height growth 1200x800→1200x1000. They retain popup anchors, release/recapture
 continuity and independent configure-height checks. Mode application is simulated
 at the backend-success boundary; real DRM modesetting is not exercised. These
-are controlled integration gates, not all output transitions. Zoom, every degraded/effect/minification path,
+are controlled integration gates, not all output transitions. Another 84 scenes
+cover all seven non-normal transforms, SSD/CSD, 1x/1.25x/1.5x and ordinary/mixed
+snapshots, including release/recapture, native popup anchors/title alpha and
+configure-height reflow. A separate seven-transform scene verifies actual GPU
+orientation against an independent upright render. Real DRM scanout is not tested. Zoom, every degraded/effect/minification path,
 allocation failures and multi-output ownership remain unproven. B4 retains
 broader motion-time remap/output removal. Full tiling multi-output support remains
 P11; enrolling a second output still leaves tiling.

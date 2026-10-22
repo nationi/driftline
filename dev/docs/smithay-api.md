@@ -703,3 +703,13 @@ path for the first retained-title frame; a texture blend uses explicit physical
 output bounds. `TextureBuffer::from_texture(&renderer, texture, scale, transform,
 opaque_regions)` wraps an already allocated texture without copying its pixels;
 clones must not be overwritten while a retained snapshot owns them.
+
+`OutputDamageTracker::new(size: Size<i32, Physical>, scale, transform)` takes raw
+mode/buffer dimensions. Its render path inverts the surface-oriented output
+transform before passing it to `GlesRenderer::render`; quarter-turns change the
+upright intersection dimensions. For GPU capture tests, pass raw mode size and
+the actual output transform to the tracker, then interpret readback orientation
+explicitly. Discrete pixel permutations require `width - 1 - x`/`height - 1 - y`,
+not continuous edge coordinates. GLES projection also accounts for OpenGL's Y
+axis; verify reflected quarter-turns against independently rendered content rather
+than assuming a continuous geometry-point transform directly indexes readback.

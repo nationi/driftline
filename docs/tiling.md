@@ -148,7 +148,9 @@ transition retain and blend the old SSD title raster with the new one, separatel
 from body content. Controlled CSD/SSD checks cover 1→1.25, 1.25→1.5 and 1.5→1
 with camera movement and repeated recapture. Additional checks cover fractional
 camera positions and a taller output mode during held resize. Other output
-transitions, including rotation/reflection, remain experimental.
+transitions remain experimental. Controlled GPU checks cover all rotations and
+reflections through held resize and repeated recapture; real hardware modesetting
+and every mode-size transition are not validated by these checks.
 During grouped resize, native compositor title-bar coverage blends separately
 from body pixels, preserving its height and rounded corners. Global blur config
 reloads retain the held image and blend toward the new policy when the client

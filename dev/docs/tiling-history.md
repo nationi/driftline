@@ -1965,3 +1965,49 @@ locked check, strict all-target clippy, no-run build, 368 library cases, 1476 bi
 cases including ignored GPU scenarios, integration suites and isolated soak.
 Dedicated view gate passed all 36 scenes. Markdown targets and
 `git diff --check` passed. This batch changes tests/documentation only.
+
+## 2026-10-22 — B3 actual rotated/reflected output rendering
+
+Baseline `ade5ac1`. Parameterized the internal RGBA helper by the actual output transform; tests
+export that entry point and the original screenshot/helper API remains a
+normal-transform wrapper. The tiling
+pixel fixture now renders raw mode-sized GPU buffers with the current transform,
+then converts them to upright pixel coordinates with explicit integer permutations
+for existing geometry assertions. Quarter-turns swap upright dimensions; frame
+indexing and configure-height expectations use those transformed dimensions.
+Release and recapture comparisons still inspect the complete rendered frame.
+
+`output_transform_pixels_match_an_independent_upright_render` checks all seven
+non-normal transforms with distinct red body/blue popup content. Render the same
+composition once with the actual output transform and once upright, then compare
+actual pixels through an independent discrete CPU permutation (<=2 bytes).
+This catches wrong quarter-turn reflection mappings, not merely metadata changes.
+`held_tiling_images_survive_rotated_and_reflected_output_rendering` adds 84 scenes:
+90/180/270/flipped/flipped-90/flipped-180/flipped-270 × three scales × SSD/CSD ×
+ordinary/mixed snapshots. Real config reload applies the transform; assert native
+popup dimensions/parent anchor, reflowed configure height, first release/mixed
+recapture/second release <=2 bytes, title alpha 153±2 and complete cleanup.
+Dedicated logs: `/tmp/driftwm-b3-orientation.log` (seven-transform oracle passed),
+`/tmp/driftwm-b3-transform.log` (84 scenes passed).
+
+Initial diagnostic runs rendered the heavy upright oracle inside a timed commit
+group and spent its real 300 ms budget before sending the client response. The
+group correctly expired with unchanged client geometry, so no content crossfade
+was needed; a later repaint then differed. This was fixture timing, not a lost
+retained texture on output rotation. Keep the independent orientation test outside
+commit groups, and retain only the essential render/anchor/continuity checks
+inside them. No production timeout, pixel tolerance or capture policy changed.
+No production rendering fix was required by the final matrix.
+
+B3 remains open for mode width/shrink and other documented degraded/effect/
+allocation-failure cases. The GPU path is genuine offscreen output transformation,
+not hardware modesetting or DRM scanout. Multi-output tiling remains P11. No pure
+stage/layout/config-parser algorithm changed, so no extra deep property pass is
+needed. No installation, release build, desktop restart, push or manual TTY
+acceptance was performed.
+
+Full `dev/scripts/ci-local` passed, exit 0 (`/tmp/driftwm-b3-transform-ci.log`):
+fmt, locked check, strict all-target clippy, no-run build, 368 library cases,
+1478 binary cases including ignored GPU scenarios, integration suites and isolated
+soak. The 84-case transformed matrix and orientation oracle pass in the full suite
+as well. Markdown targets and `git diff --check` passed.

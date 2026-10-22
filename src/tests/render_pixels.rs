@@ -454,15 +454,55 @@ fn tiling_live_frame(f: &mut Fixture, output: &smithay::output::Output) -> Vec<u
     let renderer = backend.renderer();
     let elements = crate::render::compose_frame(f.state(), renderer, output, Vec::new());
     let refs: Vec<_> = elements.iter().collect();
-    let bytes = crate::render::render_elements_to_rgba(
-        renderer,
-        output.current_mode().expect("output mode").size,
-        Scale::from(output.current_scale().fractional_scale()),
-        &refs,
-    )
-    .expect("render tiling frame");
+    let mode = output.current_mode().expect("output mode").size;
+    let scale = Scale::from(output.current_scale().fractional_scale());
+    let transform = output.current_transform();
+    let raw =
+        crate::render::render_elements_to_rgba_transformed(renderer, mode, scale, transform, &refs)
+            .expect("render transformed tiling frame");
+    let bytes = if transform == smithay::utils::Transform::Normal {
+        raw
+    } else {
+        let size = transform.transform_size(mode);
+        upright_scanout(
+            &raw,
+            mode.w as usize,
+            size.w as usize,
+            size.h as usize,
+            transform,
+        )
+    };
     f.state().backend = Some(backend);
     bytes
+}
+
+fn upright_scanout(
+    raw: &[u8],
+    stride: usize,
+    width: usize,
+    height: usize,
+    transform: smithay::utils::Transform,
+) -> Vec<u8> {
+    use smithay::utils::Transform;
+    let mut upright = vec![0; raw.len()];
+    for y in 0..height {
+        for x in 0..width {
+            let (rx, ry) = match transform {
+                Transform::Normal => (x, y),
+                Transform::_90 => (y, width - 1 - x),
+                Transform::_180 => (width - 1 - x, height - 1 - y),
+                Transform::_270 => (height - 1 - y, x),
+                Transform::Flipped => (width - 1 - x, y),
+                Transform::Flipped90 => (y, x),
+                Transform::Flipped180 => (x, height - 1 - y),
+                Transform::Flipped270 => (height - 1 - y, width - 1 - x),
+            };
+            let source = (ry * stride + rx) * 4;
+            let destination = (y * width + x) * 4;
+            upright[destination..destination + 4].copy_from_slice(&raw[source..source + 4]);
+        }
+    }
+    upright
 }
 
 #[derive(Clone, Copy)]
@@ -2567,17 +2607,55 @@ fn held_tiling_images_survive_output_mode_height_changes() {
     }
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug)]
 enum TilingViewChange {
     Scale,
     FractionalCamera,
     TallerMode,
+    Transform(&'static str, smithay::utils::Transform),
+}
+
+#[test]
+#[ignore = "needs surfaceless EGL; run with --include-ignored"]
+fn held_tiling_images_survive_rotated_and_reflected_output_rendering() {
+    use smithay::utils::Transform;
+    let _gl = gl::lock();
+    let (ready, loaded) = std::sync::mpsc::sync_channel(1);
+    driftwm::text::warm_fonts(move || {
+        let _ = ready.send(());
+    });
+    loaded
+        .recv_timeout(std::time::Duration::from_secs(10))
+        .unwrap();
+    for (name, transform) in [
+        ("90", Transform::_90),
+        ("180", Transform::_180),
+        ("270", Transform::_270),
+        ("flipped", Transform::Flipped),
+        ("flipped-90", Transform::Flipped90),
+        ("flipped-180", Transform::Flipped180),
+        ("flipped-270", Transform::Flipped270),
+    ] {
+        for scale in [1.0, 1.25, 1.5] {
+            for ssd in [false, true] {
+                for mixed in [false, true] {
+                    check_tiling_view_change(
+                        scale,
+                        scale,
+                        ssd,
+                        mixed,
+                        TilingViewChange::Transform(name, transform),
+                    );
+                }
+            }
+        }
+    }
 }
 
 fn check_tiling_view_change(from: f64, to: f64, ssd: bool, mixed: bool, change: TilingViewChange) {
     use super::{last_configured, tick_until_settled, window_by_app_id};
     use driftwm::config::Action;
-    let Some(renderer) = gl::surfaceless_renderer("held output scale change") else {
+    let Some(renderer) = gl::surfaceless_renderer("held output view change") else {
         return;
     };
     let config = config_toml(true)
@@ -2641,7 +2719,15 @@ fn check_tiling_view_change(from: f64, to: f64, ssd: bool, mixed: bool, change: 
         "{config}\n[[outputs]]\nname = {:?}\nmode = \"1200x{image_height}\"\nscale = {to}\n",
         output.name()
     );
+    let config = if let TilingViewChange::Transform(name, _) = change {
+        format!("{config}transform = {name:?}\n")
+    } else {
+        config
+    };
     f.state().reload_config_from_contents(&config);
+    if let TilingViewChange::Transform(_, transform) = change {
+        assert_eq!(output.current_transform(), transform);
+    }
     assert_eq!(output.current_scale().fractional_scale(), to);
     if matches!(change, TilingViewChange::TallerMode) {
         let intent = f
@@ -2670,6 +2756,11 @@ fn check_tiling_view_change(from: f64, to: f64, ssd: bool, mixed: bool, change: 
         f.state().output_config_dirty = true;
     }
     assert!(f.state().pending_mode_changes.is_empty());
+    let transformed_size = output
+        .current_transform()
+        .transform_size(output.current_mode().unwrap().size);
+    let frame_width = transformed_size.w as usize;
+    let frame_height = transformed_size.h as usize;
     let stationary = tiling_live_frame(&mut f, &output);
     let camera = if matches!(change, TilingViewChange::FractionalCamera) {
         (16.4, 12.2)
@@ -2681,14 +2772,17 @@ fn check_tiling_view_change(from: f64, to: f64, ssd: bool, mixed: bool, change: 
     assert!(f.state().tiling_view.is_some());
     assert_eq!(f.state().tiling_snapshot_count(), 2);
     let held = tiling_live_frame(&mut f, &output);
-    if !matches!(change, TilingViewChange::FractionalCamera) {
+    if matches!(
+        change,
+        TilingViewChange::Scale | TilingViewChange::TallerMode
+    ) {
         let dx = (16.0 * to).round() as usize;
         let dy = (12.0 * to).round() as usize;
         let mut camera_delta = 0;
-        for y in 0..image_height - dy {
-            for x in 0..1200 - dx {
-                let destination = (y * 1200 + x) * 4;
-                let source = ((y + dy) * 1200 + x + dx) * 4;
+        for y in 0..frame_height - dy {
+            for x in 0..frame_width - dx {
+                let destination = (y * frame_width + x) * 4;
+                let source = ((y + dy) * frame_width + x + dx) * 4;
                 for channel in 0..4 {
                     camera_delta = camera_delta
                         .max(held[destination + channel].abs_diff(stationary[source + channel]));
@@ -2697,7 +2791,7 @@ fn check_tiling_view_change(from: f64, to: f64, ssd: bool, mixed: bool, change: 
         }
         assert!(
             camera_delta <= 2,
-            "{from}→{to} SSD={ssd} mixed={mixed}: camera translation differs by {camera_delta}"
+            "{change:?} {from}→{to} SSD={ssd} mixed={mixed}: camera translation differs by {camera_delta}"
         );
     }
     let popup_origin = |frame: &[u8]| {
@@ -2707,7 +2801,7 @@ fn check_tiling_view_change(from: f64, to: f64, ssd: bool, mixed: bool, change: 
             .iter()
             .enumerate()
             .filter(|(_, p)| p[2] > 100 && p[0] < 100)
-            .map(|(i, _)| ((i % 1200) as i32, (i / 1200) as i32))
+            .map(|(i, _)| ((i % frame_width) as i32, (i / frame_width) as i32))
             .collect();
         (
             points.iter().map(|p| p.0).min().unwrap(),
@@ -2731,7 +2825,7 @@ fn check_tiling_view_change(from: f64, to: f64, ssd: bool, mixed: bool, change: 
         .iter()
         .enumerate()
         .filter(|(_, p)| p[2] > 100 && p[0] < 100)
-        .map(|(i, _)| (i % 1200, i / 1200))
+        .map(|(i, _)| (i % frame_width, i / frame_width))
         .collect();
     let width =
         points.iter().map(|p| p.0).max().unwrap() - points.iter().map(|p| p.0).min().unwrap() + 1;
@@ -2743,9 +2837,13 @@ fn check_tiling_view_change(from: f64, to: f64, ssd: bool, mixed: bool, change: 
         "popup must use the new output scale"
     );
     let size = last_configured(&mut f, client, &surface);
-    if matches!(change, TilingViewChange::TallerMode) {
+    if matches!(
+        change,
+        TilingViewChange::TallerMode | TilingViewChange::Transform(_, _)
+    ) {
         let chrome = f.state().element_chrome(&window);
-        let expected_height = (1000.0 / to).round() as i32 - chrome.bar - 2 * chrome.border;
+        let expected_height =
+            (frame_height as f64 / to).round() as i32 - chrome.bar - 2 * chrome.border;
         assert_eq!(
             size.1, expected_height,
             "new mode must reflow the tile to the new usable height"
@@ -2766,7 +2864,7 @@ fn check_tiling_view_change(from: f64, to: f64, ssd: bool, mixed: bool, change: 
         .unwrap();
     assert!(
         delta <= 2,
-        "{from}→{to} SSD={ssd} mixed={mixed}: scale-change release differs by {delta}"
+        "{change:?} {from}→{to} SSD={ssd} mixed={mixed}: scale-change release differs by {delta}"
     );
     f.state()
         .tick_window_animations(std::time::Duration::from_millis(16));
@@ -2784,7 +2882,7 @@ fn check_tiling_view_change(from: f64, to: f64, ssd: bool, mixed: bool, change: 
             - f64::from(f.state().config.decorations.title_bar_height) / 2.0)
             * to)
             .round() as usize;
-        let alpha = mixed_frame[(y * 1200 + x) * 4 + 3];
+        let alpha = mixed_frame[(y * frame_width + x) * 4 + 3];
         assert!(
             alpha.abs_diff(153) <= 2,
             "title alpha must not accumulate: {alpha}"
@@ -2800,7 +2898,7 @@ fn check_tiling_view_change(from: f64, to: f64, ssd: bool, mixed: bool, change: 
         .unwrap();
     assert!(
         delta <= 2,
-        "{from}→{to} SSD={ssd} mixed={mixed}: title recapture differs by {delta}"
+        "{change:?} {from}→{to} SSD={ssd} mixed={mixed}: title recapture differs by {delta}"
     );
     let size = last_configured(&mut f, client, &surface);
     let w = f.client(client).window(&surface);
@@ -2818,12 +2916,89 @@ fn check_tiling_view_change(from: f64, to: f64, ssd: bool, mixed: bool, change: 
         .unwrap();
     assert!(
         delta <= 2,
-        "{from}→{to} SSD={ssd} mixed={mixed}: title recapture release differs by {delta}"
+        "{change:?} {from}→{to} SSD={ssd} mixed={mixed}: title recapture release differs by {delta}"
     );
     tick_until_settled(&mut f);
     tiling_live_frame(&mut f, &output);
     assert!(!f.state().resize_crossfades.contains_key(&id));
     f.state().execute_action(&Action::ToggleTiling);
+    f.state().render.remove_output(&output.name());
+    gl::uninstall(&mut f);
+}
+
+#[test]
+#[ignore = "needs surfaceless EGL; run with --include-ignored"]
+fn output_transform_pixels_match_an_independent_upright_render() {
+    use smithay::utils::Transform;
+    let _gl = gl::lock();
+    let Some(renderer) = gl::surfaceless_renderer("output transform oracle") else {
+        return;
+    };
+    let mut f = Fixture::with_config(super::config(&config_toml(true)));
+    let output = f.add_output(1, (1200, 800));
+    gl::install(&mut f, renderer);
+    let client = f.add_client();
+    let surface = map_window_shm(
+        &mut f,
+        client,
+        "transform-oracle",
+        (200, 100),
+        (200, 100),
+        &solid_bgra(200, 100, CONTENT_BGRA, false),
+    );
+    super::tick_until_settled(&mut f);
+    let window = super::window_by_app_id(&mut f, "transform-oracle").unwrap();
+    f.state().stage.set_position(&window, (100, 120).into());
+    f.state().set_camera((0.0, 0.0).into());
+    colored_tiling_popup(&mut f, client, &surface, (180, 51), [255, 0, 0, 255]);
+    for transform in [
+        Transform::_90,
+        Transform::_180,
+        Transform::_270,
+        Transform::Flipped,
+        Transform::Flipped90,
+        Transform::Flipped180,
+        Transform::Flipped270,
+    ] {
+        output.change_current_state(None, Some(transform), None, None);
+        let mode = output.current_mode().unwrap().size;
+        let size = transform.transform_size(mode);
+        let mut backend = f.state().backend.take().unwrap();
+        let renderer = backend.renderer();
+        let elements = crate::render::compose_frame(f.state(), renderer, &output, Vec::new());
+        let refs: Vec<_> = elements.iter().collect();
+        let raw = crate::render::render_elements_to_rgba_transformed(
+            renderer,
+            mode,
+            Scale::from(1.0),
+            transform,
+            &refs,
+        )
+        .unwrap();
+        let expected =
+            crate::render::render_elements_to_rgba(renderer, size, Scale::from(1.0), &refs)
+                .unwrap();
+        let upright = upright_scanout(
+            &raw,
+            mode.w as usize,
+            size.w as usize,
+            size.h as usize,
+            transform,
+        );
+        assert!(expected.as_chunks::<4>().0.contains(&[255, 0, 0, 255]));
+        assert!(expected.as_chunks::<4>().0.contains(&[0, 0, 255, 255]));
+        let delta = upright
+            .iter()
+            .zip(&expected)
+            .map(|(a, b)| a.abs_diff(*b))
+            .max()
+            .unwrap();
+        assert!(
+            delta <= 2,
+            "{transform:?}: GPU transform differs from pixel permutation by {delta}"
+        );
+        f.state().backend = Some(backend);
+    }
     f.state().render.remove_output(&output.name());
     gl::uninstall(&mut f);
 }

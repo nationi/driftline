@@ -47,7 +47,7 @@ pub use shaders::{
 pub use tile_chunks::BgChunkCache;
 
 #[cfg(test)]
-pub(crate) use capture::render_elements_to_rgba;
+pub(crate) use capture::{render_elements_to_rgba, render_elements_to_rgba_transformed};
 #[cfg(test)]
 pub(crate) use suspended::{ensure_body, ensure_label};
 
