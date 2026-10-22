@@ -939,35 +939,35 @@ Declared types to check for nested values/custom decoding: `Binds`, `Bind`, `Key
 
 | Schema field | Status | Mapping / next audit |
 | --- | --- | --- |
-| `RecentWindows.on` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
-| `RecentWindows.debounce_ms` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
-| `RecentWindows.open_delay_ms` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
-| `RecentWindows.highlight` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
-| `RecentWindows.previews` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
-| `RecentWindows.binds` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
-| `RecentWindowsPart.on` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
-| `RecentWindowsPart.off` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
-| `RecentWindowsPart.debounce_ms` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
-| `RecentWindowsPart.open_delay_ms` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
-| `RecentWindowsPart.highlight` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
-| `RecentWindowsPart.previews` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
-| `RecentWindowsPart.binds` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
-| `MruHighlight.active_color` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
-| `MruHighlight.urgent_color` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
-| `MruHighlight.padding` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
-| `MruHighlight.corner_radius` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
-| `MruHighlightPart.active_color` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
-| `MruHighlightPart.urgent_color` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
-| `MruHighlightPart.padding` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
-| `MruHighlightPart.corner_radius` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
-| `MruPreviews.max_height` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
-| `MruPreviews.max_scale` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
-| `MruPreviewsPart.max_height` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
-| `MruPreviewsPart.max_scale` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
-| `MruBind.key` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
-| `MruBind.action` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
-| `MruBind.allow_inhibiting` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
-| `MruBind.hotkey_overlay_title` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
+| `RecentWindows.on` | Missing | Reference MRU model/UI/settings missing; [recent-windows audit](niri-recent-windows-audit.md#defaults-and-merge) |
+| `RecentWindows.debounce_ms` | Missing | Reference MRU model/UI/settings missing; [recent-windows audit](niri-recent-windows-audit.md#defaults-and-merge) |
+| `RecentWindows.open_delay_ms` | Missing | Reference MRU model/UI/settings missing; [recent-windows audit](niri-recent-windows-audit.md#defaults-and-merge) |
+| `RecentWindows.highlight` | Missing | Reference MRU model/UI/settings missing; [recent-windows audit](niri-recent-windows-audit.md#defaults-and-merge) |
+| `RecentWindows.previews` | Missing | Reference MRU model/UI/settings missing; [recent-windows audit](niri-recent-windows-audit.md#defaults-and-merge) |
+| `RecentWindows.binds` | Missing | Reference MRU model/UI/settings missing; [recent-windows audit](niri-recent-windows-audit.md#defaults-and-merge) |
+| `RecentWindowsPart.on` | Missing | Reference MRU model/UI/settings missing; [recent-windows audit](niri-recent-windows-audit.md#defaults-and-merge) |
+| `RecentWindowsPart.off` | Missing | Reference MRU model/UI/settings missing; [recent-windows audit](niri-recent-windows-audit.md#defaults-and-merge) |
+| `RecentWindowsPart.debounce_ms` | Missing | Reference MRU model/UI/settings missing; [recent-windows audit](niri-recent-windows-audit.md#defaults-and-merge) |
+| `RecentWindowsPart.open_delay_ms` | Missing | Reference MRU model/UI/settings missing; [recent-windows audit](niri-recent-windows-audit.md#defaults-and-merge) |
+| `RecentWindowsPart.highlight` | Missing | Reference MRU model/UI/settings missing; [recent-windows audit](niri-recent-windows-audit.md#defaults-and-merge) |
+| `RecentWindowsPart.previews` | Missing | Reference MRU model/UI/settings missing; [recent-windows audit](niri-recent-windows-audit.md#defaults-and-merge) |
+| `RecentWindowsPart.binds` | Missing | Reference MRU model/UI/settings missing; [recent-windows audit](niri-recent-windows-audit.md#defaults-and-merge) |
+| `MruHighlight.active_color` | Missing | Reference MRU model/UI/settings missing; [recent-windows audit](niri-recent-windows-audit.md#defaults-and-merge) |
+| `MruHighlight.urgent_color` | Missing | Reference MRU model/UI/settings missing; [recent-windows audit](niri-recent-windows-audit.md#defaults-and-merge) |
+| `MruHighlight.padding` | Missing | Reference MRU model/UI/settings missing; [recent-windows audit](niri-recent-windows-audit.md#defaults-and-merge) |
+| `MruHighlight.corner_radius` | Missing | Reference MRU model/UI/settings missing; [recent-windows audit](niri-recent-windows-audit.md#defaults-and-merge) |
+| `MruHighlightPart.active_color` | Missing | Reference MRU model/UI/settings missing; [recent-windows audit](niri-recent-windows-audit.md#defaults-and-merge) |
+| `MruHighlightPart.urgent_color` | Missing | Reference MRU model/UI/settings missing; [recent-windows audit](niri-recent-windows-audit.md#defaults-and-merge) |
+| `MruHighlightPart.padding` | Missing | Reference MRU model/UI/settings missing; [recent-windows audit](niri-recent-windows-audit.md#defaults-and-merge) |
+| `MruHighlightPart.corner_radius` | Missing | Reference MRU model/UI/settings missing; [recent-windows audit](niri-recent-windows-audit.md#defaults-and-merge) |
+| `MruPreviews.max_height` | Missing | Reference MRU model/UI/settings missing; [recent-windows audit](niri-recent-windows-audit.md#defaults-and-merge) |
+| `MruPreviews.max_scale` | Missing | Reference MRU model/UI/settings missing; [recent-windows audit](niri-recent-windows-audit.md#defaults-and-merge) |
+| `MruPreviewsPart.max_height` | Missing | Reference MRU model/UI/settings missing; [recent-windows audit](niri-recent-windows-audit.md#defaults-and-merge) |
+| `MruPreviewsPart.max_scale` | Missing | Reference MRU model/UI/settings missing; [recent-windows audit](niri-recent-windows-audit.md#defaults-and-merge) |
+| `MruBind.key` | Missing | Reference MRU model/UI/settings missing; [recent-windows audit](niri-recent-windows-audit.md#mru-binding-and-enum-grammar) |
+| `MruBind.action` | Missing | Reference MRU model/UI/settings missing; [recent-windows audit](niri-recent-windows-audit.md#mru-binding-and-enum-grammar) |
+| `MruBind.allow_inhibiting` | Missing | Reference MRU model/UI/settings missing; [recent-windows audit](niri-recent-windows-audit.md#mru-binding-and-enum-grammar) |
+| `MruBind.hotkey_overlay_title` | Outside | Help-title presentation outside scope; MRU binding integration retained; [recent-windows audit](niri-recent-windows-audit.md#mru-binding-and-enum-grammar) |
 
 Declared types to check for nested values/custom decoding: `RecentWindows`, `RecentWindowsPart`, `MruHighlight`, `MruHighlightPart`, `MruPreviews`, `MruPreviewsPart`, `MruBind`, `MruDirection`, `MruScope`, `MruFilter`, `MruAction`, `MruBinds`.
 

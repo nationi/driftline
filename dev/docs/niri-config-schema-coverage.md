@@ -136,7 +136,9 @@ adds 24, correcting seven opacity/cast generic Outside labels to integration.
 The [remaining integration/action scope audit](niri-integration-action-scope-audit.md)
 adds the final 32 action links and 16 explicit scope corrections. All 186 action
 variants now have source-scope evidence; runtime/argument acceptance remains open.
-Next A0: recent-windows/misc/root semantics and independent reference fixtures.
+The [recent-windows audit](niri-recent-windows-audit.md) adds 29 named field links
+(525 total); MRU runtime/decoder/lifecycle acceptance remains open. Next A0:
+remaining misc/root semantics and independent reference fixtures.
 Document concrete exclusions as needed. Independent decoder/geometry/operation
 fixtures beyond zero gaps remain required; no Exact or overall-completion claim
 follows from covering the source file list.

@@ -2924,3 +2924,26 @@ acceptance gates. Full niri parity remains unfinished.
 
 The roadmap continuation section was consolidated to remove superseded per-batch
 next-task statements; the audit catalog/history retains their detailed evidence.
+
+
+## A0 recent-windows configuration and model source audit
+
+Reviewed all 29 named MRU fields (525/576 schema links), with all 186 action links
+unchanged. Recorded defaults, off-wins merge, first-custom-bind default clearing
+shared across includes versus later key override, modifier/keyboard-only MRU
+bindings and fixed general-bind conversion. All is an omitted filter default but
+skipped explicit scalar, while scope cycling is All→Workspace→Output. Model
+selection uses timestamp order and nearest-left fallback; AppId is captured from
+the selected cached thumbnail with exact equality. Timing, shared config reload,
+open-versus-visible state and binding precedence were traced. Preview max limits
+have a later minimum scale derived from 16 logical pixels, so they are not hard caps.
+One help-title row alone is Outside; MRU facility is still missing in driftwm.
+
+Validation passed: Python syntax, deterministic 576 fields /186 actions /136–50
+config exposure, preserved old keys/action scopes/statuses and source links,
+29 new links and exact MRU field sets, local/pinned links/anchors and clean exact
+reference, diff checks. No niri/parser/client/GPU execution or Rust CI rerun for
+docs/tooling; implementation evidence remains B4. No push/install/TTY claim.
+Next A0: remaining misc/root decoders and explicit scope, then independent
+executable reference fixtures and retained acceptance. MRU lifecycle/model/render
+coverage is source evidence, not proven behavioral parity.

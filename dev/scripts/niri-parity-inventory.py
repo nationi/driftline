@@ -220,6 +220,24 @@ def schema_structs(source):
         yield match.group(1), re.findall(r"^    pub (\w+):", block(source, match.group(0)), re.M)
 
 
+RECENT_WINDOWS_AUDIT_FIELDS = {
+    ("recent_windows", "RecentWindows"): "on debounce_ms open_delay_ms highlight previews binds",
+    ("recent_windows", "RecentWindowsPart"): "on off debounce_ms open_delay_ms highlight previews binds",
+    ("recent_windows", "MruHighlight"): "active_color urgent_color padding corner_radius",
+    ("recent_windows", "MruHighlightPart"): "active_color urgent_color padding corner_radius",
+    ("recent_windows", "MruPreviews"): "max_height max_scale",
+    ("recent_windows", "MruPreviewsPart"): "max_height max_scale",
+    ("recent_windows", "MruBind"): "key action allow_inhibiting hotkey_overlay_title",
+}
+
+
+def recent_windows_status(name, field):
+    section = "mru-binding-and-enum-grammar" if name == "MruBind" else "defaults-and-merge"
+    status = "Outside" if field == "hotkey_overlay_title" else "Missing"
+    mapping = "Help-title presentation outside scope; MRU binding integration retained" if status == "Outside" else "Reference MRU model/UI/settings missing"
+    return status, f"{mapping}; [recent-windows audit](niri-recent-windows-audit.md#{section})"
+
+
 FINAL_ACTION_SCOPE = {
     "Quit": ("Outside", "Outside", "Exit/confirmation command UX outside tiling; window teardown acceptance retained"),
     "ChangeVt": ("Integration", "Unverified", "VT/session transition clears suppressed keys and repeat; integration acceptance open"),
@@ -461,6 +479,8 @@ def layer_overview_status(name, field):
 
 
 def config_status(module, name, field):
+    if (module, name) in RECENT_WINDOWS_AUDIT_FIELDS:
+        return recent_windows_status(name, field)
     if (module, name) in BIND_AUDIT_FIELDS:
         return bind_status(name, field)
     if field in OUTPUT_RULE_AUDIT_FIELDS.get((module, name), "").split():
@@ -625,6 +645,9 @@ def generate(root):
         source = sources[f"{module}.rs"]
         lines += [f"### `{module}.rs`", "", "| Schema field | Status | Mapping / next audit |", "| --- | --- | --- |"]
         for name, fields in schema_structs(source):
+            if module == "recent_windows":
+                assert (module, name) in RECENT_WINDOWS_AUDIT_FIELDS, "Every MRU struct needs source review"
+                assert set(fields) == set(RECENT_WINDOWS_AUDIT_FIELDS[(module, name)].split()), "MRU audit must cover every field"
             if (module, name) in BIND_AUDIT_FIELDS:
                 assert set(fields) == set(BIND_AUDIT_FIELDS[(module, name)].split()), "Bind audit must cover every field"
             if (module, name) in OUTPUT_RULE_AUDIT_FIELDS:
