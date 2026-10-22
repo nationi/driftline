@@ -2639,3 +2639,26 @@ Next A0: input focus/warp/workspace policy and layout-visible debug flags, then
 remaining decoder/action addressing and independent fixture expansion. Complete
 layer/overview interaction/capture permutations remain separate acceptance work;
 A0/P0 stays open and gates feature expansion.
+
+
+## A0 input focus and layout debug source audit
+
+Audited pinned niri input defaults/optional-node replacement, Percent/mode shapes,
+hover target/transition eligibility and working-area-normalized scroll threshold,
+visual-rectangle cursor warp modes and per-output workspace back-and-forth.
+Traced five debug flags through mapping, token validation, refresh and commit
+blocking. The later individual configure-intent branch overrides scrolling's
+earlier throttle bypass; this edge is recorded for executable reference fixtures.
+Rule/token/strict precedence, ten-second activation expiry, urgency-only tokens
+and activated-hint versus keyboard focus are distinguished. Driftwm's boolean
+hover, camera pulls, activation adoption and bounded groups are not assumed
+reference-compatible. No runtime or public config change.
+
+The inventory adds 18 source-semantic links (243 total), retaining 576 field keys,
+186 actions, 18 source paths / 14 indexed modules and 25 root nodes / 24 Config
+fields. Python syntax, deterministic generation, old keys/action table, audited
+field existence, local anchors/pinned source paths and clean reference checks
+passed, as did git diff --check. No niri execution, Rust tests or full CI rerun
+for this docs/tooling-only change; implementation evidence remains B4. No push,
+installation or TTY acceptance. Next A0: animation/gesture consumers, remaining
+mixed input/debug scope, names/rules/actions and independent executable fixtures.

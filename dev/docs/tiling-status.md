@@ -63,18 +63,19 @@ mode. These are documented fallbacks, not reference-compatible behavior.
 
 ## Verified evidence and its limits
 
-Latest A0 documentation/tooling validation: the [layer/overview audit](niri-layer-overview-audit.md)
-adds 19 semantic source-index links (13 layer rule/match fields and six overview
-fields), bringing scoped links to 225. It records layer shadow opt-in/global
-parameter source, committed-layer recomputation, backdrop eligibility/focus,
-raw f32 opacity versus render clamp, target-specific block-out, and overview
-runtime zoom clamp/desired-state/progress distinction. It distinguishes live
-driftwm layer rule resolution from sticky mapped-toplevel rules. This is pinned
-source review, not execution or complete interaction/capture acceptance.
-The inventory still covers 576 fields, 186 actions, 18 source paths / 14 modules
-and 25 root nodes / 24 Config fields. Syntax, deterministic output, scoped field
-sets, old row preservation, link/anchor and pinned clean source checks passed.
-No runtime/config change; implementation CI remains the B4 gate below.
+Latest A0 documentation/tooling validation: the [input focus audit](niri-input-focus-audit.md)
+adds 18 scoped semantic links, bringing the total to 243. It traces optional-node
+replacement/defaults, hover transition/scroll thresholds, cursor modes, per-output
+workspace back-and-forth and five layout-visible debug flags. The scrolling
+individual-throttling override is recorded explicitly, along with map rule/token/
+strict precedence and activated-hint versus keyboard-focus distinctions.
+Other input/debug fields remain unverified. This is pinned source review, not
+niri execution or accepted parser/input/protocol fixtures. The earlier
+[layer/overview audit](niri-layer-overview-audit.md) remains delivered with its
+interaction/capture limits. Inventory coverage stays 576 fields, 186 actions,
+18 source paths / 14 modules and 25 root nodes / 24 Config fields. Syntax,
+deterministic generation, field sets, row/action preservation and local/pinned
+links were checked. No runtime/config change; implementation CI remains B4.
 
 Latest validation gate: `/tmp/driftwm-b4-output-ci.log`, exit 0: full
 `dev/scripts/ci-local`, 369 library cases, 1490 binary cases including ignored
@@ -186,15 +187,13 @@ unresolved; use direct TTY for visual acceptance.
 
 ## Next work
 
-Next work: **A0/P0 input focus/warp/workspace policy and debug layout flags** at
-pinned niri `12de51d6a60baad8896366920278a24f17921f52`: public value shapes,
-defaults and actual consumers for focus-follows-mouse, warp-mouse-to-focus,
-workspace-auto-back-and-forth, plus resize throttling/transactions and strict
-new-window/unfocused activation policy. Keep mixed input/debug schemas visible;
-record field-specific exclusions rather than assuming unrelated device/backend
-settings. LayerRule/Overview source audit is delivered; complete click/drag/DnD,
-capture and transition fixtures still remain open. Then animation/gesture /
-remaining naming/rule decoders and public binding/ID/index/previous/next actions.
+Next work: **A0/P0 animation/gesture configuration and consumers** at pinned niri
+`12de51d6a60baad8896366920278a24f17921f52`, then remaining device/backend scope,
+output/workspace naming, unscoped rule fields and public binding/ID/index/previous/
+next actions. Focus/warp/workspace and the five selected debug flag source audits
+are delivered; other mixed input/debug fields must receive field-specific review
+or justified exclusions. Independent decoder/geometry/operation fixtures beyond
+zero gaps and complete layer/overview interaction/capture permutations stay open.
 Do not repeat delivered audits or restart B matrices. A0/P0 gates feature
 expansion; source coverage and scoped review do not prove complete niri parity.
 Controlled SSD scale-change release is

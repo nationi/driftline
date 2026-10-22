@@ -213,6 +213,27 @@ def schema_structs(source):
         yield match.group(1), re.findall(r"^    pub (\w+):", block(source, match.group(0)), re.M)
 
 
+INPUT_FOCUS_AUDIT_FIELDS = {
+    ("input", "Input"): "warp_mouse_to_focus focus_follows_mouse workspace_auto_back_and_forth",
+    ("input", "InputPart"): "warp_mouse_to_focus focus_follows_mouse workspace_auto_back_and_forth",
+    ("input", "FocusFollowsMouse"): "max_scroll_amount",
+    ("input", "WarpMouseToFocus"): "mode",
+    ("debug", "Debug"): "disable_resize_throttling disable_transactions strict_new_window_focus_policy honor_xdg_activation_with_invalid_serial deactivate_unfocused_windows",
+    ("debug", "DebugPart"): "disable_resize_throttling disable_transactions strict_new_window_focus_policy honor_xdg_activation_with_invalid_serial deactivate_unfocused_windows",
+}
+
+
+def input_focus_status(name, field):
+    section = {
+        "warp_mouse_to_focus": "cursor-warping", "mode": "cursor-warping",
+        "focus_follows_mouse": "focus-follows-mouse", "max_scroll_amount": "focus-follows-mouse",
+        "workspace_auto_back_and_forth": "workspace-back-and-forth",
+    }.get(field, "layout-debug-flags")
+    status = "Divergent" if field == "focus_follows_mouse" else "Missing"
+    mapping = "Boolean hover policy lacks reference threshold/transition semantics" if status == "Divergent" else "Dedicated reference policy/setting missing; existing integration is not equivalence"
+    return status, f"{mapping}; [input focus audit](niri-input-focus-audit.md#{section})"
+
+
 LAYER_OVERVIEW_AUDIT_FIELDS = {
     ("layer_rule", "LayerRule"): "matches excludes opacity block_out_from shadow geometry_corner_radius place_within_backdrop baba_is_float background_effect popups",
     ("layer_rule", "Match"): "namespace at_startup layer",
@@ -239,6 +260,8 @@ def layer_overview_status(name, field):
 
 
 def config_status(module, name, field):
+    if field in INPUT_FOCUS_AUDIT_FIELDS.get((module, name), "").split():
+        return input_focus_status(name, field)
     if (module, name) in LAYER_OVERVIEW_AUDIT_FIELDS:
         return layer_overview_status(name, field)
     coverage_link = "[schema coverage](niri-config-schema-coverage.md)"
@@ -309,6 +332,8 @@ def generate(root):
         "inventory, not a completed public decoder/consumer audit. Unscoped behavior stays open.",
         "The [layer/overview consumers](niri-layer-overview-audit.md) audit traces newly indexed",
         "layer rules and overview value consumers; complete interactions remain open.",
+        "The [input focus consumers](niri-input-focus-audit.md) audit traces scoped focus, warp,",
+        "workspace back-and-forth and five layout-visible debug flags; other fields stay open.",
         "P0 reference operation fixtures and the custom-decoder audit remain unfinished.", "",
         "Status: Partial = related implementation, not full equivalence; Divergent = known",
         "semantic difference; Missing = no matching tiling action; Unverified = not audited;",
@@ -346,6 +371,8 @@ def generate(root):
         source = sources[f"{module}.rs"]
         lines += [f"### `{module}.rs`", "", "| Schema field | Status | Mapping / next audit |", "| --- | --- | --- |"]
         for name, fields in schema_structs(source):
+            if (module, name) in INPUT_FOCUS_AUDIT_FIELDS:
+                assert set(INPUT_FOCUS_AUDIT_FIELDS[(module, name)].split()).issubset(fields), "Input focus audit fields must exist"
             if (module, name) in LAYER_OVERVIEW_AUDIT_FIELDS:
                 assert set(fields) == set(LAYER_OVERVIEW_AUDIT_FIELDS[(module, name)].split()), "Layer/overview audit must cover every field"
             if module == "layout" and name in {"Layout", "LayoutPart"}:

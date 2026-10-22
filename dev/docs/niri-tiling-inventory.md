@@ -18,6 +18,8 @@ The [schema coverage audit](niri-config-schema-coverage.md) accounts for all
 inventory, not a completed public decoder/consumer audit. Unscoped behavior stays open.
 The [layer/overview consumers](niri-layer-overview-audit.md) audit traces newly indexed
 layer rules and overview value consumers; complete interactions remain open.
+The [input focus consumers](niri-input-focus-audit.md) audit traces scoped focus, warp,
+workspace back-and-forth and five layout-visible debug flags; other fields stay open.
 P0 reference operation fixtures and the custom-decoder audit remain unfinished.
 
 Status: Partial = related implementation, not full equivalence; Divergent = known
@@ -748,9 +750,9 @@ Declared types to check for nested values/custom decoding: `LayerRule`, `Match`.
 | `Input.tablet` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
 | `Input.touch` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
 | `Input.disable_power_key_handling` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
-| `Input.warp_mouse_to_focus` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
-| `Input.focus_follows_mouse` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
-| `Input.workspace_auto_back_and_forth` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
+| `Input.warp_mouse_to_focus` | Missing | Dedicated reference policy/setting missing; existing integration is not equivalence; [input focus audit](niri-input-focus-audit.md#cursor-warping) |
+| `Input.focus_follows_mouse` | Divergent | Boolean hover policy lacks reference threshold/transition semantics; [input focus audit](niri-input-focus-audit.md#focus-follows-mouse) |
+| `Input.workspace_auto_back_and_forth` | Missing | Dedicated reference policy/setting missing; existing integration is not equivalence; [input focus audit](niri-input-focus-audit.md#workspace-back-and-forth) |
 | `Input.mod_key` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
 | `Input.mod_key_nested` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
 | `InputPart.keyboard` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
@@ -761,9 +763,9 @@ Declared types to check for nested values/custom decoding: `LayerRule`, `Match`.
 | `InputPart.tablet` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
 | `InputPart.touch` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
 | `InputPart.disable_power_key_handling` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
-| `InputPart.warp_mouse_to_focus` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
-| `InputPart.focus_follows_mouse` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
-| `InputPart.workspace_auto_back_and_forth` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
+| `InputPart.warp_mouse_to_focus` | Missing | Dedicated reference policy/setting missing; existing integration is not equivalence; [input focus audit](niri-input-focus-audit.md#cursor-warping) |
+| `InputPart.focus_follows_mouse` | Divergent | Boolean hover policy lacks reference threshold/transition semantics; [input focus audit](niri-input-focus-audit.md#focus-follows-mouse) |
+| `InputPart.workspace_auto_back_and_forth` | Missing | Dedicated reference policy/setting missing; existing integration is not equivalence; [input focus audit](niri-input-focus-audit.md#workspace-back-and-forth) |
 | `InputPart.mod_key` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
 | `InputPart.mod_key_nested` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
 | `Keyboard.xkb` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
@@ -841,8 +843,8 @@ Declared types to check for nested values/custom decoding: `LayerRule`, `Match`.
 | `Touch.off` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
 | `Touch.calibration_matrix` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
 | `Touch.map_to_output` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
-| `FocusFollowsMouse.max_scroll_amount` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
-| `WarpMouseToFocus.mode` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
+| `FocusFollowsMouse.max_scroll_amount` | Missing | Dedicated reference policy/setting missing; existing integration is not equivalence; [input focus audit](niri-input-focus-audit.md#focus-follows-mouse) |
+| `WarpMouseToFocus.mode` | Missing | Dedicated reference policy/setting missing; existing integration is not equivalence; [input focus audit](niri-input-focus-audit.md#cursor-warping) |
 
 Declared types to check for nested values/custom decoding: `Input`, `InputPart`, `Keyboard`, `KeyboardPart`, `Xkb`, `TrackLayout`, `ScrollFactor`, `Touchpad`, `Mouse`, `Trackpoint`, `Trackball`, `ClickMethod`, `AccelProfile`, `ScrollMethod`, `TapButtonMap`, `Tablet`, `Touch`, `FocusFollowsMouse`, `WarpMouseToFocus`, `WarpMouseToFocusMode`, `ModKey`.
 
@@ -863,13 +865,13 @@ Declared types to check for nested values/custom decoding: `Input`, `InputPart`,
 | `Debug.force_pipewire_invalid_modifier` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
 | `Debug.disable_pipewire_dmabuf` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
 | `Debug.emulate_zero_presentation_time` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
-| `Debug.disable_resize_throttling` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
-| `Debug.disable_transactions` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
+| `Debug.disable_resize_throttling` | Missing | Dedicated reference policy/setting missing; existing integration is not equivalence; [input focus audit](niri-input-focus-audit.md#layout-debug-flags) |
+| `Debug.disable_transactions` | Missing | Dedicated reference policy/setting missing; existing integration is not equivalence; [input focus audit](niri-input-focus-audit.md#layout-debug-flags) |
 | `Debug.keep_laptop_panel_on_when_lid_is_closed` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
 | `Debug.disable_monitor_names` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
-| `Debug.strict_new_window_focus_policy` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
-| `Debug.honor_xdg_activation_with_invalid_serial` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
-| `Debug.deactivate_unfocused_windows` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
+| `Debug.strict_new_window_focus_policy` | Missing | Dedicated reference policy/setting missing; existing integration is not equivalence; [input focus audit](niri-input-focus-audit.md#layout-debug-flags) |
+| `Debug.honor_xdg_activation_with_invalid_serial` | Missing | Dedicated reference policy/setting missing; existing integration is not equivalence; [input focus audit](niri-input-focus-audit.md#layout-debug-flags) |
+| `Debug.deactivate_unfocused_windows` | Missing | Dedicated reference policy/setting missing; existing integration is not equivalence; [input focus audit](niri-input-focus-audit.md#layout-debug-flags) |
 | `Debug.skip_cursor_only_updates_during_vrr` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
 | `Debug.disable_10bit_output` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
 | `DebugPart.preview_render` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
@@ -885,13 +887,13 @@ Declared types to check for nested values/custom decoding: `Input`, `InputPart`,
 | `DebugPart.force_pipewire_invalid_modifier` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
 | `DebugPart.disable_pipewire_dmabuf` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
 | `DebugPart.emulate_zero_presentation_time` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
-| `DebugPart.disable_resize_throttling` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
-| `DebugPart.disable_transactions` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
+| `DebugPart.disable_resize_throttling` | Missing | Dedicated reference policy/setting missing; existing integration is not equivalence; [input focus audit](niri-input-focus-audit.md#layout-debug-flags) |
+| `DebugPart.disable_transactions` | Missing | Dedicated reference policy/setting missing; existing integration is not equivalence; [input focus audit](niri-input-focus-audit.md#layout-debug-flags) |
 | `DebugPart.keep_laptop_panel_on_when_lid_is_closed` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
 | `DebugPart.disable_monitor_names` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
-| `DebugPart.strict_new_window_focus_policy` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
-| `DebugPart.honor_xdg_activation_with_invalid_serial` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
-| `DebugPart.deactivate_unfocused_windows` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
+| `DebugPart.strict_new_window_focus_policy` | Missing | Dedicated reference policy/setting missing; existing integration is not equivalence; [input focus audit](niri-input-focus-audit.md#layout-debug-flags) |
+| `DebugPart.honor_xdg_activation_with_invalid_serial` | Missing | Dedicated reference policy/setting missing; existing integration is not equivalence; [input focus audit](niri-input-focus-audit.md#layout-debug-flags) |
+| `DebugPart.deactivate_unfocused_windows` | Missing | Dedicated reference policy/setting missing; existing integration is not equivalence; [input focus audit](niri-input-focus-audit.md#layout-debug-flags) |
 | `DebugPart.skip_cursor_only_updates_during_vrr` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
 | `DebugPart.disable_10bit_output` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
 

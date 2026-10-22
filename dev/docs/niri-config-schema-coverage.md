@@ -113,8 +113,9 @@ source paths must resolve. These checks validate source coverage, not accepted
 runtime behavior, parser diagnostics or every possible public child/property.
 
 LayerRule/Match and Overview/OverviewPart now have a scoped source audit.
-Next A0: input focus/warping/workspace policy and debug layout flags, then animation/
-gesture configuration, output/workspace naming, unscoped rule fields and public
-binding/action addressing. Document concrete exclusions as needed. Independent
+The [input focus audit](niri-input-focus-audit.md) covers 18 selected input/debug
+rows; other fields remain unverified. Next A0: animation/gesture configuration
+and remaining device/backend scope, output/workspace naming, unscoped rule fields
+and public binding/action addressing. Document concrete exclusions as needed. Independent
 decoder/geometry/operation fixtures beyond zero gaps remain required; no Exact
 or overall-completion claim follows from covering the source file list.
