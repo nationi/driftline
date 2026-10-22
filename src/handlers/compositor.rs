@@ -280,6 +280,11 @@ impl CompositorHandler for DriftWm {
 
         // Without this, bbox_from_surface_tree returns 0x0.
         smithay::backend::renderer::utils::on_commit_buffer_handler::<DriftWm>(surface);
+        if self.handle_tiling_unmap(surface) {
+            // A remapping toplevel must start a new configure handshake on
+            // its next empty commit, rather than place its reset geometry.
+            return;
+        }
 
         // Accumulate `wl_surface.attach` offset onto the DnD icon so it
         // stays anchored to the client's grab point.

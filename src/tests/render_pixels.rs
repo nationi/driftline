@@ -3512,3 +3512,143 @@ fn check_disconnected_tiling_peer(scale: f64, ssd: bool, mixed: bool) {
     f.state().render.remove_output(&output.name());
     gl::uninstall(&mut f);
 }
+
+#[test]
+#[ignore = "needs surfaceless EGL; run with --include-ignored"]
+fn protocol_remap_during_held_or_mixed_tiling_resize_reenrolls_cleanly() {
+    let _gl = gl::lock();
+    for scale in [1.0, 1.25, 1.5] {
+        for ssd in [false, true] {
+            for mixed in [false, true] {
+                check_protocol_tiling_remap(scale, ssd, mixed);
+            }
+        }
+    }
+}
+
+fn check_protocol_tiling_remap(scale: f64, ssd: bool, mixed: bool) {
+    use super::{last_configured, tick_until_settled, window_by_app_id};
+    use driftwm::config::Action;
+    let Some(renderer) = gl::surfaceless_renderer("protocol tiling remap") else {
+        return;
+    };
+    let config = config_toml(true).replace("corner_radius = 0", "corner_radius = 8");
+    let config = if ssd {
+        format!(
+            "{config}\n[[window_rules]]\napp_id = \"protocol-remap\"\ndecoration = \"server\"\n"
+        )
+    } else {
+        config
+    };
+    let mut f = Fixture::with_config(super::config(&config));
+    let output = f.add_output_scaled(1, (1200, 800), scale);
+    gl::install(&mut f, renderer);
+    let empty = tiling_live_frame(&mut f, &output);
+    let client = f.add_client();
+    let surface = map_window_shm(
+        &mut f,
+        client,
+        "protocol-remap",
+        (200, 100),
+        (200, 100),
+        &solid_bgra(200, 100, CONTENT_BGRA, false),
+    );
+    tick_until_settled(&mut f);
+    let window = window_by_app_id(&mut f, "protocol-remap").unwrap();
+    let id = f.state().stage.id_of(&window).unwrap();
+    let popup = colored_tiling_popup(&mut f, client, &surface, (180, 51), [255, 0, 255, 255]);
+    tiling_live_frame(&mut f, &output);
+    f.state().execute_action(&Action::ToggleTiling);
+    if mixed {
+        let size = last_configured(&mut f, client, &surface);
+        let w = f.client(client).window(&surface);
+        w.set_size(size.0 as u16, size.1 as u16);
+        w.attach_shm_buffer(size, &solid_bgra(size.0, size.1, [0, 255, 0, 255], false));
+        w.ack_last_and_commit();
+        f.double_roundtrip(client);
+        f.state()
+            .tick_window_animations(std::time::Duration::from_millis(16));
+        tiling_live_frame(&mut f, &output);
+        assert!(f.state().resize_crossfades.contains_key(&id));
+        f.state().execute_action(&Action::CycleColumnWidth);
+    }
+    assert_eq!(f.state().tiling_snapshot_count(), 2);
+    f.client(client).popup(&popup).destroy();
+    let w = f.client(client).window(&surface);
+    w.attach_null();
+    w.commit();
+    f.double_roundtrip(client);
+    assert!(
+        f.state().tiling_view.is_some(),
+        "unmap must retain the empty layout"
+    );
+    assert!(
+        f.state().stage.tiled_columns().is_empty(),
+        "unmapped window reserved a phantom column"
+    );
+    assert_eq!(f.state().tiling_snapshot_count(), 0);
+    assert_eq!(f.state().tiling_pending_configures(), 0);
+    assert!(!f.state().resize_crossfades.contains_key(&id));
+    assert!(!f.state().window_animations.is_active());
+    assert!(f.state().focused_element().is_none());
+    assert!(
+        f.client(client)
+            .state
+            .surface_outputs
+            .get(&surface)
+            .is_none_or(Vec::is_empty)
+    );
+    let unmapped = tiling_live_frame(&mut f, &output);
+    assert!(
+        unmapped == empty,
+        "{scale}x SSD={ssd} mixed={mixed}: unmap left pixels: {:?}",
+        unmapped
+            .as_chunks::<4>()
+            .0
+            .iter()
+            .enumerate()
+            .filter(|(_, p)| **p != [0, 0, 0, 0])
+            .take(12)
+            .collect::<Vec<_>>()
+    );
+    // The role reset discards metadata. A new empty commit begins the initial
+    // configure handshake, and only its first buffer may occupy a column.
+    let w = f.client(client).window(&surface);
+    w.xdg_toplevel.set_app_id("protocol-remap".into());
+    w.commit();
+    f.double_roundtrip(client);
+    let size = last_configured(&mut f, client, &surface);
+    assert!(size.0 > 200 && size.1 > 100);
+    assert!(f.state().stage.tiled_columns().is_empty());
+    let w = f.client(client).window(&surface);
+    w.set_size(size.0 as u16, size.1 as u16);
+    w.attach_shm_buffer(size, &solid_bgra(size.0, size.1, [255, 0, 0, 255], false));
+    w.ack_last_and_commit();
+    f.double_roundtrip(client);
+    tick_until_settled(&mut f);
+    assert_eq!(f.state().stage.id_of(&window), Some(id));
+    assert_eq!(f.state().stage.active_tile(), Some(id));
+    assert_eq!(f.state().window_ssd_bar(&window) > 0, ssd);
+    f.state().refresh_window_outputs();
+    f.double_roundtrip(client);
+    let c = f.client(client);
+    let memberships = &c.state.surface_outputs[&surface];
+    assert_eq!(memberships.len(), 1);
+    assert_eq!(c.state.outputs[&memberships[0]], output.name());
+    let focused = f.state().focused_element().unwrap();
+    assert_eq!(f.state().stage.id_of(&focused), Some(id));
+    assert_eq!(f.state().tiling_snapshot_count(), 0);
+    assert_eq!(f.state().tiling_pending_configures(), 0);
+    assert!(!f.state().resize_crossfades.contains_key(&id));
+    let frame = tiling_live_frame(&mut f, &output);
+    assert!(frame.as_chunks::<4>().0.contains(&[0, 0, 255, 255]));
+    assert!(!frame.as_chunks::<4>().0.contains(&[255, 0, 0, 255]));
+    assert!(!frame.as_chunks::<4>().0.contains(&[0, 255, 0, 255]));
+    assert!(!frame.as_chunks::<4>().0.contains(&[255, 0, 255, 255]));
+    f.client(client).window(&surface).commit();
+    f.double_roundtrip(client);
+    assert!(!f.state().window_animations.is_active());
+    assert_eq!(tiling_live_frame(&mut f, &output), frame);
+    f.state().render.remove_output(&output.name());
+    gl::uninstall(&mut f);
+}

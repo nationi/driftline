@@ -351,8 +351,25 @@ impl<W: StageElement> Stage<W> {
             .collect()
     }
 
+    /// Remove layout membership while preserving the element and its identity.
+    pub fn untile(&mut self, id: ElementId) -> Option<TiledWindow> {
+        let tile = self.tiled_windows().find(|tile| tile.id == id).copied()?;
+        let live = self
+            .entries
+            .iter()
+            .map(|e| e.id)
+            .filter(|candidate| *candidate != id)
+            .collect();
+        self.prune_tiling_members(&live);
+        Some(tile)
+    }
+
     pub(super) fn prune_tiling(&mut self) {
-        let live: std::collections::HashSet<_> = self.entries.iter().map(|e| e.id).collect();
+        let live = self.entries.iter().map(|e| e.id).collect();
+        self.prune_tiling_members(&live);
+    }
+
+    fn prune_tiling_members(&mut self, live: &std::collections::HashSet<ElementId>) {
         let previous_column = self
             .tiling
             .columns
@@ -667,10 +684,40 @@ mod tests {
         stage.verify_invariants();
     }
 
+    #[test]
+    fn untile_preserves_identity_and_repairs_selection_before_reenrollment() {
+        let mut stage = Stage::<TestWindow>::new();
+        let a = TestWindow::new(1);
+        let b = TestWindow::new(2);
+        for window in [&a, &b] {
+            stage.map(window.clone(), (10, 20).into());
+            stage.tile(stage.id_of(window).unwrap(), (100, 200).into());
+        }
+        let aid = stage.id_of(&a).unwrap();
+        let bid = stage.id_of(&b).unwrap();
+        let layout = stage.tiling_layout_id();
+        let old_column = stage.active_column();
+        let tile = stage.untile(bid).unwrap();
+        assert_eq!(
+            tile.restore,
+            Rectangle::new((10, 20).into(), (100, 200).into())
+        );
+        assert_eq!(stage.id_of(&b), Some(bid));
+        assert_eq!(stage.active_tile(), Some(aid));
+        assert_eq!(stage.untile(bid), None);
+        stage.untile(aid).unwrap();
+        assert!(stage.tiled_columns().is_empty());
+        assert_eq!(stage.tiling_layout_id(), layout);
+        assert!(stage.tile(bid, (300, 400).into()));
+        assert_ne!(stage.active_column(), old_column);
+        assert_eq!(stage.active_tile(), Some(bid));
+        stage.verify_invariants();
+    }
+
     proptest! {
         #[test]
         fn grouped_operations_preserve_membership_and_restore_geometry(
-            ops in prop::collection::vec((0u8..12, 0usize..10), 0..150)
+            ops in prop::collection::vec((0u8..13, 0usize..10), 0..150)
         ) {
             let mut stage = Stage::<TestWindow>::new();
             let mut windows: Vec<_> = (0..10).map(TestWindow::new).collect();
@@ -700,6 +747,7 @@ mod tests {
                     8 => { stage.move_tile(index % 2 == 0); }
                     9 => { stage.consume_window_into_column(); }
                     10 => { stage.expel_window_from_column(); }
+                    11 => { stage.untile(id); expected.remove(&id); }
                     _ => { stage.cycle_column_width(); }
                 }
                 stage.verify_invariants();

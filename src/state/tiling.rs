@@ -493,9 +493,7 @@ impl DriftWm {
         let stationary_x = self.camera_target().unwrap_or_else(|| self.camera()).x;
         let previous_active = self.stage.active_column();
 
-        let selected_closed = view
-            .selected
-            .is_some_and(|id| self.stage.window_by_id(id).is_none());
+        let selected_closed = view.selected.is_some_and(|id| !self.stage.is_tiled(id));
         self.tiling_view
             .as_mut()
             .unwrap()
@@ -1777,6 +1775,59 @@ impl DriftWm {
             // it sends no configure and never reopens the expired layout group.
             self.animate_window_geometry(&window, size, None);
         }
+    }
+
+    pub(crate) fn handle_tiling_unmap(
+        &mut self,
+        surface: &smithay::reexports::wayland_server::protocol::wl_surface::WlSurface,
+    ) -> bool {
+        use smithay::backend::renderer::utils::RendererSurfaceStateUserData;
+        use smithay::wayland::compositor::with_states;
+        if self.tiling_view.is_none() {
+            return false;
+        }
+        let Some(window) = self.window_for_surface(surface) else {
+            return false;
+        };
+        let Some(id) = self
+            .stage
+            .id_of(&window)
+            .filter(|id| self.stage.is_tiled(*id))
+        else {
+            return false;
+        };
+        let mapped = with_states(surface, |states| {
+            states
+                .data_map
+                .get::<RendererSurfaceStateUserData>()
+                .is_some_and(|data| data.lock().unwrap().buffer().is_some())
+        });
+        if mapped {
+            return false;
+        }
+        window.on_commit();
+        self.stage.untile(id);
+        self.release_tiling_snapshot_for_animation(id);
+        self.window_animations.remove(id);
+        self.drop_resize_crossfade(id);
+        self.render
+            .animated_content
+            .retain(|(_, candidate), _| *candidate != id);
+        self.decorations
+            .remove(&crate::decorations::DecorationKey::Surface(surface.id()));
+        self.pending_ssd.remove(&surface.id());
+        self.pending_center.insert(surface.clone());
+        super::membership::send_output_leaves(&window);
+        if self
+            .focused_element()
+            .as_ref()
+            .and_then(|w| self.stage.id_of(w))
+            == Some(id)
+        {
+            self.set_window_focus(None, SERIAL_COUNTER.next_serial());
+        }
+        self.mark_all_dirty();
+        true
     }
 
     pub(crate) fn tiling_pre_commit(

@@ -2216,3 +2216,57 @@ Next bounded B4 task: protocol null-buffer unmap/remap during retained motion,
 including initial configure/enrollment and stale transaction/image cleanup.
 Direct compositor remap is a separate delivered scenario. Supersession and output
 removal remain; A0/P0 audit still precedes feature expansion.
+
+## 2026-10-22 — B4 protocol unmap/remap during retained motion
+
+Reference inspection: pinned niri `12de51d6a60baad8896366920278a24f17921f52`,
+`src/handlers/compositor.rs` mapped-root commit path: a null-buffer unmap removes
+the window from layout, stores it as `Unmapped`, and requires a fresh initial
+commit/configure sequence before mapping again. Driftwm keeps its existing live
+stage record for a hidden toplevel, so this batch removes only tiling membership
+while preserving its stage ID; it does not introduce niri's separate unmapped
+registry, close animation or claim complete lifecycle equivalence.
+
+New GPU regression
+`protocol_remap_during_held_or_mixed_tiling_resize_reenrolls_cleanly` reproduced
+an actual phantom column after null-buffer unmap. `Stage::untile` now reuses the
+same membership/selection repair as dead-window pruning, leaving the element and
+layout lifetime intact. After Smithay's buffer handler has applied the null
+buffer, `handle_tiling_unmap` refreshes the window bbox, untiles it, drops its
+snapshot/crossfade/animation/animated-content state and SSD, sends output leaves,
+clears its focus and arms normal initial placement. The unmap commit returns
+before interpreting reset role geometry as a mapped window. A subsequent empty
+commit takes the existing initial-size/configure route; its first buffer enrolls
+the same stable ID again. Focus recovery now recognizes a selected ID that left
+tiling even while its stage record is alive.
+
+Calling `Window::on_commit` on the unmap path is necessary: without refreshing
+its cached bbox the no-buffer window still drew a shadow at the previous size.
+The empty-frame oracle caught that separately after phantom-column repair.
+Existing Smithay notes already document this bbox cache and renderer buffer API.
+
+Dedicated `/tmp/driftwm-b4-protocol.log` passed: 12 real GLES scenes, SSD/CSD,
+1x/1.25x/1.5x, ordinary held or actually rendered/recaptured mixed resize. An old
+magenta popup is destroyed before the parent unmaps. The unmap frame is exactly
+an independently rendered empty frame; all columns, snapshots, pending configures
+and resize animations drain, with no keyboard focus/output membership. Fresh
+configure precedes re-enrollment. Only the new blue body renders on remap, with
+no red/green old body or magenta popup, correct SSD/focus/output membership and
+no repeated animation on an unchanged commit. Fixture teardown checks resources.
+
+Hermetic `protocol_unmap_releases_a_ready_peer_and_remap_waits_for_a_buffer`
+checks two clients: unmapping the stalled participant releases the ready peer
+without waiting for the deadline; a fresh empty commit still reserves no column.
+Stage regression `untile_preserves_identity_and_repairs_selection_before_reenrollment`
+covers last removal, stable IDs, empty session lifetime and a fresh column ID.
+The existing grouped-operation property now includes untile histories.
+`PROPTEST_CASES=4000 cargo test --lib stage::` passed
+(`/tmp/driftwm-b4-protocol-stage.log`). Full `dev/scripts/ci-local` passed
+(`/tmp/driftwm-b4-protocol-ci.log`, exit 0): 369 library cases, 1487 binary
+non-soak cases, integrations and isolated soak, including strict all-target
+clippy and locked build checks. No push, installation or manual TTY acceptance.
+
+Next B4 gate: group supersession during retained motion with ready/pending peers;
+output removal follows. These are bounded compositor integration checks; A0/P0
+semantic audit still precedes feature expansion and full multi-output tiling
+remains P11. GPU evidence is surfaceless NVIDIA, not hardware scanout.

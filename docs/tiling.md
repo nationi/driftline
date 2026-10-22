@@ -179,5 +179,10 @@ timeouts and leaving tiling; they simulate allocation failure rather than GPU OO
 Explicit compositor remapping leaves tiling and preserves the newly requested
 canvas position even if old tiling buffers or the restore-size response arrive
 later. Controlled checks cover remapping held and mixed resize content with a
-popup; protocol unmap/remap and other lifecycle combinations remain experimental.
+popup. Protocol null-buffer unmap removes the window from its column and drops held images,
+while the empty tiling session remains available. To show the same toplevel
+again, the client starts a fresh initial configure handshake with an empty
+commit; its first buffer returns it to the layout. Controlled checks cover held
+and mixed resize, popup cleanup and releasing a ready peer when another window
+unmaps. Other lifecycle combinations remain experimental.
 Complete visual atomicity and all animation transitions are not implemented yet.

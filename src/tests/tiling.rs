@@ -1422,3 +1422,41 @@ fn tiling_anchor_translation_waits_for_other_surface_blockers_too() {
     );
     smithay::wayland::compositor::remove_pre_commit_hook(&surface, &hook);
 }
+
+#[test]
+fn protocol_unmap_releases_a_ready_peer_and_remap_waits_for_a_buffer() {
+    let mut f = Fixture::new();
+    f.add_output(1, (1200, 800));
+    let first = f.add_client();
+    let second = f.add_client();
+    let a = map_window(&mut f, first, "ready", (400, 300));
+    let b = map_window(&mut f, second, "hidden", (350, 250));
+    let wa = window_by_app_id(&mut f, "ready").unwrap();
+    let wb = window_by_app_id(&mut f, "hidden").unwrap();
+    let aid = f.state().stage.id_of(&wa).unwrap();
+    let bid = f.state().stage.id_of(&wb).unwrap();
+    f.state().execute_action(&Action::ToggleTiling);
+    let target = last_configured(&mut f, first, &a);
+    last_configured(&mut f, second, &b);
+    adopt_last_configure(&mut f, first, &a);
+    assert_eq!(wa.geometry().size, (400, 300).into());
+    let w = f.client(second).window(&b);
+    w.attach_null();
+    w.commit();
+    f.double_roundtrip(second);
+    f.double_roundtrip(first);
+    assert_eq!(wa.geometry().size, target.into());
+    assert!(f.state().tiling_view.is_some());
+    assert!(!f.state().stage.is_tiled(bid));
+    assert_eq!(f.state().stage.active_tile(), Some(aid));
+    assert_eq!(f.state().tiling_pending_configures(), 0);
+    f.client(second).window(&b).commit();
+    f.double_roundtrip(second);
+    assert!(!f.state().stage.is_tiled(bid));
+    let size = last_configured(&mut f, second, &b);
+    assert!(size.0 > 350 && size.1 > 250);
+    adopt_last_configure(&mut f, second, &b);
+    assert_eq!(f.state().stage.id_of(&wb), Some(bid));
+    assert!(f.state().stage.is_tiled(bid));
+    assert_eq!(f.state().stage.tiled_columns().len(), 2);
+}
