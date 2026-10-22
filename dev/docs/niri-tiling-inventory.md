@@ -24,6 +24,8 @@ The [animation/gesture consumers](niri-animation-gesture-audit.md) audit traces 
 schema fields and scoped consumers; physics/interaction execution remains open.
 The [input/output integration consumers](niri-input-output-integration-audit.md) review
 scroll/pinch delivery, identity and remaining debug scope; retained Unverified gates stay open.
+The [device input consumers](niri-device-input-audit.md) review completes named input
+source coverage; retained hardware/keymap/protocol acceptance stays open.
 P0 reference operation fixtures and the custom-decoder audit remain unfinished.
 
 Status: Partial = related implementation, not full equivalence; Divergent = known
@@ -746,107 +748,107 @@ Declared types to check for nested values/custom decoding: `LayerRule`, `Match`.
 
 | Schema field | Status | Mapping / next audit |
 | --- | --- | --- |
-| `Input.keyboard` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
-| `Input.touchpad` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
-| `Input.mouse` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
-| `Input.trackpoint` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
-| `Input.trackball` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
-| `Input.tablet` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
-| `Input.touch` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
-| `Input.disable_power_key_handling` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
+| `Input.keyboard` | Unverified | Keyboard field merge versus whole-device replacement; integration acceptance pending; [device input audit](niri-device-input-audit.md#assembly-and-scalar-grammar) |
+| `Input.touchpad` | Unverified | Keyboard field merge versus whole-device replacement; integration acceptance pending; [device input audit](niri-device-input-audit.md#assembly-and-scalar-grammar) |
+| `Input.mouse` | Unverified | Keyboard field merge versus whole-device replacement; integration acceptance pending; [device input audit](niri-device-input-audit.md#assembly-and-scalar-grammar) |
+| `Input.trackpoint` | Unverified | Keyboard field merge versus whole-device replacement; integration acceptance pending; [device input audit](niri-device-input-audit.md#assembly-and-scalar-grammar) |
+| `Input.trackball` | Unverified | Keyboard field merge versus whole-device replacement; integration acceptance pending; [device input audit](niri-device-input-audit.md#assembly-and-scalar-grammar) |
+| `Input.tablet` | Unverified | Keyboard field merge versus whole-device replacement; integration acceptance pending; [device input audit](niri-device-input-audit.md#assembly-and-scalar-grammar) |
+| `Input.touch` | Unverified | Keyboard field merge versus whole-device replacement; integration acceptance pending; [device input audit](niri-device-input-audit.md#assembly-and-scalar-grammar) |
+| `Input.disable_power_key_handling` | Unverified | Backend Mod selection/power fallback source traced; public binding acceptance pending; [device input audit](niri-device-input-audit.md#keyboard-configuration-and-consumers) |
 | `Input.warp_mouse_to_focus` | Missing | Dedicated reference policy/setting missing; existing integration is not equivalence; [input focus audit](niri-input-focus-audit.md#cursor-warping) |
 | `Input.focus_follows_mouse` | Divergent | Boolean hover policy lacks reference threshold/transition semantics; [input focus audit](niri-input-focus-audit.md#focus-follows-mouse) |
 | `Input.workspace_auto_back_and_forth` | Missing | Dedicated reference policy/setting missing; existing integration is not equivalence; [input focus audit](niri-input-focus-audit.md#workspace-back-and-forth) |
-| `Input.mod_key` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
-| `Input.mod_key_nested` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
-| `InputPart.keyboard` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
-| `InputPart.touchpad` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
-| `InputPart.mouse` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
-| `InputPart.trackpoint` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
-| `InputPart.trackball` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
-| `InputPart.tablet` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
-| `InputPart.touch` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
-| `InputPart.disable_power_key_handling` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
+| `Input.mod_key` | Unverified | Backend Mod selection/power fallback source traced; public binding acceptance pending; [device input audit](niri-device-input-audit.md#keyboard-configuration-and-consumers) |
+| `Input.mod_key_nested` | Unverified | Backend Mod selection/power fallback source traced; public binding acceptance pending; [device input audit](niri-device-input-audit.md#keyboard-configuration-and-consumers) |
+| `InputPart.keyboard` | Unverified | Keyboard field merge versus whole-device replacement; integration acceptance pending; [device input audit](niri-device-input-audit.md#assembly-and-scalar-grammar) |
+| `InputPart.touchpad` | Unverified | Keyboard field merge versus whole-device replacement; integration acceptance pending; [device input audit](niri-device-input-audit.md#assembly-and-scalar-grammar) |
+| `InputPart.mouse` | Unverified | Keyboard field merge versus whole-device replacement; integration acceptance pending; [device input audit](niri-device-input-audit.md#assembly-and-scalar-grammar) |
+| `InputPart.trackpoint` | Unverified | Keyboard field merge versus whole-device replacement; integration acceptance pending; [device input audit](niri-device-input-audit.md#assembly-and-scalar-grammar) |
+| `InputPart.trackball` | Unverified | Keyboard field merge versus whole-device replacement; integration acceptance pending; [device input audit](niri-device-input-audit.md#assembly-and-scalar-grammar) |
+| `InputPart.tablet` | Unverified | Keyboard field merge versus whole-device replacement; integration acceptance pending; [device input audit](niri-device-input-audit.md#assembly-and-scalar-grammar) |
+| `InputPart.touch` | Unverified | Keyboard field merge versus whole-device replacement; integration acceptance pending; [device input audit](niri-device-input-audit.md#assembly-and-scalar-grammar) |
+| `InputPart.disable_power_key_handling` | Unverified | Backend Mod selection/power fallback source traced; public binding acceptance pending; [device input audit](niri-device-input-audit.md#keyboard-configuration-and-consumers) |
 | `InputPart.warp_mouse_to_focus` | Missing | Dedicated reference policy/setting missing; existing integration is not equivalence; [input focus audit](niri-input-focus-audit.md#cursor-warping) |
 | `InputPart.focus_follows_mouse` | Divergent | Boolean hover policy lacks reference threshold/transition semantics; [input focus audit](niri-input-focus-audit.md#focus-follows-mouse) |
 | `InputPart.workspace_auto_back_and_forth` | Missing | Dedicated reference policy/setting missing; existing integration is not equivalence; [input focus audit](niri-input-focus-audit.md#workspace-back-and-forth) |
-| `InputPart.mod_key` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
-| `InputPart.mod_key_nested` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
-| `Keyboard.xkb` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
-| `Keyboard.repeat_delay` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
-| `Keyboard.repeat_rate` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
-| `Keyboard.track_layout` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
-| `Keyboard.numlock` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
-| `KeyboardPart.xkb` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
-| `KeyboardPart.repeat_delay` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
-| `KeyboardPart.repeat_rate` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
-| `KeyboardPart.track_layout` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
-| `KeyboardPart.numlock` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
-| `Xkb.rules` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
-| `Xkb.model` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
-| `Xkb.layout` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
-| `Xkb.variant` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
-| `Xkb.options` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
-| `Xkb.file` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
+| `InputPart.mod_key` | Unverified | Backend Mod selection/power fallback source traced; public binding acceptance pending; [device input audit](niri-device-input-audit.md#keyboard-configuration-and-consumers) |
+| `InputPart.mod_key_nested` | Unverified | Backend Mod selection/power fallback source traced; public binding acceptance pending; [device input audit](niri-device-input-audit.md#keyboard-configuration-and-consumers) |
+| `Keyboard.xkb` | Unverified | Keyboard/keymap/default/reload source traced; complete focus and protocol parity remains open; [device input audit](niri-device-input-audit.md#keyboard-configuration-and-consumers) |
+| `Keyboard.repeat_delay` | Divergent | Keyboard/keymap/default/reload source traced; complete focus and protocol parity remains open; [device input audit](niri-device-input-audit.md#keyboard-configuration-and-consumers) |
+| `Keyboard.repeat_rate` | Unverified | Keyboard/keymap/default/reload source traced; complete focus and protocol parity remains open; [device input audit](niri-device-input-audit.md#keyboard-configuration-and-consumers) |
+| `Keyboard.track_layout` | Missing | Keyboard/keymap/default/reload source traced; complete focus and protocol parity remains open; [device input audit](niri-device-input-audit.md#keyboard-configuration-and-consumers) |
+| `Keyboard.numlock` | Unverified | Keyboard/keymap/default/reload source traced; complete focus and protocol parity remains open; [device input audit](niri-device-input-audit.md#keyboard-configuration-and-consumers) |
+| `KeyboardPart.xkb` | Unverified | Keyboard/keymap/default/reload source traced; complete focus and protocol parity remains open; [device input audit](niri-device-input-audit.md#keyboard-configuration-and-consumers) |
+| `KeyboardPart.repeat_delay` | Divergent | Keyboard/keymap/default/reload source traced; complete focus and protocol parity remains open; [device input audit](niri-device-input-audit.md#keyboard-configuration-and-consumers) |
+| `KeyboardPart.repeat_rate` | Unverified | Keyboard/keymap/default/reload source traced; complete focus and protocol parity remains open; [device input audit](niri-device-input-audit.md#keyboard-configuration-and-consumers) |
+| `KeyboardPart.track_layout` | Missing | Keyboard/keymap/default/reload source traced; complete focus and protocol parity remains open; [device input audit](niri-device-input-audit.md#keyboard-configuration-and-consumers) |
+| `KeyboardPart.numlock` | Unverified | Keyboard/keymap/default/reload source traced; complete focus and protocol parity remains open; [device input audit](niri-device-input-audit.md#keyboard-configuration-and-consumers) |
+| `Xkb.rules` | Unverified | Keyboard/keymap/default/reload source traced; complete focus and protocol parity remains open; [device input audit](niri-device-input-audit.md#keyboard-configuration-and-consumers) |
+| `Xkb.model` | Unverified | Keyboard/keymap/default/reload source traced; complete focus and protocol parity remains open; [device input audit](niri-device-input-audit.md#keyboard-configuration-and-consumers) |
+| `Xkb.layout` | Unverified | Keyboard/keymap/default/reload source traced; complete focus and protocol parity remains open; [device input audit](niri-device-input-audit.md#keyboard-configuration-and-consumers) |
+| `Xkb.variant` | Unverified | Keyboard/keymap/default/reload source traced; complete focus and protocol parity remains open; [device input audit](niri-device-input-audit.md#keyboard-configuration-and-consumers) |
+| `Xkb.options` | Unverified | Keyboard/keymap/default/reload source traced; complete focus and protocol parity remains open; [device input audit](niri-device-input-audit.md#keyboard-configuration-and-consumers) |
+| `Xkb.file` | Unverified | Keyboard/keymap/default/reload source traced; complete focus and protocol parity remains open; [device input audit](niri-device-input-audit.md#keyboard-configuration-and-consumers) |
 | `ScrollFactor.base` | Divergent | Client delivery factors/exponentiation differ from canvas navigation controls; [input/output integration audit](niri-input-output-integration-audit.md#client-scroll-and-pinch) |
 | `ScrollFactor.horizontal` | Divergent | Client delivery factors/exponentiation differ from canvas navigation controls; [input/output integration audit](niri-input-output-integration-audit.md#client-scroll-and-pinch) |
 | `ScrollFactor.vertical` | Divergent | Client delivery factors/exponentiation differ from canvas navigation controls; [input/output integration audit](niri-input-output-integration-audit.md#client-scroll-and-pinch) |
-| `Touchpad.off` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
-| `Touchpad.tap` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
-| `Touchpad.dwt` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
-| `Touchpad.dwtp` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
-| `Touchpad.drag` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
-| `Touchpad.drag_lock` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
-| `Touchpad.natural_scroll` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
-| `Touchpad.click_method` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
-| `Touchpad.accel_speed` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
-| `Touchpad.accel_profile` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
-| `Touchpad.scroll_method` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
-| `Touchpad.scroll_button` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
-| `Touchpad.scroll_button_lock` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
-| `Touchpad.tap_button_map` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
-| `Touchpad.left_handed` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
-| `Touchpad.disabled_on_external_mouse` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
-| `Touchpad.middle_emulation` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
+| `Touchpad.off` | Unverified | Device classification/default/setter source traced; actual support and parity not proven; [device input audit](niri-device-input-audit.md#libinput-application-and-classification) |
+| `Touchpad.tap` | Unverified | Device classification/default/setter source traced; actual support and parity not proven; [device input audit](niri-device-input-audit.md#libinput-application-and-classification) |
+| `Touchpad.dwt` | Unverified | Device classification/default/setter source traced; actual support and parity not proven; [device input audit](niri-device-input-audit.md#libinput-application-and-classification) |
+| `Touchpad.dwtp` | Unverified | Device classification/default/setter source traced; actual support and parity not proven; [device input audit](niri-device-input-audit.md#libinput-application-and-classification) |
+| `Touchpad.drag` | Unverified | Device classification/default/setter source traced; actual support and parity not proven; [device input audit](niri-device-input-audit.md#libinput-application-and-classification) |
+| `Touchpad.drag_lock` | Unverified | Device classification/default/setter source traced; actual support and parity not proven; [device input audit](niri-device-input-audit.md#libinput-application-and-classification) |
+| `Touchpad.natural_scroll` | Unverified | Device classification/default/setter source traced; actual support and parity not proven; [device input audit](niri-device-input-audit.md#libinput-application-and-classification) |
+| `Touchpad.click_method` | Unverified | Device classification/default/setter source traced; actual support and parity not proven; [device input audit](niri-device-input-audit.md#libinput-application-and-classification) |
+| `Touchpad.accel_speed` | Unverified | Device classification/default/setter source traced; actual support and parity not proven; [device input audit](niri-device-input-audit.md#libinput-application-and-classification) |
+| `Touchpad.accel_profile` | Unverified | Device classification/default/setter source traced; actual support and parity not proven; [device input audit](niri-device-input-audit.md#libinput-application-and-classification) |
+| `Touchpad.scroll_method` | Unverified | Device classification/default/setter source traced; actual support and parity not proven; [device input audit](niri-device-input-audit.md#libinput-application-and-classification) |
+| `Touchpad.scroll_button` | Unverified | Device classification/default/setter source traced; actual support and parity not proven; [device input audit](niri-device-input-audit.md#libinput-application-and-classification) |
+| `Touchpad.scroll_button_lock` | Unverified | Device classification/default/setter source traced; actual support and parity not proven; [device input audit](niri-device-input-audit.md#libinput-application-and-classification) |
+| `Touchpad.tap_button_map` | Unverified | Device classification/default/setter source traced; actual support and parity not proven; [device input audit](niri-device-input-audit.md#libinput-application-and-classification) |
+| `Touchpad.left_handed` | Unverified | Device classification/default/setter source traced; actual support and parity not proven; [device input audit](niri-device-input-audit.md#libinput-application-and-classification) |
+| `Touchpad.disabled_on_external_mouse` | Unverified | Device classification/default/setter source traced; actual support and parity not proven; [device input audit](niri-device-input-audit.md#libinput-application-and-classification) |
+| `Touchpad.middle_emulation` | Unverified | Device classification/default/setter source traced; actual support and parity not proven; [device input audit](niri-device-input-audit.md#libinput-application-and-classification) |
 | `Touchpad.scroll_factor` | Divergent | Client delivery factors/exponentiation differ from canvas navigation controls; [input/output integration audit](niri-input-output-integration-audit.md#client-scroll-and-pinch) |
 | `Touchpad.pinch_sensitivity` | Divergent | Client delivery factors/exponentiation differ from canvas navigation controls; [input/output integration audit](niri-input-output-integration-audit.md#client-scroll-and-pinch) |
-| `Mouse.off` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
-| `Mouse.natural_scroll` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
-| `Mouse.accel_speed` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
-| `Mouse.accel_profile` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
-| `Mouse.scroll_method` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
-| `Mouse.scroll_button` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
-| `Mouse.scroll_button_lock` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
-| `Mouse.left_handed` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
-| `Mouse.middle_emulation` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
+| `Mouse.off` | Unverified | Device classification/default/setter source traced; actual support and parity not proven; [device input audit](niri-device-input-audit.md#libinput-application-and-classification) |
+| `Mouse.natural_scroll` | Unverified | Device classification/default/setter source traced; actual support and parity not proven; [device input audit](niri-device-input-audit.md#libinput-application-and-classification) |
+| `Mouse.accel_speed` | Unverified | Device classification/default/setter source traced; actual support and parity not proven; [device input audit](niri-device-input-audit.md#libinput-application-and-classification) |
+| `Mouse.accel_profile` | Unverified | Device classification/default/setter source traced; actual support and parity not proven; [device input audit](niri-device-input-audit.md#libinput-application-and-classification) |
+| `Mouse.scroll_method` | Unverified | Device classification/default/setter source traced; actual support and parity not proven; [device input audit](niri-device-input-audit.md#libinput-application-and-classification) |
+| `Mouse.scroll_button` | Unverified | Device classification/default/setter source traced; actual support and parity not proven; [device input audit](niri-device-input-audit.md#libinput-application-and-classification) |
+| `Mouse.scroll_button_lock` | Unverified | Device classification/default/setter source traced; actual support and parity not proven; [device input audit](niri-device-input-audit.md#libinput-application-and-classification) |
+| `Mouse.left_handed` | Unverified | Device classification/default/setter source traced; actual support and parity not proven; [device input audit](niri-device-input-audit.md#libinput-application-and-classification) |
+| `Mouse.middle_emulation` | Unverified | Device classification/default/setter source traced; actual support and parity not proven; [device input audit](niri-device-input-audit.md#libinput-application-and-classification) |
 | `Mouse.scroll_factor` | Divergent | Client delivery factors/exponentiation differ from canvas navigation controls; [input/output integration audit](niri-input-output-integration-audit.md#client-scroll-and-pinch) |
-| `Trackpoint.off` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
-| `Trackpoint.natural_scroll` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
-| `Trackpoint.accel_speed` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
-| `Trackpoint.accel_profile` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
-| `Trackpoint.scroll_method` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
-| `Trackpoint.scroll_button` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
-| `Trackpoint.scroll_button_lock` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
-| `Trackpoint.left_handed` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
-| `Trackpoint.middle_emulation` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
-| `Trackball.off` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
-| `Trackball.natural_scroll` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
-| `Trackball.accel_speed` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
-| `Trackball.accel_profile` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
-| `Trackball.scroll_method` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
-| `Trackball.scroll_button` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
-| `Trackball.scroll_button_lock` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
-| `Trackball.left_handed` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
-| `Trackball.middle_emulation` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
-| `Tablet.off` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
-| `Tablet.calibration_matrix` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
-| `Tablet.map_to_output` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
-| `Tablet.map_to_focused_output` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
-| `Tablet.map_to_focused_window` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
-| `Tablet.left_handed` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
-| `Touch.off` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
-| `Touch.calibration_matrix` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
-| `Touch.map_to_output` | Unverified | Newly indexed surface; public decoder/default/consumer audit pending; [schema coverage](niri-config-schema-coverage.md) |
+| `Trackpoint.off` | Unverified | Device classification/default/setter source traced; actual support and parity not proven; [device input audit](niri-device-input-audit.md#libinput-application-and-classification) |
+| `Trackpoint.natural_scroll` | Unverified | Device classification/default/setter source traced; actual support and parity not proven; [device input audit](niri-device-input-audit.md#libinput-application-and-classification) |
+| `Trackpoint.accel_speed` | Unverified | Device classification/default/setter source traced; actual support and parity not proven; [device input audit](niri-device-input-audit.md#libinput-application-and-classification) |
+| `Trackpoint.accel_profile` | Unverified | Device classification/default/setter source traced; actual support and parity not proven; [device input audit](niri-device-input-audit.md#libinput-application-and-classification) |
+| `Trackpoint.scroll_method` | Unverified | Device classification/default/setter source traced; actual support and parity not proven; [device input audit](niri-device-input-audit.md#libinput-application-and-classification) |
+| `Trackpoint.scroll_button` | Unverified | Device classification/default/setter source traced; actual support and parity not proven; [device input audit](niri-device-input-audit.md#libinput-application-and-classification) |
+| `Trackpoint.scroll_button_lock` | Unverified | Device classification/default/setter source traced; actual support and parity not proven; [device input audit](niri-device-input-audit.md#libinput-application-and-classification) |
+| `Trackpoint.left_handed` | Unverified | Device classification/default/setter source traced; actual support and parity not proven; [device input audit](niri-device-input-audit.md#libinput-application-and-classification) |
+| `Trackpoint.middle_emulation` | Unverified | Device classification/default/setter source traced; actual support and parity not proven; [device input audit](niri-device-input-audit.md#libinput-application-and-classification) |
+| `Trackball.off` | Unverified | Device classification/default/setter source traced; actual support and parity not proven; [device input audit](niri-device-input-audit.md#libinput-application-and-classification) |
+| `Trackball.natural_scroll` | Unverified | Device classification/default/setter source traced; actual support and parity not proven; [device input audit](niri-device-input-audit.md#libinput-application-and-classification) |
+| `Trackball.accel_speed` | Unverified | Device classification/default/setter source traced; actual support and parity not proven; [device input audit](niri-device-input-audit.md#libinput-application-and-classification) |
+| `Trackball.accel_profile` | Unverified | Device classification/default/setter source traced; actual support and parity not proven; [device input audit](niri-device-input-audit.md#libinput-application-and-classification) |
+| `Trackball.scroll_method` | Unverified | Device classification/default/setter source traced; actual support and parity not proven; [device input audit](niri-device-input-audit.md#libinput-application-and-classification) |
+| `Trackball.scroll_button` | Unverified | Device classification/default/setter source traced; actual support and parity not proven; [device input audit](niri-device-input-audit.md#libinput-application-and-classification) |
+| `Trackball.scroll_button_lock` | Unverified | Device classification/default/setter source traced; actual support and parity not proven; [device input audit](niri-device-input-audit.md#libinput-application-and-classification) |
+| `Trackball.left_handed` | Unverified | Device classification/default/setter source traced; actual support and parity not proven; [device input audit](niri-device-input-audit.md#libinput-application-and-classification) |
+| `Trackball.middle_emulation` | Unverified | Device classification/default/setter source traced; actual support and parity not proven; [device input audit](niri-device-input-audit.md#libinput-application-and-classification) |
+| `Tablet.off` | Unverified | Device classification/default/setter source traced; actual support and parity not proven; [device input audit](niri-device-input-audit.md#libinput-application-and-classification) |
+| `Tablet.calibration_matrix` | Unverified | Device classification/default/setter source traced; actual support and parity not proven; [device input audit](niri-device-input-audit.md#libinput-application-and-classification) |
+| `Tablet.map_to_output` | Unverified | Target precedence/geometry source traced; hardware and focus parity pending; [device input audit](niri-device-input-audit.md#tablet-and-touch-target-policy) |
+| `Tablet.map_to_focused_output` | Unverified | Target precedence/geometry source traced; hardware and focus parity pending; [device input audit](niri-device-input-audit.md#tablet-and-touch-target-policy) |
+| `Tablet.map_to_focused_window` | Unverified | Target precedence/geometry source traced; hardware and focus parity pending; [device input audit](niri-device-input-audit.md#tablet-and-touch-target-policy) |
+| `Tablet.left_handed` | Unverified | Device classification/default/setter source traced; actual support and parity not proven; [device input audit](niri-device-input-audit.md#libinput-application-and-classification) |
+| `Touch.off` | Unverified | Device classification/default/setter source traced; actual support and parity not proven; [device input audit](niri-device-input-audit.md#libinput-application-and-classification) |
+| `Touch.calibration_matrix` | Unverified | Device classification/default/setter source traced; actual support and parity not proven; [device input audit](niri-device-input-audit.md#libinput-application-and-classification) |
+| `Touch.map_to_output` | Unverified | Target precedence/geometry source traced; hardware and focus parity pending; [device input audit](niri-device-input-audit.md#tablet-and-touch-target-policy) |
 | `FocusFollowsMouse.max_scroll_amount` | Missing | Dedicated reference policy/setting missing; existing integration is not equivalence; [input focus audit](niri-input-focus-audit.md#focus-follows-mouse) |
 | `WarpMouseToFocus.mode` | Missing | Dedicated reference policy/setting missing; existing integration is not equivalence; [input focus audit](niri-input-focus-audit.md#cursor-warping) |
 

@@ -213,6 +213,41 @@ def schema_structs(source):
         yield match.group(1), re.findall(r"^    pub (\w+):", block(source, match.group(0)), re.M)
 
 
+DEVICE_INPUT_AUDIT_FIELDS = {
+    ("input", "Input"): "keyboard touchpad mouse trackpoint trackball tablet touch disable_power_key_handling mod_key mod_key_nested",
+    ("input", "InputPart"): "keyboard touchpad mouse trackpoint trackball tablet touch disable_power_key_handling mod_key mod_key_nested",
+    ("input", "Keyboard"): "xkb repeat_delay repeat_rate track_layout numlock",
+    ("input", "KeyboardPart"): "xkb repeat_delay repeat_rate track_layout numlock",
+    ("input", "Xkb"): "rules model layout variant options file",
+    ("input", "Touchpad"): "off tap dwt dwtp drag drag_lock natural_scroll click_method accel_speed accel_profile scroll_method scroll_button scroll_button_lock tap_button_map left_handed disabled_on_external_mouse middle_emulation",
+    ("input", "Mouse"): "off natural_scroll accel_speed accel_profile scroll_method scroll_button scroll_button_lock left_handed middle_emulation",
+    ("input", "Trackpoint"): "off natural_scroll accel_speed accel_profile scroll_method scroll_button scroll_button_lock left_handed middle_emulation",
+    ("input", "Trackball"): "off natural_scroll accel_speed accel_profile scroll_method scroll_button scroll_button_lock left_handed middle_emulation",
+    ("input", "Tablet"): "off calibration_matrix map_to_output map_to_focused_output map_to_focused_window left_handed",
+    ("input", "Touch"): "off calibration_matrix map_to_output",
+}
+
+
+def device_input_status(name, field):
+    if name in {"Keyboard", "KeyboardPart", "Xkb"}:
+        section = "keyboard-configuration-and-consumers"
+        status = "Missing" if field == "track_layout" else "Divergent" if field == "repeat_delay" else "Unverified"
+        mapping = "Keyboard/keymap/default/reload source traced; complete focus and protocol parity remains open"
+    elif field in {"mod_key", "mod_key_nested", "disable_power_key_handling"}:
+        section, status = "keyboard-configuration-and-consumers", "Unverified"
+        mapping = "Backend Mod selection/power fallback source traced; public binding acceptance pending"
+    elif name in {"Input", "InputPart"}:
+        section, status = "assembly-and-scalar-grammar", "Unverified"
+        mapping = "Keyboard field merge versus whole-device replacement; integration acceptance pending"
+    elif field.startswith("map_to_"):
+        section, status = "tablet-and-touch-target-policy", "Unverified"
+        mapping = "Target precedence/geometry source traced; hardware and focus parity pending"
+    else:
+        section, status = "libinput-application-and-classification", "Unverified"
+        mapping = "Device classification/default/setter source traced; actual support and parity not proven"
+    return status, f"{mapping}; [device input audit](niri-device-input-audit.md#{section})"
+
+
 INTEGRATION_AUDIT_FIELDS = {
     ("debug", "Debug"): "preview_render dbus_interfaces_in_non_session_instances wait_for_frame_completion_before_queueing enable_overlay_planes disable_cursor_plane disable_direct_scanout restrict_primary_scanout_to_matching_format force_disable_connectors_on_resume render_drm_device ignored_drm_devices force_pipewire_invalid_modifier disable_pipewire_dmabuf emulate_zero_presentation_time keep_laptop_panel_on_when_lid_is_closed disable_monitor_names skip_cursor_only_updates_during_vrr disable_10bit_output",
     ("debug", "DebugPart"): "preview_render dbus_interfaces_in_non_session_instances wait_for_frame_completion_before_queueing enable_overlay_planes disable_cursor_plane disable_direct_scanout restrict_primary_scanout_to_matching_format force_disable_connectors_on_resume render_drm_device ignored_drm_devices force_pipewire_invalid_modifier disable_pipewire_dmabuf emulate_zero_presentation_time keep_laptop_panel_on_when_lid_is_closed disable_monitor_names skip_cursor_only_updates_during_vrr disable_10bit_output",
@@ -323,6 +358,8 @@ def layer_overview_status(name, field):
 
 
 def config_status(module, name, field):
+    if field in DEVICE_INPUT_AUDIT_FIELDS.get((module, name), "").split():
+        return device_input_status(name, field)
     if field in INTEGRATION_AUDIT_FIELDS.get((module, name), "").split():
         return integration_status(module, name, field)
     if (module, name) in ANIMATION_GESTURE_AUDIT_FIELDS:
@@ -405,6 +442,8 @@ def generate(root):
         "schema fields and scoped consumers; physics/interaction execution remains open.",
         "The [input/output integration consumers](niri-input-output-integration-audit.md) review",
         "scroll/pinch delivery, identity and remaining debug scope; retained Unverified gates stay open.",
+        "The [device input consumers](niri-device-input-audit.md) review completes named input",
+        "source coverage; retained hardware/keymap/protocol acceptance stays open.",
         "P0 reference operation fixtures and the custom-decoder audit remain unfinished.", "",
         "Status: Partial = related implementation, not full equivalence; Divergent = known",
         "semantic difference; Missing = no matching tiling action; Unverified = not audited;",
@@ -442,6 +481,15 @@ def generate(root):
         source = sources[f"{module}.rs"]
         lines += [f"### `{module}.rs`", "", "| Schema field | Status | Mapping / next audit |", "| --- | --- | --- |"]
         for name, fields in schema_structs(source):
+            if module == "input":
+                reviewed = set()
+                for audit in (DEVICE_INPUT_AUDIT_FIELDS, INPUT_FOCUS_AUDIT_FIELDS, INTEGRATION_AUDIT_FIELDS):
+                    scoped = set(audit.get((module, name), "").split())
+                    assert not reviewed & scoped, "Input audit sets must not overlap"
+                    reviewed |= scoped
+                assert reviewed == set(fields), "Every input field must have a scoped source review"
+            if (module, name) in DEVICE_INPUT_AUDIT_FIELDS:
+                assert set(DEVICE_INPUT_AUDIT_FIELDS[(module, name)].split()).issubset(fields), "Device audit fields must exist"
             if (module, name) in INTEGRATION_AUDIT_FIELDS:
                 assert set(INTEGRATION_AUDIT_FIELDS[(module, name)].split()).issubset(fields), "Integration audit fields must exist"
             if (module, name) in ANIMATION_GESTURE_AUDIT_FIELDS:

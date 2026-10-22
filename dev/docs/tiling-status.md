@@ -64,18 +64,17 @@ mode. These are documented fallbacks, not reference-compatible behavior.
 ## Verified evidence and its limits
 
 Latest A0 documentation/tooling validation: the
-[input/output integration audit](niri-input-output-integration-audit.md) adds 45
-review links (351 total): six client scroll/pinch fields, five output identity
-fields and 34 remaining debug storage/Part rows. Backend rows include explicit
-scope triage: two DBus-export rows are Outside, while retained Unverified
-scanout/timing/capture paths remain open. Client axis factors/pinch exponent,
-ASCII-insensitive connector/metadata matching and named workspace preference
-fallbacks are traced. Workspace rows retain their prior lifecycle links rather
-than being double-counted. This is source review, not executable acceptance.
-Inventory remains 576 fields, 186 actions, 18 paths / 14 modules and 25 root nodes /
-24 Config fields. Syntax, deterministic generation, scoped field existence,
-row/action preservation and local/pinned links were checked. No runtime/config
-change; implementation CI remains B4.
+[device input audit](niri-device-input-audit.md) adds 89 source-review links
+(440 total), completing links for all 103 named input fields. It records keyboard
+field merge versus whole-device/Xkb replacement, enum/numeric shapes, repeat and
+per-surface layout policy, keymap reload/state restoration, backend Mod defaults,
+device classification/default setters, calibration fallback and tablet/touch
+target precedence. Most rows deliberately remain Unverified integration;
+source coverage is not hardware/keymap/protocol parity. Inventory remains 576
+fields, 186 actions, 18 paths / 14 modules and 25 root nodes / 24 Config fields.
+Syntax, deterministic generation, exact combined input coverage, field existence,
+old row/action preservation and local/pinned links were checked. No runtime or
+public config change; implementation CI remains B4.
 
 Latest validation gate: `/tmp/driftwm-b4-output-ci.log`, exit 0: full
 `dev/scripts/ci-local`, 369 library cases, 1490 binary cases including ignored
@@ -187,13 +186,13 @@ unresolved; use direct TTY for visual acceptance.
 
 ## Next work
 
-Next work: **A0/P0 remaining keyboard/device input grammar and consumers** at
-pinned niri `12de51d6a60baad8896366920278a24f17921f52`, then unscoped output/rule
-fields and public binding/ID/index/previous/next actions. Output/workspace naming
-and remaining debug scope triage are delivered; retained Unverified backend/
-capture/timing rows require evidence or justified field-specific scope decisions.
-Independent executable reference fixtures beyond zero gaps, numerical animation/
-gesture behavior and complete layer/overview permutations remain open.
+Next work: **A0/P0 unscoped output and window-rule fields**, at pinned niri
+`12de51d6a60baad8896366920278a24f17921f52`, then public binding/ID/index/previous/
+next action addressing and independent executable reference fixtures beyond zero
+gaps. Named input fields now have source-review coverage; retained Unverified
+input/backend/capture gates still need acceptance or justified scope decisions.
+Numerical animation/gesture behavior and full layer/overview permutations remain
+open. Do not confuse reviewed source rows with implemented reference behavior.
 Do not repeat delivered audits or restart B matrices. A0/P0 gates feature
 expansion; source coverage and scoped review do not prove complete niri parity.
 Controlled SSD scale-change release is

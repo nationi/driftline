@@ -2714,3 +2714,25 @@ implementation evidence remains B4. No push, installation or TTY acceptance.
 Next A0: remaining keyboard/device grammar/consumers, unscoped output/rule fields,
 public binding/action addressing and independent executable reference fixtures;
 retained integration/physics/interaction acceptance gates remain open.
+
+
+## A0 remaining keyboard and device input source audit
+
+Reviewed the remaining 89 named input fields, completing source links for all
+103 input rows (440 scoped review links overall). Traced keyboard field merge
+versus whole Xkb/device replacement, defaults/numeric/enum shapes, repeat zero,
+per-surface layout restoration, keymap file/locale1 reload and keyboard state,
+backend Mod defaults and power fallback. Device classification and setter/default
+paths, OnButtonDown-only button application, six-value calibration runtime
+fallback and tablet/touch geometry/target precedence remain separate from parser
+acceptance and actual libinput support. Most device rows stay Unverified rather
+than asserting equivalence. Driftwm repeat-delay default differs (200 vs 600 ms);
+per-surface track-layout policy remains missing. No runtime/public config change.
+
+Validation passed: Python syntax, byte-identical deterministic generation, exact
+combined input field coverage, 576 preserved field keys / 186 actions, 89 new
+review links, local anchors/pinned source paths, clean pinned checkout and diff
+checks. No niri/parser/hardware execution or full Rust CI rerun for docs/tooling;
+implementation evidence remains B4. No push/install/TTY claim. Next A0: unscoped
+output/window-rule fields, public action/binding addressing and independent
+reference fixtures; retained input/backend/capture/interaction gates remain open.
