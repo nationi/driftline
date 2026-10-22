@@ -31,6 +31,29 @@ fn remapping_a_tiled_window_restores_other_windows_before_placing_it() {
 }
 
 #[test]
+fn remapping_after_a_tiling_resize_supersedes_the_restore_recenter() {
+    let mut f = Fixture::new();
+    f.add_output(1, (1200, 800));
+    let client = f.add_client();
+    let surface = map_window(&mut f, client, "a", (400, 300));
+    let window = window_by_app_id(&mut f, "a").unwrap();
+    let id = f.state().stage.id_of(&window).unwrap();
+    f.state().execute_action(&Action::ToggleTiling);
+    let tiled_size = last_configured(&mut f, client, &surface);
+    adopt_last_configure(&mut f, client, &surface);
+    assert_eq!(window.geometry().size, tiled_size.into());
+    let destination = (900, -500).into();
+    f.state().map_window(window.clone(), destination, true);
+    assert!(f.state().tiling_view.is_none());
+    assert_eq!(last_configured(&mut f, client, &surface), (400, 300));
+    adopt_last_configure(&mut f, client, &surface);
+    assert_eq!(window.geometry().size, (400, 300).into());
+    assert_eq!(window_position(&mut f, &window), destination);
+    assert_eq!(f.state().stage.id_of(&window), Some(id));
+    assert_eq!(f.state().tiling_pending_configures(), 0);
+}
+
+#[test]
 fn direct_fit_restores_the_canvas_without_action_dispatch() {
     let mut f = Fixture::new();
     f.add_output(1, (1200, 800));

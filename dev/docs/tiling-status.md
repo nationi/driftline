@@ -1,7 +1,7 @@
 # Tiling development status and handoff
 
 Updated 2026-10-22. Integration checkpoint: `8c17428`; upstream `7ce05ed` is
-included. Controlled B1/B2/B3 gates are delivered; B4 lifecycle coverage is next.
+included. Controlled B1/B2/B3 gates are delivered; B4 remap coverage is added.
 The persistent development branch is `nationi/development`. This handoff was reconciled with Git;
 see the [roadmap queue](niri-tiling-parity-plan.md#execution-queue-and-acceptance-gates)
 for task order and acceptance. Older “next” statements in the
@@ -56,9 +56,18 @@ mode. These are documented fallbacks, not reference-compatible behavior.
 
 ## Verified evidence and its limits
 
-Latest validation gate: `/tmp/driftwm-b3-failures-ci.log`, exit 0: full
-`dev/scripts/ci-local`, 368 library cases, 1482 binary cases including ignored
-GPU scenarios, integration suites and isolated soak. Dedicated allocation gate:
+Latest validation gate: `/tmp/driftwm-b4-remap-ci.log`, exit 0: full
+`dev/scripts/ci-local`, 368 library cases, 1484 binary cases including ignored
+GPU scenarios, integration suites and isolated soak. Dedicated B4 remap gate:
+`/tmp/driftwm-b4-remap.log`, 12 SSD/CSD scenes at 1x/1.25x/1.5x with ordinary
+held images or a recaptured mixed resize. Explicit remap cancels the group,
+images and crossfades; late tiling buffers and the canvas restore response must
+preserve the new placement and stable window ID. A deferred exit recenter used
+to override that placement after a committed tiling resize; remap now discards
+it. A hermetic regression covers the restore response without GLES
+(`/tmp/driftwm-b4-remap-unit.log`). This is direct compositor remap, not protocol
+unmap/remap or a complete lifecycle gate.
+Dedicated allocation gate:
 `/tmp/driftwm-b3-failures.log`, 90 scenes passed across five capture allocation
 sites, three scales, SSD/CSD and reply/timeout/exit. Parent/popup failure installs
 no partial image tree; resize-bake failure retains the held image but releases
@@ -113,15 +122,16 @@ GPU evidence is from NVIDIA RTX 3060. Reference fixtures are hand-reviewed,
 source-derived expectations, not recordings of niri. Older direct-udev feedback
 confirmed the single-output bindings/menu scenario; it does not validate later
 commits automatically. No release build, installation or manual TTY acceptance
-was performed for these B1–B3 batches. Nested winit NVIDIA blur artifacts/lag remain
+was performed for these B1–B4 batches. Nested winit NVIDIA blur artifacts/lag remain
 unresolved; use direct TTY for visual acceptance.
 
 ## Next work
 
-Next implementation: **B4 motion-time lifecycle coverage**.
-Read existing remap/disconnect/supersession/output-removal tests and history first;
-choose the next missing controlled case rather than duplicating settled-window
-coverage. Require no stale IDs, images or transactions, no duplicate animation,
+Next implementation: **B4 motion-time disconnect with a surviving peer**.
+Direct compositor remap of held/mixed content is covered; do not confuse it with
+protocol unmap/remap. Inspect the existing settled participant-disconnect and
+single-window mixed-title disconnect tests, then add the missing retained-motion
+case with a ready peer. Supersession and output removal remain later B4 gates. Require no stale IDs, images or transactions, no duplicate animation,
 and correct surviving focus/output membership. B3's named controlled allocation,
 stale-content and view/output gates are delivered; residual hardware/zoom/effect
 combinations do not establish universal parity. Keep the expensive independent

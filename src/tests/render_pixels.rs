@@ -3269,3 +3269,110 @@ fn check_failed_tiling_capture(
     f.state().render.remove_output(&output.name());
     gl::uninstall(&mut f);
 }
+
+#[test]
+#[ignore = "needs surfaceless EGL; run with --include-ignored"]
+fn remapping_a_held_or_mixed_tiling_window_clears_retention_and_keeps_placement() {
+    let _gl = gl::lock();
+    for scale in [1.0, 1.25, 1.5] {
+        for ssd in [false, true] {
+            for mixed in [false, true] {
+                check_remapped_tiling_capture(scale, ssd, mixed);
+            }
+        }
+    }
+}
+
+fn check_remapped_tiling_capture(scale: f64, ssd: bool, mixed: bool) {
+    use super::{last_configured, tick_until_settled, window_by_app_id, window_position};
+    use driftwm::config::Action;
+    let Some(renderer) = gl::surfaceless_renderer("remap tiling capture") else {
+        return;
+    };
+    let config = config_toml(true).replace("corner_radius = 0", "corner_radius = 8");
+    let config = if ssd {
+        format!("{config}\n[[window_rules]]\napp_id = \"remap\"\ndecoration = \"server\"\n")
+    } else {
+        config
+    };
+    let mut f = Fixture::with_config(super::config(&config));
+    let output = f.add_output_scaled(1, (1200, 800), scale);
+    gl::install(&mut f, renderer);
+    let client = f.add_client();
+    let surface = map_window_shm(
+        &mut f,
+        client,
+        "remap",
+        (200, 100),
+        (200, 100),
+        &solid_bgra(200, 100, CONTENT_BGRA, false),
+    );
+    tick_until_settled(&mut f);
+    let window = window_by_app_id(&mut f, "remap").unwrap();
+    let id = f.state().stage.id_of(&window).unwrap();
+    f.state().stage.set_position(&window, (100, 120).into());
+    f.state().set_camera((0.0, 0.0).into());
+    colored_tiling_popup(&mut f, client, &surface, (180, 51), [255, 0, 0, 255]);
+    tiling_live_frame(&mut f, &output);
+    f.state().execute_action(&Action::ToggleTiling);
+    if mixed {
+        let size = last_configured(&mut f, client, &surface);
+        let w = f.client(client).window(&surface);
+        w.set_size(size.0 as u16, size.1 as u16);
+        w.attach_shm_buffer(size, &solid_bgra(size.0, size.1, [0, 255, 0, 255], false));
+        w.ack_last_and_commit();
+        f.double_roundtrip(client);
+        f.state()
+            .tick_window_animations(std::time::Duration::from_millis(16));
+        tiling_live_frame(&mut f, &output);
+        assert!(f.state().resize_crossfades.contains_key(&id));
+        f.state().execute_action(&Action::CycleColumnWidth);
+    }
+    assert_eq!(f.state().tiling_snapshot_count(), 2);
+    let old_offer = last_configured(&mut f, client, &surface);
+    let destination = (210, 170).into();
+    f.state().map_window(window.clone(), destination, true);
+    assert!(f.state().tiling_view.is_none());
+    assert!(f.state().stage.tiled_columns().is_empty());
+    assert_eq!(f.state().tiling_snapshot_count(), 0);
+    assert_eq!(f.state().tiling_pending_configures(), 0);
+    assert!(!f.state().resize_crossfades.contains_key(&id));
+    assert!(!f.state().window_animations.is_active());
+    assert_eq!(f.state().stage.id_of(&window), Some(id));
+    assert_eq!(window_position(&mut f, &window), destination);
+    // An already produced tiling buffer can arrive after the remap cancelled
+    // its group; it must not restore the old placement or retained picture.
+    let w = f.client(client).window(&surface);
+    w.set_size(old_offer.0 as u16, old_offer.1 as u16);
+    w.attach_shm_buffer(
+        old_offer,
+        &solid_bgra(old_offer.0, old_offer.1, [0, 255, 0, 255], false),
+    );
+    w.commit();
+    f.double_roundtrip(client);
+    assert_eq!(
+        window_position(&mut f, &window),
+        destination,
+        "{scale}x SSD={ssd} mixed={mixed}: late tiling buffer moved remapped window"
+    );
+    let size = last_configured(&mut f, client, &surface);
+    assert_eq!(size, (200, 100));
+    let w = f.client(client).window(&surface);
+    w.set_size(size.0 as u16, size.1 as u16);
+    w.attach_shm_buffer(size, &solid_bgra(size.0, size.1, [0, 255, 0, 255], false));
+    w.ack_last_and_commit();
+    f.double_roundtrip(client);
+    tick_until_settled(&mut f);
+    assert_eq!(
+        window_position(&mut f, &window),
+        destination,
+        "{scale}x SSD={ssd} mixed={mixed}: restore reply moved remapped window"
+    );
+    assert!(!f.state().resize_crossfades.contains_key(&id));
+    assert!(!f.state().window_animations.is_active());
+    let settled = tiling_live_frame(&mut f, &output);
+    assert!(settled.as_chunks::<4>().0.contains(&[0, 255, 0, 255]));
+    assert!(settled.as_chunks::<4>().0.contains(&[0, 0, 255, 255]));
+    f.state().render.remove_output(&output.name());
+    gl::uninstall(&mut f);
+}

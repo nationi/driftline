@@ -2139,3 +2139,43 @@ no-run build, 368 library cases, 1482 binary cases including ignored GPU scenari
 integration suites and isolated soak. Existing odd/fractional-client,
 blur/title, mode and transform matrices remain green with the bake-grid fix.
 Local Markdown targets and `git diff --check` passed.
+
+## 2026-10-22 — B4 direct remap during held/mixed resize
+
+Baseline `f54ba6d`. Existing `remapping_a_tiled_window_restores_other_windows_before_placing_it`
+checked immediate state before replies, without a renderer. The new
+`remapping_a_held_or_mixed_tiling_window_clears_retention_and_keeps_placement`
+adds 12 GPU scenes: SSD/CSD, 1x/1.25x/1.5x, ordinary held parent/popup or
+recaptured mixed resize after a real green buffer and 16 ms animation tick.
+Explicit `map_window` exits tiling, drains snapshots/pending configures/crossfades
+and animations, and retains the window ID at its requested new position. Submit
+an already-produced tiling-sized buffer after cancellation, then acknowledge the
+200x100 canvas restore. Both commits must preserve that position. The settled
+frame contains the green parent and blue popup, and fixture counters return to
+baseline after per-output GPU teardown.
+
+The mixed case reproduced a bug before the fix: a late buffer moved the window
+from (210,170) to (-398,-228). `exit_tiling` had registered an owed canvas
+recenter after a real tiled-size commit; the subsequent explicit map left it
+armed. `map_window` now discards this exit recenter after preparing a tiled
+remap, before applying the new position. The change is scoped to windows that
+were tiled, preserving existing center-based rule-point placement semantics.
+The hermetic `remapping_after_a_tiling_resize_supersedes_the_restore_recenter`
+checks the same restore-response regression without GLES.
+
+Dedicated `/tmp/driftwm-b4-remap.log`: all 12 scenes passed.
+`/tmp/driftwm-b4-remap-unit.log`: three matching hermetic tests passed; the GPU
+case was intentionally ignored in that invocation. This is direct compositor
+remap, not xdg protocol unmap/remap, full B4 completion or niri remap equivalence.
+Next: retained-motion disconnect with a surviving ready peer; then reconcile
+remaining protocol-remap/supersession/output-removal coverage. A0 remains required
+before feature expansion, and independent multi-output tiling remains P11.
+No pure stage/layout/config parser algorithm changed; no deep property pass is
+needed. No release build, install, desktop restart, push or manual TTY acceptance
+was performed.
+
+Full `dev/scripts/ci-local` passed, exit 0
+(`/tmp/driftwm-b4-remap-ci.log`): fmt, locked check, strict all-target clippy,
+no-run build, 368 library cases, 1484 binary cases including ignored GPU scenarios,
+integration suites and isolated soak. Local Markdown targets and
+`git diff --check` passed.

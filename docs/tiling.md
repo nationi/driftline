@@ -173,4 +173,8 @@ fails, the held image can still be released, but without the old-content
 crossfade. Groups remain bounded and later successful captures restore normal
 retention. Controlled checks cover these paths at 1x/1.25x/1.5x with replies,
 timeouts and leaving tiling; they simulate allocation failure rather than GPU OOM.
+Explicit compositor remapping leaves tiling and preserves the newly requested
+canvas position even if old tiling buffers or the restore-size response arrive
+later. Controlled checks cover remapping held and mixed resize content with a
+popup; protocol unmap/remap and other lifecycle combinations remain experimental.
 Complete visual atomicity and all animation transitions are not implemented yet.
