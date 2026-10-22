@@ -76,18 +76,18 @@ Outside = explicit non-layout scope exclusion. Never infer Exact from a similar 
 | `FocusColumnRightOrFirst` | Layout | Missing | — | P4/P6–P14; no parity evidence yet; [action address audit](niri-binding-address-audit.md#scoped-ordinal-and-previous-selection) |
 | `FocusColumnLeftOrLast` | Layout | Missing | — | P4/P6–P14; no parity evidence yet; [action address audit](niri-binding-address-audit.md#scoped-ordinal-and-previous-selection) |
 | `FocusColumn` | Layout | Missing | — | P4/P6–P14; no parity evidence yet; [action address audit](niri-binding-address-audit.md#scoped-ordinal-and-previous-selection) |
-| `FocusWindowOrMonitorUp` | Layout | Missing | — | P4/P6–P14; no parity evidence yet |
-| `FocusWindowOrMonitorDown` | Layout | Missing | — | P4/P6–P14; no parity evidence yet |
-| `FocusColumnOrMonitorLeft` | Layout | Missing | — | P4/P6–P14; no parity evidence yet |
-| `FocusColumnOrMonitorRight` | Layout | Missing | — | P4/P6–P14; no parity evidence yet |
+| `FocusWindowOrMonitorUp` | Layout | Missing | — | P4/P6–P14; no parity evidence yet; [navigation/view action audit](niri-navigation-view-action-audit.md) |
+| `FocusWindowOrMonitorDown` | Layout | Missing | — | P4/P6–P14; no parity evidence yet; [navigation/view action audit](niri-navigation-view-action-audit.md) |
+| `FocusColumnOrMonitorLeft` | Layout | Missing | — | P4/P6–P14; no parity evidence yet; [navigation/view action audit](niri-navigation-view-action-audit.md) |
+| `FocusColumnOrMonitorRight` | Layout | Missing | — | P4/P6–P14; no parity evidence yet; [navigation/view action audit](niri-navigation-view-action-audit.md) |
 | `FocusWindowDown` | Layout | Partial | focus-column down | src/tests/tiling.rs; src/stage/tiling.rs tests |
 | `FocusWindowUp` | Layout | Partial | focus-column up | src/tests/tiling.rs; src/stage/tiling.rs tests |
 | `FocusWindowDownOrColumnLeft` | Layout | Missing | — | P4/P6–P14; no parity evidence yet |
 | `FocusWindowDownOrColumnRight` | Layout | Missing | — | P4/P6–P14; no parity evidence yet |
 | `FocusWindowUpOrColumnLeft` | Layout | Missing | — | P4/P6–P14; no parity evidence yet |
 | `FocusWindowUpOrColumnRight` | Layout | Missing | — | P4/P6–P14; no parity evidence yet |
-| `FocusWindowOrWorkspaceDown` | Layout | Missing | — | P4/P6–P14; no parity evidence yet |
-| `FocusWindowOrWorkspaceUp` | Layout | Missing | — | P4/P6–P14; no parity evidence yet |
+| `FocusWindowOrWorkspaceDown` | Layout | Missing | — | P4/P6–P14; no parity evidence yet; [navigation/view action audit](niri-navigation-view-action-audit.md) |
+| `FocusWindowOrWorkspaceUp` | Layout | Missing | — | P4/P6–P14; no parity evidence yet; [navigation/view action audit](niri-navigation-view-action-audit.md) |
 | `FocusWindowTop` | Layout | Missing | — | P4/P6–P14; no parity evidence yet |
 | `FocusWindowBottom` | Layout | Missing | — | P4/P6–P14; no parity evidence yet |
 | `FocusWindowDownOrTop` | Layout | Missing | — | P4/P6–P14; no parity evidence yet |
@@ -96,13 +96,13 @@ Outside = explicit non-layout scope exclusion. Never infer Exact from a similar 
 | `MoveColumnRight` | Layout | Partial | move-column right | src/tests/tiling.rs; src/stage/tiling.rs tests |
 | `MoveColumnToFirst` | Layout | Missing | — | P4/P6–P14; no parity evidence yet |
 | `MoveColumnToLast` | Layout | Missing | — | P4/P6–P14; no parity evidence yet |
-| `MoveColumnLeftOrToMonitorLeft` | Layout | Missing | — | P4/P6–P14; no parity evidence yet |
-| `MoveColumnRightOrToMonitorRight` | Layout | Missing | — | P4/P6–P14; no parity evidence yet |
+| `MoveColumnLeftOrToMonitorLeft` | Layout | Missing | — | P4/P6–P14; no parity evidence yet; [navigation/view action audit](niri-navigation-view-action-audit.md) |
+| `MoveColumnRightOrToMonitorRight` | Layout | Missing | — | P4/P6–P14; no parity evidence yet; [navigation/view action audit](niri-navigation-view-action-audit.md) |
 | `MoveColumnToIndex` | Layout | Missing | — | P4/P6–P14; no parity evidence yet; [action address audit](niri-binding-address-audit.md#scoped-ordinal-and-previous-selection) |
 | `MoveWindowDown` | Layout | Partial | move-tiled-window down | src/tests/tiling.rs; src/stage/tiling.rs tests |
 | `MoveWindowUp` | Layout | Partial | move-tiled-window up | src/tests/tiling.rs; src/stage/tiling.rs tests |
-| `MoveWindowDownOrToWorkspaceDown` | Layout | Missing | — | P4/P6–P14; no parity evidence yet |
-| `MoveWindowUpOrToWorkspaceUp` | Layout | Missing | — | P4/P6–P14; no parity evidence yet |
+| `MoveWindowDownOrToWorkspaceDown` | Layout | Missing | — | P4/P6–P14; no parity evidence yet; [navigation/view action audit](niri-navigation-view-action-audit.md) |
+| `MoveWindowUpOrToWorkspaceUp` | Layout | Missing | — | P4/P6–P14; no parity evidence yet; [navigation/view action audit](niri-navigation-view-action-audit.md) |
 | `ConsumeOrExpelWindowLeft` | Layout | Missing | — | P4/P6–P14; no parity evidence yet; [preset/topology action audit](niri-preset-topology-action-audit.md) |
 | `ConsumeOrExpelWindowLeftById` | Layout | Missing | — | P4/P6–P14; no parity evidence yet; [preset/topology action audit](niri-preset-topology-action-audit.md) |
 | `ConsumeOrExpelWindowRight` | Layout | Missing | — | P4/P6–P14; no parity evidence yet; [preset/topology action audit](niri-preset-topology-action-audit.md) |
@@ -113,10 +113,10 @@ Outside = explicit non-layout scope exclusion. Never infer Exact from a similar 
 | `SwapWindowRight` | Layout | Missing | — | P4/P6–P14; no parity evidence yet; [preset/topology action audit](niri-preset-topology-action-audit.md) |
 | `ToggleColumnTabbedDisplay` | Layout | Missing | — | P4/P6–P14; no parity evidence yet |
 | `SetColumnDisplay` | Layout | Missing | — | P4/P6–P14; no parity evidence yet |
-| `CenterColumn` | Layout | Missing | — | P4/P6–P14; no parity evidence yet |
-| `CenterWindow` | Layout | Missing | — | P4/P6–P14; no parity evidence yet |
-| `CenterWindowById` | Layout | Missing | — | P4/P6–P14; no parity evidence yet |
-| `CenterVisibleColumns` | Layout | Missing | — | P4/P6–P14; no parity evidence yet |
+| `CenterColumn` | Layout | Missing | — | P4/P6–P14; no parity evidence yet; [navigation/view action audit](niri-navigation-view-action-audit.md) |
+| `CenterWindow` | Layout | Missing | — | P4/P6–P14; no parity evidence yet; [navigation/view action audit](niri-navigation-view-action-audit.md) |
+| `CenterWindowById` | Layout | Missing | — | P4/P6–P14; no parity evidence yet; [navigation/view action audit](niri-navigation-view-action-audit.md) |
+| `CenterVisibleColumns` | Layout | Missing | — | P4/P6–P14; no parity evidence yet; [navigation/view action audit](niri-navigation-view-action-audit.md) |
 | `FocusWorkspaceDown` | Layout | Missing | — | P4/P6–P14; no parity evidence yet |
 | `FocusWorkspaceDownUnderMouse` | Layout | Missing | — | P4/P6–P14; no parity evidence yet |
 | `FocusWorkspaceUp` | Layout | Missing | — | P4/P6–P14; no parity evidence yet |
@@ -140,27 +140,27 @@ Outside = explicit non-layout scope exclusion. Never infer Exact from a similar 
 | `SetWorkspaceNameByRef` | Layout | Missing | — | P4/P6–P14; no parity evidence yet |
 | `UnsetWorkspaceName` | Layout | Missing | — | P4/P6–P14; no parity evidence yet |
 | `UnsetWorkSpaceNameByRef` | Layout | Missing | — | P4/P6–P14; no parity evidence yet |
-| `FocusMonitorLeft` | Layout | Missing | — | P4/P6–P14; no parity evidence yet |
-| `FocusMonitorRight` | Layout | Missing | — | P4/P6–P14; no parity evidence yet |
-| `FocusMonitorDown` | Layout | Missing | — | P4/P6–P14; no parity evidence yet |
-| `FocusMonitorUp` | Layout | Missing | — | P4/P6–P14; no parity evidence yet |
-| `FocusMonitorPrevious` | Layout | Missing | — | P4/P6–P14; no parity evidence yet |
-| `FocusMonitorNext` | Layout | Missing | — | P4/P6–P14; no parity evidence yet |
-| `FocusMonitor` | Layout | Missing | — | P4/P6–P14; no parity evidence yet |
-| `MoveWindowToMonitorLeft` | Layout | Missing | — | P4/P6–P14; no parity evidence yet |
-| `MoveWindowToMonitorRight` | Layout | Missing | — | P4/P6–P14; no parity evidence yet |
-| `MoveWindowToMonitorDown` | Layout | Missing | — | P4/P6–P14; no parity evidence yet |
-| `MoveWindowToMonitorUp` | Layout | Missing | — | P4/P6–P14; no parity evidence yet |
-| `MoveWindowToMonitorPrevious` | Layout | Missing | — | P4/P6–P14; no parity evidence yet |
-| `MoveWindowToMonitorNext` | Layout | Missing | — | P4/P6–P14; no parity evidence yet |
+| `FocusMonitorLeft` | Layout | Missing | — | P4/P6–P14; no parity evidence yet; [navigation/view action audit](niri-navigation-view-action-audit.md) |
+| `FocusMonitorRight` | Layout | Missing | — | P4/P6–P14; no parity evidence yet; [navigation/view action audit](niri-navigation-view-action-audit.md) |
+| `FocusMonitorDown` | Layout | Missing | — | P4/P6–P14; no parity evidence yet; [navigation/view action audit](niri-navigation-view-action-audit.md) |
+| `FocusMonitorUp` | Layout | Missing | — | P4/P6–P14; no parity evidence yet; [navigation/view action audit](niri-navigation-view-action-audit.md) |
+| `FocusMonitorPrevious` | Layout | Missing | — | P4/P6–P14; no parity evidence yet; [navigation/view action audit](niri-navigation-view-action-audit.md) |
+| `FocusMonitorNext` | Layout | Missing | — | P4/P6–P14; no parity evidence yet; [navigation/view action audit](niri-navigation-view-action-audit.md) |
+| `FocusMonitor` | Layout | Missing | — | P4/P6–P14; no parity evidence yet; [navigation/view action audit](niri-navigation-view-action-audit.md) |
+| `MoveWindowToMonitorLeft` | Layout | Missing | — | P4/P6–P14; no parity evidence yet; [navigation/view action audit](niri-navigation-view-action-audit.md) |
+| `MoveWindowToMonitorRight` | Layout | Missing | — | P4/P6–P14; no parity evidence yet; [navigation/view action audit](niri-navigation-view-action-audit.md) |
+| `MoveWindowToMonitorDown` | Layout | Missing | — | P4/P6–P14; no parity evidence yet; [navigation/view action audit](niri-navigation-view-action-audit.md) |
+| `MoveWindowToMonitorUp` | Layout | Missing | — | P4/P6–P14; no parity evidence yet; [navigation/view action audit](niri-navigation-view-action-audit.md) |
+| `MoveWindowToMonitorPrevious` | Layout | Missing | — | P4/P6–P14; no parity evidence yet; [navigation/view action audit](niri-navigation-view-action-audit.md) |
+| `MoveWindowToMonitorNext` | Layout | Missing | — | P4/P6–P14; no parity evidence yet; [navigation/view action audit](niri-navigation-view-action-audit.md) |
 | `MoveWindowToMonitor` | Layout | Missing | — | P4/P6–P14; no parity evidence yet; [size/transfer action audit](niri-size-transfer-action-audit.md) |
 | `MoveWindowToMonitorById` | Layout | Missing | — | P4/P6–P14; no parity evidence yet; [size/transfer action audit](niri-size-transfer-action-audit.md) |
-| `MoveColumnToMonitorLeft` | Layout | Missing | — | P4/P6–P14; no parity evidence yet |
-| `MoveColumnToMonitorRight` | Layout | Missing | — | P4/P6–P14; no parity evidence yet |
-| `MoveColumnToMonitorDown` | Layout | Missing | — | P4/P6–P14; no parity evidence yet |
-| `MoveColumnToMonitorUp` | Layout | Missing | — | P4/P6–P14; no parity evidence yet |
-| `MoveColumnToMonitorPrevious` | Layout | Missing | — | P4/P6–P14; no parity evidence yet |
-| `MoveColumnToMonitorNext` | Layout | Missing | — | P4/P6–P14; no parity evidence yet |
+| `MoveColumnToMonitorLeft` | Layout | Missing | — | P4/P6–P14; no parity evidence yet; [navigation/view action audit](niri-navigation-view-action-audit.md) |
+| `MoveColumnToMonitorRight` | Layout | Missing | — | P4/P6–P14; no parity evidence yet; [navigation/view action audit](niri-navigation-view-action-audit.md) |
+| `MoveColumnToMonitorDown` | Layout | Missing | — | P4/P6–P14; no parity evidence yet; [navigation/view action audit](niri-navigation-view-action-audit.md) |
+| `MoveColumnToMonitorUp` | Layout | Missing | — | P4/P6–P14; no parity evidence yet; [navigation/view action audit](niri-navigation-view-action-audit.md) |
+| `MoveColumnToMonitorPrevious` | Layout | Missing | — | P4/P6–P14; no parity evidence yet; [navigation/view action audit](niri-navigation-view-action-audit.md) |
+| `MoveColumnToMonitorNext` | Layout | Missing | — | P4/P6–P14; no parity evidence yet; [navigation/view action audit](niri-navigation-view-action-audit.md) |
 | `MoveColumnToMonitor` | Layout | Missing | — | P4/P6–P14; no parity evidence yet; [size/transfer action audit](niri-size-transfer-action-audit.md) |
 | `SetWindowWidth` | Layout | Missing | — | P4/P6–P14; no parity evidence yet; [size/transfer action audit](niri-size-transfer-action-audit.md) |
 | `SetWindowWidthById` | Layout | Missing | — | P4/P6–P14; no parity evidence yet; [size/transfer action audit](niri-size-transfer-action-audit.md) |
@@ -182,15 +182,15 @@ Outside = explicit non-layout scope exclusion. Never infer Exact from a similar 
 | `MaximizeWindowToEdges` | Layout | Missing | — | P4/P6–P14; no parity evidence yet; [preset/topology action audit](niri-preset-topology-action-audit.md) |
 | `MaximizeWindowToEdgesById` | Layout | Missing | — | P4/P6–P14; no parity evidence yet; [preset/topology action audit](niri-preset-topology-action-audit.md) |
 | `SetColumnWidth` | Layout | Missing | — | P4/P6–P14; no parity evidence yet; [size/transfer action audit](niri-size-transfer-action-audit.md) |
-| `ExpandColumnToAvailableWidth` | Layout | Missing | — | P4/P6–P14; no parity evidence yet |
+| `ExpandColumnToAvailableWidth` | Layout | Missing | — | P4/P6–P14; no parity evidence yet; [navigation/view action audit](niri-navigation-view-action-audit.md) |
 | `SwitchLayout` | Outside | Outside | unrelated compositor action | roadmap scope; reconsider if layout-visible |
 | `ShowHotkeyOverlay` | Outside | Outside | unrelated compositor action | roadmap scope; reconsider if layout-visible |
-| `MoveWorkspaceToMonitorLeft` | Layout | Missing | — | P4/P6–P14; no parity evidence yet |
-| `MoveWorkspaceToMonitorRight` | Layout | Missing | — | P4/P6–P14; no parity evidence yet |
-| `MoveWorkspaceToMonitorDown` | Layout | Missing | — | P4/P6–P14; no parity evidence yet |
-| `MoveWorkspaceToMonitorUp` | Layout | Missing | — | P4/P6–P14; no parity evidence yet |
-| `MoveWorkspaceToMonitorPrevious` | Layout | Missing | — | P4/P6–P14; no parity evidence yet |
-| `MoveWorkspaceToMonitorNext` | Layout | Missing | — | P4/P6–P14; no parity evidence yet |
+| `MoveWorkspaceToMonitorLeft` | Layout | Missing | — | P4/P6–P14; no parity evidence yet; [navigation/view action audit](niri-navigation-view-action-audit.md) |
+| `MoveWorkspaceToMonitorRight` | Layout | Missing | — | P4/P6–P14; no parity evidence yet; [navigation/view action audit](niri-navigation-view-action-audit.md) |
+| `MoveWorkspaceToMonitorDown` | Layout | Missing | — | P4/P6–P14; no parity evidence yet; [navigation/view action audit](niri-navigation-view-action-audit.md) |
+| `MoveWorkspaceToMonitorUp` | Layout | Missing | — | P4/P6–P14; no parity evidence yet; [navigation/view action audit](niri-navigation-view-action-audit.md) |
+| `MoveWorkspaceToMonitorPrevious` | Layout | Missing | — | P4/P6–P14; no parity evidence yet; [navigation/view action audit](niri-navigation-view-action-audit.md) |
+| `MoveWorkspaceToMonitorNext` | Layout | Missing | — | P4/P6–P14; no parity evidence yet; [navigation/view action audit](niri-navigation-view-action-audit.md) |
 | `ToggleWindowFloating` | Layout | Missing | — | P4/P6–P14; no parity evidence yet |
 | `ToggleWindowFloatingById` | Layout | Missing | — | P4/P6–P14; no parity evidence yet |
 | `MoveWindowToFloating` | Layout | Missing | — | P4/P6–P14; no parity evidence yet |

@@ -213,6 +213,9 @@ def schema_structs(source):
         yield match.group(1), re.findall(r"^    pub (\w+):", block(source, match.group(0)), re.M)
 
 
+NAVIGATION_VIEW_ACTION_AUDIT = set("FocusWindowOrMonitorUp FocusWindowOrMonitorDown FocusColumnOrMonitorLeft FocusColumnOrMonitorRight MoveColumnLeftOrToMonitorLeft MoveColumnRightOrToMonitorRight MoveWindowDownOrToWorkspaceDown MoveWindowUpOrToWorkspaceUp FocusWindowOrWorkspaceDown FocusWindowOrWorkspaceUp FocusMonitorLeft FocusMonitorRight FocusMonitorDown FocusMonitorUp FocusMonitorPrevious FocusMonitorNext FocusMonitor CenterColumn CenterWindow CenterWindowById CenterVisibleColumns ExpandColumnToAvailableWidth MoveWindowToMonitorLeft MoveWindowToMonitorRight MoveWindowToMonitorDown MoveWindowToMonitorUp MoveWindowToMonitorPrevious MoveWindowToMonitorNext MoveColumnToMonitorLeft MoveColumnToMonitorRight MoveColumnToMonitorDown MoveColumnToMonitorUp MoveColumnToMonitorPrevious MoveColumnToMonitorNext MoveWorkspaceToMonitorLeft MoveWorkspaceToMonitorRight MoveWorkspaceToMonitorDown MoveWorkspaceToMonitorUp MoveWorkspaceToMonitorPrevious MoveWorkspaceToMonitorNext".split())
+
+
 PRESET_TOPOLOGY_ACTION_AUDIT = set("SwitchPresetColumnWidth SwitchPresetColumnWidthBack SwitchPresetWindowWidth SwitchPresetWindowWidthBack SwitchPresetWindowWidthById SwitchPresetWindowWidthBackById SwitchPresetWindowHeight SwitchPresetWindowHeightBack SwitchPresetWindowHeightById SwitchPresetWindowHeightBackById ResetWindowHeight ResetWindowHeightById MaximizeColumn MaximizeWindowToEdges MaximizeWindowToEdgesById ConsumeOrExpelWindowLeft ConsumeOrExpelWindowLeftById ConsumeOrExpelWindowRight ConsumeOrExpelWindowRightById ConsumeWindowIntoColumn ExpelWindowFromColumn SwapWindowLeft SwapWindowRight".split())
 
 
@@ -477,6 +480,8 @@ def generate(root):
     assert ACTION_ADDRESS_AUDIT.issubset(names), "Reviewed action names must exist"
     assert SIZE_TRANSFER_ACTION_AUDIT.issubset(names), "Reviewed size/transfer actions must exist"
     assert PRESET_TOPOLOGY_ACTION_AUDIT.issubset(names), "Reviewed preset/topology actions must exist"
+    assert NAVIGATION_VIEW_ACTION_AUDIT.issubset(names), "Reviewed navigation/view actions must exist"
+    assert not NAVIGATION_VIEW_ACTION_AUDIT & (ACTION_ADDRESS_AUDIT | SIZE_TRANSFER_ACTION_AUDIT | PRESET_TOPOLOGY_ACTION_AUDIT), "Navigation action audit sets must not overlap"
     assert not PRESET_TOPOLOGY_ACTION_AUDIT & (ACTION_ADDRESS_AUDIT | SIZE_TRANSFER_ACTION_AUDIT), "Scoped topology actions must not overlap"
     assert not ACTION_ADDRESS_AUDIT & SIZE_TRANSFER_ACTION_AUDIT, "Scoped action audit sets must not overlap"
     lines = [
@@ -524,6 +529,8 @@ def generate(root):
             evidence += "; [size/transfer action audit](niri-size-transfer-action-audit.md)"
         if name in PRESET_TOPOLOGY_ACTION_AUDIT:
             evidence += "; [preset/topology action audit](niri-preset-topology-action-audit.md)"
+        if name in NAVIGATION_VIEW_ACTION_AUDIT:
+            evidence += "; [navigation/view action audit](niri-navigation-view-action-audit.md)"
         lines.append(f"| `{name}` | {scope} | {status} | {mapping} | {evidence} |")
     lines += ["", f"Action variants indexed: **{len(names)}**.", "", "## Action config exposure", "",
         f"Derived config decoder variants: **{len(names) - len(skipped)}**; skipped variants: **{len(skipped)}**.",

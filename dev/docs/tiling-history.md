@@ -2828,3 +2828,26 @@ implementation evidence remains B4. No push/install/TTY claim. Next A0:
 directional/previous/next compound monitor/workspace behavior, centering/available
 width and remaining target actions, misc/root/recent-windows and independent
 reference fixtures. Integration Partial/Unverified gates remain open.
+
+
+## A0 compound navigation and view action audit
+
+Reviewed 40 more action rows (91 scoped rows overall), with no new named schema
+rows (496/576 review links). Monitor direction uses center-axis distance and
+perpendicular strip overlap; previous/next cycles sorted outputs rather than
+focus history. Local-first monitor/workspace helpers, screenshot/floating branches
+and cursor/focus differences were traced. A helper fallback bool is not universal
+movement success. Group centering/available-width expansion use target camera
+position, fully visible active column, gap/extra-width accounting and explicit
+centering/full-width/normal-sizing conditions. Background center IDs do not
+implicitly focus another scrolling column. No multi-output tiling implementation
+or executable input/geometry/DRM parity is claimed.
+
+Validation passed: Python syntax, deterministic 576 fields /186 actions /136–50
+config exposure, preserved field/action keys and statuses, existing 496 schema
+links, 40 new links and 91 disjoint action review rows, local/pinned links/anchors,
+clean exact reference and diff checks. No niri/input/GPU execution or Rust CI rerun
+for docs/tooling; implementation evidence remains B4. No push/install/TTY claim.
+Next A0: remaining local/under-pointer focus/reorder, tabs/floating/fullscreen/
+overview and target/state actions, misc/root/recent-windows and independent
+executable reference fixtures. Integration/physics/hardware gates remain open.
