@@ -2453,3 +2453,52 @@ Next: A0 global/output/workspace/window-rule override order, initial-map/reload
 lifecycle and which merge path each context uses, then remaining schemas/action
 addressing and independent fixture expansion. A0/P0 remains open and continues
 to gate feature expansion; delivered B1–B4 renderer matrices are not restarted.
+
+## 2026-10-22 — A0 override order and scoped rule lifecycle
+
+Added `dev/docs/niri-config-lifecycle-audit.md` from clean pinned source
+`12de51d6a60baad8896366920278a24f17921f52`. It traces Options global → monitor
+output part → workspace part → scale adjustment, then composed per-window
+appearance rules into resolved tile appearance. Output lookup selects the first
+matching profile; full output/name grammar remains open. Scoped evidence covers
+22 WindowRule fields, all nine Match properties and Output.layout/Workspace.layout
+(33 additional source rows), rather than claiming all rule/placement decoding.
+
+Rule matching is OR across match blocks, AND inside one, excluded by any matching
+exclude. Ordered matching rules fold from a fresh default every recomputation,
+with present scalars overriding and nested appearance rules composing. Unmapped
+WindowRef has is-floating=false and active-in-column=true, so future floating
+opening does not make an initial is-floating matcher true. Metadata, activation,
+focus/selection, urgency/cast/floating state, startup completion and rule reload
+have distinct recomputation paths. Window-rule shadow parts compose with on
+precedence before applying to workspace appearance; layout parts merge directly
+to resolved Shadow, locating the separate off-precedence path from the prior audit.
+
+Initial configure stores resolved width/height/target fields separately from the
+rules. Updating a configured-but-unmapped window's rules does not replace all
+those cached sizing/target fields; first-buffer mapping revalidates output and
+workspace and recomputes floating heuristics/focus policy. Opening defaults are
+not generic dynamic re-placement/refocus commands. Preset reload clears indices
+and converts preset heights to automatic. A further source-derived edge is kept
+explicit: un-naming a nonempty workspace clears its name, not saved layout_config;
+that path can retain the old override after config removal. These require
+independent executable fixtures, not silent policy changes in this fork.
+
+Driftwm comparison records ordered app/title glob-or-explicit-regex rules, stored
+mapped appearance versus niri dynamic recomputation, global reload/cache refresh,
+and the deliberate live pass_mouse rule exception. Per-output/workspace tiling
+layout overrides and rule-level layout-native opening/sizing remain missing.
+The generator links these 33 rows in addition to the earlier 132, guards Match
+property completeness and selected WindowRule field existence, and retains
+unscoped rows as unverified. The earlier audits link to the scoped lifecycle
+trace without declaring every override/placement permutation resolved.
+
+Validation passed: Python syntax without bytecode artifacts, deterministic
+byte-identical generation, 186 actions / 318 fields, 34 layout + 98 appearance +
+33 lifecycle audit links, local targets/anchors, pinned reference source targets
+and `git diff --check`. No execution of niri/parser, differential rendering or
+new Rust parity tests. No runtime/config change, full CI rerun, push, installation
+or TTY acceptance; implementation CI remains `/tmp/driftwm-b4-output-ci.log`.
+Next A0: remaining appearance/effect decoders and consumers (CornerRadius,
+workspace shadows, blur/background effects), then remaining schemas/actions and
+independent fixture expansion. A0/P0 stays open and gates feature expansion.

@@ -101,7 +101,43 @@ def appearance_status(name, field):
     return status, f"{mapping}; [decoder/merge audit](niri-appearance-config-audit.md#{section})"
 
 
+LIFECYCLE_WINDOW_FIELDS = {
+    "matches": ("Partial", "Ordered app/title matching exists; niri OR match blocks and dynamic states differ"),
+    "excludes": ("Missing", "No niri exclude blocks"),
+    "default_column_width": ("Missing", "No rule-level tiled default width with omitted/empty/present semantics"),
+    "default_window_height": ("Missing", "No rule-level tiled default height"),
+    "open_on_output": ("Partial", "Canvas output placement exists; niri target precedence/owner lifecycle differs"),
+    "open_on_workspace": ("Missing", "No workspace routing"),
+    "open_maximized": ("Missing", "No reference full-width column opening policy"),
+    "open_maximized_to_edges": ("Missing", "No reference maximized-to-edges opening policy"),
+    "open_fullscreen": ("Divergent", "Fullscreen rules use canvas transitions, not retained tiling topology"),
+    "open_floating": ("Missing", "No layout-native floating opening policy"),
+    "open_focused": ("Partial", "focus_on_open exists; token/smart/strict reference policy not equivalent"),
+    "default_column_display": ("Missing", "No normal/tabbed column default rule"),
+    "default_floating_position": ("Missing", "Generic canvas position is not reference floating initial placement"),
+    "min_width": ("Missing", "Client constraints exist; rule-level extra constraint missing"),
+    "min_height": ("Missing", "Client constraints exist; rule-level extra constraint missing"),
+    "max_width": ("Missing", "Client constraints exist; rule-level extra constraint missing"),
+    "max_height": ("Missing", "Client constraints exist; rule-level extra constraint missing"),
+    "focus_ring": ("Missing", "No separate reference focus ring"),
+    "border": ("Divergent", "Native border rules are stored at mapping, not dynamically recomputed"),
+    "shadow": ("Divergent", "Native shadow rule flags are stored at mapping; reference merges/reload differ"),
+    "tab_indicator": ("Missing", "No per-window tab-indicator rule"),
+    "opacity": ("Divergent", "Mapped appearance rule is sticky; reference recomputes metadata/state/reload matches"),
+}
+MATCH_AUDIT_FIELDS = "app_id title is_active is_focused is_active_in_column is_floating is_window_cast_target is_urgent at_startup"
+
+
 def config_status(module, name, field):
+    lifecycle_link = "[precedence/lifecycle audit](niri-config-lifecycle-audit.md)"
+    if module == "window_rule" and name == "WindowRule" and field in LIFECYCLE_WINDOW_FIELDS:
+        status, mapping = LIFECYCLE_WINDOW_FIELDS[field]
+        return status, f"{mapping}; {lifecycle_link}"
+    if module == "window_rule" and name == "Match":
+        status = "Divergent" if field in {"app_id", "title"} else "Missing"
+        return status, f"Regex/dynamic match properties differ from mapped app/title glob rules; {lifecycle_link}"
+    if (module, name, field) in {("output", "Output", "layout"), ("workspace", "Workspace", "layout")}:
+        return "Missing", f"No per-output/workspace tiling layout hierarchy; {lifecycle_link}"
     if module == "appearance" and name in APPEARANCE_AUDIT_FIELDS:
         return appearance_status(name, field)
     if module == "layout" and name in {"Layout", "LayoutPart"}:
@@ -133,7 +169,9 @@ def generate(root):
         "covers top-level layout names/defaults and shared size/flag/strut decoding;",
         "the [appearance audit](niri-appearance-config-audit.md) covers color/gradient,",
         "border/shadow and tab/insert-hint decoding and merges. Overrides, remaining",
-        "appearance types and other schemas still need semantic auditing.",
+        "appearance types and other schemas still need semantic auditing. The",
+        "[lifecycle audit](niri-config-lifecycle-audit.md) traces override order and",
+        "scoped window-rule initial-map/reload consumers; unscoped behavior stays open.",
         "P0 reference operation fixtures and the custom-decoder audit remain unfinished.", "",
         "Status: Partial = related implementation, not full equivalence; Divergent = known",
         "semantic difference; Missing = no matching tiling action; Unverified = not audited;",
@@ -161,6 +199,10 @@ def generate(root):
                 assert set(fields) == set(LAYOUT_AUDIT), "Layout audit must account for every field"
             if module == "appearance" and name in APPEARANCE_AUDIT_FIELDS:
                 assert set(fields) == set(APPEARANCE_AUDIT_FIELDS[name].split()), "Appearance audit must account for every field"
+            if module == "window_rule" and name == "Match":
+                assert set(fields) == set(MATCH_AUDIT_FIELDS.split()), "Match audit must account for every property"
+            if module == "window_rule" and name == "WindowRule":
+                assert set(LIFECYCLE_WINDOW_FIELDS).issubset(fields), "Lifecycle field names must exist in pinned schema"
             for field in fields:
                 count += 1
                 status, mapping = config_status(module, name, field)

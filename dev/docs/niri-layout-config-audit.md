@@ -4,8 +4,8 @@ Reference: `12de51d6a60baad8896366920278a24f17921f52`. This A0/P0 batch audits
 all 15 top-level `Layout` / `LayoutPart` fields, their public KDL names, defaults
 and the shared size/flag/strut decoders. Core appearance decoding and merging is
 covered by the [appearance audit](niri-appearance-config-audit.md); remaining
-appearance types, window rules, output/workspace overrides and action addressing
-still need auditing. No driftwm
+appearance types and action addressing still need auditing. Scoped override and
+window-rule consumers are traced in the [lifecycle audit](niri-config-lifecycle-audit.md). No driftwm
 configuration or runtime behavior changes in this batch.
 
 Evidence is source inspection of the pinned checkout, not execution of niri's
@@ -119,8 +119,9 @@ of these results merely from `Border::default` or Rust field optionality.
 Output config carries `Option<LayoutPart>`; workspace config wraps it in
 `WorkspaceLayoutPart`. That custom decoder rejects `empty-workspace-above-first`
 and `insert-hint` within `workspace.layout`: they are monitor-level concepts.
-The complete global → output → workspace override precedence, hot reload and
-window-rule lifecycle still need a dedicated audit. Default width rule resolution
+The [lifecycle audit](niri-config-lifecycle-audit.md) traces global → output →
+workspace precedence and scoped initial-map/reload consumers; complete placement
+and override permutations remain open. Default width rule resolution
 already shows another distinction: a present rule can explicitly clear width,
 whereas an absent floating-window default does not inherit the tiling width
 (`Workspace::resolve_default_width`).
@@ -145,11 +146,10 @@ acceptance alone is not a geometry acceptance gate.
 
 ## Next audit
 
-Audit global/output/workspace/window-rule override precedence and lifecycle.
-The appearance audit records Color, Gradient, BorderRule, ShadowRule,
-TabIndicatorPart and InsertHintPart grammar and local merges, including
-context-dependent shadow flag precedence; their application contexts still
-need tracing. Remaining appearance schemas (CornerRadius, workspace shadows,
-blur/background effects), other indexed modules and ID/index/previous/next
-action addressing are open. A0/P0 remains unfinished; no new public setting or
-action should be added merely on the strength of these source tables.
+The lifecycle audit now traces scoped global/output/workspace/window-rule
+precedence, initial configure/map and reload consumers, including which shadow
+merge path is used. Complete placement/reload permutations still need executable
+fixtures. Audit remaining CornerRadius, workspace shadows and blur/background
+effects next; other indexed modules, naming/matching details, unscoped rule
+fields and ID/index/previous/next actions remain open. A0/P0 is unfinished; these
+source tables do not authorize new public settings or imply runtime parity.

@@ -10,7 +10,9 @@ are not automatically public keys. The [layout audit](niri-layout-config-audit.m
 covers top-level layout names/defaults and shared size/flag/strut decoding;
 the [appearance audit](niri-appearance-config-audit.md) covers color/gradient,
 border/shadow and tab/insert-hint decoding and merges. Overrides, remaining
-appearance types and other schemas still need semantic auditing.
+appearance types and other schemas still need semantic auditing. The
+[lifecycle audit](niri-config-lifecycle-audit.md) traces override order and
+scoped window-rule initial-map/reload consumers; unscoped behavior stays open.
 P0 reference operation fixtures and the custom-decoder audit remain unfinished.
 
 Status: Partial = related implementation, not full equivalence; Divergent = known
@@ -478,35 +480,35 @@ Declared types to check for nested values/custom decoding: `Animations`, `Animat
 
 | Schema field | Status | Mapping / next audit |
 | --- | --- | --- |
-| `WindowRule.matches` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
-| `WindowRule.excludes` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
-| `WindowRule.default_column_width` | Missing | P3/P8/P10 lifecycle-aware tiling window rules |
-| `WindowRule.default_window_height` | Missing | P3/P8/P10 lifecycle-aware tiling window rules |
-| `WindowRule.open_on_output` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
-| `WindowRule.open_on_workspace` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
-| `WindowRule.open_maximized` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
-| `WindowRule.open_maximized_to_edges` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
-| `WindowRule.open_fullscreen` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
-| `WindowRule.open_floating` | Missing | P3/P8/P10 lifecycle-aware tiling window rules |
-| `WindowRule.open_focused` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
+| `WindowRule.matches` | Partial | Ordered app/title matching exists; niri OR match blocks and dynamic states differ; [precedence/lifecycle audit](niri-config-lifecycle-audit.md) |
+| `WindowRule.excludes` | Missing | No niri exclude blocks; [precedence/lifecycle audit](niri-config-lifecycle-audit.md) |
+| `WindowRule.default_column_width` | Missing | No rule-level tiled default width with omitted/empty/present semantics; [precedence/lifecycle audit](niri-config-lifecycle-audit.md) |
+| `WindowRule.default_window_height` | Missing | No rule-level tiled default height; [precedence/lifecycle audit](niri-config-lifecycle-audit.md) |
+| `WindowRule.open_on_output` | Partial | Canvas output placement exists; niri target precedence/owner lifecycle differs; [precedence/lifecycle audit](niri-config-lifecycle-audit.md) |
+| `WindowRule.open_on_workspace` | Missing | No workspace routing; [precedence/lifecycle audit](niri-config-lifecycle-audit.md) |
+| `WindowRule.open_maximized` | Missing | No reference full-width column opening policy; [precedence/lifecycle audit](niri-config-lifecycle-audit.md) |
+| `WindowRule.open_maximized_to_edges` | Missing | No reference maximized-to-edges opening policy; [precedence/lifecycle audit](niri-config-lifecycle-audit.md) |
+| `WindowRule.open_fullscreen` | Divergent | Fullscreen rules use canvas transitions, not retained tiling topology; [precedence/lifecycle audit](niri-config-lifecycle-audit.md) |
+| `WindowRule.open_floating` | Missing | No layout-native floating opening policy; [precedence/lifecycle audit](niri-config-lifecycle-audit.md) |
+| `WindowRule.open_focused` | Partial | focus_on_open exists; token/smart/strict reference policy not equivalent; [precedence/lifecycle audit](niri-config-lifecycle-audit.md) |
 | `WindowRule.on_xdg_activate` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
-| `WindowRule.min_width` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
-| `WindowRule.min_height` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
-| `WindowRule.max_width` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
-| `WindowRule.max_height` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
-| `WindowRule.focus_ring` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
-| `WindowRule.border` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
-| `WindowRule.shadow` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
-| `WindowRule.tab_indicator` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
+| `WindowRule.min_width` | Missing | Client constraints exist; rule-level extra constraint missing; [precedence/lifecycle audit](niri-config-lifecycle-audit.md) |
+| `WindowRule.min_height` | Missing | Client constraints exist; rule-level extra constraint missing; [precedence/lifecycle audit](niri-config-lifecycle-audit.md) |
+| `WindowRule.max_width` | Missing | Client constraints exist; rule-level extra constraint missing; [precedence/lifecycle audit](niri-config-lifecycle-audit.md) |
+| `WindowRule.max_height` | Missing | Client constraints exist; rule-level extra constraint missing; [precedence/lifecycle audit](niri-config-lifecycle-audit.md) |
+| `WindowRule.focus_ring` | Missing | No separate reference focus ring; [precedence/lifecycle audit](niri-config-lifecycle-audit.md) |
+| `WindowRule.border` | Divergent | Native border rules are stored at mapping, not dynamically recomputed; [precedence/lifecycle audit](niri-config-lifecycle-audit.md) |
+| `WindowRule.shadow` | Divergent | Native shadow rule flags are stored at mapping; reference merges/reload differ; [precedence/lifecycle audit](niri-config-lifecycle-audit.md) |
+| `WindowRule.tab_indicator` | Missing | No per-window tab-indicator rule; [precedence/lifecycle audit](niri-config-lifecycle-audit.md) |
 | `WindowRule.draw_border_with_background` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
-| `WindowRule.opacity` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
+| `WindowRule.opacity` | Divergent | Mapped appearance rule is sticky; reference recomputes metadata/state/reload matches; [precedence/lifecycle audit](niri-config-lifecycle-audit.md) |
 | `WindowRule.geometry_corner_radius` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
 | `WindowRule.clip_to_geometry` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
 | `WindowRule.baba_is_float` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
 | `WindowRule.block_out_from` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
 | `WindowRule.variable_refresh_rate` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
-| `WindowRule.default_column_display` | Missing | P3/P8/P10 lifecycle-aware tiling window rules |
-| `WindowRule.default_floating_position` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
+| `WindowRule.default_column_display` | Missing | No normal/tabbed column default rule; [precedence/lifecycle audit](niri-config-lifecycle-audit.md) |
+| `WindowRule.default_floating_position` | Missing | Generic canvas position is not reference floating initial placement; [precedence/lifecycle audit](niri-config-lifecycle-audit.md) |
 | `WindowRule.scroll_factor` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
 | `WindowRule.pinch_sensitivity` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
 | `WindowRule.tiled_state` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
@@ -518,15 +520,15 @@ Declared types to check for nested values/custom decoding: `Animations`, `Animat
 | `ResolvedPopupsRules.opacity` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
 | `ResolvedPopupsRules.geometry_corner_radius` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
 | `ResolvedPopupsRules.background_effect` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
-| `Match.app_id` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
-| `Match.title` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
-| `Match.is_active` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
-| `Match.is_focused` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
-| `Match.is_active_in_column` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
-| `Match.is_floating` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
-| `Match.is_window_cast_target` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
-| `Match.is_urgent` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
-| `Match.at_startup` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
+| `Match.app_id` | Divergent | Regex/dynamic match properties differ from mapped app/title glob rules; [precedence/lifecycle audit](niri-config-lifecycle-audit.md) |
+| `Match.title` | Divergent | Regex/dynamic match properties differ from mapped app/title glob rules; [precedence/lifecycle audit](niri-config-lifecycle-audit.md) |
+| `Match.is_active` | Missing | Regex/dynamic match properties differ from mapped app/title glob rules; [precedence/lifecycle audit](niri-config-lifecycle-audit.md) |
+| `Match.is_focused` | Missing | Regex/dynamic match properties differ from mapped app/title glob rules; [precedence/lifecycle audit](niri-config-lifecycle-audit.md) |
+| `Match.is_active_in_column` | Missing | Regex/dynamic match properties differ from mapped app/title glob rules; [precedence/lifecycle audit](niri-config-lifecycle-audit.md) |
+| `Match.is_floating` | Missing | Regex/dynamic match properties differ from mapped app/title glob rules; [precedence/lifecycle audit](niri-config-lifecycle-audit.md) |
+| `Match.is_window_cast_target` | Missing | Regex/dynamic match properties differ from mapped app/title glob rules; [precedence/lifecycle audit](niri-config-lifecycle-audit.md) |
+| `Match.is_urgent` | Missing | Regex/dynamic match properties differ from mapped app/title glob rules; [precedence/lifecycle audit](niri-config-lifecycle-audit.md) |
+| `Match.at_startup` | Missing | Regex/dynamic match properties differ from mapped app/title glob rules; [precedence/lifecycle audit](niri-config-lifecycle-audit.md) |
 | `FloatingPosition.x` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
 | `FloatingPosition.y` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
 | `FloatingPosition.relative_to` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
@@ -539,7 +541,7 @@ Declared types to check for nested values/custom decoding: `WindowRule`, `Popups
 | --- | --- | --- |
 | `Workspace.name` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
 | `Workspace.open_on_output` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
-| `Workspace.layout` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
+| `Workspace.layout` | Missing | No per-output/workspace tiling layout hierarchy; [precedence/lifecycle audit](niri-config-lifecycle-audit.md) |
 
 Declared types to check for nested values/custom decoding: `Workspace`, `WorkspaceName`, `WorkspaceLayoutPart`.
 
@@ -573,7 +575,7 @@ Declared types to check for nested values/custom decoding: `Workspace`, `Workspa
 | `Output.background_color` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
 | `Output.backdrop_color` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
 | `Output.hot_corners` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
-| `Output.layout` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
+| `Output.layout` | Missing | No per-output/workspace tiling layout hierarchy; [precedence/lifecycle audit](niri-config-lifecycle-audit.md) |
 | `OutputName.connector` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
 | `OutputName.make` | Unverified | Inspect decoder and reference behavior; no verified option mapping |
 | `OutputName.model` | Unverified | Inspect decoder and reference behavior; no verified option mapping |

@@ -17,6 +17,7 @@ for task order and acceptance. Older “next” statements in the
 | Pinned symbols and conservative compatibility labels | [Generated inventory](niri-tiling-inventory.md) |
 | Decoded layout options, defaults and merge semantics | [Configuration audit](niri-layout-config-audit.md) |
 | Color/gradient, border/shadow, tab/insert-hint decoding and merges | [Appearance audit](niri-appearance-config-audit.md) |
+| Override precedence, rule matching, initial map and reload | [Lifecycle audit](niri-config-lifecycle-audit.md) |
 | Source-derived fixture assumptions | [Reference traces](niri-reference-traces.md) |
 | Local preview launch, keys and return path | [TTY guide](tty-preview.md) |
 | Per-batch results and investigation logs | [History](tiling-history.md) |
@@ -59,16 +60,17 @@ mode. These are documented fallbacks, not reference-compatible behavior.
 
 ## Verified evidence and its limits
 
-Latest A0 documentation/tooling validation: the top-level layout audit covers 34
-Layout/LayoutPart/Struts rows. The [appearance audit](niri-appearance-config-audit.md)
-adds 98 fields in 15 structs: Color/Gradient/interpolation, border/focus-ring,
-shadow/offset, tab indicator and insert hint, including decoder shapes and local
-merge rules. Both use the clean pinned source and source-derived probes, not
-execution of niri's parser. The generator links all 132 scoped rows and guards
-field completeness; other appearance schemas remain unverified. Deterministic
-regeneration retains 186 actions / 318 schema fields. Python syntax, audited-row
-counts, local links/anchors, pinned source targets and diff checks passed. No
-Rust/runtime/config change was made; the last full implementation gate is below.
+Latest A0 documentation/tooling validation: the layout audit covers 34 scoped
+rows, the appearance audit 98 fields, and the [lifecycle audit](niri-config-lifecycle-audit.md)
+adds 33 rows (22 WindowRule consumers, nine Match properties, two layout-override
+fields). It traces global/output/workspace order, rule composition, initial-map
+cached state and reload/dynamic updates. Source-derived edges include unmapped
+is-floating=false, context-dependent shadow flags and saved workspace overrides
+after un-naming. These are clean pinned-source inspections, not execution of
+niri or a differential oracle. The generator links 165 scoped rows and still
+indexes 186 actions / 318 fields. Syntax, deterministic regeneration, row counts,
+links/anchors, pinned source targets and diff checks passed. No Rust/runtime/config
+change; the last full implementation gate remains below.
 
 Latest validation gate: `/tmp/driftwm-b4-output-ci.log`, exit 0: full
 `dev/scripts/ci-local`, 369 library cases, 1490 binary cases including ignored
@@ -180,19 +182,17 @@ unresolved; use direct TTY for visual acceptance.
 
 ## Next work
 
-Next work: **A0/P0 override precedence and lifecycle audit** at pinned niri
-`12de51d6a60baad8896366920278a24f17921f52`: trace global/output/workspace layout
-parts and window rules through resolution, initial map and reload. Account for
-explicit empty/default values, rule composition versus resolved appearance
-merges (especially shadow on/off), and unsupported driftwm lifecycle semantics.
-Top-level layout and core appearance decoder/local-merge audits are recorded;
-do not repeat them or treat source review as executable parity. Remaining
-CornerRadius/workspace-shadow/blur/background-effect schemas, other modules,
-ID/index/previous/next actions and reference fixtures beyond zero gaps stay open.
-A0/P0 precedes feature expansion. Named controlled B1–B4 matrices are delivered;
-do not restart renderer matrices as a substitute. Full P2/P13 acceptance,
-independent multi-output ownership (P11), hardware unplug and broader lifecycle
-combinations remain unproven. Keep expensive GPU oracles outside timed groups.
+Next work: **A0/P0 remaining appearance decoders and effect policy** at pinned
+niri `12de51d6a60baad8896366920278a24f17921f52`: CornerRadius, workspace shadows,
+blur/background effects, their public value shapes, defaults and actual rule
+consumers. Preserve driftwm's documented sticky/empty-region effect policy;
+record differences before proposing changes. Layout/core appearance and scoped
+override/matching/initial-map/reload audits are recorded; do not restart them.
+Unscoped rule fields, output/workspace names, remaining config modules,
+ID/index/previous/next actions and independent fixtures beyond zero gaps remain
+open. A0/P0 precedes feature expansion. Named controlled B1–B4 matrices are
+finished; source review does not close full P2/P13, P11 ownership, hardware
+unplug or every lifecycle permutation. Keep GPU oracles outside timed groups.
 Controlled SSD scale-change release is
 fixed: retain the native title raster separately, blend old/current premultiplied
 pixels before window opacity, and carry mixed title pixels through recapture.

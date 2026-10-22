@@ -6,7 +6,8 @@ ShadowOffset, TabIndicatorPart/TabIndicator/Length, TabIndicatorRule and
 InsertHintPart/InsertHint: 98 named schema fields across 15 structs. The enum
 spellings they use are recorded too. CornerRadius, workspace shadows, blur and
 background-effect rules remain separate audit work. Runtime override precedence
-across outputs/workspaces/window rules is not inferred from these local merges.
+is traced separately in the [lifecycle audit](niri-config-lifecycle-audit.md); it
+is not inferred from these local merges.
 
 This is pinned source review, not execution of niri's parser or a rendering
 oracle. The cases below are source-derived fixture requirements. No driftwm
@@ -111,7 +112,7 @@ when `off` is present: **off wins when both are set**. This differs from the
 Border/FocusRing/TabIndicator/InsertHint resolved merges. Separately, merging
 one ShadowRule into another uses `merge_on_off`, which processes off then on,
 so **on wins at that rule-composition stage**. Preserve the distinction; the
-later override-lifecycle audit must identify which path each config context uses.
+[lifecycle audit](niri-config-lifecycle-audit.md) identifies the scoped config contexts using each path.
 Do not summarize both operations as an unconditional last/on/off-wins rule.
 
 ## Tab indicator and insertion hint
@@ -177,8 +178,8 @@ Source-derived probes for future independent decoder/merge fixtures:
 | Tab `length {}` overriding Some(0.5) | Present length value with total_proportion None. |
 | `softness 1025` / `spread -1025` / tab `width -1` | Numeric decoder errors; recovery zero is not successful acceptance. |
 
-Remaining A0 work: override application order and lifecycle; unaudited appearance
-schemas (CornerRadius, workspace shadows, blur/background effects); remaining
+Remaining A0 work: complete override/placement permutations and independent
+fixtures beyond the scoped lifecycle audit; unaudited appearance schemas (CornerRadius, workspace shadows, blur/background effects); remaining
 configuration modules; ID/index/previous/next action addressing; wider independent
 operation fixtures. Full CSS parser dependency behavior, all derive-generated
 structural diagnostics and visual geometry remain outside this source-only gate.
