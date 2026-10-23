@@ -37,6 +37,11 @@ Sending a tiled window to another output keeps it tiled. When an output is remov
 its columns move to a surviving output; removing the last output restores canvas
 mode.
 
+With the default Super modifier, press `Win+Alt+Arrow` to send the focused window
+to the adjacent monitor. A single-window column moves as a unit; a window from a
+stack moves into its own column on the destination. The destination receives
+focus, and the shortcut works in both canvas and tiling modes.
+
 The implementation includes directional focus, column and tile reordering,
 moving a tile between columns, consuming and splitting stacked windows, width
 presets, client size constraints, canvas geometry/view restoration, and animated
