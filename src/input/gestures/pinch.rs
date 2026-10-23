@@ -41,6 +41,7 @@ impl DriftWm {
         // Check continuous Pinch trigger first
         let pinch_trigger = GestureTrigger::Pinch { fingers };
         if let Some(entry) = self.config.gesture_lookup(&mods, &pinch_trigger, context)
+            && self.tiling_view.is_none()
             && matches!(
                 entry,
                 GestureConfigEntry::Continuous(ContinuousAction::Zoom)

@@ -2390,13 +2390,40 @@ mod tests {
         let config = Config::from_toml("").unwrap();
         let cases = [
             (
+                "mod+up",
+                ModifiersState {
+                    logo: true,
+                    ..Default::default()
+                },
+                Action::FocusColumn(Direction::Up),
+                Action::CenterNearest(Direction::Up),
+            ),
+            (
+                "mod+down",
+                ModifiersState {
+                    logo: true,
+                    ..Default::default()
+                },
+                Action::FocusColumn(Direction::Down),
+                Action::CenterNearest(Direction::Down),
+            ),
+            (
                 "mod+left",
                 ModifiersState {
                     logo: true,
                     ..Default::default()
                 },
                 Action::FocusColumn(Direction::Left),
-                Action::PanViewport(Direction::Left),
+                Action::CenterNearest(Direction::Left),
+            ),
+            (
+                "mod+right",
+                ModifiersState {
+                    logo: true,
+                    ..Default::default()
+                },
+                Action::FocusColumn(Direction::Right),
+                Action::CenterNearest(Direction::Right),
             ),
             (
                 "mod+shift+left",
@@ -2454,7 +2481,7 @@ mod tests {
         );
         assert_eq!(
             alt_config.lookup_for_mode(&alt_modifiers, alt_combo.sym, false),
-            Some(&Action::PanViewport(Direction::Left))
+            Some(&Action::CenterNearest(Direction::Left))
         );
     }
 

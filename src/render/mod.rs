@@ -1205,11 +1205,22 @@ pub fn compose_frame(
         } else {
             (camera, zoom)
         };
-        let Some((render_loc, zoom)) =
+        let Some((mut render_loc, zoom)) =
             state.window_render_transform(window, Some(output), view_camera, view_zoom)
         else {
             continue;
         };
+        let tiling_dragged = element_id.is_some_and(|id| {
+            state
+                .tiling_drag_visual
+                .as_ref()
+                .is_some_and(|(dragged, drag_output, _)| *dragged == id && drag_output == &name)
+        });
+        if tiling_dragged && let Some((_, _, delta)) = state.tiling_drag_visual.as_ref() {
+            // Keep the tile's stage geometry in place as the drop target, while
+            // its picture follows the pointer in canvas space until release.
+            render_loc += *delta;
+        }
 
         // Canvas coverage is measured on the destination frame: a window
         // animation is eye candy over a state change that is already
@@ -1344,7 +1355,8 @@ pub fn compose_frame(
             &state.config.decorations,
             is_focused,
             fullscreen_exempt,
-        ) * visual_alpha as f64;
+        ) * visual_alpha as f64
+            * if tiling_dragged { 0.88 } else { 1.0 };
         // Bar, border and shadow ride the fullscreen ramp on top of the window's
         // own opacity; `chrome_alpha` is 1 for every other window.
         let chrome_opacity = opacity * chrome_alpha as f64;

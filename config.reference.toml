@@ -61,11 +61,11 @@
 # # follows when one closes (see auto_navigate_on_close) and `driftwm msg
 # # focus`. The centering actions (center-window, focus-center, center-nearest)
 # # always park the window there, even one already fully on screen —
-# # center-nearest is how you walk a placement through your windows one step at
-# # a time. Alt-Tab, click-to-navigate, activation, focus following a close and
-# # `msg focus` don't pan at all for a window that is already fully on screen, so
-# # they place a window only when the camera has to move rather than holding
-# # one against the edge continuously. Fullscreen, pinned and fit windows lock
+# # center-nearest (Mod+Arrow by default) is how you walk a placement through
+# # your windows one step at a time. Alt-Tab, click-to-navigate, activation,
+# # focus following a close and `msg focus` do not pan for an already-visible
+# # window, so they only move the camera when needed rather than holding
+# # it against an edge. Fullscreen, pinned and fit windows lock
 # # or fill the viewport and ignore it, as does a filled window returning to
 # # the view it was filled in.
 # #
@@ -208,9 +208,10 @@
                               # fully visible → focus only
 # nudge_step = 20             # px per nudge-window action (unbound by default)
 # resize_step = 20            # px per grow-window/shrink-window action (both unbound by default; does not affect drag-resize)
-# pan_step = 100.0            # px per pan-viewport action (Mod+Arrow by default)
-# # Anchors: canvas points discoverable by focus-nearest (Mod+Ctrl+Arrow / 4-finger swipe) and center-nearest
-# # even when no window is there. Uses Y-up coordinate system. Empty by default.
+# pan_step = 100.0            # px per pan-viewport action (unbound by default)
+# # Anchors: canvas points discoverable by center-nearest (Mod+Arrow) and
+# # focus-nearest (Mod+Ctrl+Arrow / 4-finger swipe), even when no window is there.
+# # Uses Y-up coordinate system. Empty by default.
 # anchors = []
 # # Example: origin + 4 corners
 # # anchors = [[0, 0], [-1750, 1750], [1750, 1750], [1750, -1750], [-1750, -1750]]
@@ -503,10 +504,10 @@
 # "mod+c" = "center-window"
 # "mod+x" = "focus-center"
 # "mod+a" = "home-toggle"
-# "mod+up" = "pan-viewport up"
-# "mod+down" = "pan-viewport down"
-# "mod+left" = "pan-viewport left"
-# "mod+right" = "pan-viewport right"
+# "mod+up" = "center-nearest up"
+# "mod+down" = "center-nearest down"
+# "mod+left" = "center-nearest left"
+# "mod+right" = "center-nearest right"
 # "mod+shift+up" = "move-to-snap up"
 # "mod+shift+down" = "move-to-snap down"
 # "mod+shift+left" = "move-to-snap left"

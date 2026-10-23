@@ -1,6 +1,6 @@
 # Scrolling-column tiling
 
-driftwm 1.0.0 includes an optional scrolling-column layout alongside its
+driftwm 1.1.0 includes an optional scrolling-column layout alongside its
 infinite canvas. The canvas remains the default. In tiling mode, each connected
 output has its own horizontal strip of columns; windows in a column are stacked
 vertically. This is a practical workflow integrated with driftwm, not an attempt
@@ -13,6 +13,12 @@ tiling. Changing modes does not make navigation shortcuts switch modes. Canvas
 navigation and geometry actions are ignored in tiling, and tiling actions are
 ignored on the canvas. General actions such as closing a window remain
 available in both modes.
+
+On the canvas, `Mod+Arrow` moves to and centers the nearest window or navigation
+anchor. `Mod+Ctrl+Arrow` focuses the nearest window with the canvas's directional
+reveal behavior. In tiling, `Mod+Arrow` focuses the adjacent column or the next
+window in the current stack. This explicit tiling focus remains selected while
+the layout scrolls, including when `focus_follows_mouse` is enabled.
 
 ## Default tiling keys
 
@@ -29,9 +35,15 @@ available in both modes.
 | `Mod+Shift+R` | Toggle half-width and full-width column |
 | `Mod+Alt+Arrow` | Send the focused window to an adjacent output |
 
-Hold `Alt` and drag a tiled window with the left mouse button onto another
-window on the same output to swap their positions. On the canvas, this gesture
-moves windows freely instead.
+Hold `Alt` and drag a tiled window with the left mouse button. The window's
+picture follows the pointer while its original slot stays in the layout; release
+over another window on the same output to swap their positions. On the canvas,
+this gesture moves windows freely instead.
+
+Canvas-only mouse manipulations such as `Alt`+right-click resize,
+`Alt`+`Shift`+right-click resize, and `Alt`+`Shift`+left-drag of a snapped
+cluster are ignored in tiling. Switch back to the canvas to use them. Tiled
+windows can still be focused and reordered with `Alt`+left-drag.
 
 To assign the same key chord to different actions in each mode, use the
 mode-specific tables:
@@ -92,17 +104,19 @@ selection are remembered while the compositor remains running, so entering
 tiling again restores that arrangement. This tiling topology is not saved across
 compositor restarts; saved sessions retain canvas geometry and camera state.
 
-Fullscreen temporarily suspends tiling and restores the previous layout when
-the fullscreen window exits or closes. Fit, fill, pinning, free movement or
-resizing, and zoom changes return to the canvas before applying the action.
+Fullscreen covers only its target output while tiling stays active on every
+output. The fullscreen window keeps its column slot and returns to it when
+fullscreen ends; closing it removes that window from the layout. `Win+F` enters
+and exits fullscreen without changing modes. Fit, fill, pinning, free movement
+or resizing, and zoom changes return to the canvas before applying the action.
 Dialogs, widgets, pinned windows, fitted/filled windows and suspended stand-ins
 do not join columns.
 
 ## Current limits
 
 Scrolling tiling is focused on columns and independent per-output layouts. It
-does not include workspaces, tabs, a general floating-window layer, drag-to-
-reorder, per-window detach to the canvas, trackpad column snapping, or
+does not include workspaces, tabs, a general floating-window layer, drag-based
+column reordering, per-window detach to the canvas, trackpad column snapping, or
 layout-native drag resizing. Column width presets are fixed. Tiling topology is
 not restored after a compositor restart.
 

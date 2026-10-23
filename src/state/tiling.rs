@@ -517,6 +517,7 @@ impl DriftWm {
                     column.restore.size,
                     center,
                     true,
+                    false,
                 );
             }
             let mut os = output_state(&view.output);
@@ -541,6 +542,9 @@ impl DriftWm {
         if let Some(id) = target
             && let Some(element) = self.stage.window_by_id(id).cloned()
         {
+            // The camera follows the selected tile. Don't let sloppy focus
+            // pull keyboard focus back to whatever scrolls under the cursor.
+            self.hover_follows_camera = false;
             self.stage.select_tile(id);
             self.raise_and_focus_element(&element, SERIAL_COUNTER.next_serial());
             self.refresh_tiling();

@@ -612,8 +612,10 @@ pub struct DriftWm {
     /// [`Self::unmap_window`] and the stage-backed methods.
     pub stage: driftwm::stage::Stage<StageWindow>,
     pub(crate) tiling_view: tiling::TilingViews,
+    /// Canvas-space pointer delta for the tile currently being dragged to a
+    /// new position. The stage keeps its layout slot until the drop commits.
+    pub(crate) tiling_drag_visual: Option<(driftwm::stage::ElementId, String, Point<f64, Logical>)>,
     pub(crate) tiling_topology: Option<driftwm::stage::TilingTopology>,
-    pub(crate) resume_tiling_after_fullscreen: bool,
     /// Output registry only (`map_output` / `outputs` / `output_geometry`);
     /// holds no window elements. Per-window output membership
     /// (`wl_surface.enter`/`leave`) is driven by [`Self::refresh_window_outputs`],

@@ -249,6 +249,7 @@ impl DriftWm {
             pre_fill_size,
             target_center,
             true,
+            false,
         );
     }
 

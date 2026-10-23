@@ -126,8 +126,6 @@ impl DriftWm {
             self.exit_fullscreen_on(&output);
         }
 
-        self.prepare_tiling_operation(super::TilingOperation::Fullscreen);
-
         // The exit this supersedes can be the same-window cross-output one just
         // above, not only a prior fullscreen/fit/fill exit.
         self.drop_owed_recenter(window);
@@ -421,6 +419,7 @@ impl DriftWm {
             entry.saved_size,
             target_center,
             false,
+            true,
         );
 
         // Re-pin if it was pinned before fullscreen, then snap its Space loc
@@ -469,7 +468,6 @@ impl DriftWm {
                 );
             }
         }
-        self.resume_tiling_after_fullscreen();
     }
 
     /// Restore an output's camera/zoom after fullscreen ends. Drops any
