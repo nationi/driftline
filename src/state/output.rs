@@ -53,6 +53,28 @@ impl DriftWm {
             .or_else(|| self.active_output())
     }
 
+    /// Resolve tiling ownership, preferring the focused output when viewports
+    /// overlap (the normal initial canvas arrangement).
+    pub(crate) fn output_for_tiling_window<Q>(&self, window: &Q) -> Option<Output>
+    where
+        StageWindow: PartialEq<Q>,
+        Q: StageElement,
+    {
+        let loc = self.stage.position_of(window)?;
+        let size = window.size();
+        let center = Point::from((
+            loc.x as f64 + size.w as f64 / 2.0,
+            loc.y as f64 + size.h as f64 / 2.0,
+        ));
+        if let Some(output) = self.focused_output.as_ref()
+            && self.output_shows_canvas_point(output, center)
+        {
+            return Some(output.clone());
+        }
+        self.output_showing_canvas_point(center)
+            .or_else(|| self.active_output())
+    }
+
     /// True if `output`'s viewport currently shows the canvas point.
     pub fn output_shows_canvas_point(&self, output: &Output, point: Point<f64, Logical>) -> bool {
         let (camera, zoom) = {
@@ -208,6 +230,7 @@ impl DriftWm {
 
         // Both are no-ops when no windows exist, so this is safe at boot too.
         self.reassign_orphaned_pinned(output);
+        self.output_connected_during_tiling(output);
         driftwm::protocols::foreign_toplevel::send_output_enter_all(
             &mut self.foreign_toplevel_state,
             output,
@@ -230,7 +253,24 @@ impl DriftWm {
     /// `active_outputs` bookkeeping likewise stays with the caller, symmetric with
     /// where it was inserted.
     pub fn output_disconnected(&mut self, output: &Output, is_last: bool) {
-        self.prepare_tiling_operation(super::TilingOperation::LayoutInvalidated);
+        if self.tiling_view.is_some() {
+            let survivor = (!is_last)
+                .then(|| {
+                    self.space
+                        .outputs()
+                        .find(|candidate| {
+                            *candidate != output
+                                && !self.disconnected_outputs.contains(&candidate.name())
+                        })
+                        .cloned()
+                })
+                .flatten();
+            if let Some(survivor) = survivor {
+                self.transfer_tiling_from_disconnected_output(output, &survivor);
+            } else {
+                self.exit_tiling();
+            }
+        }
         // Send wl_surface.leave while clients' wl_output proxies are still valid.
         // Once the global is disabled, clients destroy their proxy on
         // global_remove — a leave sent after that (normally by the next

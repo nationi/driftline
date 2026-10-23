@@ -28,6 +28,9 @@ impl DriftWm {
     }
 
     pub fn execute_action(&mut self, action: &Action) {
+        if !action.allowed_in_tiling(self.tiling_view.is_some()) {
+            return;
+        }
         self.prepare_tiling_operation(crate::state::TilingOperation::Action(action));
         // A non-cycle action from any input source ends an in-progress Alt-Tab
         // cycle here, committing the selection before it runs. CycleWindows
@@ -559,6 +562,24 @@ impl DriftWm {
                 let Some(element) = self.focused_element().filter(|e| !e.is_widget()) else {
                     return;
                 };
+
+                if let Some(id) = self
+                    .stage
+                    .id_of(&element)
+                    .filter(|id| self.stage.is_tiled(*id))
+                {
+                    let Some(source_name) = self.stage.tiling_output_for_window(id) else {
+                        return;
+                    };
+                    let Some(source) = self.output_by_name(source_name) else {
+                        return;
+                    };
+                    let Some(target) = self.output_in_direction(&source, dir) else {
+                        return;
+                    };
+                    self.move_tiled_window_to_output(id, &target);
+                    return;
+                }
 
                 // Fullscreen and pinned are structurally client-only concepts,
                 // resolved and dispatched in screen space; the plain-canvas tail

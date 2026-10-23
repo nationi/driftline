@@ -97,13 +97,18 @@ impl DriftWm {
                     state
                         .tap
                         .update(key_state, is_modifier_keysym(sym.raw()), &mods)
-                    && let Some(action) = state.config.tap_lookup(&peak)
+                    && let Some(action) = state
+                        .config
+                        .tap_lookup_for_mode(&peak, state.tiling_view.is_some())
                 {
                     state.pending_tap_action = Some(action.clone());
                 }
 
                 if state.stage.cycle_state().is_some()
-                    && !state.config.cycle_hold.all_held(modifiers)
+                    && !state
+                        .config
+                        .cycle_hold_for_mode(state.tiling_view.is_some())
+                        .all_held(modifiers)
                 {
                     state.end_cycle();
                     return FilterResult::Forward;
@@ -152,7 +157,11 @@ impl DriftWm {
                     }
                 }
 
-                if let Some(action) = state.config.lookup(modifiers, sym) {
+                if let Some(action) =
+                    state
+                        .config
+                        .lookup_for_mode(modifiers, sym, state.tiling_view.is_some())
+                {
                     state.suppressed_keys.insert(keycode_u32);
                     return FilterResult::Intercept(Some(action.clone()));
                 }
@@ -160,7 +169,11 @@ impl DriftWm {
                 if state.config.layout_independent
                     && let Some(raw_sym) = handle.raw_latin_sym_or_raw_current_sym()
                     && raw_sym != sym
-                    && let Some(action) = state.config.lookup(modifiers, raw_sym)
+                    && let Some(action) = state.config.lookup_for_mode(
+                        modifiers,
+                        raw_sym,
+                        state.tiling_view.is_some(),
+                    )
                 {
                     state.suppressed_keys.insert(keycode_u32);
                     return FilterResult::Intercept(Some(action.clone()));

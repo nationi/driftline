@@ -88,7 +88,14 @@ impl TilingOperation<'_> {
 
 impl DriftWm {
     pub(crate) fn prepare_tiling_operation(&mut self, operation: TilingOperation<'_>) {
-        if self.tiling_view.is_some() && operation.restores_canvas() {
+        let restores_canvas = match &operation {
+            TilingOperation::Action(Action::SendToOutput(_)) => self
+                .focused_element()
+                .and_then(|element| self.stage.id_of(&element))
+                .is_none_or(|id| !self.stage.is_tiled(id)),
+            _ => operation.restores_canvas(),
+        };
+        if self.tiling_view.is_some() && restores_canvas {
             tracing::debug!(
                 ?operation,
                 "Restoring canvas before leaving scrolling tiling"

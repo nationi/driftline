@@ -1,19 +1,55 @@
 # Tiling development status and handoff
 
-Updated 2026-10-23. Integration checkpoint: `8c17428`; upstream `7ce05ed` is
-included. Named controlled B1–B4 stabilization gates are delivered; this does
-not establish complete P2/P13 acceptance or niri parity.
-The persistent development branch is `nationi/development`. This handoff was reconciled with Git;
-see the [roadmap queue](niri-tiling-parity-plan.md#execution-queue-and-acceptance-gates)
-for task order and acceptance. Older “next” statements in the
-[history](tiling-history.md) are historical, not the current task queue.
+Updated 2026-10-23. Multi-output tiling implementation and exclusive default
+keyboard controls are in place. Canvas navigation/geometry shortcuts are
+inactive during tiling, tiling controls are inactive on the canvas, and
+`toggle-tiling` works in both. The current remaining roadmap item is recorded
+manual acceptance across the multi-output user journey. Full niri parity
+remains out of scope. The current HEAD is
+`d586253`; the earlier integration checkpoint `8c17428` and upstream `7ce05ed`
+remain in its history. Controlled B1–B4 stabilization gates and extensive
+historical reference audits are delivered. They do not by themselves establish
+that the everyday tiling workflow is release-ready.
+
+2026-10-23 follow-up: resolved the roadmap's open new-window ownership note.
+An unowned window is assigned by canvas-space center: the active output wins if
+its viewport contains the center; otherwise a viewport containing the center
+wins, then the active output is the fallback. Existing compositor tests cover
+overlapping and separated viewports. The user guide now states this policy, and
+the TTY guide has a five-step two-output acceptance checklist covering separate
+strips, per-output focus, new windows, transfer/hotplug and canvas restore.
+Physical multi-monitor acceptance is still pending. The guide now distinguishes
+automated topology coverage from that manual release gate. Mode-exclusive
+keyboard profiles remain covered by the existing config and compositor tests;
+no behavior change was needed for that item.
+
+Keyboard dispatch is mode-exclusive across key presses, tap bindings, mouse
+actions and gestures. Canvas navigation/geometry actions are ignored while
+tiling; scrolling-column actions are ignored on the canvas. `Mod+Ctrl+T`
+switches modes in either state. Default tiling controls cover focus, column and
+tile reorder, moving/consuming/expelling windows, and width cycling. With
+`mod_key = "alt"`, tiling navigation defaults are omitted to avoid colliding
+with the existing canvas nudge/pan scheme. The exclusive-mode config test and
+all 49 compositor tiling tests pass. The generated config reference and user
+guide were updated. `[keybindings.canvas]` and `[keybindings.tiling]` support
+different actions on the same chord, mode-specific unbinding and tap bindings.
+Full `dev/scripts/ci-local` passes on the preceding action-gate implementation,
+including 1499 binary tests plus integration and soak lanes after profile-table
+support. One GPU pixel scenario failed once in the full lane and passed both in
+isolation and on the subsequent full rerun. Manual multi-output acceptance
+remains.
+
+The persistent development branch is `nationi/development`. Use the
+[practical roadmap](scrolling-tiling-roadmap.md) for current scope, sequence and
+acceptance. Older “next” statements in this file's evidence log and the
+[history](tiling-history.md) are historical unless repeated in the roadmap.
 
 ## Where to look
 
 | Need | Reference |
 | --- | --- |
 | Available behavior and configuration | [User guide](../../docs/tiling.md) |
-| Objective, dependencies and acceptance gates | [Parity roadmap](niri-tiling-parity-plan.md) |
+| Product objective, sequence and acceptance | [Practical roadmap](scrolling-tiling-roadmap.md) |
 | Pinned symbols and conservative compatibility labels | [Generated inventory](niri-tiling-inventory.md) |
 | Decoded layout options, defaults and merge semantics | [Configuration audit](niri-layout-config-audit.md) |
 | Color/gradient, border/shadow, tab/insert-hint decoding and merges | [Appearance audit](niri-appearance-config-audit.md) |
@@ -27,10 +63,10 @@ for task order and acceptance. Older “next” statements in the
 
 ## Goal and current implementation
 
-The goal is full behavioral parity with niri tiling, retaining canvas as the
-default. The reference remains `12de51d6a60baad8896366920278a24f17921f52` in
-`/tmp/niri`; recover that exact revision if missing. Do not silently upgrade it.
-Workspace/overview design and independent output ownership remain unresolved.
+The goal is practical scrolling-column tiling on multiple outputs, retaining
+canvas as the default. Niri reference material is optional design research; the
+pinned revision is `12de51d6a60baad8896366920278a24f17921f52`. No
+workspace/overview or full-parity design decision is pending.
 
 Implemented, with partial reference coverage:
 
@@ -51,15 +87,23 @@ Implemented, with partial reference coverage:
   Late responses can animate once without reopening the group.
 - Optional udev `--drm-connector NAME` restricts preview output enrollment.
 
-P1's single-container foundation exists; this does not close the full milestone.
-P0 semantics and P2/P13 acceptance are incomplete. P3/P4/P5 have partial coverage;
-P6–P12/P14–P15 remain feature/audit milestones. There is no weighted percentage.
+The core mechanisms are implemented, but there has not yet been a recent,
+recorded end-to-end acceptance of the ordinary user workflow. That practical
+validation, rather than closing old reference milestones, is the current gap.
 
-Known product limits: presets remain 1/3, 1/2 and full width; reference settings,
-weighted frame-space heights, view snap physics, tabs, layout-native manipulation,
-floating/fullscreen integration, workspaces and independent multi-output tiling
-are unfinished. A second output and many conflicting canvas actions leave the
-mode. These are documented fallbacks, not reference-compatible behavior.
+Multi-output tiling entry now creates one Stage layout and compositor view per
+connected output, assigns existing windows to one output, preserves each
+camera/zoom, and exits by draining and restoring each view. Configure responses,
+timers and snapshots route through the owning output. Width presets remain 1/3,
+1/2 and full width; there is no direct layout resize gesture, tabs, workspace
+model, floating/fullscreen integration or tiling topology restore. A monitor
+connected during tiling now gets an empty output layout at unit zoom without
+changing the selected layout or reconfiguring existing windows. Disconnecting
+one of multiple outputs transfers its columns to a survivor and reflows there;
+disconnecting the last output exits tiling and restores the canvas. Transfer
+preserves stable window/column IDs and saved canvas restore rectangles. Source
+commit groups are canceled and their clients woken; the source configure timer,
+snapshot state and view are dropped before output removal.
 
 ## Verified evidence and its limits
 
@@ -209,22 +253,31 @@ unresolved; use direct TTY for visual acceptance.
 
 ## Next work
 
-Next work: **A0/P0 expand executable reference contracts and nonzero-gap geometry
-fixtures**, niri `12de51d6a60baad8896366920278a24f17921f52`. The initial 16 parser
-contracts are delivered; extend scalar/duplicate/include edge cases as needed,
-and start independent fixed/proportional frame geometry/operation evidence with
-nonzero gaps, borders and work-area offsets. Keep accepted reference parser data
-separate from source-derived Stage snapshots and implementation comparisons.
-Watcher/MRU UI, consumer permutations and retained input/backend/capture/numerical
-milestone gates remain open. Source coverage plus 16 reference tests does not
-close A0/P0 or authorize feature expansion.
-Do not repeat delivered audits or restart B matrices. A0/P0 gates feature
-expansion; source coverage and scoped review do not prove complete niri parity.
-Controlled SSD scale-change release is
-fixed: retain the native title raster separately, blend old/current premultiplied
-pixels before window opacity, and carry mixed title pixels through recapture.
-At the current output scale, title/border/shadow must share the same rounded
-band height; body mask title coverage remains a separate quantity.
+Multi-output tiling entry, independent output views, hotplug connect, survivor
+transfer on disconnect, last-output exit and same-name reconnect are implemented
+and fixture-covered. Disconnect tests now keep configure requests pending
+through unplug and verify they drain after survivor reflow. An ignored GLES test
+keeps the survivor's retained pixels stable while the removed view is discarded.
+
+`send-to-output` now preserves tiling for a focused tiled window: singleton
+columns retain their column ID, while moving a stacked tile creates a new
+destination column. Window ID and saved canvas geometry remain stable; the
+destination gains focus and receives a size configure. Stage tests cover the
+stack split, and a compositor fixture covers transfer, configure convergence
+and canvas restore on a 1.5x output with a 700-pixel minimum window width.
+
+Latest `dev/scripts/ci-local` passed with the output-transfer behavior: 372
+library tests, 1498 binary tests (including ignored GPU cases), all integration
+targets, all-target clippy, locked check, formatting and the serial soak test.
+The final animation/recenter cleanup after a cross-output move also passed
+all-target clippy and the send-to-output, pending-configure unplug and retained
+snapshot unplug tests. The transfer's 1.5x/minimum-size and stacked-window
+compositor cases also pass individually. Manual multi-monitor TTY validation
+remains open. Next: perform the multi-output user journey on real monitors and
+decide after manual use whether whole-column transfer needs its own binding. Do
+not extend the niri parser/schema audits for this work.
+
+## Implementation evidence log
 
 Delivered B3 subsets: 12 stale/capped live-fallback scenes and 12 CSD/SSD output
 scale + camera scenes (ordinary/mixed snapshot, opacity 0.6, repeated recapture/
@@ -261,8 +314,8 @@ remain in CI. Mapped rule flags stay sticky until remapping; the existing effect
 policy still differs from pinned niri's tri-state rules. Do not restart the
 already delivered controlled B1/B2 matrices.
 
-**A0/P0 semantic audit must finish before expanding features** into P3/P4/P5 or
-advanced interactions. The roadmap is the single task/acceptance queue.
+This evidence log records the former parity investigation. Its A0/P0/P* labels
+are historical queue labels; they do not constrain the current product roadmap.
 
 ## Working-tree and session precautions
 
@@ -277,7 +330,6 @@ advanced interactions. The roadmap is the single task/acceptance queue.
 - `origin`: `https://github.com/nationi/driftwm.git`;
   `upstream`: `https://github.com/malbiruk/driftwm.git`.
   This plan does not grant push, publish, installation or messaging permission.
-- Output-management fixes already landed separately; they do not implement P11.
-  Never reuse historical uncommitted-file lists as current tree state.
+- Never reuse historical uncommitted-file lists as current tree state.
 - Documentation-only cleanup needs content/link/diff checks. Implementation
   changes require the meaningful targeted and full CI gates in the testing guide.

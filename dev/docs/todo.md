@@ -9,7 +9,7 @@ here. Line numbers drift; re-verify on pickup. Profiling tooling:
 ## Tiling fork
 
 Track tiling work in [the current status](tiling-status.md) and
-[parity roadmap](niri-tiling-parity-plan.md), with local keys in
+[practical roadmap](scrolling-tiling-roadmap.md), with local keys in
 [the TTY guide](tty-preview.md). Avoid a second tiling task list here.
 
 ## Pointer focus

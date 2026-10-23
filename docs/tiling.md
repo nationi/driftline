@@ -1,36 +1,58 @@
 # Experimental scrolling tiling
 
 Scrolling tiling arranges normal windows in a horizontal strip. Each column can
-contain several windows stacked vertically. It currently supports a single
-connected output. The canvas remains the default; no keybindings change until
-you configure them.
+contain several windows stacked vertically. Each connected output gets its own
+strip when tiling is entered. Connect, disconnect and cross-output transfer
+have automated coverage; acceptance on a physical multi-monitor TTY session is
+still pending. The canvas remains the default. Canvas navigation
+and geometry keybindings are disabled while tiling is active; tiling keybindings
+are disabled on the canvas. `Mod+Ctrl+T` switches between the two modes.
+
+Outputs share the same canvas. If their viewports overlap when tiling starts,
+windows visible in both are assigned to the focused output's strip. Pan the
+views apart before entering tiling to keep windows on separate output strips.
+New windows join the active output when it shows the window's canvas center. If
+it does not, the output showing that center receives the window; if no output
+shows it, the active output is used. With overlapping views, the active output
+gets the new window.
 
 For this checkout’s isolated test session and F1–F12 keys, use the
 [local TTY cheat sheet](../dev/docs/tty-preview.md). The bindings below are
 configuration examples, not that preview’s keys. Development scope and remaining
-work are tracked in [the current status](../dev/docs/tiling-status.md).
+work is tracked in [the current status](../dev/docs/tiling-status.md) and
+[practical roadmap](../dev/docs/scrolling-tiling-roadmap.md). The mode aims for a
+useful scrolling-column workflow; it does not aim to reproduce all of niri.
 
-Add bindings to `~/.config/driftwm/config.toml`:
+Tiling bindings are provided by default:
+
+| Keys | Tiling action |
+| --- | --- |
+| `Mod+Ctrl+T` | Toggle tiling and canvas |
+| `Mod+Alt+Shift+Arrow` | Focus a column or a window in its stack |
+| `Mod+Ctrl+Alt+Left/Right` | Reorder the focused column |
+| `Mod+Ctrl+Shift+Up/Down` | Reorder the focused window in its column |
+| `Mod+Ctrl+Alt+Shift+Left/Right` | Move the focused window into a neighboring column |
+| `Mod+Ctrl+Shift+Left/Right` | Consume from the next column / expel its last window |
+| `Mod+Ctrl+E` | Expel the focused window into a new column |
+| `Mod+Alt+R` | Cycle column width |
+
+The compositor filters these actions against the active mode, so rebinding a
+tiling action does not make it run on the canvas, and rebinding a canvas action
+does not make it run during tiling. General actions such as closing a window
+remain available in both modes. You can override or unbind entries in
+`[keybindings]` as usual. The actions are also available in mouse and gesture
+bindings. If `mod_key = "alt"`, the default tiling navigation keys are omitted
+to avoid replacing existing canvas shortcuts; configure them explicitly.
+
+To use the same chord for different actions in each mode, add separate tables:
 
 ```toml
-[keybindings]
-"mod+ctrl+t" = "toggle-tiling"
-"mod+alt+left" = "focus-column left"
-"mod+alt+right" = "focus-column right"
-"mod+alt+up" = "focus-column up"
-"mod+alt+down" = "focus-column down"
-"mod+alt+r" = "cycle-column-width"
-"mod+alt+shift+left" = "move-into-column left"
-"mod+alt+shift+right" = "move-into-column right"
-"mod+alt+e" = "expel-from-column"
-"mod+ctrl+alt+left" = "move-column left"
-"mod+ctrl+alt+right" = "move-column right"
-"mod+ctrl+alt+up" = "move-tiled-window up"
-"mod+ctrl+alt+down" = "move-tiled-window down"
-```
+[keybindings.canvas]
+"mod+left" = "center-nearest left"
 
-Merge these entries into an existing `[keybindings]` table, then reload your
-configuration. The actions are also available in mouse and gesture bindings.
+[keybindings.tiling]
+"mod+left" = "focus-column left"
+```
 
 Entering the mode sets zoom to 1 and arranges eligible windows. Columns start
 at half the usable output width. Width cycling selects full width, one third,
@@ -78,8 +100,8 @@ windows. Focusing an off-screen window reveals it vertically as needed.
 
 `focus-column left/right` changes columns, remembering the selected window in
 each. `focus-column up/down` changes windows inside a column. Navigation does
-not wrap; the corresponding `center-nearest` actions follow the same structure
-while tiling. Closing a window redistributes height; closing the last window
+not wrap. Canvas `center-nearest` bindings are unavailable until tiling is
+turned off. Closing a window redistributes height; closing the last window
 removes the column. Closing the selected window chooses the next window or
 column, falling back to the previous one at the end. A newly opened column
 returns focus to its source column when closed, until another column is focused
@@ -96,13 +118,20 @@ opening. Saved sessions retain these canvas rectangles and the pre-tiling view;
 tiling topology itself is not restored across restarts.
 
 Dialogs, widgets, pinned windows, fitted/filled windows and suspended stand-ins
-are not enrolled. Fullscreen, fit/fill, pinning, free window movement/resizing
-and other canvas actions leave tiling before running. Connecting another output
-also leaves tiling. A zoom change leaves tiling and restores the saved view.
+are not enrolled. Fullscreen, fit/fill, pinning and free window movement or
+resizing leave tiling before running. A zoom change also leaves tiling and
+restores the saved view. Outputs connected during tiling receive an empty
+strip. When one of several outputs disconnects, its columns move to a surviving
+output; disconnecting the last output exits tiling and restores the canvas.
 
-This version does not provide independent strips on several monitors,
-drag-to-reorder, per-window detach to the canvas or configurable
-width presets. The fixed presets are one third, one half and full usable width.
+`send-to-output` moves a focused tiled window to the adjacent output while
+keeping it tiled. A single-window column moves intact; a window from a stacked
+column becomes its own column on the destination. The destination takes focus,
+and leaving tiling later restores the window's saved canvas geometry.
+
+This version does not retain tiling when the last output disconnects,
+drag-to-reorder, per-window detach to the canvas or configurable width presets.
+The fixed presets are one third, one half and full usable width.
 
 Related size requests now coordinate new buffer commits: an early reply waits
 for the other affected windows, for at most 300 ms. A window may choose a

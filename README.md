@@ -11,11 +11,12 @@ Traditional window managers arrange windows to fit your screen. Stacking composi
 
 `driftwm` is an infinite-canvas compositor: windows live at their native size on an infinite 2D canvas, and your display is a camera viewing it. When two windows come close, they snap together, forming implicit groups that can be moved, resized, and viewed together. Canvas mode has no workspaces; window overlaps happen only on purpose.
 
-This fork also provides [experimental single-output scrolling tiling](docs/tiling.md).
-The goal is niri-like tiling behavior alongside the existing canvas; full parity
-is still in development. See [current progress](dev/docs/tiling-status.md) and
-the [roadmap](dev/docs/niri-tiling-parity-plan.md). The canvas features and default
-bindings below remain available; tiling requires explicit bindings.
+This fork also provides [experimental single-output scrolling tiling](docs/tiling.md),
+a focused column mode inspired by niri. The aim is a dependable alternative to
+canvas mode, not full feature parity with another compositor. See
+[current progress](dev/docs/tiling-status.md) and the
+[practical roadmap](dev/docs/scrolling-tiling-roadmap.md). Canvas remains the
+default; tiling requires explicit bindings.
 
 Designed with laptops in mind: navigation and window management are trackpad-first; the infinite canvas makes the most of a small screen.
 
@@ -512,9 +513,9 @@ supports the `wlr-layer-shell` protocol), just without compositor-specific featu
 ## Contributing
 
 For work on this fork, start with the [development documentation index](dev/docs/README.md),
-[current tiling status](dev/docs/tiling-status.md) and [roadmap](dev/docs/niri-tiling-parity-plan.md).
-The compatibility inventory and reference fixtures use a pinned niri revision;
-passing driftwm tests alone does not establish full behavioral parity.
+[current tiling status](dev/docs/tiling-status.md) and
+[practical roadmap](dev/docs/scrolling-tiling-roadmap.md). Pinned niri inventories
+and fixtures are optional historical design references, not a parity target.
 
 See [CONTRIBUTING.md](CONTRIBUTING.md).
 

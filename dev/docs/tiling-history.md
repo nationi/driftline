@@ -4,7 +4,7 @@ Historical evidence, investigations and decisions, preserved from the former
 status file. Statements such as “next”, “pending”, test totals, remotes and
 progress estimates describe their entry’s time and may be superseded below.
 For current instructions use [the maintained status](tiling-status.md),
-[roadmap](niri-tiling-parity-plan.md) and [TTY guide](tty-preview.md).
+[practical roadmap](scrolling-tiling-roadmap.md) and [TTY guide](tty-preview.md).
 Temporary logs and local launchers referenced here may no longer exist.
 
 ## Objective and decisions
@@ -346,8 +346,9 @@ It does not yet include the multi-window actions. Do not overwrite a user's
 running-session config just to continue development. See `docs/tiling.md` for
 current binding examples; use explicit `--backend winit` for a nested test.
 
-The initial proposal is historical context. The parity roadmap and this status
-are the continuation sources; keep them consistent as milestones are delivered.
+The initial proposal and this history are historical context. The practical
+roadmap and maintained status are the continuation sources; keep them consistent
+as improvements are delivered.
 
 ## Pre-commit group foundation
 

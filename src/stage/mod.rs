@@ -693,48 +693,44 @@ impl<W: StageElement> Stage<W> {
     pub fn verify_invariants(&self) {
         let mut tiled_ids = std::collections::HashSet::new();
         let mut column_ids = std::collections::HashSet::new();
-        assert!(self.tiling.columns.is_empty() || self.tiling_layout_id().is_some());
-        for column in &self.tiling.columns {
-            assert!(column_ids.insert(column.id), "duplicate column ID");
-            assert!(!column.windows.is_empty(), "empty tiled column");
-            assert!(
-                column.windows.iter().any(|w| w.id == column.selected),
-                "selected tile missing from column"
-            );
-            for window in &column.windows {
+        assert!(self.tiling.outputs.contains_key(&self.tiling.active_output));
+        for layout in self.tiling.outputs.values() {
+            assert!(layout.columns.is_empty() || layout.layout_id.is_some());
+            for column in &layout.columns {
+                assert!(column_ids.insert(column.id), "duplicate column ID");
+                assert!(!column.windows.is_empty(), "empty tiled column");
                 assert!(
-                    self.window_by_id(window.id).is_some(),
-                    "tiled window missing from stage"
+                    column.windows.iter().any(|w| w.id == column.selected),
+                    "selected tile missing from column"
                 );
-                assert!(tiled_ids.insert(window.id), "duplicate tiled window");
+                for window in &column.windows {
+                    assert!(
+                        self.window_by_id(window.id).is_some(),
+                        "tiled window missing from stage"
+                    );
+                    assert!(tiled_ids.insert(window.id), "duplicate tiled window");
+                }
             }
-        }
-        assert_eq!(self.tiling.active.is_none(), self.tiling.columns.is_empty());
-        if let Some(previous) = self.tiling.restore_previous {
-            let active = self
-                .tiling
-                .columns
-                .iter()
-                .position(|c| Some(c.id) == self.tiling.active)
-                .unwrap();
-            assert_eq!(
-                active
-                    .checked_sub(1)
-                    .map(|index| self.tiling.columns[index].id),
-                Some(previous),
-                "close-return column is not the active column's predecessor"
-            );
-        }
+            assert_eq!(layout.active.is_none(), layout.columns.is_empty());
+            if let Some(previous) = layout.restore_previous {
+                let active = layout
+                    .columns
+                    .iter()
+                    .position(|c| Some(c.id) == layout.active)
+                    .unwrap();
+                assert_eq!(
+                    active.checked_sub(1).map(|index| layout.columns[index].id),
+                    Some(previous),
+                    "close-return column is not the active column's predecessor"
+                );
+            }
 
-        if let Some(id) = self.tiling.active {
-            assert!(
-                self.column(id).is_some(),
-                "active column missing from tiling"
-            );
-            assert!(
-                self.tiling.columns.iter().any(|c| c.id == id),
-                "active tile differs from column selection"
-            );
+            if let Some(id) = layout.active {
+                assert!(
+                    layout.columns.iter().any(|c| c.id == id),
+                    "active tile differs from column selection"
+                );
+            }
         }
         for (i, e) in self.entries.iter().enumerate() {
             assert!(

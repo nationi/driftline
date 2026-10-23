@@ -188,7 +188,7 @@ fn focus_and_width_actions_follow_columns() {
     assert!(last_configured(&mut f, client, &a).0 > half);
     f.state()
         .execute_action(&Action::CenterNearest(Direction::Right));
-    assert_ne!(f.state().stage.active_tile(), Some(aid));
+    assert_eq!(f.state().stage.active_tile(), Some(aid));
 }
 
 #[test]
@@ -222,30 +222,197 @@ fn new_windows_join_after_the_focused_column_and_close_prunes_membership() {
 }
 
 #[test]
-fn a_second_output_leaves_tiling_and_multiple_outputs_cannot_enter_it() {
+fn multiple_outputs_create_independent_layouts_on_tiling_entry() {
+    use driftwm::layout::scrolling::transaction::ConfigureProgress;
     let mut f = Fixture::new();
-    f.add_output(1, (1200, 800));
+    let first = f.add_output(1, (1200, 800));
+    let second = f.add_output(2, (1920, 1080));
+    crate::state::output_state(&second).camera = (5000.0, 5000.0).into();
+    f.state().focused_output = Some(first.clone());
     let client = f.add_client();
-    let surface = map_window(&mut f, client, "a", (400, 300));
+    let first_surface = map_window(&mut f, client, "first-window", (400, 300));
+    let first_window = window_by_app_id(&mut f, "first-window").unwrap();
+    let first_window_id = f.state().stage.id_of(&first_window).unwrap();
+    f.state().focused_output = Some(second.clone());
+    let second_surface = map_window(&mut f, client, "second-window", (400, 300));
+    let second_window = window_by_app_id(&mut f, "second-window").unwrap();
+    let second_window_id = f.state().stage.id_of(&second_window).unwrap();
+    let first_camera = crate::state::output_state(&first).camera;
+    let second_camera = crate::state::output_state(&second).camera;
     f.state().execute_action(&Action::ToggleTiling);
-    f.add_output(2, (1920, 1080));
-    f.state().refresh_and_flush_clients();
-    assert!(f.state().tiling_view.is_none());
-    assert_eq!(last_configured(&mut f, client, &surface), (400, 300));
+
+    assert!(f.state().tiling_view.is_some());
+    assert!(
+        f.state()
+            .stage
+            .tiling_layout_id_for_output(&first.name())
+            .is_some()
+    );
+    assert!(
+        f.state()
+            .stage
+            .tiling_layout_id_for_output(&second.name())
+            .is_some()
+    );
+    assert_eq!(
+        f.state().tiling_canvas_view(&first),
+        Some((first_camera, 1.0))
+    );
+    assert_eq!(
+        f.state().tiling_canvas_view(&second),
+        Some((second_camera, 1.0))
+    );
+    let first_owner = f
+        .state()
+        .stage
+        .tiling_output_for_window(first_window_id)
+        .unwrap()
+        .to_owned();
+    let second_owner = f
+        .state()
+        .stage
+        .tiling_output_for_window(second_window_id)
+        .unwrap()
+        .to_owned();
+    assert_eq!(first_owner, first.name());
+    assert_eq!(second_owner, second.name());
+    assert_eq!(
+        f.state()
+            .stage
+            .tiled_windows_for_output(&first_owner)
+            .map(|tile| tile.id)
+            .collect::<Vec<_>>(),
+        vec![first_window_id]
+    );
+    assert_eq!(
+        f.state()
+            .stage
+            .tiled_windows_for_output(&second_owner)
+            .map(|tile| tile.id)
+            .collect::<Vec<_>>(),
+        vec![second_window_id]
+    );
+    let first_size = last_configured(&mut f, client, &first_surface);
+    let second_size = last_configured(&mut f, client, &second_surface);
+    assert!(
+        second_size.0 > first_size.0,
+        "each output reflows against its own width: {first_size:?} vs {second_size:?}"
+    );
+    assert_eq!(
+        f.state().tiling_configure_progress(first_window_id),
+        Some(ConfigureProgress::Pending)
+    );
+    assert_eq!(
+        f.state().tiling_configure_progress(second_window_id),
+        Some(ConfigureProgress::Pending)
+    );
+    adopt_last_configure(&mut f, client, &first_surface);
+    assert_eq!(
+        f.state().tiling_configure_progress(first_window_id),
+        Some(ConfigureProgress::Applied)
+    );
+    assert_eq!(
+        f.state().tiling_configure_progress(second_window_id),
+        Some(ConfigureProgress::Pending),
+        "a buffer on one output cannot complete the other output's configure"
+    );
+    adopt_last_configure(&mut f, client, &second_surface);
+    assert_eq!(
+        f.state().tiling_configure_progress(second_window_id),
+        Some(ConfigureProgress::Applied)
+    );
+
     f.state().execute_action(&Action::ToggleTiling);
     assert!(f.state().tiling_view.is_none());
+    assert!(!f.state().stage.is_tiled(first_window_id));
+    assert!(!f.state().stage.is_tiled(second_window_id));
 }
 
 #[test]
-fn incompatible_actions_leave_tiling_before_applying_canvas_policy() {
+fn a_window_mapped_on_another_output_joins_that_outputs_layout() {
+    let mut f = Fixture::new();
+    let first = f.add_output(1, (1200, 800));
+    let second = f.add_output(2, (1920, 1080));
+    crate::state::output_state(&second).camera = (5000.0, 5000.0).into();
+    let client = f.add_client();
+
+    f.state().focused_output = Some(first.clone());
+    let first_surface = map_window(&mut f, client, "first", (400, 300));
+    let first_window = window_by_app_id(&mut f, "first").unwrap();
+    let first_id = f.state().stage.id_of(&first_window).unwrap();
+    f.state().focused_output = Some(second.clone());
+    let second_surface = map_window(&mut f, client, "second", (400, 300));
+    let second_window = window_by_app_id(&mut f, "second").unwrap();
+    let second_id = f.state().stage.id_of(&second_window).unwrap();
+
+    f.state().execute_action(&Action::ToggleTiling);
+    let first_tiled_size = last_configured(&mut f, client, &first_surface);
+    let second_tiled_size = last_configured(&mut f, client, &second_surface);
+    assert!(first_tiled_size.0 > 0 && second_tiled_size.0 > first_tiled_size.0);
+    adopt_last_configure(&mut f, client, &first_surface);
+    adopt_last_configure(&mut f, client, &second_surface);
+
+    f.state().focused_output = Some(second.clone());
+    let new_surface = map_window(&mut f, client, "late", (300, 200));
+    let new_window = window_by_app_id(&mut f, "late").unwrap();
+    let new_id = f.state().stage.id_of(&new_window).unwrap();
+    f.state().refresh_tiling();
+
+    assert_eq!(
+        f.state().stage.tiling_output_for_window(new_id),
+        Some(second.name().as_str()),
+        "the focused output owns a window mapped after tiling entry"
+    );
+    assert_eq!(
+        f.state()
+            .stage
+            .tiled_windows_for_output(&first.name())
+            .map(|tile| tile.id)
+            .collect::<Vec<_>>(),
+        vec![first_id]
+    );
+    assert_eq!(
+        f.state()
+            .stage
+            .tiled_windows_for_output(&second.name())
+            .map(|tile| tile.id)
+            .collect::<Vec<_>>(),
+        vec![second_id, new_id]
+    );
+    let new_size = last_configured(&mut f, client, &new_surface);
+    assert!(
+        new_size.0 > first_tiled_size.0,
+        "late mapped window is configured against output two's wider area: {new_size:?} vs {first_tiled_size:?}"
+    );
+
+    let second_layout = f
+        .state()
+        .stage
+        .tiling_layout_id_for_output(&second.name())
+        .unwrap();
+    f.state().focused_output = Some(first.clone());
+    f.state().refresh_tiling();
+    f.state()
+        .navigate_to_window_on(&second_window, &second, crate::state::NavZoom::Reset);
+    assert_eq!(f.state().stage.tiling_layout_id(), Some(second_layout));
+    assert!(f.state().tiling_view.is_some());
+    f.state().execute_action(&Action::ToggleTiling);
+}
+
+#[test]
+fn canvas_actions_are_ignored_until_tiling_is_switched_off() {
     let mut f = Fixture::new();
     f.add_output(1, (1200, 800));
     let client = f.add_client();
     map_window(&mut f, client, "a", (400, 300));
     f.state().execute_action(&Action::ToggleTiling);
     f.state().execute_action(&Action::FitWindow);
-    assert!(f.state().tiling_view.is_none());
+    assert!(f.state().tiling_view.is_some());
     let window = window_by_app_id(&mut f, "a").unwrap();
+    assert!(!f.state().stage.is_fit(&window));
+    f.state().execute_action(&Action::ToggleTiling);
+    f.state().execute_action(&Action::FitWindow);
+    assert!(f.state().tiling_view.is_none());
     assert!(f.state().stage.is_fit(&window));
 }
 
@@ -335,7 +502,7 @@ fn grouped_windows_share_height_navigate_and_restore_their_original_rectangles()
         .execute_action(&Action::FocusColumn(Direction::Right));
     assert_eq!(f.state().stage.active_tile(), Some(bid));
     f.state()
-        .execute_action(&Action::CenterNearest(Direction::Down));
+        .execute_action(&Action::FocusColumn(Direction::Down));
     let cid = f.state().stage.id_of(&wc).unwrap();
     assert_eq!(f.state().stage.active_tile(), Some(cid));
     f.state().execute_action(&Action::ToggleTiling);

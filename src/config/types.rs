@@ -106,6 +106,46 @@ pub enum TrackpadState {
 }
 
 impl Action {
+    /// Whether this action belongs to the active canvas/tiling mode.
+    /// Layout switching and general window/session actions remain available in
+    /// both modes; navigation and geometry controls are mode-exclusive.
+    pub fn allowed_in_tiling(&self, tiling: bool) -> bool {
+        let tiling_action = matches!(
+            self,
+            Action::FocusColumn(_)
+                | Action::CycleColumnWidth
+                | Action::MoveIntoColumn(_)
+                | Action::ExpelFromColumn
+                | Action::ConsumeWindowIntoColumn
+                | Action::ExpelWindowFromColumn
+                | Action::MoveColumn(_)
+                | Action::MoveTiledWindow(_)
+        );
+        let canvas_action = matches!(
+            self,
+            Action::NudgeWindow(_)
+                | Action::GrowWindow(_)
+                | Action::ShrinkWindow(_)
+                | Action::PanViewport(_)
+                | Action::CenterWindow
+                | Action::CenterNearest(_)
+                | Action::HomeToggle
+                | Action::GoToBookmark(_)
+                | Action::SetBookmark(_)
+                | Action::MoveToBookmark(_)
+                | Action::ZoomIn
+                | Action::ZoomOut
+                | Action::ZoomReset
+                | Action::ZoomToFit
+                | Action::ZoomToFitSnapped
+                | Action::FitWindow
+                | Action::FitWindowSnapped
+                | Action::FillWindow
+                | Action::FocusCenter
+        );
+        (!tiling_action || tiling) && (!canvas_action || !tiling)
+    }
+
     /// Actions that should auto-repeat when their key is held.
     pub fn is_repeatable(&self) -> bool {
         matches!(

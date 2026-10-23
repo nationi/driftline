@@ -747,7 +747,15 @@ disable_defaults = ["keys"]
 
 ## `[keybindings]`
 
-Keyboard bindings: "Modifier+...+Keysym" = "action [arg]" Merges with defaults. Use "none" to unbind a default binding. "mod" expands to mod_key. Literal modifiers: alt, super (alias logo), ctrl (alias control), shift, mod3. Keysyms are XKB names (case-insensitive): return, tab, up, a, equal, etc. A bare modifier combo (e.g. "alt+shift") is a tap binding (fires on chord release; see [input.keyboard] options).
+Keyboard bindings: "Modifier+...+Keysym" = "action [arg]" Merges with defaults. Use "none" to unbind a default binding. Canvas navigation/geometry actions and scrolling-tiling actions are exclusive: canvas actions are ignored while tiling, and tiling actions are ignored on the canvas. `toggle-tiling` stays available in both modes.
+
+For different actions on the same chord, use `[keybindings.canvas]` and `[keybindings.tiling]`; each table is active only in its named mode. These tables support normal and tap bindings. `none` masks the default in that mode.
+
+[keybindings.canvas] Canvas-only keyboard overrides; the same chord can have a different tiling action. [keybindings.tiling] Tiling-only keyboard overrides; the same chord can have a different canvas action.
+
+Default tiling keys are active only in tiling: Mod+Alt+Shift+arrows focus, Mod+Ctrl+Alt+arrows reorder columns, Mod+Ctrl+Shift+Up/Down reorder tiles, Mod+Ctrl+Alt+Shift+Left/Right move into a column; Mod+Ctrl+Shift+Left/Right consume/expel; Mod+Ctrl+E expels a focused tile; Mod+Alt+R cycles width. Mod+Ctrl+T toggles mode. With mod_key = "alt", navigation defaults are omitted to avoid collisions; add your own tiling actions to [keybindings].
+
+"mod" expands to mod_key. Literal modifiers: alt, super (alias logo), ctrl (alias control), shift, mod3. Keysyms are XKB names (case-insensitive): return, tab, up, a, equal, etc. A bare modifier combo (e.g. "alt+shift") is a tap binding (fires on chord release; see [input.keyboard] options).
 
 Actions:
 
@@ -777,7 +785,7 @@ Actions:
 - `zoom-to-fit-snapped` — fit only the focused window's snap cluster
 - `toggle-fullscreen` — toggle focused window fullscreen
 - `fit-window` — toggle maximize: centers + resets zoom + fills viewport; restore only resizes back
-- `toggle-tiling` — experimental scrolling columns on one output; toggle again to restore canvas positions, sizes and view
+- `toggle-tiling` — toggle scrolling columns across outputs; toggle again to restore canvas positions, sizes and view
 - `focus-column <dir>` — focus a scrolling column (left/right) or a window inside it (up/down); center-nearest also follows this structure while tiling
 - `cycle-column-width` — cycle the active column through 1/3, 1/2 and full usable width
 - `move-into-column <dir>` — move the focused tiled window into the neighboring column (left/right), after its selected window

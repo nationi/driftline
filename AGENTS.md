@@ -11,24 +11,26 @@ Actively developed and released — a public, multi-contributor project, so matc
 - `dev/docs/testing.md` — the test-suite map and testing rules (config-reference workflow, proptest conventions).
 - `dev/docs/` also holds profiling setup, the `config.reference.toml` grammar, accumulated smithay API notes, and container build recipes.
 
-## Active development: niri tiling parity
+## Active development: practical scrolling tiling
 
-The user's objective for this fork is full behavioral parity with niri's tiling,
-while retaining driftwm's canvas mode. The current experimental implementation
-is a starting point, not completion of that objective.
+The objective is dependable scrolling-column tiling across multiple outputs,
+alongside driftwm's infinite canvas. Each output should own an independent
+layout. Niri is an inspiration and a source of useful design references, not a
+parity target. Keep the canvas as the default. Do not add workspaces, tabs,
+floating-window policy or broad niri configuration merely to match niri;
+consider each only if it solves a concrete usability gap.
 
 When continuing tiling work, read these before choosing the next change:
 
 - [`dev/docs/tiling-status.md`](dev/docs/tiling-status.md) — current progress,
   next tasks, validation evidence and working-tree precautions.
-- [`dev/docs/niri-tiling-parity-plan.md`](dev/docs/niri-tiling-parity-plan.md) —
-  authoritative roadmap, pinned niri reference, dependencies and acceptance gates.
+- [`dev/docs/scrolling-tiling-roadmap.md`](dev/docs/scrolling-tiling-roadmap.md) —
+  authoritative focused roadmap and definition of done.
 - [`docs/tiling.md`](docs/tiling.md) — behavior currently available to users.
 
-Continue the next unfinished task in dependency order; do not restart the plan
-or mistake an existing partial feature for reference-compatible behavior. Check
-the code and Git history against the status before acting. Update the status
-after each delivered change with what passed, what remains and the next step.
+Continue the next unfinished task in dependency order. Check the code and Git
+history against the status before acting. Update the status after each delivered
+change with what passed, what remains and the next step.
 Keep detailed session context in the status file rather than growing this file.
 The roadmap alone does not authorize pushing, publishing or messaging others.
 

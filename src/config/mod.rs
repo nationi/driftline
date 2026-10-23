@@ -30,7 +30,7 @@ use parse_helpers::{
     parse_decoration_config, parse_effects_config, parse_focus_placement, parse_output_outline,
     parse_output_rule, parse_window_rule, positive_or_default,
 };
-use toml::{ConfigFile, expand_tilde};
+use toml::{ConfigFile, KeybindingsFileConfig, expand_tilde};
 
 /// Env vars the compositor sets as toolkit fallbacks.
 /// `[env]` config entries take precedence over these.
@@ -273,10 +273,14 @@ pub struct Config {
     pub child_env: HashMap<String, String>,
     pub output_configs: Vec<OutputConfig>,
     bindings: HashMap<KeyCombo, Action>,
+    canvas_bindings: HashMap<KeyCombo, Option<Action>>,
+    tiling_bindings: HashMap<KeyCombo, Option<Action>>,
     /// Tap-modifier bindings: a bare modifier chord (e.g. `alt+shift`) that
     /// fires its action when the chord is pressed and released with no other
     /// key on top. Keyed by the exact modifier set.
     tap_bindings: HashMap<Modifiers, Action>,
+    canvas_tap_bindings: HashMap<Modifiers, Option<Action>>,
+    tiling_tap_bindings: HashMap<Modifiers, Option<Action>>,
     pub mouse: ContextBindings<MouseBinding, MouseAction>,
     /// When `true` (default), dragging a window's edge or corner resizes it
     /// via the invisible resize border (SSD frame or CSD margin). When `false`,
@@ -312,17 +316,73 @@ impl Config {
     }
 
     pub fn lookup(&self, modifiers: &ModifiersState, sym: Keysym) -> Option<&Action> {
+        self.lookup_for_mode(modifiers, sym, false)
+    }
+
+    /// Look up a keybinding only when its action is available in the active
+    /// canvas or tiling mode.
+    pub fn lookup_for_mode(
+        &self,
+        modifiers: &ModifiersState,
+        sym: Keysym,
+        tiling: bool,
+    ) -> Option<&Action> {
         let mut combo = KeyCombo {
             modifiers: Modifiers::from_state(modifiers),
             sym,
         };
         combo.normalize();
-        self.bindings.get(&combo)
+        let profile = if tiling {
+            &self.tiling_bindings
+        } else {
+            &self.canvas_bindings
+        };
+        let action = match profile.get(&combo) {
+            Some(Some(action)) => Some(action),
+            Some(None) => None,
+            None => self.bindings.get(&combo),
+        };
+        action.filter(|action| action.allowed_in_tiling(tiling))
     }
 
     /// Look up a tap-modifier binding by the completed chord's modifier set.
     pub fn tap_lookup(&self, mods: &Modifiers) -> Option<&Action> {
         self.tap_bindings.get(mods)
+    }
+
+    pub fn tap_lookup_for_mode(&self, mods: &Modifiers, tiling: bool) -> Option<&Action> {
+        let profile = if tiling {
+            &self.tiling_tap_bindings
+        } else {
+            &self.canvas_tap_bindings
+        };
+        let action = match profile.get(mods) {
+            Some(Some(action)) => Some(action),
+            Some(None) => None,
+            None => self.tap_bindings.get(mods),
+        };
+        action.filter(|action| action.allowed_in_tiling(tiling))
+    }
+
+    pub fn cycle_hold_for_mode(&self, tiling: bool) -> &Modifiers {
+        let profile = if tiling {
+            &self.tiling_bindings
+        } else {
+            &self.canvas_bindings
+        };
+        profile
+            .iter()
+            .find_map(|(combo, action)| {
+                matches!(action, Some(Action::CycleWindows { backward: false }))
+                    .then_some(&combo.modifiers)
+            })
+            .or_else(|| {
+                self.bindings
+                    .iter()
+                    .find(|(_, action)| matches!(action, Action::CycleWindows { backward: false }))
+                    .map(|(combo, _)| &combo.modifiers)
+            })
+            .unwrap_or(&self.cycle_hold)
     }
 
     /// Look up a mouse button action by modifier state, button code, and context.
@@ -526,6 +586,12 @@ impl Config {
             },
         };
 
+        let KeybindingsFileConfig {
+            common: user_bindings,
+            canvas: user_canvas_bindings,
+            tiling: user_tiling_bindings,
+        } = raw.keybindings;
+
         let mut disable_keys = false;
         let mut disable_mouse = false;
         let mut disable_gestures = false;
@@ -556,7 +622,7 @@ impl Config {
         };
 
         let mut tap_bindings: HashMap<Modifiers, Action> = HashMap::new();
-        if let Some(user_bindings) = raw.keybindings {
+        {
             for (key_str, action_str) in &user_bindings {
                 // A bare modifier chord (no keysym) is a tap-modifier binding.
                 if let Some(tap_result) = parse::parse_tap_combo(key_str, mod_key) {
@@ -596,6 +662,75 @@ impl Config {
                         }
                     }
                     Err(e) => warn_and_collect!("config: invalid key combo '{key_str}': {e}"),
+                }
+            }
+        }
+
+        let mut canvas_bindings = HashMap::new();
+        let mut tiling_bindings = HashMap::new();
+        let mut canvas_tap_bindings = HashMap::new();
+        let mut tiling_tap_bindings = HashMap::new();
+        for (mode_name, user_bindings, bindings, tap_bindings, tiling) in [
+            (
+                "canvas",
+                user_canvas_bindings,
+                &mut canvas_bindings,
+                &mut canvas_tap_bindings,
+                false,
+            ),
+            (
+                "tiling",
+                user_tiling_bindings,
+                &mut tiling_bindings,
+                &mut tiling_tap_bindings,
+                true,
+            ),
+        ] {
+            for (key_str, action_str) in user_bindings {
+                if let Some(tap_result) = parse::parse_tap_combo(&key_str, mod_key) {
+                    match tap_result {
+                        Ok(mods) if action_str == "none" => {
+                            tap_bindings.insert(mods, None);
+                        }
+                        Ok(mods) => match parse_action(&action_str) {
+                            Ok(action) if action.allowed_in_tiling(tiling) => {
+                                tap_bindings.insert(mods, Some(action));
+                            }
+                            Ok(_) => warn_and_collect!(
+                                "config: {mode_name} tap binding '{key_str}' is not available in {mode_name} mode"
+                            ),
+                            Err(e) => warn_and_collect!(
+                                "config: invalid {mode_name} tap binding '{key_str}' action '{action_str}': {e}"
+                            ),
+                        },
+                        Err(e) => warn_and_collect!(
+                            "config: invalid {mode_name} tap binding '{key_str}': {e}"
+                        ),
+                    }
+                    continue;
+                }
+                match parse_key_combo(&key_str, mod_key) {
+                    Ok(mut combo) => {
+                        combo.normalize();
+                        if action_str == "none" {
+                            bindings.insert(combo, None);
+                        } else {
+                            match parse_action(&action_str) {
+                                Ok(action) if action.allowed_in_tiling(tiling) => {
+                                    bindings.insert(combo, Some(action));
+                                }
+                                Ok(_) => warn_and_collect!(
+                                    "config: {mode_name} keybinding '{key_str}' is not available in {mode_name} mode"
+                                ),
+                                Err(e) => warn_and_collect!(
+                                    "config: invalid {mode_name} keybinding '{key_str}' action '{action_str}': {e}"
+                                ),
+                            }
+                        }
+                    }
+                    Err(e) => {
+                        warn_and_collect!("config: invalid {mode_name} key combo '{key_str}': {e}")
+                    }
                 }
             }
         }
@@ -1250,7 +1385,11 @@ impl Config {
             focus_placement,
             output_configs,
             bindings,
+            canvas_bindings,
+            tiling_bindings,
             tap_bindings,
+            canvas_tap_bindings,
+            tiling_tap_bindings,
             mouse: mouse_bindings,
             resize_on_border,
             decoration_resize_snapped,
@@ -2165,6 +2304,61 @@ mod tests {
                 sym
             ),
             Some(&Action::CloseWindow)
+        );
+    }
+
+    #[test]
+    fn canvas_and_tiling_keybindings_are_exclusive() {
+        let config = Config::from_toml(
+            r#"
+                [keybindings.canvas]
+                "mod+left" = "center-nearest left"
+
+                [keybindings.tiling]
+                "mod+left" = "focus-column left"
+            "#,
+        )
+        .unwrap();
+        let focus = parse::parse_key_combo("mod+alt+shift+left", ModKey::Super).unwrap();
+        let canvas_nav = parse::parse_key_combo("mod+left", ModKey::Super).unwrap();
+        let toggle = parse::parse_key_combo("mod+ctrl+t", ModKey::Super).unwrap();
+
+        let focus_mods = ModifiersState {
+            logo: true,
+            alt: true,
+            shift: true,
+            ..Default::default()
+        };
+        let logo = ModifiersState {
+            logo: true,
+            ..Default::default()
+        };
+        let toggle_mods = ModifiersState {
+            logo: true,
+            ctrl: true,
+            ..Default::default()
+        };
+
+        assert_eq!(
+            config.lookup_for_mode(&focus_mods, focus.sym, true),
+            Some(&Action::FocusColumn(Direction::Left))
+        );
+        assert_eq!(config.lookup_for_mode(&focus_mods, focus.sym, false), None);
+        assert_eq!(
+            config.lookup_for_mode(&logo, canvas_nav.sym, false),
+            Some(&Action::CenterNearest(Direction::Left))
+        );
+        assert_eq!(
+            config.lookup_for_mode(&logo, canvas_nav.sym, true),
+            Some(&Action::FocusColumn(Direction::Left))
+        );
+        assert_eq!(
+            config.lookup_for_mode(&toggle_mods, toggle.sym, false),
+            Some(&Action::ToggleTiling)
+        );
+        assert_eq!(
+            config.lookup_for_mode(&toggle_mods, toggle.sym, true),
+            Some(&Action::ToggleTiling)
         );
     }
 

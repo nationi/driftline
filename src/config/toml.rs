@@ -20,7 +20,7 @@ pub(super) struct ConfigFile {
     pub backend: BackendFileConfig,
     pub autostart: Option<Vec<String>>,
     pub bindings: BindingsFileConfig,
-    pub keybindings: Option<HashMap<String, String>>,
+    pub keybindings: KeybindingsFileConfig,
     pub mouse: MouseFileConfig,
     pub gestures: GestureFileConfig,
     pub touch: TouchFileConfig,
@@ -33,6 +33,15 @@ pub(super) struct ConfigFile {
     pub focus_placement: Option<String>,
     pub window_rules: Option<Vec<WindowRuleFile>>,
     pub outputs: Option<Vec<OutputRuleFile>>,
+}
+
+#[derive(Serialize, Deserialize, Default)]
+#[serde(default)]
+pub(super) struct KeybindingsFileConfig {
+    #[serde(flatten)]
+    pub common: HashMap<String, String>,
+    pub canvas: HashMap<String, String>,
+    pub tiling: HashMap<String, String>,
 }
 
 #[derive(Serialize, Deserialize, Default)]

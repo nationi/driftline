@@ -610,7 +610,7 @@ pub struct DriftWm {
     /// through [`Self::map_window`] / [`Self::raise_window`] /
     /// [`Self::unmap_window`] and the stage-backed methods.
     pub stage: driftwm::stage::Stage<StageWindow>,
-    pub(crate) tiling_view: Option<tiling::TilingView>,
+    pub(crate) tiling_view: tiling::TilingViews,
     /// Output registry only (`map_output` / `outputs` / `output_geometry`);
     /// holds no window elements. Per-window output membership
     /// (`wl_surface.enter`/`leave`) is driven by [`Self::refresh_window_outputs`],

@@ -4,10 +4,9 @@ Archived proposal, not the current task queue. Its validation suggestions and
 implementation notes reflect the initial feature. Use [current status](tiling-status.md)
 and [the TTY guide](tty-preview.md) for today’s evidence and local workflow.
 
-The full-parity goal and subsequent execution order now live in
-[Niri tiling parity: execution plan](niri-tiling-parity-plan.md). This document
-retains the initial proposal and implementation history; its original limited
-scope is not the completion criterion for full niri tiling parity.
+The current goal and execution order live in the
+[practical scrolling tiling roadmap](scrolling-tiling-roadmap.md). This document
+retains the initial proposal and implementation history.
 
 Status: initial single-output scrolling mode implemented. Existing canvas
 behavior remains the default. User instructions: [tiling](../../docs/tiling.md).

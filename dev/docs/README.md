@@ -7,16 +7,18 @@
 | [Current status](tiling-status.md) | Implemented behavior, latest evidence, remaining gates and tree precautions |
 | [TTY cheat sheet](tty-preview.md) | Local preview launch, F-key bindings, exit and visual checks |
 | [User guide](../../docs/tiling.md) | Available tiling behavior and configuration examples |
-| [Parity roadmap](niri-tiling-parity-plan.md) | Full objective, single execution queue, dependencies and acceptance |
+| [Practical roadmap](scrolling-tiling-roadmap.md) | Focused product scope, delivery sequence and acceptance |
 | [Reference inventory](niri-tiling-inventory.md) | Generated pinned symbol index; semantic audit remains partial |
 | [Reference traces](niri-reference-traces.md) | Source-derived fixture method, assumptions and known differences |
 | [History](tiling-history.md) | Earlier batch evidence, investigations and superseded next steps |
-| [Initial proposal](scrolling-tiling-plan.md) | Historical limited-scope design; superseded by the parity roadmap |
+| [Archived parity roadmap](niri-tiling-parity-plan.md) | Superseded full-parity plan retained as a pointer to the current roadmap |
+| [Initial proposal](scrolling-tiling-plan.md) | Historical design proposal |
 
 Keep current facts in status, acceptance criteria in the roadmap, and detailed
-past evidence in history. Update affected user instructions and preview keys when
-behavior changes. Do not duplicate a competing task list or treat old percentages
-and test counts as current measurements.
+past evidence in history. Niri inventories and fixtures are optional research,
+not product acceptance gates. Update affected user instructions and preview keys
+when behavior changes. Do not treat old percentages and test counts as current
+measurements.
 
 ## Repository workflow
 

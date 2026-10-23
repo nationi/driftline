@@ -1491,6 +1491,93 @@ fn pending_tiling_keeps_the_old_pixels_until_all_buffers_apply() {
 
 #[test]
 #[ignore = "needs Mesa surfaceless EGL; run with --include-ignored"]
+fn multi_output_tiling_snapshots_render_on_their_own_output() {
+    use super::{last_configured, window_by_app_id};
+
+    let _gl = gl::lock();
+    let Some(renderer) = gl::surfaceless_renderer("multi-output tiling snapshots") else {
+        return;
+    };
+    let mut f = Fixture::with_config(super::config(&config_toml(false)));
+    let first_output = f.add_output(1, (1200, 800));
+    let second_output = f.add_output(2, (1200, 800));
+    crate::state::output_state(&second_output).camera = (5000.0, 5000.0).into();
+    f.state().focused_output = Some(first_output.clone());
+    gl::install(&mut f, renderer);
+
+    let first_client = f.add_client();
+    let second_client = f.add_client();
+    let first_pixels = solid_bgra(400, 300, CONTENT_BGRA, false);
+    let second_color = [0, 255, 0, 255];
+    let second_pixels = solid_bgra(400, 300, second_color, false);
+    let first_surface = map_window_shm(
+        &mut f,
+        first_client,
+        "first-output",
+        (400, 300),
+        (400, 300),
+        &first_pixels,
+    );
+    let first_window = window_by_app_id(&mut f, "first-output").unwrap();
+    f.state()
+        .stage
+        .set_position(&first_window, (100, 100).into());
+    f.state().focused_output = Some(second_output.clone());
+    map_window_shm(
+        &mut f,
+        second_client,
+        "second-output",
+        (400, 300),
+        (400, 300),
+        &second_pixels,
+    );
+    let second_window = window_by_app_id(&mut f, "second-output").unwrap();
+    f.state()
+        .stage
+        .set_position(&second_window, (5100, 5100).into());
+
+    super::tick_until_settled(&mut f);
+    f.state().focused_output = Some(first_output.clone());
+    let first_before = tiling_live_frame(&mut f, &first_output);
+    let second_before = tiling_live_frame(&mut f, &second_output);
+    f.state()
+        .execute_action(&driftwm::config::Action::ToggleTiling);
+    assert_eq!(f.state().tiling_snapshot_count(), 2);
+
+    assert_eq!(
+        first_before,
+        tiling_live_frame(&mut f, &first_output),
+        "output one must render its own retained image"
+    );
+    assert_eq!(
+        second_before,
+        tiling_live_frame(&mut f, &second_output),
+        "output two must render its own retained image"
+    );
+
+    let first_target = last_configured(&mut f, first_client, &first_surface);
+    let first = f.client(first_client).window(&first_surface);
+    first.set_size(first_target.0 as u16, first_target.1 as u16);
+    first.attach_shm_buffer(
+        first_target,
+        &solid_bgra(first_target.0, first_target.1, second_color, false),
+    );
+    first.ack_last_and_commit();
+    f.double_roundtrip(first_client);
+    assert_eq!(f.state().tiling_snapshot_count(), 1);
+    assert!(
+        second_before == tiling_live_frame(&mut f, &second_output),
+        "completing output one's configure must leave output two's image held"
+    );
+
+    for output in [&first_output, &second_output] {
+        f.state().render.remove_output(&output.name());
+    }
+    gl::uninstall(&mut f);
+}
+
+#[test]
+#[ignore = "needs Mesa surfaceless EGL; run with --include-ignored"]
 fn pending_tiling_pixels_are_released_at_the_group_deadline() {
     let _gl = gl::lock();
     check_pending_tiling_pixels(TilingFinish::Deadline, false, TilingPopupScene::None);
@@ -3388,6 +3475,79 @@ fn disconnecting_a_held_or_mixed_tiling_peer_releases_the_survivor() {
             }
         }
     }
+}
+
+#[test]
+#[ignore = "needs surfaceless EGL; run with --include-ignored"]
+fn disconnecting_an_output_keeps_the_survivor_tiling_snapshot() {
+    use super::{last_configured, tick_until_settled};
+
+    let _gl = gl::lock();
+    let Some(renderer) = gl::surfaceless_renderer("disconnect tiling output snapshot") else {
+        return;
+    };
+    let mut f = Fixture::with_config(super::config(&config_toml(true)));
+    let survivor = f.add_output(1, (1200, 800));
+    let removed = f.add_output(2, (1920, 1080));
+    crate::state::output_state(&removed).camera = (5000.0, 5000.0).into();
+    gl::install(&mut f, renderer);
+    let first = f.add_client();
+    let second = f.add_client();
+    let survivor_surface = map_window_shm(
+        &mut f,
+        first,
+        "snapshot-survivor",
+        (200, 100),
+        (200, 100),
+        &solid_bgra(200, 100, [0, 255, 0, 255], false),
+    );
+    f.state().focused_output = Some(removed.clone());
+    let removed_surface = map_window_shm(
+        &mut f,
+        second,
+        "snapshot-removed",
+        (200, 100),
+        (200, 100),
+        &solid_bgra(200, 100, [255, 0, 255, 255], false),
+    );
+    tick_until_settled(&mut f);
+    f.state()
+        .execute_action(&driftwm::config::Action::ToggleTiling);
+
+    let survivor_held = tiling_live_frame(&mut f, &survivor);
+    let _removed_held = tiling_live_frame(&mut f, &removed);
+    assert_eq!(f.state().tiling_snapshot_count(), 2);
+
+    f.remove_output(&removed);
+
+    assert!(f.state().tiling_snapshot_count() >= 1);
+    assert_eq!(
+        tiling_live_frame(&mut f, &survivor),
+        survivor_held,
+        "disconnecting the other output leaves this output's retained picture intact"
+    );
+
+    for (client, surface, color) in [
+        (first, &survivor_surface, [0, 255, 0, 255]),
+        (second, &removed_surface, [255, 0, 255, 255]),
+    ] {
+        let size = last_configured(&mut f, client, surface);
+        let window = f.client(client).window(surface);
+        window.set_size(size.0 as u16, size.1 as u16);
+        window.attach_shm_buffer(size, &solid_bgra(size.0, size.1, color, false));
+        window.ack_last_and_commit();
+        f.double_roundtrip(client);
+    }
+    f.double_roundtrip(first);
+    tick_until_settled(&mut f);
+    assert_eq!(f.state().tiling_snapshot_count(), 0);
+    assert_eq!(f.state().tiling_pending_configures(), 0);
+    let settled = tiling_live_frame(&mut f, &survivor);
+    assert!(settled.as_chunks::<4>().0.contains(&[0, 255, 0, 255]));
+    f.state()
+        .execute_action(&driftwm::config::Action::ToggleTiling);
+    f.state().render.remove_output(&survivor.name());
+    gl::uninstall(&mut f);
 }
 
 fn check_disconnected_tiling_peer(scale: f64, ssd: bool, mixed: bool) {
