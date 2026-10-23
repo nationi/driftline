@@ -194,3 +194,160 @@ fn half_scale_rounds_half_pixel_gap_and_border_up() {
 fn double_scale_rounds_auto_height_after_fractional_struts() {
     assert_fractional_geometry(2., (303, 342), (305., 344.), 1., (13.5, 8.5));
 }
+
+fn settle_three_windows(layout: &mut Layout<TestWindow>) {
+    check_ops_on_layout(
+        layout,
+        [
+            Op::Communicate(1),
+            Op::Communicate(2),
+            Op::Communicate(3),
+            Op::AdvanceAnimations { msec_delta: 10000 },
+        ],
+    );
+}
+
+fn fractional_three_columns() -> Layout<TestWindow> {
+    let mut layout =
+        configured_scaled_layout(PresetSize::Fixed(300), 1.25, 3., 1., [10.1, 9.9, 5.1, 4.9]);
+    check_ops_on_layout(
+        &mut layout,
+        [
+            Op::AddWindow {
+                params: TestWindowParams::new(2),
+            },
+            Op::AddWindow {
+                params: TestWindowParams::new(3),
+            },
+            Op::FocusColumnLeft,
+            Op::FocusColumnLeft,
+        ],
+    );
+    settle_three_windows(&mut layout);
+    layout
+}
+
+fn assert_fractional_stack(
+    layout: &Layout<TestWindow>,
+    expected: &[(usize, usize, usize, i32, f64, f64)],
+) {
+    let (_, _, ws) = layout
+        .workspaces()
+        .find(|(_, _, ws)| ws.windows().next().is_some())
+        .unwrap();
+    let tiles: Vec<_> = ws.tiles_with_ipc_layouts().collect();
+    assert_eq!(tiles.len(), expected.len());
+    assert_eq!(*ws.active_window().unwrap().id(), 1);
+    for ((tile, geometry), &(id, column, row, height, frame_height, y)) in
+        tiles.iter().zip(expected)
+    {
+        assert_eq!(*tile.window().id(), id);
+        assert_eq!(geometry.pos_in_scrolling_layout, Some((column, row)));
+        assert_eq!(geometry.window_size, (300, height));
+        assert_near(geometry.tile_size.0, 301.6);
+        assert_near(geometry.tile_size.1, frame_height);
+        assert_near(geometry.window_offset_in_tile.0, 0.8);
+        assert_near(geometry.window_offset_in_tile.1, 0.8);
+        let (_, pos, _) = ws
+            .tiles_with_render_positions()
+            .find(|(tile, _, _)| *tile.window().id() == id)
+            .unwrap();
+        assert_near(pos.x, 13.6 + (column - 1) as f64 * 304.8);
+        assert_near(pos.y, y);
+    }
+}
+
+fn consume_three_windows() -> Layout<TestWindow> {
+    let mut layout = fractional_three_columns();
+    check_ops_on_layout(&mut layout, [Op::ConsumeWindowIntoColumn]);
+    settle_three_windows(&mut layout);
+    check_ops_on_layout(&mut layout, [Op::ConsumeWindowIntoColumn]);
+    settle_three_windows(&mut layout);
+    layout
+}
+
+#[test]
+fn sequential_consume_distributes_fractional_height_remainder() {
+    let mut layout = fractional_three_columns();
+    check_ops_on_layout(&mut layout, [Op::ConsumeWindowIntoColumn]);
+    settle_three_windows(&mut layout);
+    // The remaining third column still has its original client-chosen width.
+    let (_, _, ws) = layout
+        .workspaces()
+        .find(|(_, _, ws)| ws.windows().next().is_some())
+        .unwrap();
+    let sizes: Vec<_> = ws
+        .tiles_with_ipc_layouts()
+        .map(|(tile, geometry)| (*tile.window().id(), geometry.window_size))
+        .collect();
+    assert_eq!(
+        sizes,
+        vec![(1, (300, 276)), (2, (300, 277)), (3, (100, 558))]
+    );
+    check_ops_on_layout(&mut layout, [Op::ConsumeWindowIntoColumn]);
+    settle_three_windows(&mut layout);
+    assert_fractional_stack(
+        &layout,
+        &[
+            (1, 1, 1, 183, 184.8, 8.8),
+            (2, 1, 2, 182, 184., 196.8),
+            (3, 1, 3, 183, 184.8, 384.),
+        ],
+    );
+}
+
+#[test]
+fn expel_moves_last_window_and_reconsume_restores_fractional_stack() {
+    let mut layout = consume_three_windows();
+    check_ops_on_layout(&mut layout, [Op::ExpelWindowFromColumn]);
+    settle_three_windows(&mut layout);
+    assert_fractional_stack(
+        &layout,
+        &[
+            (1, 1, 1, 276, 277.6, 8.8),
+            (2, 1, 2, 277, 278.4, 289.6),
+            (3, 2, 1, 558, 560., 8.8),
+        ],
+    );
+    check_ops_on_layout(&mut layout, [Op::ConsumeWindowIntoColumn]);
+    settle_three_windows(&mut layout);
+    assert_fractional_stack(
+        &layout,
+        &[
+            (1, 1, 1, 183, 184.8, 8.8),
+            (2, 1, 2, 182, 184., 196.8),
+            (3, 1, 3, 183, 184.8, 384.),
+        ],
+    );
+}
+
+#[test]
+fn fixed_height_and_reset_redistribute_fractional_auto_remainder() {
+    let mut layout = consume_three_windows();
+    check_ops_on_layout(
+        &mut layout,
+        [Op::SetWindowHeight {
+            id: Some(2),
+            change: SizeChange::SetFixed(100),
+        }],
+    );
+    settle_three_windows(&mut layout);
+    assert_fractional_stack(
+        &layout,
+        &[
+            (1, 1, 1, 224, 225.6, 8.8),
+            (2, 1, 2, 100, 101.6, 237.6),
+            (3, 1, 3, 224, 225.6, 342.4),
+        ],
+    );
+    check_ops_on_layout(&mut layout, [Op::ResetWindowHeight { id: Some(2) }]);
+    settle_three_windows(&mut layout);
+    assert_fractional_stack(
+        &layout,
+        &[
+            (1, 1, 1, 183, 184.8, 8.8),
+            (2, 1, 2, 182, 184., 196.8),
+            (3, 1, 3, 183, 184.8, 384.),
+        ],
+    );
+}

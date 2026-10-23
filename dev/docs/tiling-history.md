@@ -3064,3 +3064,34 @@ not rerun for external fixtures/docs; implementation gate remains B4. No push,
 install, TTY, GPU or scale-transition claim. Next A0: longer consume/expel/resize
 reference traces with fractional frame/gap and sequential height rounding, plus
 remaining parser and consumer acceptance. These static cases do not close A0.
+
+
+## 2026-10-23 — fractional operation reference sequences
+
+Added three pinned layout contracts at scale 1.25 with gaps/borders/struts from
+the previous static fixture: sequential consume, last-window expel/reconsume and
+middle-window SetWindowHeight(100)/ResetWindowHeight. Assertions retain ordered
+window IDs and column/tile indices, exact client dimensions, visual frame sizes,
+border offsets, settled x/y positions and focus on window 1. The third separate
+window initially retains its client-selected width 100 until consumed; expel
+later inherits the 300-content-width column, not that old width.
+
+Two-window client heights are 276/277. Three-window client heights are
+183/182/183 from sequential remainder allocation, with visual frame heights
+184.8/184/184.8 and y positions 8.8/196.8/384. A fixed middle height 100 leaves
+224/100/224, with y positions 8.8/237.6/342.4. Reset and expel/reconsume restore
+the original stack. Expel moves window 3 while focus stays on window 1, then
+reconsume restores its row; the detached column is at x=318.4. Expectations
+were independently calculated before reference execution and required no changes.
+
+Initial run: eleven passed, zero failed/ignored. Added explicit horizontal-origin
+assertions and reran the final maintained fixture: eleven passed, zero failed/
+ignored, 203 unrelated library tests filtered. Provenance/logs were refreshed.
+Validation passed: actual locked reference run, fixture rustfmt, cargo fmt check,
+archive/lock/fixture/log hashes, clean pinned reference, deterministic source index
+and local/pinned links, diff checks. Runner/parser and driftwm runtime unchanged;
+existing parser evidence stays 16 contracts and implementation CI stays B4. No
+full implementation CI rerun, push, install, GPU or TTY claim. Next A0: min/max
+constraints and unequal Auto-height weights, remaining parser/consumer contracts
+and reference/differential acceptance. Three-window settled examples do not prove
+all operation histories, client response orders or animated trajectories.

@@ -63,22 +63,24 @@ mode. These are documented fallbacks, not reference-compatible behavior.
 
 ## Verified evidence and its limits
 
-Latest A0 geometry evidence: [eight executable layout contracts](niri-geometry-reference-fixtures.md)
-passed against pinned niri's library harness. The original five cover fixed/
-proportional widths, resize, origins and two-window consume at scale 1. Three
-new static cases use scale 1.25/1.5/2, gap 3, border 1 and fractional struts.
-Client sizes, IPC frame dimensions/border offsets and settled positions match
-independent dimensioned expectations. Two distinctions were established by
-execution and source review: Auto height rounds to nearest integer while width
-floors; visual client size then rounds in physical pixels before adding border.
-At 1.25 a 495×558 client therefore has a 496.8×560 frame. Initial expectations
-that conflated these stages are corrected and recorded in history. Reference/
-archive/lock/fixture/log hashes and clean checkout are retained. No driftwm
-runtime changes or full CI rerun; implementation evidence remains B4. This does
-not establish scale-transition, constraint, GPU or differential driftwm parity.
-Next: longer consume/expel/resize traces, including sequential height allocation
-and fractional gaps/frames, plus remaining parser/consumer contracts before
-feature-expansion acceptance.
+Latest A0 geometry evidence: [eleven executable layout contracts](niri-geometry-reference-fixtures.md)
+passed against pinned niri's library harness. The previous eight retain fixed/
+proportional widths, origins, resize/consume and static scale 1/1.25/1.5/2 evidence.
+Three new operation contracts verify sequential consume of three windows,
+last-tile expel/reconsume and middle-window fixed-height/reset at scale 1.25.
+Ordered IDs/column-row indices, client/frame dimensions, settled x/y coordinates
+and unchanged focus are checked. Heights 183/182/183 reflect sequential remaining-
+height allocation; fixing the middle to 100 gives 224/100/224. Expelled window 3
+retains column width 300 and becomes full height; reconsume and reset restore
+the expected stack. Both initial and final expanded runs passed; no production
+fix or expectation adjustment was needed. Reference/archive/lock/fixture/log hashes
+and clean checkout are retained. Width flooring, nearest Auto height and physical
+visual-size rounding remain distinct. No driftwm runtime change/full CI rerun;
+implementation evidence remains B4. This does not establish animated trajectories,
+client constraints/refusal, unequal Auto weights or differential driftwm parity.
+Next: min/max client constraints and unequal Auto-height weights, then additional
+reference/differential geometry and remaining parser/consumer acceptance before
+feature expansion.
 
 A0 parser reference evidence: the
 [pinned parser corpus](niri-parser-reference-fixtures.md) ran 16 Rust contract

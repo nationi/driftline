@@ -57,7 +57,8 @@ This first corpus does not execute the compositor, watcher reload loop, MRU UI,
 Wayland clients, layout geometry, rendering or hardware. Fresh parsing differs
 from in-process reload acceptance. Include symlink/encoding/error permutations,
 all scalar diagnostics and runtime integration remain open. The separate [geometry corpus](niri-geometry-reference-fixtures.md) now executes
-eight nonzero-gap/frame contracts, including static fractional-scale rounding. Remaining parser edges, fractional frame cases
+eleven nonzero-gap/frame contracts, including fractional-scale rounding and
+consume/expel/height-reset sequences. Remaining parser edges, fractional frame cases
 and operation traces must be extended before treating source-derived Stage
 snapshots as a reference-executed differential oracle.
 

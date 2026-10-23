@@ -82,10 +82,41 @@ exactly: the auto-height budget 341.6 rounds to 342. Floating-point
 assertions allow only 1e-9 logical pixels; client dimensions remain exact.
 These static checks do not exercise output scale transitions or GPU rasterization.
 
+## Fractional operation sequences
+
+Three additional contracts use the 1.25-scale case above with fixed content
+width 300. Every client resize is answered before advancing the reference clock;
+there are no sleeps. Expected values remain independent constants.
+
+| Settled state | Ordered client heights | Ordered visual frame heights | Ordered frame y positions |
+| --- | --- | --- | --- |
+| First consume (two windows in column) | 276, 277 | 277.6, 278.4 | 8.8, 289.6 |
+| Second consume (three windows) | 183, 182, 183 | 184.8, 184, 184.8 | 8.8, 196.8, 384 |
+| Middle window fixed at 100 | 224, 100, 224 | 225.6, 101.6, 225.6 | 8.8, 237.6, 342.4 |
+
+With three windows, four gaps reserve 12.8 of the usable 565.5 height, leaving
+552.7 for frames. Equal allocation starts with content budget 182.633333…,
+rounded to 183. Accounting for its two borders leaves 368.1 to share, so the
+second content budget is 182.45, rounded to 182; the final content budget is
+182.9, rounded to 183. Physical visual alignment then gives the frame heights
+in the table. Vertical positions accumulate visual frame sizes and the 3.2 gap,
+not the pre-alignment allocation. Fixing the middle window reserves 101.6, leaving
+451.1 for two Auto frames; their content budgets round to 224. Reset restores
+the three-window case.
+
+Expel runs while window 1 remains focused: it moves window 3 (the last tile)
+to column 2, leaving window 1 focused in column 1. Windows 1/2 recover heights
+276/277 and window 3 fills height 558 with frame height 560. The new column
+retains content width 300 rather than its original client-chosen 100. Its x
+position is 318.4, after the first frame at x=13.6, frame width 301.6 and gap 3.2.
+Reconsuming restores ordered IDs, indices, dimensions and origins. The middle
+fixed/reset sequence also retains focus. These contracts do not cover unequal
+Auto weights, min/max constraints, asynchronous clients or animated trajectories.
+
 ## Recorded result
 
 The [recorded report](../fixtures/niri-layout/geometry-contract-evidence.json) and
-[log](../fixtures/niri-layout/geometry-contract-evidence.log) show eight passed,
+[log](../fixtures/niri-layout/geometry-contract-evidence.log) show eleven passed,
 zero failed and zero ignored tests; the other 203 library tests were filtered out.
 The reference checkout remained clean. Hashes identify the archived reference,
 lockfile, maintained fixture and run log. A zero-test run is rejected even when

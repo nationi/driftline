@@ -1,17 +1,20 @@
-   Compiling niri-config v26.4.0 (/tmp/driftwm-niri-reference-17ucd7cu/reference/niri-config)
-   Compiling niri v26.4.0 (/tmp/driftwm-niri-reference-17ucd7cu/reference)
-    Finished `test` profile [unoptimized + debuginfo] target(s) in 37.99s
+   Compiling niri-config v26.4.0 (/tmp/driftwm-niri-reference-4_pqte0t/reference/niri-config)
+   Compiling niri v26.4.0 (/tmp/driftwm-niri-reference-4_pqte0t/reference)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 40.70s
      Running unittests src/lib.rs (/tmp/driftwm-niri-config-target-12de51d/debug/deps/niri-eb4e10e11e1fac69)
 
-running 8 tests
+running 11 tests
 test layout::tests::driftwm_geometry_contract::double_scale_rounds_auto_height_after_fractional_struts ... ok
 test layout::tests::driftwm_geometry_contract::consume_splits_frame_height_and_preserves_gap ... ok
 test layout::tests::driftwm_geometry_contract::explicit_fixed_resize_uses_content_width ... ok
+test layout::tests::driftwm_geometry_contract::expel_moves_last_window_and_reconsume_restores_fractional_stack ... ok
 test layout::tests::driftwm_geometry_contract::fixed_width_is_content_width_with_border_added_outside ... ok
 test layout::tests::driftwm_geometry_contract::half_scale_rounds_half_pixel_gap_and_border_up ... ok
 test layout::tests::driftwm_geometry_contract::half_width_divides_work_area_after_inter_column_gap ... ok
+test layout::tests::driftwm_geometry_contract::fixed_height_and_reset_redistribute_fractional_auto_remainder ... ok
 test layout::tests::driftwm_geometry_contract::quarter_scale_rounds_gap_border_and_strut_origin_in_physical_pixels ... ok
 test layout::tests::driftwm_geometry_contract::struts_shift_frame_origin_beyond_outer_gaps ... ok
+test layout::tests::driftwm_geometry_contract::sequential_consume_distributes_fractional_height_remainder ... ok
 
-test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 203 filtered out; finished in 0.00s
+test result: ok. 11 passed; 0 failed; 0 ignored; 0 measured; 203 filtered out; finished in 0.01s
 
