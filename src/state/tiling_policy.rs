@@ -23,6 +23,7 @@ impl TilingOperation<'_> {
                 Action::ToggleTiling
                 | Action::FocusColumn(_)
                 | Action::CycleColumnWidth
+                | Action::ToggleWideColumn
                 | Action::MoveIntoColumn(_)
                 | Action::ConsumeWindowIntoColumn
                 | Action::ExpelWindowFromColumn
@@ -41,10 +42,13 @@ impl TilingOperation<'_> {
                 ) => false,
                 Action::SuspendWindow
                 | Action::NudgeWindow(_)
+                | Action::MoveToSnap(_)
                 | Action::GrowWindow(_)
                 | Action::ShrinkWindow(_)
+                | Action::ResizeToSnap(_)
                 | Action::PanViewport(_)
                 | Action::CenterWindow
+                | Action::FocusNearest(_)
                 | Action::CenterNearest(
                     Direction::UpLeft
                     | Direction::UpRight
@@ -88,12 +92,30 @@ impl TilingOperation<'_> {
 
 impl DriftWm {
     pub(crate) fn prepare_tiling_operation(&mut self, operation: TilingOperation<'_>) {
-        if self.tiling_view.is_some() && operation.restores_canvas() {
+        let restores_canvas = match &operation {
+            TilingOperation::Action(Action::SendToOutput(_)) => self
+                .focused_element()
+                .and_then(|element| self.stage.id_of(&element))
+                .is_none_or(|id| !self.stage.is_tiled(id)),
+            _ => operation.restores_canvas(),
+        };
+        if self.tiling_view.is_some() && restores_canvas {
+            if matches!(&operation, TilingOperation::Fullscreen) {
+                self.resume_tiling_after_fullscreen = true;
+            }
             tracing::debug!(
                 ?operation,
                 "Restoring canvas before leaving scrolling tiling"
             );
             self.exit_tiling();
         }
+    }
+
+    pub(crate) fn resume_tiling_after_fullscreen(&mut self) {
+        if !self.resume_tiling_after_fullscreen || self.stage.has_fullscreen() {
+            return;
+        }
+        self.resume_tiling_after_fullscreen = false;
+        self.toggle_tiling();
     }
 }

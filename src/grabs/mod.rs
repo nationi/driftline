@@ -138,6 +138,7 @@ mod navigate_grab;
 mod pan_grab;
 mod resize_grab;
 mod screen_space_click;
+mod tiling_reorder_grab;
 mod touch_gesture_grab;
 mod touch_recognizer;
 
@@ -149,5 +150,6 @@ pub use resize_grab::{
     locked_ratio_for, resize_screen_anchor,
 };
 pub use screen_space_click::ScreenSpaceClickGrab;
+pub use tiling_reorder_grab::TilingReorderGrab;
 pub use touch_gesture_grab::TouchGestureGrab;
 pub(crate) use touch_gesture_grab::edge_from_origin;

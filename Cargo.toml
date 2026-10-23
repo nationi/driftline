@@ -1,12 +1,12 @@
 [package]
 name = "driftwm"
-version = "0.19.0"
+version = "1.0.0"
 edition = "2024"
 rust-version = "1.88"
 license = "GPL-3.0-or-later"
 authors = ["Klim Kostiuk <2601074@gmail.com>"]
 description = "A trackpad-first infinite canvas Wayland compositor"
-repository = "https://github.com/malbiruk/driftwm"
+repository = "https://github.com/nationi/driftwm"
 
 [dependencies]
 # Cargo.lock holds winit at 0.31.0-beta.2: this smithay rev does not build

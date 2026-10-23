@@ -1,9 +1,9 @@
 <h1 align="center"><img alt="driftwm" src="assets/logo.jpg" width="500"></h1>
-<p align="center">A trackpad-first infinite canvas Wayland compositor with experimental scrolling tiling.</p>
+<p align="center">A trackpad-first infinite-canvas Wayland compositor, forked to develop practical multi-monitor scrolling tiling.</p>
 <p align="center">
     <a href="LICENSE"><img alt="License: GPL-3.0-or-later" src="https://img.shields.io/badge/license-GPL--3.0--or--later-blue"></a>
 </p>
-<p align="center"><sub>Fork: <a href="https://github.com/nationi/driftwm/tree/nationi/development">nationi/driftwm · nationi/development</a> · Upstream: <a href="https://github.com/malbiruk/driftwm">malbiruk/driftwm</a></sub></p>
+<p align="center"><sub>This fork: <a href="https://github.com/nationi/driftwm">nationi/driftwm</a> · Based on <a href="https://github.com/malbiruk/driftwm">upstream driftwm</a></sub></p>
 
 https://github.com/user-attachments/assets/155511a6-0a6e-4681-9061-21be1e93e02a
 
@@ -11,62 +11,51 @@ Traditional window managers arrange windows to fit your screen. Stacking composi
 
 `driftwm` is an infinite-canvas compositor: windows live at their native size on an infinite 2D canvas, and your display is a camera viewing it. When two windows come close, they snap together, forming implicit groups that can be moved, resized, and viewed together. Canvas mode has no workspaces; window overlaps happen only on purpose.
 
-This fork also provides [experimental single-output scrolling tiling](docs/tiling.md).
-The goal is niri-like tiling behavior alongside the existing canvas; full parity
-is still in development. See [current progress](dev/docs/tiling-status.md) and
-the [roadmap](dev/docs/niri-tiling-parity-plan.md). The canvas features and default
-bindings below remain available; tiling requires explicit bindings.
+This fork keeps the infinite canvas as the default and provides an optional
+[scrolling-column tiling mode](docs/tiling.md). Each connected output
+gets an independent strip of columns, with windows stacked inside each column.
+The design borrows useful ideas from niri, while keeping driftwm’s canvas-first
+identity and avoiding full niri parity. Multi-output entry, transfer and hotplug
+have automated coverage; a full physical multi-monitor workflow is still awaiting
+manual acceptance. See the [current status](dev/docs/tiling-status.md) and
+[focused roadmap](dev/docs/scrolling-tiling-roadmap.md).
 
-Designed with laptops in mind: navigation and window management are trackpad-first; the infinite canvas makes the most of a small screen.
+Navigation is built around trackpad gestures, but every gesture has a mouse or keyboard equivalent and touchscreens have their own bindings, so it works the same on a laptop and at a desk.
 
 Built on [smithay](https://github.com/Smithay/smithay). Inspired by [vxwm](https://codeberg.org/wh1tepearl/vxwm); borrows implementation details from [niri](https://github.com/niri-wm/niri).
 
-> [!WARNING]
-> This is experimental software, primarily built with AI.
+> [!NOTE]
+> This fork is maintained independently from upstream. See the tiling guide for
+> current behavior and the development status for remaining validation.
 
-## Experimental scrolling tiling
+## Scrolling tiling in this fork
 
-Switch between the infinite canvas and a horizontal strip of columns. Each
-column can contain several vertically stacked windows. Current features include:
+The main fork-specific change is an optional scrolling-column layout for every
+connected output. Windows form a horizontal strip; each column can stack several
+windows vertically. Outputs keep independent selection, configure progress and
+camera state. New windows join the output that owns their canvas-space center.
+Sending a tiled window to another output keeps it tiled. When an output is removed,
+its columns move to a surviving output; removing the last output restores canvas
+mode.
 
-- Directional focus, column and window reordering, and moving windows into or
-  out of columns.
-- Column widths cycling through one third, one half and full usable width.
-- Coordinated resize requests with a 300 ms wait limit for delayed clients.
-- Retained window images, blur and animated resize transitions, including
-  transparent content and popup menus that keep their native size.
-- Restoration of saved canvas positions, sizes and view when leaving tiling.
+With the default Super modifier, press `Win+Alt+Arrow` to send the focused window
+to the adjacent monitor. A single-window column moves as a unit; a window from a
+stack moves into its own column on the destination. The destination receives
+focus, and the shortcut works in both canvas and tiling modes.
 
-Add these entries to your existing `[keybindings]` table in
-`~/.config/driftwm/config.toml`:
+The implementation includes directional focus, column and tile reordering,
+moving a tile between columns, consuming and splitting stacked windows, width
+presets, client size constraints, canvas geometry/view restoration, and animated
+resize transitions. Automated coverage handles separate layouts, transfer,
+topology changes and fullscreen exit recovery; the ordinary multi-monitor
+workflow still needs a recorded hands-on acceptance on real outputs. Full
+floating-window integration, workspaces, tabs, layout-native drag/resize and
+tiling topology restore across compositor restarts are outside the current scope.
 
-```toml
-[keybindings]
-"mod+ctrl+t" = "toggle-tiling"
-"mod+alt+left" = "focus-column left"
-"mod+alt+right" = "focus-column right"
-"mod+alt+up" = "focus-column up"
-"mod+alt+down" = "focus-column down"
-"mod+alt+r" = "cycle-column-width"
-"mod+alt+shift+left" = "move-into-column left"
-"mod+alt+e" = "expel-from-column"
-```
-
-These examples override any existing bindings on the same keys, including
-`Mod+Alt` + arrow for sending windows to another output. Full action descriptions
-and more bindings are in the [tiling guide](docs/tiling.md).
-
-Tiling currently requires **one output**. Connecting another output or performing
-unsupported canvas operations, including free move/resize, fit, pin or fullscreen,
-returns to canvas. Independent tiling layouts on multiple monitors, tabs,
-layout-native drag/resize, tiling workspaces and configurable width presets remain
-unfinished. Session restore saves the canvas fallback, not tiling topology.
-
-Direct TTY testing on NVIDIA has worked well; nested winit sessions still show
-blur artifacts and lag in the current test setup. Use direct udev for visual
-checks. The [local TTY cheat sheet](dev/docs/tty-preview.md) documents this
-checkout's isolated launcher and F-key bindings; that launcher is outside Git
-and is not included in a fresh clone.
+Canvas stays the default. `Mod+Ctrl+T` toggles between canvas and tiling by
+default; navigation shortcuts do not change modes. Mode-aware keybinding
+dispatch keeps canvas and tiling actions exclusive. For current controls,
+configuration examples and detailed behavior, see the [tiling guide](docs/tiling.md).
 
 ## Canvas features
 
@@ -84,13 +73,13 @@ flick carries the viewport smoothly until friction stops it.
 | 3-finger swipe     | Pan viewport      | anywhere  |
 | Trackpad scroll    | Pan viewport      | on-canvas |
 | `Mod` + LMB drag   | Pan viewport      | anywhere  |
-| `Mod+Ctrl` + arrow | Pan viewport      | —         |
+| `Mod` + arrow       | Pan viewport      | —         |
 | 2-finger pinch     | Zoom              | on-canvas |
 | 3-finger pinch     | Zoom              | anywhere  |
 | Mouse wheel        | Zoom              | on-canvas |
 | `Mod` + scroll     | Zoom at cursor    | anywhere  |
 | `Mod+=` / `Mod+-`  | Zoom in / out     | —         |
-| `Mod+0` / `Mod+Z`  | Reset zoom to 1.0 | —         |
+| `Mod+0`            | Reset zoom to 1.0 | —         |
 
 </details>
 
@@ -106,17 +95,18 @@ spots the camera jumps straight to.
 
 <details><summary><b>Navigation bindings</b></summary>
 
-| Input                        | Action                                     |
-| ---------------------------- | ------------------------------------------ |
-| 4-finger swipe               | Jump to nearest window (natural direction) |
-| `Mod+Ctrl` + LMB drag        | Jump to nearest window (natural direction) |
-| `Mod` + arrow                | Jump to nearest window in direction        |
-| `Alt-Tab` / `Alt-Shift-Tab`  | Cycle windows (MRU)                        |
-| 4-finger pinch in / `Mod+W`  | Zoom-to-fit (overview)                     |
-| 4-finger pinch out / `Mod+A` | Home toggle (origin and back)              |
-| 4-finger hold / `Mod+C`      | Center focused window                      |
-| `Mod+1-4`                    | Jump to bookmarked canvas position         |
-| `Mod+Shift+1-4`              | Save the current position as that bookmark |
+| Input                        | Action                                                                                          |
+| ---------------------------- | ----------------------------------------------------------------------------------------------- |
+| `Mod+Ctrl` + arrow           | Focus nearest window in direction; scrolls it just in within a cluster, centers it from another |
+| 4-finger swipe               | Focus nearest window (natural direction)                                                        |
+| `Mod+Ctrl` + LMB drag        | Focus nearest window (natural direction)                                                        |
+| `Alt-Tab` / `Alt-Shift-Tab`  | Cycle windows (MRU)                                                                             |
+| 4-finger pinch in / `Mod+W`  | Zoom-to-fit (overview)                                                                          |
+| 4-finger pinch out / `Mod+A` | Home toggle (origin and back)                                                                   |
+| 4-finger hold / `Mod+X`      | Center and focus the window under the pointer                                                   |
+| `Mod+C`                      | Center focused window                                                                           |
+| `Mod+1-4`                    | Jump to bookmarked canvas position                                                              |
+| `Mod+Ctrl+1-4`               | Save the current position as that bookmark                                                      |
 
 All 4-finger navigation gestures also work as `Mod` + 3-finger for smaller
 trackpads.
@@ -129,34 +119,38 @@ https://github.com/user-attachments/assets/6bfc3458-664f-4746-a176-18f40337d94d
 
 Move window with 3-finger doubletap-swipe or `Alt` + drag. Resize with `Alt` + 3-finger swipe. Snapping kicks in as edges approach each other. Drag past the viewport edge and the canvas auto-pans.
 
-**Snapped windows form a cluster.** Neighbors stay visible at your view's edge for spatial context, and `Shift` + any move/resize/fit action acts on the whole cluster. Shuffle a layout in one drag, resize a row of panes proportionally, or scope an overview to just the cluster (`Mod+Shift+W`). No explicit grouping to manage.
+**Snapped windows form a cluster.** Neighbors stay visible at your view's edge for spatial context. Resizing and fitting keep the cluster intact, and `Shift` acts on the window alone; moving takes one window, and `Shift` carries the whole cluster. Shuffle a layout in one drag, resize a row of panes proportionally, or scope an overview to just the cluster (`Mod+Shift+W`). No explicit grouping to manage.
 
 > [!TIP]
 > While dragging a window, keyboard shortcuts still work. Use `Mod+1-4`
 > to jump to a bookmark or `Mod+A` to go home — your held window comes with you.
 
 Fit-window (`Mod+M`) is the maximize analogue — centers the viewport, resets
-zoom to 1.0, and resizes the window to fill the screen. Toggle again to
-restore. Fullscreen (`Mod+F`) fills the screen with the focused window until any
-canvas action — launching an app, navigating — exits it.
+zoom to 1.0, and resizes the window to fill the screen, its snapped neighbors
+moving out to stay attached. Toggle again to restore. Fullscreen (`Mod+F`)
+fills the screen with the focused window until any canvas action — launching
+an app, navigating — exits it.
 
 <details><summary><b>Snapping &amp; window bindings</b></summary>
 
-| Input                                     | Action                        |
-| ----------------------------------------- | ----------------------------- |
-| 3-finger doubletap-swipe                  | Move window                   |
-| `Alt` + LMB drag                          | Move window                   |
-| `Alt+Shift` + LMB drag                    | Move snapped windows          |
-| `Alt` + 3-finger swipe                    | Resize window                 |
-| `Alt+Shift` + 3-finger swipe              | Resize snapped window         |
-| `Alt` + RMB drag                          | Resize window                 |
-| `Alt` + MMB click / `Mod+M`               | Fit window (maximize/restore) |
-| `Alt+Shift` + MMB click / `Mod+Shift+M`   | Fit snapped window            |
-| `Mod` + 4-finger pinch in / `Mod+Shift+W` | Zoom-to-fit snapped windows   |
-| `Alt` + 2-finger pinch in/out             | Fit window                    |
-| `Alt` + 3-finger pinch in/out             | Toggle fullscreen             |
-| `Mod` + MMB click / `Mod+F`               | Toggle fullscreen             |
-| `Mod+Shift` + arrow                       | Nudge window (default 20px)   |
+| Input                                     | Action                                |
+| ----------------------------------------- | ------------------------------------- |
+| 3-finger doubletap-swipe                  | Move window                           |
+| `Alt` + LMB drag                          | Move window                           |
+| `Alt+Shift` + LMB drag                    | Move snapped windows                  |
+| `Alt` + 3-finger swipe                    | Resize snapped window                 |
+| `Alt+Shift` + 3-finger swipe              | Resize window                         |
+| `Alt` + RMB drag                          | Resize snapped window                 |
+| `Alt+Shift` + RMB drag                    | Resize window                         |
+| `Alt+Shift` + MMB click / `Mod+M`         | Fit snapped window (maximize/restore) |
+| `Mod+Shift+M`                             | Fit window                            |
+| `Alt` + MMB click                         | Fill free space (press again to undo) |
+| `Mod` + 4-finger pinch in / `Mod+Shift+W` | Zoom-to-fit snapped windows           |
+| `Alt` + 2-finger pinch in/out             | Fit snapped window                    |
+| `Alt+Shift` + 2-finger pinch in/out       | Fit window                            |
+| `Alt` + 3-finger pinch in/out             | Toggle fullscreen                     |
+| `Mod` + MMB click / `Mod+F`               | Toggle fullscreen                     |
+| `Mod+Shift` + arrow                       | Move to the next snap stop            |
 
 </details>
 
@@ -177,7 +171,7 @@ trackpad.
 | 3-finger swipe           | Pan viewport                | anywhere  |
 | 2-finger pinch           | Zoom                        | on-canvas |
 | 3-finger pinch           | Zoom                        | anywhere  |
-| 4-finger swipe           | Jump to nearest window      | anywhere  |
+| 4-finger swipe           | Focus nearest window        | anywhere  |
 | 4-finger pinch in / out  | Zoom-to-fit / home toggle   | anywhere  |
 | 3-finger tap             | Center window               | anywhere  |
 | 3-finger double-tap      | Fit window                  | on-window |
@@ -281,21 +275,21 @@ workspaces; driftwm is still one canvas.
 https://github.com/user-attachments/assets/a91d92bd-55af-4646-8be8-81f35f8f38ca
 
 Close a window and leave a placeholder behind instead of losing it:
-`suspend-window` swaps the window for a compositor-drawn stand-in at the same
-canvas spot — press `Enter` or click its name to bring the app right back, in
-the same place. `suspend_on_close` does this automatically for every
-client-initiated close. `[session].restore_windows` keeps your whole canvas saved
-as you work and restores it (dormant, nothing auto-launches) on the next start,
-with `restore_camera` bringing each output's view back too.
+`suspend-window` (`Mod+Shift+Q`) swaps the window for a compositor-drawn
+stand-in at the same canvas spot — press `Enter` or click its name to bring the
+app right back, in the same place. `suspend_on_close` does this automatically
+for every client-initiated close. `[session].restore_windows` keeps your whole
+canvas saved as you work and restores it (dormant, nothing auto-launches) on the
+next start, with `restore_camera` bringing each output's view back too.
 
 See [docs/session.md](docs/session.md).
 
 ### Everything else
 
-- New window placement: in viewport center (default), under cursor, or snapped adjacent to whatever is in view
+- New window placement: snapped adjacent to whatever is in view (default), in viewport center, or under cursor
 - Click-to-focus (default) or focus-follows-mouse (sloppy focus)
 - Hot corners: any keybinding action fires when the cursor reaches a screen corner, configured per monitor
-- Cursor edge-pan: push the pointer against a screen edge and the viewport pans, toggled with `Mod+E`
+- Cursor edge-pan: push the pointer against a screen edge and the viewport pans, toggled with the `toggle-cursor-pan` action
 - Session lock and idle notification
 - Screen capture: screencasting (OBS, Firefox, Discord) and screenshots, incl. built-in [canvas/DPI capture](docs/ipc.md#screenshots)
 - 40+ Wayland protocols
@@ -362,9 +356,8 @@ separate TTY and choose your actual DRM connector name:
 ./target/release/driftwm --backend udev --drm-connector HDMI-A-1
 ```
 
-`--drm-connector` limits this run to one connector, allowing the current
-single-output tiling mode on a machine with several monitors. Omit it for normal
-multi-output canvas use. For the locally prepared isolated preview, follow the
+`--drm-connector` limits the run to one connector. Omit it to exercise
+multi-output canvas and tiling behavior. For the locally prepared isolated preview, follow the
 [TTY guide](dev/docs/tty-preview.md).
 
 To install the built binary and session integration:
@@ -512,29 +505,13 @@ supports the `wlr-layer-shell` protocol), just without compositor-specific featu
 ## Contributing
 
 For work on this fork, start with the [development documentation index](dev/docs/README.md),
-[current tiling status](dev/docs/tiling-status.md) and [roadmap](dev/docs/niri-tiling-parity-plan.md).
-The compatibility inventory and reference fixtures use a pinned niri revision;
-passing driftwm tests alone does not establish full behavioral parity.
+[current tiling status](dev/docs/tiling-status.md) and
+[practical roadmap](dev/docs/scrolling-tiling-roadmap.md). Pinned niri inventories
+and fixtures are optional historical design references, not a parity target.
 
 See [CONTRIBUTING.md](CONTRIBUTING.md).
 
 TL;DR: open an issue before writing non-trivial code, keep PRs small and focused.
-
-## Upstream merch
-
-The following merchandise and contact details belong to the upstream maintainer.
-
-<p align="left"><img src="assets/tshirt.png" width="400"></p>
-
-XL
-
-100 GEL · 37 USD · 2800 RUB
-
-Ships worldwide from Tbilisi.
-
-Order via [Telegram](https://t.me/fiyefiyefiye), [Instagram](https://instagram.com/flwrs_in_ur_eyes), or email [2601074@gmail.com](mailto:2601074@gmail.com).
-
-Revenue supports driftwm's upstream maintainer.
 
 ## License
 

@@ -18,7 +18,7 @@ mod tiling;
 mod tiling_reference_tests;
 
 pub use element::StageElement;
-pub use tiling::{ColumnId, TiledColumn, TiledWindow, TilingLayoutId};
+pub use tiling::{ColumnId, TiledColumn, TiledWindow, TilingLayoutId, TilingTopology};
 
 use crate::layout::snap::SnapRect;
 use smithay::utils::{Logical, Point, Size};
@@ -66,6 +66,16 @@ pub struct PinnedSite {
     pub screen_pos: Point<i32, Logical>,
 }
 
+/// The frame rects a snapped fit pushed its cluster between, `home` being the
+/// pre-fit one. Kept so a close can put the cluster back after the window's own
+/// geometry has stopped describing the fit — a disconnect drops its title bar
+/// first, a fullscreen parks it elsewhere.
+#[derive(Clone, Copy, Debug)]
+pub struct FitPush {
+    pub fitted: SnapRect,
+    pub home: SnapRect,
+}
+
 /// What a filled window has to be handed back: the pre-fill rect an unfill
 /// restores, plus the viewport the fill grew inside so `center-window` can
 /// return to it.
@@ -98,6 +108,8 @@ struct Entry<W> {
     position: Point<i32, Logical>,
     /// `Some(pre-fit size)` while the window is fit to the viewport.
     fit_saved_size: Option<Size<i32, Logical>>,
+    /// Set while fit by a snapped fit, which pushed its cluster.
+    fit_push: Option<FitPush>,
     /// The size fit/fullscreen restore to. Tracked separately from live
     /// geometry because some clients (Chromium) shrink their reported
     /// geometry after each sized configure.
@@ -179,6 +191,7 @@ impl<W: StageElement> Stage<W> {
                 id,
                 position,
                 fit_saved_size: None,
+                fit_push: None,
                 restore_size: None,
                 fill_saved: None,
                 pinned: None,
@@ -517,7 +530,29 @@ impl<W: StageElement> Stage<W> {
     {
         if let Some(e) = self.entry_mut(window) {
             e.fit_saved_size = Some(saved_size);
+            e.fit_push = None;
         }
+    }
+
+    /// Record the cluster push of the snapped fit that made `window` fit.
+    /// Cleared with fit membership.
+    pub fn set_fit_push<Q>(&mut self, window: &Q, push: FitPush)
+    where
+        W: PartialEq<Q>,
+    {
+        if let Some(e) = self
+            .entry_mut(window)
+            .filter(|e| e.fit_saved_size.is_some())
+        {
+            e.fit_push = Some(push);
+        }
+    }
+
+    pub fn fit_push<Q>(&self, window: &Q) -> Option<FitPush>
+    where
+        W: PartialEq<Q>,
+    {
+        self.entry(window).and_then(|e| e.fit_push)
     }
 
     pub fn is_fit<Q>(&self, window: &Q) -> bool
@@ -540,7 +575,9 @@ impl<W: StageElement> Stage<W> {
     where
         W: PartialEq<Q>,
     {
-        self.entry_mut(window).and_then(|e| e.fit_saved_size.take())
+        let e = self.entry_mut(window)?;
+        e.fit_push = None;
+        e.fit_saved_size.take()
     }
 
     pub fn clear_fit<Q>(&mut self, window: &Q)
@@ -549,6 +586,7 @@ impl<W: StageElement> Stage<W> {
     {
         if let Some(e) = self.entry_mut(window) {
             e.fit_saved_size = None;
+            e.fit_push = None;
         }
     }
 
@@ -693,48 +731,44 @@ impl<W: StageElement> Stage<W> {
     pub fn verify_invariants(&self) {
         let mut tiled_ids = std::collections::HashSet::new();
         let mut column_ids = std::collections::HashSet::new();
-        assert!(self.tiling.columns.is_empty() || self.tiling_layout_id().is_some());
-        for column in &self.tiling.columns {
-            assert!(column_ids.insert(column.id), "duplicate column ID");
-            assert!(!column.windows.is_empty(), "empty tiled column");
-            assert!(
-                column.windows.iter().any(|w| w.id == column.selected),
-                "selected tile missing from column"
-            );
-            for window in &column.windows {
+        assert!(self.tiling.outputs.contains_key(&self.tiling.active_output));
+        for layout in self.tiling.outputs.values() {
+            assert!(layout.columns.is_empty() || layout.layout_id.is_some());
+            for column in &layout.columns {
+                assert!(column_ids.insert(column.id), "duplicate column ID");
+                assert!(!column.windows.is_empty(), "empty tiled column");
                 assert!(
-                    self.window_by_id(window.id).is_some(),
-                    "tiled window missing from stage"
+                    column.windows.iter().any(|w| w.id == column.selected),
+                    "selected tile missing from column"
                 );
-                assert!(tiled_ids.insert(window.id), "duplicate tiled window");
+                for window in &column.windows {
+                    assert!(
+                        self.window_by_id(window.id).is_some(),
+                        "tiled window missing from stage"
+                    );
+                    assert!(tiled_ids.insert(window.id), "duplicate tiled window");
+                }
             }
-        }
-        assert_eq!(self.tiling.active.is_none(), self.tiling.columns.is_empty());
-        if let Some(previous) = self.tiling.restore_previous {
-            let active = self
-                .tiling
-                .columns
-                .iter()
-                .position(|c| Some(c.id) == self.tiling.active)
-                .unwrap();
-            assert_eq!(
-                active
-                    .checked_sub(1)
-                    .map(|index| self.tiling.columns[index].id),
-                Some(previous),
-                "close-return column is not the active column's predecessor"
-            );
-        }
+            assert_eq!(layout.active.is_none(), layout.columns.is_empty());
+            if let Some(previous) = layout.restore_previous {
+                let active = layout
+                    .columns
+                    .iter()
+                    .position(|c| Some(c.id) == layout.active)
+                    .unwrap();
+                assert_eq!(
+                    active.checked_sub(1).map(|index| layout.columns[index].id),
+                    Some(previous),
+                    "close-return column is not the active column's predecessor"
+                );
+            }
 
-        if let Some(id) = self.tiling.active {
-            assert!(
-                self.column(id).is_some(),
-                "active column missing from tiling"
-            );
-            assert!(
-                self.tiling.columns.iter().any(|c| c.id == id),
-                "active tile differs from column selection"
-            );
+            if let Some(id) = layout.active {
+                assert!(
+                    layout.columns.iter().any(|c| c.id == id),
+                    "active tile differs from column selection"
+                );
+            }
         }
         for (i, e) in self.entries.iter().enumerate() {
             assert!(

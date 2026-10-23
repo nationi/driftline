@@ -2314,11 +2314,13 @@ fn an_expired_endpoint_hold_does_not_bring_the_chrome_back() {
 /// a bar, border and shadow onto a motionless fullscreen frame.
 #[test]
 fn a_fit_during_a_fullscreen_exit_freeze_keeps_the_frozen_chrome() {
-    // The fit has to be a real request: at the default zero outer gap it would
-    // land on the very rect the fullscreen already configured and change nothing.
-    let mut f = Fixture::with_config(Config::from_toml("[snap]\nouter_gap = 12.0\n").unwrap());
+    let mut f = Fixture::new();
     let output = f.add_output(1, (1920, 1080));
     let id = f.add_client();
+    // The fit has to be a real request: with the usable area the whole output
+    // it would land on the very rect the fullscreen already configured and
+    // change nothing.
+    super::map_top_panel(&mut f, id, 100);
     let surface = map_window(&mut f, id, "fs", (800, 600));
     let window = window_by_app_id(&mut f, "fs").unwrap();
     reset_view(&mut f);
@@ -4427,6 +4429,11 @@ fn a_cluster_drag_ends_the_entry_a_member_fights() {
     let gap = f.state().config.snap_gap as i32;
     f.state()
         .map_window(member.clone(), Point::from((800 + gap, 300)), false);
+    map_window(&mut f, id, "outsider", (1500, 800));
+    let outsider = window_by_app_id(&mut f, "outsider").unwrap();
+    f.state()
+        .map_window(outsider.clone(), Point::from((5000, 5000)), false);
+    tick_until_settled(&mut f);
     reset_view(&mut f);
 
     // Something displaced the member; its slide is still running.
@@ -4457,6 +4464,13 @@ fn a_cluster_drag_ends_the_entry_a_member_fights() {
         f.state().window_animations.len(),
         0,
         "a repositioned member is fought on the same terms as the primary"
+    );
+    let order: Vec<_> = f.state().stage.windows().cloned().collect();
+    assert_eq!(order[order.len() - 3], outsider);
+    assert_eq!(order[order.len() - 2], member);
+    assert_eq!(
+        order[order.len() - 1],
+        StageWindow::Suspended(f.state().find_suspended(sid).unwrap())
     );
     end_grab(&mut f);
     f.state().dismiss_suspended(sid);

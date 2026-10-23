@@ -394,6 +394,7 @@ pub(super) fn build_layer_elements(
                         layer: layer_tag,
                         region_rects,
                         mask: None,
+                        chrome_mask: None,
                     });
                 }
             }

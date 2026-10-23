@@ -6,7 +6,191 @@
 
 use smithay::utils::Point;
 
-use super::{Fixture, config, map_window, window_by_app_id};
+use driftwm::config::Action;
+
+use super::{Fixture, adopt_last_configure, config, last_configured, map_window, window_by_app_id};
+
+#[test]
+fn connecting_an_output_during_tiling_adds_an_empty_layout_without_switching_focus() {
+    let mut f = Fixture::new();
+    let first = f.add_output(1, (1200, 800));
+    let second = f.add_output(2, (1920, 1080));
+    crate::state::output_state(&second).camera = (5000.0, 5000.0).into();
+    f.state().focused_output = Some(first.clone());
+    let client = f.add_client();
+    let surface = map_window(&mut f, client, "existing", (400, 300));
+    let existing = window_by_app_id(&mut f, "existing").unwrap();
+    let id = f.state().stage.id_of(&existing).unwrap();
+    f.state().execute_action(&Action::ToggleTiling);
+
+    let first_layout = f
+        .state()
+        .stage
+        .tiling_layout_id_for_output(&first.name())
+        .unwrap();
+    let configure_count = super::configure_count(&mut f, client, &surface);
+    let selected_layout = f.state().stage.tiling_layout_id().unwrap();
+    let camera = crate::state::output_state(&first).camera;
+
+    let third = f.add_output(3, (1600, 900));
+
+    assert!(f.state().tiling_view.is_some());
+    assert_eq!(
+        f.state().stage.tiling_layout_id_for_output(&first.name()),
+        Some(first_layout)
+    );
+    let third_layout = f
+        .state()
+        .stage
+        .tiling_layout_id_for_output(&third.name())
+        .expect("connected output receives a tiling layout");
+    assert_ne!(third_layout, first_layout);
+    assert_eq!(f.state().stage.tiling_layout_id(), Some(selected_layout));
+    assert_eq!(
+        f.state().stage.tiling_output_for_window(id),
+        Some(first.name().as_str())
+    );
+    assert_eq!(
+        crate::state::output_state(&third).zoom,
+        1.0,
+        "a newly connected tiling output uses unit zoom"
+    );
+    assert_eq!(
+        f.state().tiling_canvas_view(&third),
+        Some((crate::state::output_state(&third).camera, 1.0))
+    );
+    assert_eq!(
+        super::configure_count(&mut f, client, &surface),
+        configure_count,
+        "adding an empty output does not reconfigure existing windows"
+    );
+    assert_eq!(crate::state::output_state(&first).camera, camera);
+
+    f.state().execute_action(&Action::ToggleTiling);
+}
+
+#[test]
+fn disconnecting_an_output_transfers_its_columns_to_a_survivor() {
+    let mut f = Fixture::new();
+    let survivor = f.add_output(1, (1200, 800));
+    let removed = f.add_output(2, (1920, 1080));
+    crate::state::output_state(&removed).camera = (5000.0, 5000.0).into();
+    let client = f.add_client();
+
+    f.state().focused_output = Some(survivor.clone());
+    let survivor_surface = map_window(&mut f, client, "survivor", (400, 300));
+    let survivor_window = window_by_app_id(&mut f, "survivor").unwrap();
+    let survivor_id = f.state().stage.id_of(&survivor_window).unwrap();
+    f.state().focused_output = Some(removed.clone());
+    let removed_surface = map_window(&mut f, client, "removed", (500, 350));
+    let removed_window = window_by_app_id(&mut f, "removed").unwrap();
+    let removed_id = f.state().stage.id_of(&removed_window).unwrap();
+
+    f.state().execute_action(&Action::ToggleTiling);
+    let survivor_size = last_configured(&mut f, client, &survivor_surface);
+    let removed_size = last_configured(&mut f, client, &removed_surface);
+    assert!(removed_size.0 > survivor_size.0);
+    adopt_last_configure(&mut f, client, &survivor_surface);
+    adopt_last_configure(&mut f, client, &removed_surface);
+    let survivor_column = f.state().stage.column_of(survivor_id).unwrap();
+    let removed_column = f.state().stage.column_of(removed_id).unwrap();
+    let restore = f
+        .state()
+        .stage
+        .tiled_windows()
+        .find(|tile| tile.id == removed_id)
+        .unwrap()
+        .restore;
+
+    f.remove_output(&removed);
+
+    assert!(f.state().tiling_view.is_some());
+    assert_eq!(
+        f.state().stage.tiling_layout_id_for_output(&removed.name()),
+        None
+    );
+    assert_eq!(
+        f.state().stage.tiling_output_for_window(removed_id),
+        Some(survivor.name().as_str())
+    );
+    assert_eq!(
+        f.state().stage.tiling_output_for_window(survivor_id),
+        Some(survivor.name().as_str())
+    );
+    assert_eq!(
+        f.state().stage.column_of(survivor_id),
+        Some(survivor_column)
+    );
+    assert_eq!(f.state().stage.column_of(removed_id), Some(removed_column));
+    assert_eq!(
+        f.state()
+            .stage
+            .tiled_windows()
+            .find(|tile| tile.id == removed_id)
+            .unwrap()
+            .restore,
+        restore
+    );
+    assert_eq!(f.state().stage.tiled_columns().len(), 2);
+    assert_eq!(
+        f.state().stage.active_tiling_output(),
+        survivor.name().as_str()
+    );
+    assert_eq!(
+        f.state()
+            .focused_output
+            .as_ref()
+            .map(|output| output.name()),
+        Some(survivor.name())
+    );
+
+    f.state().execute_action(&Action::ToggleTiling);
+}
+
+#[test]
+fn disconnecting_an_output_with_pending_configures_reflows_on_survivor() {
+    let mut f = Fixture::new();
+    let survivor = f.add_output(1, (1200, 800));
+    let removed = f.add_output(2, (1920, 1080));
+    crate::state::output_state(&removed).camera = (5000.0, 5000.0).into();
+    let client = f.add_client();
+
+    f.state().focused_output = Some(survivor.clone());
+    let survivor_surface = map_window(&mut f, client, "survivor-pending", (400, 300));
+    let survivor_window = window_by_app_id(&mut f, "survivor-pending").unwrap();
+    let survivor_id = f.state().stage.id_of(&survivor_window).unwrap();
+    f.state().focused_output = Some(removed.clone());
+    let removed_surface = map_window(&mut f, client, "removed-pending", (500, 350));
+    let removed_window = window_by_app_id(&mut f, "removed-pending").unwrap();
+    let removed_id = f.state().stage.id_of(&removed_window).unwrap();
+
+    f.state().execute_action(&Action::ToggleTiling);
+    assert!(last_configured(&mut f, client, &survivor_surface).0 > 0);
+    assert!(last_configured(&mut f, client, &removed_surface).0 > 0);
+    assert!(f.state().tiling_pending_configures() > 0);
+
+    f.remove_output(&removed);
+
+    assert_eq!(
+        f.state().stage.tiling_output_for_window(removed_id),
+        Some(survivor.name().as_str())
+    );
+    assert_eq!(
+        f.state().stage.tiling_output_for_window(survivor_id),
+        Some(survivor.name().as_str())
+    );
+    assert!(f.state().tiling_view.for_output(&removed).is_none());
+    assert!(last_configured(&mut f, client, &survivor_surface).0 > 0);
+    assert!(last_configured(&mut f, client, &removed_surface).0 > 0);
+    adopt_last_configure(&mut f, client, &survivor_surface);
+    adopt_last_configure(&mut f, client, &removed_surface);
+    f.double_roundtrip(client);
+    assert_eq!(f.state().tiling_pending_configures(), 0);
+    assert_eq!(f.state().stage.tiled_columns().len(), 2);
+    assert_eq!(f.state().tiling_snapshot_count(), 0);
+
+    f.state().execute_action(&Action::ToggleTiling);
+}
 
 /// A window on the surviving output keeps its stage entry when a different
 /// output is unplugged.

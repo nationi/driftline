@@ -56,6 +56,11 @@ impl DriftWm {
             .id_of(&window)
             .is_some_and(|id| self.stage.is_tiled(id));
         self.prepare_tiling_operation(super::TilingOperation::MapWindow { tiled });
+        if tiled {
+            // Leaving tiling may owe a restore recenter, but this explicit
+            // placement supersedes that exit's saved canvas position.
+            self.drop_owed_recenter(&window);
+        }
         self.stage.map(window.clone(), pos);
         if activate {
             self.set_activated_exclusive(&window);

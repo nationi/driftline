@@ -1,7 +1,7 @@
 use smithay::backend::allocator::Fourcc;
 use smithay::backend::renderer::element::texture::TextureRenderElement;
 use smithay::backend::renderer::element::utils::{Relocate, RelocateRenderElement};
-use smithay::backend::renderer::element::{Element, Id, Kind};
+use smithay::backend::renderer::element::{Element, Id, Kind, RenderElement};
 use smithay::backend::renderer::gles::{
     GlesError, GlesRenderer, GlesTexProgram, GlesTexture, Uniform, UniformName, UniformType,
 };
@@ -836,7 +836,10 @@ pub(crate) fn compile_blur_shaders(
         renderer.compile_custom_texture_shader(BLUR_UP_SRC, uniforms),
         renderer.compile_custom_texture_shader(
             BLUR_MASK_SRC,
-            &[UniformName::new("u_preserve_alpha", UniformType::_1f)],
+            &[
+                UniformName::new("u_preserve_alpha", UniformType::_1f),
+                UniformName::new("u_threshold_opacity", UniformType::_1f),
+            ],
         ),
     ) {
         (Ok(d), Ok(u), Ok(m)) => (Some(d), Some(u), Some(m)),
@@ -971,6 +974,8 @@ pub(crate) struct BlurRequestData {
     /// Pre-thresholded coverage of the old/new sources. Its fractional alpha
     /// must survive the final mask pass instead of becoming a binary shape.
     pub mask: Option<OutputRenderElements>,
+    /// Native title-bar element index within this window and its mixed coverage.
+    pub chrome_mask: Option<(usize, f32)>,
 }
 
 impl BlurRequestData {
@@ -1083,6 +1088,7 @@ impl SnapshotBlur {
             layer: BlurLayer::Normal,
             region_rects,
             mask: None,
+            chrome_mask: None,
         };
         if let Some(opening) = opening {
             request.apply_animation(opening);
@@ -1167,6 +1173,7 @@ impl SnapshotBlur {
             layer: BlurLayer::Normal,
             region_rects,
             mask: None,
+            chrome_mask: None,
         })
     }
 }
@@ -1958,6 +1965,65 @@ pub(crate) fn process_blur_requests(
                 }
             }
 
+            // The retained mask covers client content only. Sample native title
+            // alpha at its current size so resize cannot stretch its corners.
+            if let Some((index, coverage)) = req.chrome_mask {
+                let Some(element) = all_elements
+                    .get(surf_start + index)
+                    .filter(|_| surf_start + index < surf_end)
+                else {
+                    continue;
+                };
+                let Some(shader) = mask_shader.as_ref() else {
+                    continue;
+                };
+                let element = RelocateRenderElement::from_element(
+                    element,
+                    (-req.screen_rect.loc.x, -req.screen_rect.loc.y),
+                    Relocate::Relative,
+                );
+                let Ok(mut target) = renderer.bind(&mut cache.mask) else {
+                    continue;
+                };
+                let Ok(mut frame) = renderer.render(&mut target, win_size, Transform::Normal)
+                else {
+                    continue;
+                };
+                frame.override_default_tex_program(
+                    shader.clone(),
+                    vec![
+                        Uniform::new("u_preserve_alpha", 0.0f32),
+                        Uniform::new("u_threshold_opacity", 1.0f32),
+                    ],
+                );
+                let _ = frame.with_context(|gl| unsafe {
+                    use smithay::backend::renderer::gles::ffi;
+                    gl.Enable(ffi::BLEND);
+                    gl.BlendColor(0.0, 0.0, 0.0, coverage);
+                    gl.BlendFunc(ffi::CONSTANT_ALPHA, ffi::ONE);
+                });
+                let dst = element.geometry(elem_scale);
+                let drawn = <_ as RenderElement<GlesRenderer>>::draw(
+                    &element,
+                    &mut frame,
+                    element.src(),
+                    dst,
+                    &[Rectangle::from_size(dst.size)],
+                    &[],
+                    None,
+                );
+                frame.clear_tex_program_override();
+                let _ = frame.with_context(|gl| unsafe {
+                    use smithay::backend::renderer::gles::ffi;
+                    gl.BlendColor(0.0, 0.0, 0.0, 0.0);
+                    gl.BlendFunc(ffi::ONE, ffi::ONE_MINUS_SRC_ALPHA);
+                });
+                let finished = frame.finish();
+                if drawn.is_err() || finished.is_err() {
+                    continue;
+                }
+            }
+
             // `render_output` has no damage filter — it clears and draws the
             // whole target — so a client's partial blur region has to be zeroed
             // back out here. The alpha-multiply pass below then leaves those
@@ -2018,10 +2084,13 @@ pub(crate) fn process_blur_requests(
                     Transform::Normal,
                     1.0,
                     Some(shader),
-                    &[Uniform::new(
-                        "u_preserve_alpha",
-                        if req.mask.is_some() { 1.0f32 } else { 0.0 },
-                    )],
+                    &[
+                        Uniform::new("u_threshold_opacity", 0.0f32),
+                        Uniform::new(
+                            "u_preserve_alpha",
+                            if req.mask.is_some() { 1.0f32 } else { 0.0 },
+                        ),
+                    ],
                 )
                 .is_ok();
             let _ = frame.with_context(|gl| unsafe {

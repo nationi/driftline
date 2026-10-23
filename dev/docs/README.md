@@ -7,16 +7,11 @@
 | [Current status](tiling-status.md) | Implemented behavior, latest evidence, remaining gates and tree precautions |
 | [TTY cheat sheet](tty-preview.md) | Local preview launch, F-key bindings, exit and visual checks |
 | [User guide](../../docs/tiling.md) | Available tiling behavior and configuration examples |
-| [Parity roadmap](niri-tiling-parity-plan.md) | Full objective, single execution queue, dependencies and acceptance |
-| [Reference inventory](niri-tiling-inventory.md) | Generated pinned symbol index; semantic audit remains partial |
-| [Reference traces](niri-reference-traces.md) | Source-derived fixture method, assumptions and known differences |
-| [History](tiling-history.md) | Earlier batch evidence, investigations and superseded next steps |
-| [Initial proposal](scrolling-tiling-plan.md) | Historical limited-scope design; superseded by the parity roadmap |
+| [Practical roadmap](scrolling-tiling-roadmap.md) | Focused product scope, delivery sequence and acceptance |
 
-Keep current facts in status, acceptance criteria in the roadmap, and detailed
-past evidence in history. Update affected user instructions and preview keys when
-behavior changes. Do not duplicate a competing task list or treat old percentages
-and test counts as current measurements.
+Keep current behavior and validation evidence in status, acceptance criteria in
+the roadmap. Update affected user instructions and preview keys when behavior
+changes. Niri remains an implementation reference, not a compatibility target.
 
 ## Repository workflow
 

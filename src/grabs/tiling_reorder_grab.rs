@@ -1,0 +1,66 @@
+use smithay::{
+    input::{
+        SeatHandler,
+        pointer::{ButtonEvent, GrabStartData, MotionEvent, PointerGrab, PointerInnerHandle},
+    },
+    utils::{Logical, Point},
+};
+
+use crate::state::DriftWm;
+use driftwm::stage::ElementId;
+
+/// Holds an Alt+drag on a tiled window and swaps it with the tile under the
+/// pointer when released.
+pub struct TilingReorderGrab {
+    pub start_data: GrabStartData<DriftWm>,
+    source: ElementId,
+    output_name: String,
+    last_position: Point<f64, Logical>,
+}
+
+impl TilingReorderGrab {
+    pub fn new(start_data: GrabStartData<DriftWm>, source: ElementId, output_name: String) -> Self {
+        let last_position = start_data.location;
+        Self {
+            start_data,
+            source,
+            output_name,
+            last_position,
+        }
+    }
+}
+
+impl PointerGrab<DriftWm> for TilingReorderGrab {
+    fn motion(
+        &mut self,
+        data: &mut DriftWm,
+        handle: &mut PointerInnerHandle<'_, DriftWm>,
+        _focus: Option<(<DriftWm as SeatHandler>::PointerFocus, Point<f64, Logical>)>,
+        event: &MotionEvent,
+    ) {
+        self.last_position = event.location;
+        handle.motion(data, None, event);
+    }
+
+    fn button(
+        &mut self,
+        data: &mut DriftWm,
+        handle: &mut PointerInnerHandle<'_, DriftWm>,
+        event: &ButtonEvent,
+    ) {
+        handle.button(data, event);
+        if handle.current_pressed().is_empty() {
+            let source = self.source;
+            let output_name = self.output_name.clone();
+            let position = self.last_position;
+            data.loop_handle.insert_idle(move |data| {
+                data.complete_tiling_reorder(source, &output_name, position);
+            });
+            handle.unset_grab(self, data, event.serial, event.time, true);
+        }
+    }
+
+    fn unset(&mut self, _data: &mut DriftWm) {}
+
+    crate::grabs::forward_pointer_grab_methods!();
+}

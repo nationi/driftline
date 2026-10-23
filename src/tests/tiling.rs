@@ -1,10 +1,13 @@
-use driftwm::config::{Action, Direction};
+use driftwm::config::{Action, BTN_LEFT, Direction};
 use smithay::utils::SERIAL_COUNTER;
 
+use super::input_backend::{FakeDevice, key_press, key_release, pointer_to, press, release};
 use super::{
     Fixture, ack_but_keep_size, adopt_last_configure, configure_count, last_configured, map_window,
     window_by_app_id, window_position,
 };
+
+const KEY_LEFTALT: u32 = 56;
 
 #[test]
 fn remapping_a_tiled_window_restores_other_windows_before_placing_it() {
@@ -28,6 +31,74 @@ fn remapping_a_tiled_window_restores_other_windows_before_placing_it() {
     assert_eq!(last_configured(&mut f, client, &b), (350, 250));
     assert_eq!(f.state().camera(), (100.0, -200.0).into());
     assert_eq!(f.state().zoom(), 0.6);
+}
+
+#[test]
+fn alt_drag_swaps_tiled_windows_without_leaving_tiling() {
+    let mut f = Fixture::new();
+    f.add_output(1, (1200, 800));
+    let client = f.add_client();
+    map_window(&mut f, client, "a", (400, 300));
+    map_window(&mut f, client, "b", (400, 300));
+    let a = window_by_app_id(&mut f, "a").unwrap();
+    let b = window_by_app_id(&mut f, "b").unwrap();
+    let aid = f.state().stage.id_of(&a).unwrap();
+    let bid = f.state().stage.id_of(&b).unwrap();
+    f.state().execute_action(&Action::ToggleTiling);
+    f.double_roundtrip(client);
+
+    let a_column = f.state().stage.column_of(aid).unwrap();
+    let b_column = f.state().stage.column_of(bid).unwrap();
+    assert_ne!(a_column, b_column);
+    let a_position = window_position(&mut f, &a);
+    let b_position = window_position(&mut f, &b);
+    let a_center = a_position
+        + smithay::utils::Point::from((a.geometry().size.w / 2, a.geometry().size.h / 2));
+    let b_center = b_position
+        + smithay::utils::Point::from((b.geometry().size.w / 2, b.geometry().size.h / 2));
+    let mouse = FakeDevice::mouse();
+
+    pointer_to(&mut f, &mouse, a_center.to_f64());
+    key_press(&mut f, KEY_LEFTALT);
+    press(&mut f, &mouse, BTN_LEFT);
+    pointer_to(&mut f, &mouse, b_center.to_f64());
+    let pointer_position = f.state().seat.get_pointer().unwrap().current_location();
+    let hit = f
+        .state()
+        .topmost_client_under(pointer_position)
+        .and_then(|window| f.state().stage.id_of(&window));
+    assert_eq!(hit, Some(bid), "drop point should hit the target tile");
+    release(&mut f, &mouse, BTN_LEFT);
+    key_release(&mut f, KEY_LEFTALT);
+    f.pump(1);
+
+    assert_eq!(f.state().stage.column_of(aid), Some(b_column));
+    assert_eq!(f.state().stage.column_of(bid), Some(a_column));
+    assert_eq!(f.state().stage.active_tile(), Some(aid));
+    assert!(f.state().tiling_view.is_some());
+}
+
+#[test]
+fn remapping_after_a_tiling_resize_supersedes_the_restore_recenter() {
+    let mut f = Fixture::new();
+    f.add_output(1, (1200, 800));
+    let client = f.add_client();
+    let surface = map_window(&mut f, client, "a", (400, 300));
+    let window = window_by_app_id(&mut f, "a").unwrap();
+    let id = f.state().stage.id_of(&window).unwrap();
+    f.state().execute_action(&Action::ToggleTiling);
+    let tiled_size = last_configured(&mut f, client, &surface);
+    adopt_last_configure(&mut f, client, &surface);
+    assert_eq!(window.geometry().size, tiled_size.into());
+    let destination = (900, -500).into();
+    f.state().map_window(window.clone(), destination, true);
+    assert!(f.state().tiling_view.is_none());
+    assert_eq!(last_configured(&mut f, client, &surface), (400, 300));
+    adopt_last_configure(&mut f, client, &surface);
+    assert_eq!(window.geometry().size, (400, 300).into());
+    assert_eq!(window_position(&mut f, &window), destination);
+    assert_eq!(f.state().stage.id_of(&window), Some(id));
+    assert_eq!(f.state().tiling_pending_configures(), 0);
 }
 
 #[test]
@@ -161,11 +232,16 @@ fn focus_and_width_actions_follow_columns() {
     let aid = f.state().stage.id_of(&wa).unwrap();
     assert_eq!(f.state().stage.active_tile(), Some(aid));
     let half = last_configured(&mut f, client, &a).0;
+    f.state().execute_action(&Action::ToggleWideColumn);
+    let wide = last_configured(&mut f, client, &a).0;
+    assert!(wide > half);
+    f.state().execute_action(&Action::ToggleWideColumn);
+    assert_eq!(last_configured(&mut f, client, &a).0, half);
     f.state().execute_action(&Action::CycleColumnWidth);
     assert!(last_configured(&mut f, client, &a).0 > half);
     f.state()
         .execute_action(&Action::CenterNearest(Direction::Right));
-    assert_ne!(f.state().stage.active_tile(), Some(aid));
+    assert_eq!(f.state().stage.active_tile(), Some(aid));
 }
 
 #[test]
@@ -199,30 +275,283 @@ fn new_windows_join_after_the_focused_column_and_close_prunes_membership() {
 }
 
 #[test]
-fn a_second_output_leaves_tiling_and_multiple_outputs_cannot_enter_it() {
+fn multiple_outputs_create_independent_layouts_on_tiling_entry() {
+    use driftwm::layout::scrolling::transaction::ConfigureProgress;
     let mut f = Fixture::new();
-    f.add_output(1, (1200, 800));
+    let first = f.add_output(1, (1200, 800));
+    let second = f.add_output(2, (1920, 1080));
+    crate::state::output_state(&second).camera = (5000.0, 5000.0).into();
+    f.state().focused_output = Some(first.clone());
     let client = f.add_client();
-    let surface = map_window(&mut f, client, "a", (400, 300));
+    let first_surface = map_window(&mut f, client, "first-window", (400, 300));
+    let first_window = window_by_app_id(&mut f, "first-window").unwrap();
+    let first_window_id = f.state().stage.id_of(&first_window).unwrap();
+    f.state().focused_output = Some(second.clone());
+    let second_surface = map_window(&mut f, client, "second-window", (400, 300));
+    let second_window = window_by_app_id(&mut f, "second-window").unwrap();
+    let second_window_id = f.state().stage.id_of(&second_window).unwrap();
+    let first_camera = crate::state::output_state(&first).camera;
+    let second_camera = crate::state::output_state(&second).camera;
     f.state().execute_action(&Action::ToggleTiling);
-    f.add_output(2, (1920, 1080));
-    f.state().refresh_and_flush_clients();
-    assert!(f.state().tiling_view.is_none());
-    assert_eq!(last_configured(&mut f, client, &surface), (400, 300));
+
+    assert!(f.state().tiling_view.is_some());
+    assert!(
+        f.state()
+            .stage
+            .tiling_layout_id_for_output(&first.name())
+            .is_some()
+    );
+    assert!(
+        f.state()
+            .stage
+            .tiling_layout_id_for_output(&second.name())
+            .is_some()
+    );
+    assert_eq!(
+        f.state().tiling_canvas_view(&first),
+        Some((first_camera, 1.0))
+    );
+    assert_eq!(
+        f.state().tiling_canvas_view(&second),
+        Some((second_camera, 1.0))
+    );
+    let first_owner = f
+        .state()
+        .stage
+        .tiling_output_for_window(first_window_id)
+        .unwrap()
+        .to_owned();
+    let second_owner = f
+        .state()
+        .stage
+        .tiling_output_for_window(second_window_id)
+        .unwrap()
+        .to_owned();
+    assert_eq!(first_owner, first.name());
+    assert_eq!(second_owner, second.name());
+    assert_eq!(
+        f.state()
+            .stage
+            .tiled_windows_for_output(&first_owner)
+            .map(|tile| tile.id)
+            .collect::<Vec<_>>(),
+        vec![first_window_id]
+    );
+    assert_eq!(
+        f.state()
+            .stage
+            .tiled_windows_for_output(&second_owner)
+            .map(|tile| tile.id)
+            .collect::<Vec<_>>(),
+        vec![second_window_id]
+    );
+    let first_size = last_configured(&mut f, client, &first_surface);
+    let second_size = last_configured(&mut f, client, &second_surface);
+    assert!(
+        second_size.0 > first_size.0,
+        "each output reflows against its own width: {first_size:?} vs {second_size:?}"
+    );
+    assert_eq!(
+        f.state().tiling_configure_progress(first_window_id),
+        Some(ConfigureProgress::Pending)
+    );
+    assert_eq!(
+        f.state().tiling_configure_progress(second_window_id),
+        Some(ConfigureProgress::Pending)
+    );
+    adopt_last_configure(&mut f, client, &first_surface);
+    assert_eq!(
+        f.state().tiling_configure_progress(first_window_id),
+        Some(ConfigureProgress::Applied)
+    );
+    assert_eq!(
+        f.state().tiling_configure_progress(second_window_id),
+        Some(ConfigureProgress::Pending),
+        "a buffer on one output cannot complete the other output's configure"
+    );
+    adopt_last_configure(&mut f, client, &second_surface);
+    assert_eq!(
+        f.state().tiling_configure_progress(second_window_id),
+        Some(ConfigureProgress::Applied)
+    );
+
     f.state().execute_action(&Action::ToggleTiling);
     assert!(f.state().tiling_view.is_none());
+    assert!(!f.state().stage.is_tiled(first_window_id));
+    assert!(!f.state().stage.is_tiled(second_window_id));
 }
 
 #[test]
-fn incompatible_actions_leave_tiling_before_applying_canvas_policy() {
+fn tiling_reentry_restores_column_order_stacking_width_and_output() {
+    let mut f = Fixture::new();
+    let first = f.add_output(1, (1200, 800));
+    let second = f.add_output(2, (1920, 1080));
+    let client = f.add_client();
+    map_window(&mut f, client, "a", (400, 300));
+    map_window(&mut f, client, "b", (400, 300));
+    let a = window_by_app_id(&mut f, "a").unwrap();
+    let b = window_by_app_id(&mut f, "b").unwrap();
+    let aid = f.state().stage.id_of(&a).unwrap();
+    let bid = f.state().stage.id_of(&b).unwrap();
+
+    f.state().execute_action(&Action::ToggleTiling);
+    f.state()
+        .execute_action(&Action::MoveColumn(Direction::Left));
+    f.state().execute_action(&Action::ToggleWideColumn);
+    assert!(f.state().move_tiled_window_to_output(aid, &second));
+
+    let before_first = f
+        .state()
+        .stage
+        .tiled_columns_for_output(&first.name())
+        .unwrap()
+        .to_vec();
+    let before_second = f
+        .state()
+        .stage
+        .tiled_columns_for_output(&second.name())
+        .unwrap()
+        .to_vec();
+    f.state().execute_action(&Action::ToggleTiling);
+    assert!(f.state().stage.tiled_columns().is_empty());
+    f.state().execute_action(&Action::ToggleTiling);
+
+    assert_eq!(
+        f.state()
+            .stage
+            .tiled_columns_for_output(&first.name())
+            .unwrap(),
+        before_first
+    );
+    assert_eq!(
+        f.state()
+            .stage
+            .tiled_columns_for_output(&second.name())
+            .unwrap(),
+        before_second
+    );
+    assert_eq!(
+        f.state().stage.tiling_output_for_window(aid),
+        Some(second.name().as_str())
+    );
+    assert_eq!(
+        f.state().stage.tiling_output_for_window(bid),
+        Some(first.name().as_str())
+    );
+}
+
+#[test]
+fn closing_a_fullscreen_window_resumes_the_previous_tiling_layout() {
+    let mut f = Fixture::new();
+    let output = f.add_output(1, (1200, 800));
+    let client = f.add_client();
+    let fullscreen_surface = map_window(&mut f, client, "fullscreen", (400, 300));
+    map_window(&mut f, client, "survivor", (400, 300));
+    let fullscreen_window = window_by_app_id(&mut f, "fullscreen").unwrap();
+    let survivor = window_by_app_id(&mut f, "survivor").unwrap();
+    let fullscreen_id = f.state().stage.id_of(&fullscreen_window).unwrap();
+    let survivor_id = f.state().stage.id_of(&survivor).unwrap();
+
+    f.state().execute_action(&Action::ToggleTiling);
+    f.state()
+        .enter_fullscreen(&fullscreen_window, Some(output.clone()));
+    assert!(f.state().tiling_view.is_none());
+    assert!(f.state().resume_tiling_after_fullscreen);
+
+    f.client(client).window(&fullscreen_surface).destroy();
+    f.double_roundtrip(client);
+
+    assert!(f.state().tiling_view.is_some());
+    assert!(!f.state().stage.is_tiled(fullscreen_id));
+    assert!(f.state().stage.is_tiled(survivor_id));
+    assert!(!f.state().resume_tiling_after_fullscreen);
+}
+
+#[test]
+fn a_window_mapped_on_another_output_joins_that_outputs_layout() {
+    let mut f = Fixture::new();
+    let first = f.add_output(1, (1200, 800));
+    let second = f.add_output(2, (1920, 1080));
+    crate::state::output_state(&second).camera = (5000.0, 5000.0).into();
+    let client = f.add_client();
+
+    f.state().focused_output = Some(first.clone());
+    let first_surface = map_window(&mut f, client, "first", (400, 300));
+    let first_window = window_by_app_id(&mut f, "first").unwrap();
+    let first_id = f.state().stage.id_of(&first_window).unwrap();
+    f.state().focused_output = Some(second.clone());
+    let second_surface = map_window(&mut f, client, "second", (400, 300));
+    let second_window = window_by_app_id(&mut f, "second").unwrap();
+    let second_id = f.state().stage.id_of(&second_window).unwrap();
+
+    f.state().execute_action(&Action::ToggleTiling);
+    let first_tiled_size = last_configured(&mut f, client, &first_surface);
+    let second_tiled_size = last_configured(&mut f, client, &second_surface);
+    assert!(first_tiled_size.0 > 0 && second_tiled_size.0 > first_tiled_size.0);
+    adopt_last_configure(&mut f, client, &first_surface);
+    adopt_last_configure(&mut f, client, &second_surface);
+
+    f.state().focused_output = Some(second.clone());
+    let new_surface = map_window(&mut f, client, "late", (300, 200));
+    let new_window = window_by_app_id(&mut f, "late").unwrap();
+    let new_id = f.state().stage.id_of(&new_window).unwrap();
+    f.state().refresh_tiling();
+
+    assert_eq!(
+        f.state().stage.tiling_output_for_window(new_id),
+        Some(second.name().as_str()),
+        "the focused output owns a window mapped after tiling entry"
+    );
+    assert_eq!(
+        f.state()
+            .stage
+            .tiled_windows_for_output(&first.name())
+            .map(|tile| tile.id)
+            .collect::<Vec<_>>(),
+        vec![first_id]
+    );
+    assert_eq!(
+        f.state()
+            .stage
+            .tiled_windows_for_output(&second.name())
+            .map(|tile| tile.id)
+            .collect::<Vec<_>>(),
+        vec![second_id, new_id]
+    );
+    let new_size = last_configured(&mut f, client, &new_surface);
+    assert!(
+        new_size.0 > first_tiled_size.0,
+        "late mapped window is configured against output two's wider area: {new_size:?} vs {first_tiled_size:?}"
+    );
+
+    let second_layout = f
+        .state()
+        .stage
+        .tiling_layout_id_for_output(&second.name())
+        .unwrap();
+    f.state().focused_output = Some(first.clone());
+    f.state().refresh_tiling();
+    f.state()
+        .navigate_to_window_on(&second_window, &second, crate::state::NavZoom::Reset);
+    assert_eq!(f.state().stage.tiling_layout_id(), Some(second_layout));
+    assert!(f.state().tiling_view.is_some());
+    f.state().execute_action(&Action::ToggleTiling);
+}
+
+#[test]
+fn canvas_actions_are_ignored_until_tiling_is_switched_off() {
     let mut f = Fixture::new();
     f.add_output(1, (1200, 800));
     let client = f.add_client();
     map_window(&mut f, client, "a", (400, 300));
     f.state().execute_action(&Action::ToggleTiling);
     f.state().execute_action(&Action::FitWindow);
-    assert!(f.state().tiling_view.is_none());
+    assert!(f.state().tiling_view.is_some());
     let window = window_by_app_id(&mut f, "a").unwrap();
+    assert!(!f.state().stage.is_fit(&window));
+    f.state().execute_action(&Action::ToggleTiling);
+    f.state().execute_action(&Action::FitWindow);
+    assert!(f.state().tiling_view.is_none());
     assert!(f.state().stage.is_fit(&window));
 }
 
@@ -312,7 +641,7 @@ fn grouped_windows_share_height_navigate_and_restore_their_original_rectangles()
         .execute_action(&Action::FocusColumn(Direction::Right));
     assert_eq!(f.state().stage.active_tile(), Some(bid));
     f.state()
-        .execute_action(&Action::CenterNearest(Direction::Down));
+        .execute_action(&Action::FocusColumn(Direction::Down));
     let cid = f.state().stage.id_of(&wc).unwrap();
     assert_eq!(f.state().stage.active_tile(), Some(cid));
     f.state().execute_action(&Action::ToggleTiling);
@@ -1398,4 +1727,107 @@ fn tiling_anchor_translation_waits_for_other_surface_blockers_too() {
         pointer + smithay::utils::Point::from((400.0, 0.0))
     );
     smithay::wayland::compositor::remove_pre_commit_hook(&surface, &hook);
+}
+
+#[test]
+fn protocol_unmap_releases_a_ready_peer_and_remap_waits_for_a_buffer() {
+    let mut f = Fixture::new();
+    f.add_output(1, (1200, 800));
+    let first = f.add_client();
+    let second = f.add_client();
+    let a = map_window(&mut f, first, "ready", (400, 300));
+    let b = map_window(&mut f, second, "hidden", (350, 250));
+    let wa = window_by_app_id(&mut f, "ready").unwrap();
+    let wb = window_by_app_id(&mut f, "hidden").unwrap();
+    let aid = f.state().stage.id_of(&wa).unwrap();
+    let bid = f.state().stage.id_of(&wb).unwrap();
+    f.state().execute_action(&Action::ToggleTiling);
+    let target = last_configured(&mut f, first, &a);
+    last_configured(&mut f, second, &b);
+    adopt_last_configure(&mut f, first, &a);
+    assert_eq!(wa.geometry().size, (400, 300).into());
+    let w = f.client(second).window(&b);
+    w.attach_null();
+    w.commit();
+    f.double_roundtrip(second);
+    f.double_roundtrip(first);
+    assert_eq!(wa.geometry().size, target.into());
+    assert!(f.state().tiling_view.is_some());
+    assert!(!f.state().stage.is_tiled(bid));
+    assert_eq!(f.state().stage.active_tile(), Some(aid));
+    assert_eq!(f.state().tiling_pending_configures(), 0);
+    f.client(second).window(&b).commit();
+    f.double_roundtrip(second);
+    assert!(!f.state().stage.is_tiled(bid));
+    let size = last_configured(&mut f, second, &b);
+    assert!(size.0 > 350 && size.1 > 250);
+    adopt_last_configure(&mut f, second, &b);
+    assert_eq!(f.state().stage.id_of(&wb), Some(bid));
+    assert!(f.state().stage.is_tiled(bid));
+    assert_eq!(f.state().stage.tiled_columns().len(), 2);
+}
+
+#[test]
+fn removing_the_last_output_releases_ready_buffers_and_rejects_placeholder_tiling() {
+    let mut f = Fixture::new();
+    let output = f.add_output(1, (1200, 800));
+    let first = f.add_client();
+    let second = f.add_client();
+    let a = map_window(&mut f, first, "a", (400, 300));
+    let b = map_window(&mut f, second, "b", (350, 250));
+    let wa = window_by_app_id(&mut f, "a").unwrap();
+    let wb = window_by_app_id(&mut f, "b").unwrap();
+    let ids = [f.state().stage.id_of(&wa), f.state().stage.id_of(&wb)];
+    f.state().execute_action(&Action::ToggleTiling);
+    let target = last_configured(&mut f, first, &a);
+    last_configured(&mut f, second, &b);
+    adopt_last_configure(&mut f, first, &a);
+    assert_eq!(wa.geometry().size, (400, 300).into());
+    f.remove_output(&output);
+    f.double_roundtrip(first);
+    assert_eq!(wa.geometry().size, target.into());
+    assert!(f.state().tiling_view.is_none());
+    assert!(f.state().stage.tiled_columns().is_empty());
+    assert_eq!(f.state().tiling_pending_configures(), 0);
+    f.state().execute_action(&Action::ToggleTiling);
+    assert!(f.state().tiling_view.is_none());
+    assert_eq!(last_configured(&mut f, first, &a), (400, 300));
+    assert_eq!(last_configured(&mut f, second, &b), (350, 250));
+    adopt_last_configure(&mut f, first, &a);
+    adopt_last_configure(&mut f, second, &b);
+    let reconnected = f.add_output(1, (1200, 800));
+    assert_ne!(output, reconnected);
+    assert!(f.state().disconnected_outputs.is_empty());
+    f.state().execute_action(&Action::ToggleTiling);
+    assert!(f.state().tiling_view.is_some());
+    last_configured(&mut f, first, &a);
+    last_configured(&mut f, second, &b);
+    adopt_last_configure(&mut f, first, &a);
+    adopt_last_configure(&mut f, second, &b);
+    f.double_roundtrip(first);
+    assert_eq!(f.state().tiling_pending_configures(), 0);
+    assert_eq!(
+        [f.state().stage.id_of(&wa), f.state().stage.id_of(&wb)],
+        ids
+    );
+}
+
+#[test]
+fn fullscreen_on_another_output_prevents_entering_tiling() {
+    let mut f = Fixture::new();
+    let active = f.add_output(1, (1200, 800));
+    let fullscreen = f.add_output(2, (1280, 720));
+    let client = f.add_client();
+    let _surface = map_window(&mut f, client, "fullscreen", (400, 300));
+    let window = window_by_app_id(&mut f, "fullscreen").unwrap();
+    assert_eq!(f.state().active_output().as_ref(), Some(&active));
+
+    f.state()
+        .stage
+        .set_fullscreen(&fullscreen.name(), window, (0, 0).into(), (400, 300).into());
+    f.state().execute_action(&Action::ToggleTiling);
+
+    assert!(f.state().tiling_view.is_none());
+    assert!(f.state().stage.tiled_columns().is_empty());
+    assert!(f.state().stage.has_fullscreen());
 }

@@ -7,7 +7,7 @@ use smithay::{
 
 use super::window_animation::{AnimSpace, ContentPolicy, GeometryRole};
 use super::{DriftWm, FocusTarget, StageWindow};
-use crate::input::constraint::deactivate_constraint;
+use crate::input::constraint::{deactivate_constraint, find_constraint};
 use driftwm::window_ext::WindowExt;
 
 impl DriftWm {
@@ -62,7 +62,6 @@ impl DriftWm {
         window: &Window,
         target_output: Option<smithay::output::Output>,
     ) {
-        self.prepare_tiling_operation(super::TilingOperation::Fullscreen);
         // Widgets (immovable canvas layers) never fullscreen. Pinned windows
         // do: they temporarily unpin into a normal fullscreen and re-pin on
         // exit (saved_pinned), so a PiP video can fill the screen and snap back.
@@ -126,6 +125,8 @@ impl DriftWm {
             }
             self.exit_fullscreen_on(&output);
         }
+
+        self.prepare_tiling_operation(super::TilingOperation::Fullscreen);
 
         // The exit this supersedes can be the same-window cross-output one just
         // above, not only a prior fullscreen/fit/fill exit.
@@ -333,8 +334,10 @@ impl DriftWm {
             }
 
             // Deactivate any constraint on the old focused surface
-            if let Some(old) = pointer.current_focus() {
-                deactivate_constraint(self, &old.0, &pointer);
+            if let Some(old) = pointer.current_focus()
+                && let Some((constraining, _)) = find_constraint(&old.0, &pointer)
+            {
+                deactivate_constraint(self, &constraining, &pointer);
             }
             // Surface origin, not the geometry origin the stage positions by:
             // smithay subtracts it to get surface-local coordinates.
@@ -466,6 +469,7 @@ impl DriftWm {
                 );
             }
         }
+        self.resume_tiling_after_fullscreen();
     }
 
     /// Restore an output's camera/zoom after fullscreen ends. Drops any
@@ -643,7 +647,7 @@ impl DriftWm {
         let pointer = self.seat.get_pointer().unwrap();
         let constrained_here = pointer
             .current_focus()
-            .is_some_and(|focus| focus.0 == *surface)
+            .is_some_and(|focus| self.window_for_surface_root(&focus.0).as_ref() == Some(window))
             && self.pointer_constraint_active();
         if constrained_here {
             let moved = pointer.current_location() + (offset - stored).to_f64();

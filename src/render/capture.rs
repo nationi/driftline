@@ -352,13 +352,23 @@ pub(crate) fn render_elements_to_rgba(
     scale: Scale<f64>,
     elements: &[&OutputRenderElements],
 ) -> Result<Vec<u8>, String> {
+    render_elements_to_rgba_transformed(renderer, size, scale, Transform::Normal, elements)
+}
+
+pub(crate) fn render_elements_to_rgba_transformed(
+    renderer: &mut GlesRenderer,
+    size: Size<i32, Physical>,
+    scale: Scale<f64>,
+    transform: Transform,
+    elements: &[&OutputRenderElements],
+) -> Result<Vec<u8>, String> {
     use smithay::backend::renderer::ExportMem;
 
     let mapping = render_to_offscreen(
         renderer,
         size,
         scale,
-        Transform::Normal,
+        transform,
         Fourcc::Abgr8888,
         false,
         elements,

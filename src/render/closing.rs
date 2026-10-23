@@ -320,6 +320,7 @@ impl ResizeCaptures {
 /// live content. Both pictures share one premultiplied composite, so translucent
 /// pixels keep their alpha while the geometry leg plays.
 pub(crate) struct ResizeCrossfade {
+    pub(crate) title: Option<super::TitleCrossfade>,
     native_initial: bool,
     blur_source: Option<BlurMaskSource>,
     blur_policy: Option<super::SnapshotBlur>,
@@ -438,11 +439,26 @@ impl AnimatedContentCache {
 pub(crate) struct BlurMaskSource {
     pub buffer: TextureBuffer<GlesTexture>,
     pub texels: Size<i32, Physical>,
+    // The native title is sampled live; only its mixed coverage is retained.
+    pub title_coverage: f32,
     // Normalized body-local endpoints; None means already weighted coverage.
     regions: Option<Vec<[f64; 4]>>,
 }
 
 impl BlurMaskSource {
+    fn title_coverage(policy: &super::SnapshotBlur) -> f32 {
+        let client = policy.client_regions.as_ref().is_some_and(|regions| {
+            regions
+                .iter()
+                .any(|r| r.intersection(policy.geometry).is_some())
+        });
+        if policy.bar_height.is_some() && policy.window_blur && !client {
+            1.0
+        } else {
+            0.0
+        }
+    }
+
     fn regions(policy: &super::SnapshotBlur) -> Vec<[f64; 4]> {
         let regions = match &policy.client_regions {
             Some(regions) if !regions.is_empty() => regions
@@ -472,11 +488,16 @@ impl BlurMaskSource {
 }
 
 impl ResizeCrossfade {
+    pub(crate) fn title_weight(&self) -> f32 {
+        crossfade_out_alpha(self.progress, self.grew)
+    }
+
     pub(crate) fn from_retained_content(
         buffer: TextureBuffer<GlesTexture>,
         texels: Size<i32, Physical>,
     ) -> Self {
         Self {
+            title: None,
             native_initial: true,
             blur_source: None,
             blur_policy: None,
@@ -609,6 +630,7 @@ impl ResizeCrossfade {
             buffer: self.buffer.clone(),
             texels: self.texels,
             regions: Some(BlurMaskSource::regions(policy)),
+            title_coverage: BlurMaskSource::title_coverage(policy),
         }));
     }
 
@@ -633,10 +655,12 @@ impl ResizeCrossfade {
         }
         let initial = self.blur_source.as_ref()?;
         let regions = BlurMaskSource::regions(policy);
-        if initial.regions.as_ref() == Some(&regions) {
+        let title = BlurMaskSource::title_coverage(policy);
+        if initial.regions.as_ref() == Some(&regions) && initial.title_coverage == title {
             return None;
         }
         let weight = crossfade_out_alpha(self.progress, self.grew);
+        let title_coverage = initial.title_coverage * weight + title * (1.0 - weight);
         let mut sources = vec![(initial.clone(), weight)];
         if weight < 1.0 {
             let current = self.current.as_ref()?;
@@ -645,6 +669,7 @@ impl ResizeCrossfade {
                     buffer: current.buffer.clone(),
                     texels: current.texels,
                     regions: Some(regions),
+                    title_coverage: title,
                 },
                 1.0 - weight,
             ));
@@ -707,14 +732,17 @@ impl ResizeCrossfade {
                 // let an opaque old pixel fill a transparent new region.
                 frame.override_default_tex_program(
                     shader.clone(),
-                    vec![Uniform::new(
-                        "u_preserve_alpha",
-                        if source.regions.is_none() {
-                            1.0f32
-                        } else {
-                            0.0
-                        },
-                    )],
+                    vec![
+                        Uniform::new("u_threshold_opacity", 0.0f32),
+                        Uniform::new(
+                            "u_preserve_alpha",
+                            if source.regions.is_none() {
+                                1.0f32
+                            } else {
+                                0.0
+                            },
+                        ),
+                    ],
                 );
                 let element = TextureRenderElement::from_texture_buffer(
                     Point::default(),
@@ -758,6 +786,7 @@ impl ResizeCrossfade {
             ),
             texels: size,
             regions: None,
+            title_coverage,
         })
     }
 
@@ -889,6 +918,7 @@ pub(crate) fn resize_crossfade(
         }
     };
     Some(ResizeCrossfade {
+        title: None,
         native_initial: false,
         blur_source: None,
         blur_policy: None,
@@ -1031,6 +1061,19 @@ fn phys_size_of(bounds: Rectangle<f64, Logical>, flatten_scale: f64) -> Size<i32
     ))
 }
 
+fn capture_texture(renderer: &mut GlesRenderer, size: Size<i32, Physical>) -> Option<GlesTexture> {
+    #[cfg(test)]
+    if super::capture_fault::should_fail() {
+        return None;
+    }
+    Offscreen::<GlesTexture>::create_buffer(
+        renderer,
+        Fourcc::Abgr8888,
+        size.to_logical(1).to_buffer(1, Transform::Normal),
+    )
+    .ok()
+}
+
 /// Rasterize the captured content textures into one offscreen covering exactly
 /// `bounds` (surface-origin-local). Surfaces overhanging `bounds` are cropped by
 /// the framebuffer, which is how the live corner clip discards a CSD client's
@@ -1046,9 +1089,7 @@ fn bake_content(
     if phys_size.w <= 0 || phys_size.h <= 0 {
         return None;
     }
-    let buffer_size = phys_size.to_logical(1).to_buffer(1, Transform::Normal);
-    let mut texture =
-        Offscreen::<GlesTexture>::create_buffer(renderer, Fourcc::Abgr8888, buffer_size).ok()?;
+    let mut texture = capture_texture(renderer, phys_size)?;
     {
         let mut target = renderer.bind(&mut texture).ok()?;
         let mut frame = renderer
@@ -1145,6 +1186,16 @@ fn flatten(
             (physical - physical.round()).abs() < 1e-6
         })
         .map_or(1.0, f64::from);
+    // A content-only bake has no native chrome to align across a translated
+    // raster. Padding it to the chrome grid would become part of the resize
+    // source and stretch its rounded edge at fractional scales.
+    let grid =
+        if chrome.shadow_shader.is_none() && chrome.border_shader.is_none() && chrome.bar.is_none()
+        {
+            1.0
+        } else {
+            grid
+        };
     let end = bounds.loc + Point::from((bounds.size.w, bounds.size.h));
     let start = Point::from((
         (bounds.loc.x / grid).floor() * grid,
@@ -1185,9 +1236,7 @@ fn flatten(
     if phys_size.w <= 0 || phys_size.h <= 0 {
         return None;
     }
-    let buffer_size = phys_size.to_logical(1).to_buffer(1, Transform::Normal);
-    let mut texture =
-        Offscreen::<GlesTexture>::create_buffer(renderer, Fourcc::Abgr8888, buffer_size).ok()?;
+    let mut texture = capture_texture(renderer, phys_size)?;
 
     // Elements needing `renderer` are built before the frame borrows it. The
     // content element is placed so its full extent lands on the geometry rect.

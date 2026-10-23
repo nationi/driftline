@@ -569,12 +569,9 @@ impl MoveGrab {
         // `snap_move_location` — land on the same integer pixel.
         let new_loc = Point::from((snapped.x as i32, snapped.y as i32));
 
-        // The stage re-inserts a mapped element at the end of its z-index bucket
-        // even with `activate: false`. Map members FIRST so the primary's
-        // subsequent `map_window` lands last and stays on top of its own cluster.
-        // TODO(cluster): raise members above *non-cluster* windows too —
-        // today they keep their original z relative to everything else,
-        // which may surprise users whose members get hidden by outsiders.
+        // Stage::map raises each moved element. Map members first so the whole
+        // cluster rises above unrelated normal windows, then put the primary
+        // last so it remains on top of its own cluster.
         for (member, offset) in members {
             let member_pos = new_loc + offset;
             crate::grabs::drag_map_window(data, member, member_pos);

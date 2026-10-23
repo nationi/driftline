@@ -2,6 +2,8 @@ mod background;
 mod blur;
 mod capture;
 mod capture_background;
+#[cfg(test)]
+pub(crate) mod capture_fault;
 mod chrome;
 mod closing;
 mod cursor;
@@ -16,6 +18,8 @@ mod suspended;
 mod tile_chunks;
 mod tile_chunks_tiff;
 mod tile_worker;
+mod title;
+pub(crate) use title::{TitleCrossfade, TitlePixels};
 
 pub use background::{BackgroundElement, init_background, update_background_element};
 pub(crate) use blur::compile_blur_shaders;
@@ -45,7 +49,7 @@ pub use shaders::{
 pub use tile_chunks::BgChunkCache;
 
 #[cfg(test)]
-pub(crate) use capture::render_elements_to_rgba;
+pub(crate) use capture::{render_elements_to_rgba, render_elements_to_rgba_transformed};
 #[cfg(test)]
 pub(crate) use suspended::{ensure_body, ensure_label};
 
@@ -1033,30 +1037,20 @@ pub fn compose_frame(
                     );
                 }
             }
+            let mut bar_index = None;
             if let Some(bar) = snapshot.bar.take() {
                 let loc = bar.rect.loc.to_physical_precise_round(scale);
                 let dst = Rectangle::new(loc, painted_size(bar.rect.size, scale));
-                if let Ok(element) = MemoryRenderBufferRenderElement::from_buffer(
+                if let Some(element) = bar.buffer.element(
                     renderer,
-                    loc.to_f64(),
-                    &bar.buffer,
-                    Some(bar.opacity as f32),
-                    None,
-                    None,
-                    Kind::Unspecified,
+                    dst,
+                    output_scale,
+                    zoom,
+                    bar.opacity,
+                    snapshot.chrome_animation,
                 ) {
-                    let element = PixelSnapRescaleElement::from_element(
-                        TrimmedElement::from_element(element, dst),
-                        (0, 0).into(),
-                        zoom,
-                    );
-                    if let Some(a) = snapshot.chrome_animation {
-                        zoomed_normal.push(OutputRenderElements::AnimatedTrimmedDecoration(
-                            WindowTransformElement::new(element, a.origin, a.offset, a.scale),
-                        ));
-                    } else {
-                        zoomed_normal.push(OutputRenderElements::TrimmedDecoration(element));
-                    }
+                    bar_index = Some(zoomed_normal.len() - start);
+                    zoomed_normal.push(element);
                 }
             }
             zoomed_normal.extend(snapshot.elements);
@@ -1098,6 +1092,9 @@ pub fn compose_frame(
                 );
             }
             if blur_enabled && let Some(mut blur) = snapshot.blur.take() {
+                if let Some((_, coverage)) = blur.chrome_mask {
+                    blur.chrome_mask = bar_index.map(|index| (index, coverage));
+                }
                 blur.elem_start = start;
                 blur.elem_count = shadow_start - start;
                 blur.trailing_chrome = zoomed_normal.len() - shadow_start;
@@ -1354,9 +1351,14 @@ pub fn compose_frame(
 
         // Resize content follows a texture affine; compositor chrome keeps its
         // native stroke and title-bar height around the current visual bounds.
+        let canvas_resize = element_id.is_some_and(|id| {
+            state.window_animations.can_capture_canvas_geometry(id)
+                && !state.window_animations.is_canvas_translation(id, geom_size)
+        });
         let resize_chrome = element_id
+            .filter(|_| visual.is_none_or(|v| !v.cap_content))
             .filter(|id| {
-                (state.tiling_view.is_some() || client_effect)
+                (state.tiling_view.is_some() || client_effect || canvas_resize)
                     && (!window_blur
                         || client_effect
                         || !state
@@ -1365,7 +1367,7 @@ pub fn compose_frame(
                         || state.resize_crossfades.contains_key(id))
                     && !is_fullscreen
                     && !is_pinned
-                    && (state.stage.is_tiled(*id) || client_effect)
+                    && (state.stage.is_tiled(*id) || client_effect || canvas_resize)
             })
             .and_then(|id| state.window_animations.geometry_visual_rect(id));
         let chrome_loc = resize_chrome.map_or_else(
@@ -1462,14 +1464,15 @@ pub fn compose_frame(
                 .blended_buffer(renderer, &wl_surface, stamp, clip.as_ref())
         } else if let Some(id) = element_id
             && (state.window_animations.open_progress(id).is_some()
-                || (client_effect && state.window_animations.generation_of(id).is_some()))
+                || ((client_effect || canvas_resize)
+                    && state.window_animations.generation_of(id).is_some()))
             && !is_fullscreen
             && !is_pinned
             && matches!(coverage, canvas::Coverage::None)
-            && (effective_corner_radius > 0 || client_effect)
+            && (effective_corner_radius > 0 || client_effect || canvas_resize)
         {
-            // Animated client effects and their retained picture must sample
-            // the same clipped grid, including while the effect is unset.
+            // Canvas resizes and animated client effects must sample the same
+            // clipped grid as their retained picture, even with the effect unset.
             let stamp = closing::ResizeContentStamp::for_surface(
                 &wl_surface,
                 window.geometry(),
@@ -1563,6 +1566,7 @@ pub fn compose_frame(
         };
         let elem_start = target.len();
         let mut shadow_count = 0usize;
+        let mut blur_bar_index = None;
 
         // Popups push first (earlier in vec = on-top in smithay z-order) so
         // they sit above the title bar and clipped window content.
@@ -1640,13 +1644,6 @@ pub fn compose_frame(
                 .decorations
                 .get(&DecorationKey::Surface(wl_surface.id()))
             {
-                let bar_physical: Point<f64, Physical> =
-                    Point::from((bar_loc_phys.x as f64, bar_loc_phys.y as f64 - bar_h_phys));
-                let bar_alpha = if chrome_opacity < 1.0 {
-                    Some(chrome_opacity as f32)
-                } else {
-                    None
-                };
                 // The bar takes the border's inner width so it stops where the
                 // content does instead of covering the ring's inner stroke.
                 let bar_dst = Rectangle::new(
@@ -1656,32 +1653,29 @@ pub fn compose_frame(
                         scale,
                     ),
                 );
-                if let Ok(bar_elem) = MemoryRenderBufferRenderElement::from_buffer(
+                let pixels = element_id
+                    .and_then(|id| {
+                        let resize = state.resize_crossfades.get_mut(&id)?;
+                        let weight = resize.title_weight();
+                        resize.title.as_mut()?.blend(
+                            renderer,
+                            &deco.title_bar,
+                            bar_dst.size,
+                            output_scale,
+                            weight,
+                        )
+                    })
+                    .unwrap_or_else(|| TitlePixels::Memory(deco.title_bar.clone()));
+                if let Some(element) = pixels.element(
                     renderer,
-                    bar_physical,
-                    &deco.title_bar,
-                    bar_alpha,
-                    None,
-                    None,
-                    Kind::Unspecified,
+                    bar_dst,
+                    output_scale,
+                    zoom,
+                    chrome_opacity,
+                    chrome_animation,
                 ) {
-                    let bar_elem = PixelSnapRescaleElement::from_element(
-                        TrimmedElement::from_element(bar_elem, bar_dst),
-                        Point::<i32, Physical>::from((0, 0)),
-                        zoom,
-                    );
-                    if let Some(animation) = chrome_animation {
-                        target.push(OutputRenderElements::AnimatedTrimmedDecoration(
-                            WindowTransformElement::new(
-                                bar_elem,
-                                animation.origin,
-                                animation.offset,
-                                animation.scale,
-                            ),
-                        ));
-                    } else {
-                        target.push(OutputRenderElements::TrimmedDecoration(bar_elem));
-                    }
+                    blur_bar_index = Some(target.len() - elem_start);
+                    target.push(element);
                 }
             }
             content_at = target.len();
@@ -1881,6 +1875,9 @@ pub fn compose_frame(
                 target.len() - elem_start - shadow_count,
             ) {
                 if let Some(mask) = resize_mask {
+                    request.chrome_mask = blur_bar_index
+                        .filter(|_| mask.title_coverage > 0.0)
+                        .map(|index| (index, mask.title_coverage));
                     let body = Rectangle::new(chrome_loc, chrome_size)
                         .to_physical(output_scale * zoom)
                         .to_i32_round::<i32>();
@@ -2027,6 +2024,7 @@ pub fn compose_frame(
                     },
                     region_rects,
                     mask: None,
+                    chrome_mask: None,
                 };
                 // Regions and bounds share the source coordinate space until
                 // both are transformed; clipping against resized bounds loses

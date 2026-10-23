@@ -35,6 +35,85 @@ pub(crate) struct TilingView {
     )>,
 }
 
+#[derive(Default)]
+pub(crate) struct TilingViews {
+    views: std::collections::HashMap<String, TilingView>,
+    active_output: Option<String>,
+}
+
+impl TilingViews {
+    pub(crate) fn insert(&mut self, view: TilingView) {
+        let output = view.output.name();
+        self.views.insert(output.clone(), view);
+        self.active_output = Some(output);
+    }
+
+    fn insert_preserving_selection(&mut self, view: TilingView) {
+        let active_output = self.active_output.clone();
+        self.insert(view);
+        if active_output.is_some() {
+            self.active_output = active_output;
+        }
+    }
+
+    pub(crate) fn select_output(&mut self, output: &Output) -> bool {
+        self.select_output_name(&output.name())
+    }
+
+    pub(crate) fn select_output_name(&mut self, name: &str) -> bool {
+        if !self.views.contains_key(name) {
+            return false;
+        }
+        self.active_output = Some(name.to_owned());
+        true
+    }
+
+    pub(crate) fn for_output(&self, output: &Output) -> Option<&TilingView> {
+        self.views.get(&output.name())
+    }
+
+    fn iter(&self) -> impl Iterator<Item = (&str, &TilingView)> {
+        self.views
+            .iter()
+            .map(|(output, view)| (output.as_str(), view))
+    }
+
+    fn iter_mut(&mut self) -> impl Iterator<Item = (&str, &mut TilingView)> {
+        self.views
+            .iter_mut()
+            .map(|(output, view)| (output.as_str(), view))
+    }
+
+    pub(crate) fn as_ref(&self) -> Option<&TilingView> {
+        self.views.get(self.active_output.as_ref()?)
+    }
+
+    pub(crate) fn as_mut(&mut self) -> Option<&mut TilingView> {
+        self.views.get_mut(self.active_output.as_ref()?)
+    }
+
+    fn take_all(&mut self) -> Vec<TilingView> {
+        self.active_output = None;
+        self.views.drain().map(|(_, view)| view).collect()
+    }
+
+    fn take_output(&mut self, output: &str) -> Option<TilingView> {
+        let view = self.views.remove(output);
+        if self.active_output.as_deref() == Some(output) {
+            self.active_output = None;
+        }
+        view
+    }
+
+    pub(crate) fn is_some(&self) -> bool {
+        !self.views.is_empty()
+    }
+
+    pub(crate) fn is_none(&self) -> bool {
+        self.views.is_empty()
+    }
+}
+
 struct TilingSnapshot {
     image: crate::render::ClosingSnapshot,
     held_geometry: Option<smithay::utils::Rectangle<f64, Logical>>,
@@ -47,7 +126,7 @@ struct TilingSnapshot {
     border: Option<crate::render::SnapshotBorder>,
     opacity: f64,
     native_chrome: bool,
-    bar: Option<smithay::backend::renderer::element::memory::MemoryRenderBuffer>,
+    bar: Option<crate::render::TitlePixels>,
 }
 
 pub(crate) struct TilingSnapshotElements {
@@ -62,7 +141,7 @@ pub(crate) struct TilingSnapshotElements {
 }
 
 pub(crate) struct TilingSnapshotBar {
-    pub buffer: smithay::backend::renderer::element::memory::MemoryRenderBuffer,
+    pub buffer: crate::render::TitlePixels,
     pub rect: smithay::utils::Rectangle<f64, Logical>,
     pub opacity: f64,
 }
@@ -158,27 +237,103 @@ fn mapped_tiling_popups(
 }
 
 impl DriftWm {
-    pub(crate) fn toggle_tiling(&mut self) {
-        if self.tiling_view.is_some() {
-            self.exit_tiling();
-            return;
+    pub(crate) fn move_tiled_window_to_output(
+        &mut self,
+        id: driftwm::stage::ElementId,
+        target: &Output,
+    ) -> bool {
+        let Some(source_name) = self.stage.tiling_output_for_window(id).map(str::to_owned) else {
+            return false;
+        };
+        if source_name == target.name() || !self.tiling_view.is_some() {
+            return false;
         }
-        let Some(output) = self.active_output() else {
+        let Some(source) = self.output_by_name(&source_name) else {
+            return false;
+        };
+
+        let mut wake_clients = Vec::new();
+        for output_name in [source_name.as_str(), target.name().as_str()] {
+            self.tiling_view.select_output_name(output_name);
+            let (commits, timer) = self.tiling_view.as_mut().map_or((None, None), |view| {
+                let commits = view.commits.take();
+                let timer = view.configure_timer.take();
+                view.presentation = None;
+                view.snapshots.remove(&id);
+                view.initial_configures.remove(&id);
+                (commits, timer)
+            });
+            if let Some(mut commits) = commits {
+                commits.group.cancel();
+                wake_clients.extend(commits.clients);
+            }
+            if let Some(timer) = timer {
+                self.loop_handle.remove(timer);
+            }
+        }
+        if !wake_clients.is_empty() {
+            self.wake_tiling_clients(wake_clients);
+        }
+        if !self.stage.move_tiled_window_to_output(id, &target.name()) {
+            return false;
+        }
+        if let Some(element) = self.stage.window_by_id(id).cloned() {
+            self.drop_owed_recenter(&element);
+            if let Some(window) = element.client() {
+                self.cancel_window_animation(window);
+            }
+        }
+        self.drop_resize_crossfade(id);
+
+        self.focused_output = Some(target.clone());
+        self.tiling_view.select_output(target);
+        self.stage.activate_tiling_output(&target.name());
+        self.stage.select_tile(id);
+        self.refresh_tiling_for_output(&source, std::time::Instant::now());
+        self.refresh_tiling_for_output(target, std::time::Instant::now());
+        if let Some(element) = self.stage.window_by_id(id).cloned() {
+            self.raise_and_focus_element(&element, SERIAL_COUNTER.next_serial());
+        }
+        self.render.blur_geometry_generation += 1;
+        self.mark_all_dirty();
+        self.session_store_mark_dirty();
+        true
+    }
+
+    pub(super) fn transfer_tiling_from_disconnected_output(&mut self, from: &Output, to: &Output) {
+        let Some(mut view) = self.tiling_view.take_output(&from.name()) else {
             return;
         };
-        if self.space.outputs().count() != 1
-            || self.is_fullscreen()
-            || !self.interactive_move.is_empty()
-        {
-            tracing::warn!(
-                "Scrolling tiling currently requires one output and no active move or fullscreen"
-            );
+        if let Some(mut commits) = view.commits.take() {
+            commits.group.cancel();
+            self.wake_tiling_clients(commits.clients);
+        }
+        if let Some(timer) = view.configure_timer.take() {
+            self.loop_handle.remove(timer);
+        }
+        let moved = self.stage.transfer_tiling_output(&from.name(), &to.name());
+        for tile in moved {
+            if let Some(element) = self.stage.window_by_id(tile.id).cloned() {
+                self.drop_owed_recenter(&element);
+                if let Some(window) = element.client() {
+                    self.cancel_window_animation(window);
+                }
+            }
+        }
+        self.tiling_view.select_output(to);
+        self.stage.activate_tiling_output(&to.name());
+        self.refresh_tiling_for_output(to, std::time::Instant::now());
+    }
+
+    pub(super) fn output_connected_during_tiling(&mut self, output: &Output) {
+        if self.tiling_view.is_none() {
             return;
         }
-        self.cancel_animations_everywhere();
-        let camera = self.camera();
-        let zoom = self.zoom();
-        let usable = self.get_usable_area();
+        let (camera, zoom) = {
+            let state = output_state(output);
+            (state.camera, state.zoom)
+        };
+        let usable = self.usable_area_on(output);
         let camera_origin: Point<i32, Logical> = camera.to_i32_round();
         let (Ok(x), Ok(y)) = (
             i32::try_from(i64::from(camera_origin.x) + i64::from(usable.loc.x)),
@@ -186,14 +341,14 @@ impl DriftWm {
         ) else {
             return;
         };
-        let origin = Point::from((x, y));
-        let layout_id = self.stage.begin_tiling();
-        self.tiling_view = Some(TilingView {
+        let active_output = self.stage.active_tiling_output().to_owned();
+        let layout_id = self.stage.begin_tiling_for_output(&output.name());
+        self.tiling_view.insert_preserving_selection(TilingView {
             layout_id,
-            output,
+            output: output.clone(),
             camera,
             zoom,
-            origin,
+            origin: Point::from((x, y)),
             last_usable: None,
             anchor: None,
             close_return: None,
@@ -208,59 +363,162 @@ impl DriftWm {
             initial_configures: Default::default(),
             revealed: None,
         });
-        self.set_zoom(1.0);
-        self.refresh_tiling();
+        let mut state = output_state(output);
+        state.zoom = 1.0;
+        state.zoom_target = None;
+        self.stage.activate_tiling_output(&active_output);
+    }
+
+    pub(crate) fn toggle_tiling(&mut self) {
+        if self.tiling_view.is_some() {
+            self.exit_tiling();
+            return;
+        }
+        let Some(active_output) = self.active_output() else {
+            return;
+        };
+        let outputs: Vec<_> = self
+            .space
+            .outputs()
+            .filter(|output| !self.disconnected_outputs.contains(&output.name()))
+            .cloned()
+            .collect();
+        if outputs.is_empty() || self.stage.has_fullscreen() || !self.interactive_move.is_empty() {
+            tracing::warn!(
+                "Scrolling tiling requires connected outputs and no active move or fullscreen"
+            );
+            return;
+        }
+        self.cancel_animations_everywhere();
+        let mut view_seeds = Vec::with_capacity(outputs.len());
+        for output in &outputs {
+            let (camera, zoom) = {
+                let state = output_state(output);
+                (state.camera, state.zoom)
+            };
+            let usable = self.usable_area_on(output);
+            let camera_origin: Point<i32, Logical> = camera.to_i32_round();
+            let (Ok(x), Ok(y)) = (
+                i32::try_from(i64::from(camera_origin.x) + i64::from(usable.loc.x)),
+                i32::try_from(i64::from(camera_origin.y) + i64::from(usable.loc.y)),
+            ) else {
+                return;
+            };
+            view_seeds.push((output.clone(), camera, zoom, Point::from((x, y))));
+        }
+        for (output, camera, zoom, origin) in view_seeds {
+            let layout_id = self.stage.begin_tiling_for_output(&output.name());
+            self.tiling_view.insert(TilingView {
+                layout_id,
+                output: output.clone(),
+                camera,
+                zoom,
+                origin,
+                last_usable: None,
+                anchor: None,
+                close_return: None,
+                configures: scrolling::transaction::ConfigureBatch::new(layout_id),
+                configure_timer: None,
+                commits: None,
+                commit_wakeups: 0,
+                presentation: None,
+                snapshots: Default::default(),
+                pending_close_return: None,
+                selected: None,
+                initial_configures: Default::default(),
+                revealed: None,
+            });
+            let mut state = output_state(&output);
+            state.zoom = 1.0;
+            state.zoom_target = None;
+        }
+
+        // Resolve ownership once against the user's actual focused output.
+        // Later per-output refreshes must not steal windows just because they
+        // temporarily select a different output to compute its geometry.
+        let existing: Vec<_> = self
+            .stage
+            .windows()
+            .filter(|window| self.tiling_eligible(window))
+            .filter_map(|window| {
+                let id = self.stage.id_of(window)?;
+                let remembered_output = self
+                    .tiling_topology
+                    .as_ref()
+                    .and_then(|topology| self.stage.tiling_topology_output(topology, id))
+                    .filter(|name| outputs.iter().any(|output| output.name() == *name));
+                let output = remembered_output
+                    .and_then(|name| self.output_by_name(name))
+                    .or_else(|| self.output_for_tiling_window(window))?;
+                let size = window.client().map(configured_window_size)?;
+                Some((output.name(), id, size))
+            })
+            .collect();
+        for (output, id, size) in existing {
+            self.stage.activate_tiling_output(&output);
+            self.stage.tile(id, size);
+        }
+        if let Some(topology) = self.tiling_topology.as_ref() {
+            self.stage.restore_tiling_topology(topology);
+        }
+        self.update_output_from_camera();
+        for output in outputs {
+            self.refresh_tiling_for_output(&output, std::time::Instant::now());
+        }
+        self.focused_output = Some(active_output);
+        self.stage
+            .activate_tiling_output(&self.focused_output.as_ref().unwrap().name());
     }
 
     pub(super) fn exit_tiling(&mut self) {
-        let Some(mut view) = self.tiling_view.take() else {
+        let views = self.tiling_view.take_all();
+        if views.is_empty() {
             return;
-        };
-        if let Some(mut commits) = view.commits.take() {
-            commits.group.cancel();
-            self.wake_tiling_clients(commits.clients);
         }
-        if let Some(timer) = view.configure_timer {
-            self.loop_handle.remove(timer);
-        }
-        for (id, _) in view.initial_configures {
-            if !self.stage.is_tiled(id)
-                && let Some(window) = self.stage.window_by_id(id).and_then(|w| w.client())
-                && window
-                    .wl_surface()
-                    .is_some_and(|s| self.pending_center.contains(&*s))
-                && let Some(toplevel) = window.toplevel()
-            {
-                // No buffer has supplied a canvas size yet; let the client
-                // choose instead of leaving an obsolete tiling offer pending.
-                toplevel.with_pending_state(|s| s.size = None);
-                toplevel.send_configure();
-            }
-        }
+        self.tiling_topology = Some(self.stage.tiling_topology());
         self.cancel_animations_everywhere();
-        for column in self.stage.clear_tiling() {
-            let Some(element) = self.stage.window_by_id(column.id).cloned() else {
-                continue;
-            };
-            self.drop_owed_recenter(&element);
-            if let Some(window) = element.client() {
-                self.cancel_window_animation(window);
-                self.send_size_configure(window, column.restore.size);
+        for mut view in views {
+            if let Some(mut commits) = view.commits.take() {
+                commits.group.cancel();
+                self.wake_tiling_clients(commits.clients);
             }
-            let center = visual_frame_center(
-                column.restore.loc,
-                column.restore.size,
-                f64::from(self.window_ssd_bar(&element)),
-            );
-            self.establish_exit_placement(
-                &element,
-                column.restore.loc,
-                column.restore.size,
-                center,
-                true,
-            );
-        }
-        {
+            if let Some(timer) = view.configure_timer.take() {
+                self.loop_handle.remove(timer);
+            }
+            for (id, _) in view.initial_configures {
+                if !self.stage.is_tiled(id)
+                    && let Some(window) = self.stage.window_by_id(id).and_then(|w| w.client())
+                    && window
+                        .wl_surface()
+                        .is_some_and(|s| self.pending_center.contains(&*s))
+                    && let Some(toplevel) = window.toplevel()
+                {
+                    toplevel.with_pending_state(|s| s.size = None);
+                    toplevel.send_configure();
+                }
+            }
+            for column in self.stage.clear_tiling_for_output(&view.output.name()) {
+                let Some(element) = self.stage.window_by_id(column.id).cloned() else {
+                    continue;
+                };
+                self.drop_owed_recenter(&element);
+                if let Some(window) = element.client() {
+                    self.cancel_window_animation(window);
+                    self.send_size_configure(window, column.restore.size);
+                }
+                let center = visual_frame_center(
+                    column.restore.loc,
+                    column.restore.size,
+                    f64::from(self.window_ssd_bar(&element)),
+                );
+                self.establish_exit_placement(
+                    &element,
+                    column.restore.loc,
+                    column.restore.size,
+                    center,
+                    true,
+                );
+            }
             let mut os = output_state(&view.output);
             os.camera = view.camera;
             os.zoom = view.zoom;
@@ -286,6 +544,36 @@ impl DriftWm {
             self.stage.select_tile(id);
             self.raise_and_focus_element(&element, SERIAL_COUNTER.next_serial());
             self.refresh_tiling();
+        }
+    }
+
+    pub(crate) fn complete_tiling_reorder(
+        &mut self,
+        source: driftwm::stage::ElementId,
+        output_name: &str,
+        position: Point<f64, Logical>,
+    ) {
+        if self.tiling_view.is_none()
+            || self
+                .active_output()
+                .is_none_or(|output| output.name() != output_name)
+        {
+            return;
+        }
+        let Some(target) = self
+            .topmost_client_under(position)
+            .and_then(|window| self.stage.id_of(&window))
+        else {
+            return;
+        };
+        if self.stage.tiling_output_for_window(source) != Some(output_name)
+            || !self.stage.swap_tiled_windows(source, target)
+        {
+            return;
+        }
+        self.refresh_tiling();
+        if let Some(element) = self.stage.window_by_id(source).cloned() {
+            self.raise_and_focus_element(&element, SERIAL_COUNTER.next_serial());
         }
     }
 
@@ -370,8 +658,7 @@ impl DriftWm {
         use smithay::wayland::shell::xdg::XdgToplevelSurfaceData;
         let view = self.tiling_view.as_ref()?;
         let surface = window.wl_surface()?;
-        if self.space.outputs().count() != 1
-            || self.active_output().as_ref() != Some(&view.output)
+        if self.active_output().as_ref() != Some(&view.output)
             || self.zoom() != 1.0
             || window.parent_surface().is_some()
             || self.stage.is_fullscreen(window)
@@ -423,10 +710,15 @@ impl DriftWm {
                 chrome: self.mapping_chrome(&surface, decoration),
             }],
         };
-        scrolling::arrange_columns(&[column], (0, 0).into(), self.get_usable_area().size, 0)
-            .ok()?
-            .first()
-            .map(|p| p.content.size)
+        scrolling::arrange_columns(
+            &[column],
+            (0, 0).into(),
+            self.usable_area_on(&view.output).size,
+            0,
+        )
+        .ok()?
+        .first()
+        .map(|p| p.content.size)
     }
 
     pub(crate) fn record_initial_tiling_configure(
@@ -457,6 +749,9 @@ impl DriftWm {
         output: &Output,
         serial: smithay::utils::Serial,
     ) -> bool {
+        if self.tiling_view.select_output(output) {
+            self.stage.activate_tiling_output(&output.name());
+        }
         if self
             .tiling_view
             .as_ref()
@@ -471,17 +766,43 @@ impl DriftWm {
         false
     }
 
+    fn select_tiling_output_for_window(&mut self, id: driftwm::stage::ElementId) -> bool {
+        let Some(output) = self.stage.tiling_output_for_window(id).map(str::to_owned) else {
+            return false;
+        };
+        if !self.tiling_view.select_output_name(&output) {
+            return false;
+        }
+        self.stage.activate_tiling_output(&output);
+        true
+    }
+
     pub(crate) fn refresh_tiling(&mut self) {
         self.refresh_tiling_at(std::time::Instant::now());
     }
 
+    fn refresh_tiling_for_output(&mut self, output: &Output, now: std::time::Instant) {
+        let previous_output = self.focused_output.replace(output.clone());
+        self.tiling_view.select_output(output);
+        self.stage.activate_tiling_output(&output.name());
+        self.refresh_tiling_at(now);
+        self.focused_output = previous_output;
+    }
+
     pub(crate) fn refresh_tiling_at(&mut self, now: std::time::Instant) {
+        let Some(output) = self.active_output() else {
+            return;
+        };
+        if !self.tiling_view.select_output(&output) {
+            return;
+        }
+        self.stage.activate_tiling_output(&output.name());
+        let output_name = output.name();
         let Some(view) = self.tiling_view.as_ref() else {
             return;
         };
         if self.stage.tiling_layout_id() != Some(view.layout_id)
-            || self.space.outputs().count() != 1
-            || self.active_output().as_ref() != Some(&view.output)
+            || self.disconnected_outputs.contains(&view.output.name())
             || self.zoom() != 1.0
         {
             self.prepare_tiling_operation(super::TilingOperation::LayoutInvalidated);
@@ -493,9 +814,7 @@ impl DriftWm {
         let stationary_x = self.camera_target().unwrap_or_else(|| self.camera()).x;
         let previous_active = self.stage.active_column();
 
-        let selected_closed = view
-            .selected
-            .is_some_and(|id| self.stage.window_by_id(id).is_none());
+        let selected_closed = view.selected.is_some_and(|id| !self.stage.is_tiled(id));
         self.tiling_view
             .as_mut()
             .unwrap()
@@ -529,11 +848,15 @@ impl DriftWm {
             }
         }
 
-        if self.stage.tiled_windows().any(|column| {
-            self.stage
-                .window_by_id(column.id)
-                .is_some_and(|w| !self.tiling_eligible(w))
-        }) {
+        if self
+            .stage
+            .tiled_windows_for_output(&output_name)
+            .any(|column| {
+                self.stage
+                    .window_by_id(column.id)
+                    .is_some_and(|w| !self.tiling_eligible(w))
+            })
+        {
             self.prepare_tiling_operation(super::TilingOperation::LayoutInvalidated);
             return;
         }
@@ -541,6 +864,17 @@ impl DriftWm {
             .stage
             .windows()
             .filter(|w| self.tiling_eligible(w))
+            .filter(|w| {
+                let Some(id) = self.stage.id_of(*w) else {
+                    return false;
+                };
+                if let Some(owner) = self.stage.tiling_output_for_window(id) {
+                    owner == output_name
+                } else {
+                    self.output_for_tiling_window(*w)
+                        .is_some_and(|owner| owner.name() == output_name)
+                }
+            })
             .filter_map(|w| {
                 let id = self.stage.id_of(w)?;
                 let window = w.client()?;
@@ -563,6 +897,7 @@ impl DriftWm {
         }
         if let Some(element) = self.focused_element()
             && let Some(id) = self.stage.id_of(&element)
+            && self.stage.tiling_output_for_window(id) == Some(output_name.as_str())
         {
             self.stage.select_tile(id);
         }
@@ -794,7 +1129,7 @@ impl DriftWm {
         } else {
             None
         };
-        if let Some(view) = &mut self.tiling_view {
+        if let Some(view) = self.tiling_view.as_mut() {
             view.selected = self.stage.active_tile();
             view.close_return = new_return
                 .or(saved_return)
@@ -947,7 +1282,7 @@ impl DriftWm {
         {
             self.set_camera_target(Some(target.to_f64()));
         }
-        if let Some(view) = &mut self.tiling_view {
+        if let Some(view) = self.tiling_view.as_mut() {
             view.revealed = selected;
             view.last_usable = Some(usable);
             view.anchor = anchor;
@@ -959,7 +1294,12 @@ impl DriftWm {
         let Some(mut backend) = self.backend.take() else {
             return;
         };
-        let tiles: Vec<_> = self.stage.tiled_windows().map(|t| t.id).collect();
+        let output_name = self.tiling_view.as_ref().unwrap().output.name();
+        let tiles: Vec<_> = self
+            .stage
+            .tiled_windows_for_output(&output_name)
+            .map(|t| t.id)
+            .collect();
         let focused = self.focus_root_window();
         for id in tiles {
             if self
@@ -1098,8 +1438,9 @@ impl DriftWm {
                 None
             };
             let native_chrome = crossfading
+                || blur.bar_height.is_some()
                 || self.window_animations.open_progress(id).is_some()
-                || (has_geometry && client_effect);
+                || (has_geometry && (!translating || client_effect));
             let chrome = self
                 .snapshot_chrome(&surface, geometry, false)
                 .map(|mut chrome| {
@@ -1151,9 +1492,21 @@ impl DriftWm {
             });
             // Decoration updates replace their buffer, so this clone retains
             // the native-size title pixels across a superseding resize.
-            let bar = native_chrome
-                .then(|| chrome.and_then(|c| c.bar.map(|(b, _)| b.clone())))
-                .flatten();
+            let bar = self
+                .resize_crossfades
+                .get(&id)
+                .and_then(|resize| resize.title.as_ref())
+                .map(|title| title.retained(backend.renderer()))
+                .or_else(|| {
+                    native_chrome
+                        .then(|| {
+                            chrome.and_then(|c| {
+                                c.bar
+                                    .map(|(b, _)| crate::render::TitlePixels::Memory(b.clone()))
+                            })
+                        })
+                        .flatten()
+                });
             // Separate chrome preserves live alpha blending and output-space
             // rounding. Shadows also stay below frost instead of in its mask.
             let chrome = chrome.map(|mut c| {
@@ -1248,6 +1601,7 @@ impl DriftWm {
                         })
                         .flatten();
                     if let Some(resize) = resize.as_mut() {
+                        resize.title = bar.clone().map(crate::render::TitleCrossfade::new);
                         resize.retain_blur_mask(
                             mask_policy.as_ref().unwrap_or(&blur),
                             retained_mask.clone(),
@@ -1283,8 +1637,8 @@ impl DriftWm {
     pub(crate) fn release_tiling_snapshot_for_animation(&mut self, id: driftwm::stage::ElementId) {
         if self
             .tiling_view
-            .as_mut()
-            .is_some_and(|view| view.snapshots.remove(&id).is_some())
+            .iter_mut()
+            .any(|(_, view)| view.snapshots.remove(&id).is_some())
         {
             // Live animation geometry must replace the saved frost mask too.
             self.render.blur_geometry_generation += 1;
@@ -1295,8 +1649,8 @@ impl DriftWm {
     pub(crate) fn invalidate_tiling_snapshot_animation(&mut self, id: driftwm::stage::ElementId) {
         if self
             .tiling_view
-            .as_ref()
-            .is_some_and(|v| v.snapshots.contains_key(&id))
+            .iter()
+            .any(|(_, view)| view.snapshots.contains_key(&id))
         {
             self.render.blur_geometry_generation += 1;
             self.mark_all_dirty();
@@ -1304,17 +1658,23 @@ impl DriftWm {
     }
 
     pub(crate) fn has_fading_tiling_snapshot(&self) -> bool {
-        self.tiling_view.as_ref().is_some_and(|v| {
-            v.snapshots
+        self.tiling_view.iter().any(|(_, view)| {
+            view.snapshots
                 .keys()
                 .any(|id| self.window_animations.open_progress(*id).is_some())
         })
     }
 
     pub(crate) fn tiling_snapshot_count(&self) -> usize {
-        self.tiling_view.as_ref().map_or(0, |v| {
-            v.snapshots.values().map(|s| 1 + s.popups.len()).sum()
-        })
+        self.tiling_view
+            .iter()
+            .map(|(_, view)| {
+                view.snapshots
+                    .values()
+                    .map(|s| 1 + s.popups.len())
+                    .sum::<usize>()
+            })
+            .sum()
     }
 
     pub(crate) fn tiling_snapshot_elements(
@@ -1325,7 +1685,7 @@ impl DriftWm {
         zoom: f64,
         output_scale: f64,
     ) -> Option<TilingSnapshotElements> {
-        let snapshot = self.tiling_view.as_ref()?.snapshots.get(&id)?;
+        let snapshot = self.tiling_view.for_output(output)?.snapshots.get(&id)?;
         let root = self.stage.window_by_id(id)?.wl_surface()?;
         let popups_match = snapshot.matches_popups(&root);
         // Geometry chases contribute displacement; opening scales/fades the
@@ -1503,6 +1863,7 @@ impl DriftWm {
                 .to_physical(physical_scale)
                 .to_i32_round::<i32>();
             let body = chrome_animation.map_or(body, |a| a.transform_phys_rect(body));
+            request.chrome_mask = (mask.title_coverage > 0.0).then_some((0, mask.title_coverage));
             request.mask = Some(crate::render::ResizeCrossfade::render_retained_rect(
                 &mask.buffer,
                 mask.texels,
@@ -1542,7 +1903,9 @@ impl DriftWm {
             blur,
             border: snapshot.border.clone().map(|mut border| {
                 if snapshot.native_chrome {
-                    let bar = base.loc.y - border.inner.loc.y;
+                    let bar = (f64::from(snapshot.blur.bar_height.unwrap_or(0)) * output_scale)
+                        .round()
+                        / output_scale;
                     border.inner = smithay::utils::Rectangle::new(
                         frame.loc - Point::from((0.0, bar)),
                         (frame.size.w, frame.size.h + bar).into(),
@@ -1554,7 +1917,9 @@ impl DriftWm {
             shadow: snapshot.shadow.clone().map(|mut shadow| {
                 if snapshot.native_chrome {
                     let bw = f64::from(shadow.border_width);
-                    let bar = base.loc.y - shadow.body.loc.y - bw;
+                    let bar = (f64::from(snapshot.blur.bar_height.unwrap_or(0)) * output_scale)
+                        .round()
+                        / output_scale;
                     shadow.body = smithay::utils::Rectangle::new(
                         frame.loc - Point::from((bw, bar + bw)),
                         (frame.size.w + 2.0 * bw, frame.size.h + bar + 2.0 * bw).into(),
@@ -1586,23 +1951,22 @@ impl DriftWm {
         surface: &smithay::reexports::wayland_server::protocol::wl_surface::WlSurface,
     ) {
         use smithay::wayland::compositor::{BufferAssignment, SurfaceAttributes, with_states};
-        if self
-            .tiling_view
-            .as_ref()
-            .is_none_or(|v| v.presentation.is_none())
-        {
-            return;
-        }
-        let Some(element) = self
+        let Some(id) = self
             .stage
             .windows()
             .find(|w| w.wl_surface().as_deref() == Some(surface))
+            .and_then(|window| self.stage.id_of(window))
         else {
             return;
         };
-        let Some(id) = self.stage.id_of(element) else {
+        if !self.select_tiling_output_for_window(id)
+            || self
+                .tiling_view
+                .as_ref()
+                .is_none_or(|view| view.presentation.is_none())
+        {
             return;
-        };
+        }
         let new_buffer = with_states(surface, |states| {
             matches!(
                 states
@@ -1616,8 +1980,10 @@ impl DriftWm {
         if !new_buffer {
             return;
         }
-        let serial = element
-            .client()
+        let serial = self
+            .stage
+            .window_by_id(id)
+            .and_then(|element| element.client())
             .and_then(|w| w.toplevel())
             .and_then(|t| t.with_cached_state(|s| s.last_acked.as_ref().map(|c| c.serial)));
         let Some(presentation) = self
@@ -1655,6 +2021,7 @@ impl DriftWm {
             return;
         };
         let layout_id = view.layout_id;
+        let output = view.output.clone();
         view.commit_wakeups += 1;
         self.loop_handle.insert_idle(move |state| {
             for client in clients {
@@ -1663,11 +2030,19 @@ impl DriftWm {
                     client_state.compositor_state.blocker_cleared(state, &dh);
                 }
             }
-            if let Some(view) = state.tiling_view.as_mut()
-                && view.layout_id == layout_id
-            {
-                view.commit_wakeups -= 1;
-                state.refresh_tiling();
+            if state.tiling_view.select_output(&output) {
+                state.stage.activate_tiling_output(&output.name());
+                let should_refresh = if let Some(view) = state.tiling_view.as_mut()
+                    && view.layout_id == layout_id
+                {
+                    view.commit_wakeups -= 1;
+                    true
+                } else {
+                    false
+                };
+                if should_refresh {
+                    state.refresh_tiling_for_output(&output, std::time::Instant::now());
+                }
             }
         });
     }
@@ -1699,13 +2074,7 @@ impl DriftWm {
     ) {
         use smithay::wayland::compositor::{BufferAssignment, SurfaceAttributes, with_states};
         use smithay::wayland::shell::xdg::XdgToplevelSurfaceData;
-        if self.backend.is_none()
-            || self.config.effects.animation_speed >= 1.0
-            || self
-                .tiling_view
-                .as_ref()
-                .is_none_or(|v| v.commits.is_some() || v.presentation.is_some())
-        {
+        if self.backend.is_none() || self.config.effects.animation_speed >= 1.0 {
             return;
         }
         let serial = with_states(surface, |states| {
@@ -1741,6 +2110,14 @@ impl DriftWm {
         else {
             return;
         };
+        if !self.select_tiling_output_for_window(id)
+            || self
+                .tiling_view
+                .as_ref()
+                .is_none_or(|view| view.commits.is_some() || view.presentation.is_some())
+        {
+            return;
+        }
         if self.window_animations.generation_of(id).is_some()
             || self.window_animations.open_progress(id).is_some()
             || self.resize_crossfades.contains_key(&id)
@@ -1760,6 +2137,62 @@ impl DriftWm {
         }
     }
 
+    pub(crate) fn handle_tiling_unmap(
+        &mut self,
+        surface: &smithay::reexports::wayland_server::protocol::wl_surface::WlSurface,
+    ) -> bool {
+        use smithay::backend::renderer::utils::RendererSurfaceStateUserData;
+        use smithay::wayland::compositor::with_states;
+        if self.tiling_view.is_none() {
+            return false;
+        }
+        let Some(window) = self.window_for_surface(surface) else {
+            return false;
+        };
+        let Some(id) = self
+            .stage
+            .id_of(&window)
+            .filter(|id| self.stage.is_tiled(*id))
+        else {
+            return false;
+        };
+        if !self.select_tiling_output_for_window(id) {
+            return false;
+        }
+        let mapped = with_states(surface, |states| {
+            states
+                .data_map
+                .get::<RendererSurfaceStateUserData>()
+                .is_some_and(|data| data.lock().unwrap().buffer().is_some())
+        });
+        if mapped {
+            return false;
+        }
+        window.on_commit();
+        self.stage.untile(id);
+        self.release_tiling_snapshot_for_animation(id);
+        self.window_animations.remove(id);
+        self.drop_resize_crossfade(id);
+        self.render
+            .animated_content
+            .retain(|(_, candidate), _| *candidate != id);
+        self.decorations
+            .remove(&crate::decorations::DecorationKey::Surface(surface.id()));
+        self.pending_ssd.remove(&surface.id());
+        self.pending_center.insert(surface.clone());
+        super::membership::send_output_leaves(&window);
+        if self
+            .focused_element()
+            .as_ref()
+            .and_then(|w| self.stage.id_of(w))
+            == Some(id)
+        {
+            self.set_window_focus(None, SERIAL_COUNTER.next_serial());
+        }
+        self.mark_all_dirty();
+        true
+    }
+
     pub(crate) fn tiling_pre_commit(
         &mut self,
         surface: &smithay::reexports::wayland_server::protocol::wl_surface::WlSurface,
@@ -1768,13 +2201,6 @@ impl DriftWm {
             BufferAssignment, SurfaceAttributes, add_blocker, with_states,
         };
         use smithay::wayland::shell::xdg::XdgToplevelSurfaceData;
-        if self
-            .tiling_view
-            .as_ref()
-            .is_none_or(|v| v.commits.is_none())
-        {
-            return;
-        }
         let Some(id) = self
             .stage
             .windows()
@@ -1783,6 +2209,14 @@ impl DriftWm {
         else {
             return;
         };
+        if !self.select_tiling_output_for_window(id)
+            || self
+                .tiling_view
+                .as_ref()
+                .is_none_or(|view| view.commits.is_none())
+        {
+            return;
+        }
         let serial = with_states(surface, |states| {
             let new_buffer = matches!(
                 states
@@ -1854,14 +2288,23 @@ impl DriftWm {
             return;
         }
         let layout_id = view.layout_id;
+        let output = view.output.clone();
         match self
             .loop_handle
             .insert_source(Timer::from_deadline(deadline), move |_, _, state| {
-                if let Some(view) = state.tiling_view.as_mut()
-                    && view.layout_id == layout_id
-                {
-                    view.configure_timer = None;
-                    state.refresh_tiling();
+                if state.tiling_view.select_output(&output) {
+                    state.stage.activate_tiling_output(&output.name());
+                    let should_refresh = if let Some(view) = state.tiling_view.as_mut()
+                        && view.layout_id == layout_id
+                    {
+                        view.configure_timer = None;
+                        true
+                    } else {
+                        false
+                    };
+                    if should_refresh {
+                        state.refresh_tiling_for_output(&output, std::time::Instant::now());
+                    }
                 }
                 TimeoutAction::Drop
             }) {
@@ -1878,10 +2321,17 @@ impl DriftWm {
     }
 
     pub(crate) fn tiling_pending_configures(&self) -> usize {
-        self.tiling_view.as_ref().map_or(0, |v| {
-            v.configures.pending_count()
-                + v.initial_configures.values().filter(|c| !c.expired).count()
-        })
+        self.tiling_view
+            .iter()
+            .map(|(_, view)| {
+                view.configures.pending_count()
+                    + view
+                        .initial_configures
+                        .values()
+                        .filter(|c| !c.expired)
+                        .count()
+            })
+            .sum()
     }
 
     #[cfg(test)]
@@ -1889,13 +2339,17 @@ impl DriftWm {
         &self,
         id: driftwm::stage::ElementId,
     ) -> Option<scrolling::transaction::ConfigureProgress> {
-        self.tiling_view.as_ref()?.configures.progress(id)
+        let output = self.stage.tiling_output_for_window(id)?;
+        let output = self.output_by_name(output)?;
+        self.tiling_view
+            .for_output(&output)?
+            .configures
+            .progress(id)
     }
 
-    pub(super) fn tiling_canvas_view(&self, output: &Output) -> Option<(Point<f64, Logical>, f64)> {
+    pub(crate) fn tiling_canvas_view(&self, output: &Output) -> Option<(Point<f64, Logical>, f64)> {
         self.tiling_view
-            .as_ref()
-            .filter(|view| &view.output == output)
+            .for_output(output)
             .map(|view| (view.camera, view.zoom))
     }
 }

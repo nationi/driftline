@@ -23,14 +23,15 @@ use smithay::utils::Transform;
 use smithay::utils::{Logical, Point};
 
 use defaults::{
-    default_bindings, default_gesture_bindings, default_mouse_bindings, default_touch_bindings,
+    default_bindings, default_gesture_bindings, default_mouse_bindings, default_tiling_bindings,
+    default_touch_bindings,
 };
 use parse_helpers::{
     Warnings, clamp_warn, collect_warn, non_negative, parse_backend_config,
     parse_decoration_config, parse_effects_config, parse_focus_placement, parse_output_outline,
     parse_output_rule, parse_window_rule, positive_or_default,
 };
-use toml::{ConfigFile, expand_tilde};
+use toml::{ConfigFile, KeybindingsFileConfig, expand_tilde};
 
 /// Env vars the compositor sets as toolkit fallbacks.
 /// `[env]` config entries take precedence over these.
@@ -229,8 +230,8 @@ pub struct Config {
     pub zoom_interact_min: f64,
     pub snap_enabled: bool,
     pub snap_gap: f64,
-    /// Inset from the usable area's edge to a fitted, filled or parked window's
-    /// title bar / content edge.
+    /// Inset from the usable area's edge to a window's title bar / content edge
+    /// under fill, parking, focus-nearest's reveal and resize-to-snap's stop.
     pub snap_outer_gap: f64,
     pub snap_distance: f64,
     pub snap_break_force: f64,
@@ -273,10 +274,15 @@ pub struct Config {
     pub child_env: HashMap<String, String>,
     pub output_configs: Vec<OutputConfig>,
     bindings: HashMap<KeyCombo, Action>,
+    default_tiling_bindings: HashMap<KeyCombo, Action>,
+    canvas_bindings: HashMap<KeyCombo, Option<Action>>,
+    tiling_bindings: HashMap<KeyCombo, Option<Action>>,
     /// Tap-modifier bindings: a bare modifier chord (e.g. `alt+shift`) that
     /// fires its action when the chord is pressed and released with no other
     /// key on top. Keyed by the exact modifier set.
     tap_bindings: HashMap<Modifiers, Action>,
+    canvas_tap_bindings: HashMap<Modifiers, Option<Action>>,
+    tiling_tap_bindings: HashMap<Modifiers, Option<Action>>,
     pub mouse: ContextBindings<MouseBinding, MouseAction>,
     /// When `true` (default), dragging a window's edge or corner resizes it
     /// via the invisible resize border (SSD frame or CSD margin). When `false`,
@@ -285,14 +291,13 @@ pub struct Config {
     pub resize_on_border: bool,
     /// When `true`, resizing a window by dragging its edge (SSD or CSD
     /// border) propagates to every window connected to it via snap
-    /// adjacency. Keybinding and gesture resize are unaffected — bind
-    /// `resize-window-snapped` explicitly for those.
+    /// adjacency. Keybinding and gesture resize are unaffected — their bound
+    /// action decides.
     pub decoration_resize_snapped: bool,
     /// When `true`, maximize/unmaximize initiated via window decoration
     /// (CSD maximize button, SSD title-bar double-click, xdg/foreign-toplevel
     /// set_maximized) propagates to every window connected via snap adjacency.
-    /// Keybinding and gesture fit are unaffected — bind `fit-window-snapped`
-    /// explicitly for those.
+    /// Keybinding and gesture fit are unaffected — their bound action decides.
     pub decoration_fit_snapped: bool,
     pub gestures: ContextBindings<GestureBinding, GestureConfigEntry>,
     /// Touch gesture bindings (`[touch]`), keyed by bare trigger (no modifiers).
@@ -312,17 +317,81 @@ impl Config {
     }
 
     pub fn lookup(&self, modifiers: &ModifiersState, sym: Keysym) -> Option<&Action> {
+        self.lookup_for_mode(modifiers, sym, false)
+    }
+
+    /// Look up a keybinding only when its action is available in the active
+    /// canvas or tiling mode.
+    pub fn lookup_for_mode(
+        &self,
+        modifiers: &ModifiersState,
+        sym: Keysym,
+        tiling: bool,
+    ) -> Option<&Action> {
         let mut combo = KeyCombo {
             modifiers: Modifiers::from_state(modifiers),
             sym,
         };
         combo.normalize();
-        self.bindings.get(&combo)
+        let profile = if tiling {
+            &self.tiling_bindings
+        } else {
+            &self.canvas_bindings
+        };
+        let action = match profile.get(&combo) {
+            Some(Some(action)) => Some(action),
+            Some(None) => None,
+            None => self
+                .bindings
+                .get(&combo)
+                .filter(|action| action.allowed_in_tiling(tiling))
+                .or_else(|| {
+                    tiling
+                        .then(|| self.default_tiling_bindings.get(&combo))
+                        .flatten()
+                }),
+        };
+        action.filter(|action| action.allowed_in_tiling(tiling))
     }
 
     /// Look up a tap-modifier binding by the completed chord's modifier set.
     pub fn tap_lookup(&self, mods: &Modifiers) -> Option<&Action> {
         self.tap_bindings.get(mods)
+    }
+
+    pub fn tap_lookup_for_mode(&self, mods: &Modifiers, tiling: bool) -> Option<&Action> {
+        let profile = if tiling {
+            &self.tiling_tap_bindings
+        } else {
+            &self.canvas_tap_bindings
+        };
+        let action = match profile.get(mods) {
+            Some(Some(action)) => Some(action),
+            Some(None) => None,
+            None => self.tap_bindings.get(mods),
+        };
+        action.filter(|action| action.allowed_in_tiling(tiling))
+    }
+
+    pub fn cycle_hold_for_mode(&self, tiling: bool) -> &Modifiers {
+        let profile = if tiling {
+            &self.tiling_bindings
+        } else {
+            &self.canvas_bindings
+        };
+        profile
+            .iter()
+            .find_map(|(combo, action)| {
+                matches!(action, Some(Action::CycleWindows { backward: false }))
+                    .then_some(&combo.modifiers)
+            })
+            .or_else(|| {
+                self.bindings
+                    .iter()
+                    .find(|(_, action)| matches!(action, Action::CycleWindows { backward: false }))
+                    .map(|(combo, _)| &combo.modifiers)
+            })
+            .unwrap_or(&self.cycle_hold)
     }
 
     /// Look up a mouse button action by modifier state, button code, and context.
@@ -507,11 +576,11 @@ impl Config {
 
         let window_placement = match raw.window_placement.as_deref() {
             Some("cursor") => WindowPlacement::Cursor,
-            Some("auto") => WindowPlacement::Auto,
-            Some("center") | None => WindowPlacement::Center,
+            Some("center") => WindowPlacement::Center,
+            Some("auto") | None => WindowPlacement::Auto,
             Some(other) => {
-                warn_and_collect!("config: unknown window_placement '{other}', using center");
-                WindowPlacement::Center
+                warn_and_collect!("config: unknown window_placement '{other}', using auto");
+                WindowPlacement::Auto
             }
         };
 
@@ -525,6 +594,12 @@ impl Config {
                 }
             },
         };
+
+        let KeybindingsFileConfig {
+            common: user_bindings,
+            canvas: user_canvas_bindings,
+            tiling: user_tiling_bindings,
+        } = raw.keybindings;
 
         let mut disable_keys = false;
         let mut disable_mouse = false;
@@ -554,9 +629,20 @@ impl Config {
                 })
                 .collect()
         };
+        let mut default_tiling_bindings = if disable_keys {
+            HashMap::new()
+        } else {
+            default_tiling_bindings(mod_key)
+                .into_iter()
+                .map(|(mut combo, action)| {
+                    combo.normalize();
+                    (combo, action)
+                })
+                .collect()
+        };
 
         let mut tap_bindings: HashMap<Modifiers, Action> = HashMap::new();
-        if let Some(user_bindings) = raw.keybindings {
+        {
             for (key_str, action_str) in &user_bindings {
                 // A bare modifier chord (no keysym) is a tap-modifier binding.
                 if let Some(tap_result) = parse::parse_tap_combo(key_str, mod_key) {
@@ -584,6 +670,7 @@ impl Config {
                         combo.normalize();
                         if action_str == "none" {
                             bindings.remove(&combo);
+                            default_tiling_bindings.remove(&combo);
                         } else {
                             match parse_action(action_str) {
                                 Ok(action) => {
@@ -596,6 +683,75 @@ impl Config {
                         }
                     }
                     Err(e) => warn_and_collect!("config: invalid key combo '{key_str}': {e}"),
+                }
+            }
+        }
+
+        let mut canvas_bindings = HashMap::new();
+        let mut tiling_bindings = HashMap::new();
+        let mut canvas_tap_bindings = HashMap::new();
+        let mut tiling_tap_bindings = HashMap::new();
+        for (mode_name, user_bindings, bindings, tap_bindings, tiling) in [
+            (
+                "canvas",
+                user_canvas_bindings,
+                &mut canvas_bindings,
+                &mut canvas_tap_bindings,
+                false,
+            ),
+            (
+                "tiling",
+                user_tiling_bindings,
+                &mut tiling_bindings,
+                &mut tiling_tap_bindings,
+                true,
+            ),
+        ] {
+            for (key_str, action_str) in user_bindings {
+                if let Some(tap_result) = parse::parse_tap_combo(&key_str, mod_key) {
+                    match tap_result {
+                        Ok(mods) if action_str == "none" => {
+                            tap_bindings.insert(mods, None);
+                        }
+                        Ok(mods) => match parse_action(&action_str) {
+                            Ok(action) if action.allowed_in_tiling(tiling) => {
+                                tap_bindings.insert(mods, Some(action));
+                            }
+                            Ok(_) => warn_and_collect!(
+                                "config: {mode_name} tap binding '{key_str}' is not available in {mode_name} mode"
+                            ),
+                            Err(e) => warn_and_collect!(
+                                "config: invalid {mode_name} tap binding '{key_str}' action '{action_str}': {e}"
+                            ),
+                        },
+                        Err(e) => warn_and_collect!(
+                            "config: invalid {mode_name} tap binding '{key_str}': {e}"
+                        ),
+                    }
+                    continue;
+                }
+                match parse_key_combo(&key_str, mod_key) {
+                    Ok(mut combo) => {
+                        combo.normalize();
+                        if action_str == "none" {
+                            bindings.insert(combo, None);
+                        } else {
+                            match parse_action(&action_str) {
+                                Ok(action) if action.allowed_in_tiling(tiling) => {
+                                    bindings.insert(combo, Some(action));
+                                }
+                                Ok(_) => warn_and_collect!(
+                                    "config: {mode_name} keybinding '{key_str}' is not available in {mode_name} mode"
+                                ),
+                                Err(e) => warn_and_collect!(
+                                    "config: invalid {mode_name} keybinding '{key_str}' action '{action_str}': {e}"
+                                ),
+                            }
+                        }
+                    }
+                    Err(e) => {
+                        warn_and_collect!("config: invalid {mode_name} key combo '{key_str}': {e}")
+                    }
                 }
             }
         }
@@ -615,8 +771,8 @@ impl Config {
             });
 
         let resize_on_border = raw.mouse.resize_on_border.unwrap_or(true);
-        let decoration_resize_snapped = raw.mouse.decoration_resize_snapped.unwrap_or(false);
-        let decoration_fit_snapped = raw.mouse.decoration_fit_snapped.unwrap_or(false);
+        let decoration_resize_snapped = raw.mouse.decoration_resize_snapped.unwrap_or(true);
+        let decoration_fit_snapped = raw.mouse.decoration_fit_snapped.unwrap_or(true);
         let mut mouse_bindings = if disable_mouse {
             ContextBindings::empty()
         } else {
@@ -1091,9 +1247,9 @@ impl Config {
             focus_follows_mouse: raw.focus_follows_mouse.unwrap_or(false),
             session: SessionConfig {
                 suspend_on_close: raw.session.suspend_on_close.unwrap_or(false),
-                restore_windows: raw.session.restore_windows.unwrap_or(false),
-                restore_camera: raw.session.restore_camera.unwrap_or(false),
-                restore_bookmarks: raw.session.restore_bookmarks.unwrap_or(false),
+                restore_windows: raw.session.restore_windows.unwrap_or(true),
+                restore_camera: raw.session.restore_camera.unwrap_or(true),
+                restore_bookmarks: raw.session.restore_bookmarks.unwrap_or(true),
             },
             trackpad_speed,
             mouse_speed,
@@ -1171,13 +1327,13 @@ impl Config {
                 "zoom.fit_padding",
                 &mut errors,
             ),
-            zoom_reset_on_new_window: raw.zoom.reset_on_new_window.unwrap_or(true),
+            zoom_reset_on_new_window: raw.zoom.reset_on_new_window.unwrap_or(false),
             zoom_reset_on_activation: raw.zoom.reset_on_activation.unwrap_or(true),
             // clamp_warn (not non_negative): folds NaN into the below-min branch
             // → 0.0 → off, and rejects values above MAX_ZOOM rather than
             // silently accepting a threshold no zoom can ever fall below.
             zoom_interact_min: clamp_warn(
-                raw.zoom.interact_min.unwrap_or(0.0),
+                raw.zoom.interact_min.unwrap_or(0.5),
                 0.0,
                 crate::canvas::MAX_ZOOM,
                 "zoom.interact_min",
@@ -1186,7 +1342,7 @@ impl Config {
             snap_enabled: raw.snap.enabled.unwrap_or(true),
             snap_gap: non_negative(raw.snap.gap.unwrap_or(12.0), "snap.gap", &mut errors),
             snap_outer_gap: non_negative(
-                raw.snap.outer_gap.unwrap_or(0.0),
+                raw.snap.outer_gap.unwrap_or(12.0),
                 "snap.outer_gap",
                 &mut errors,
             ),
@@ -1200,7 +1356,7 @@ impl Config {
                 "snap.break_force",
                 &mut errors,
             ),
-            snap_corners: raw.snap.corners.unwrap_or(false),
+            snap_corners: raw.snap.corners.unwrap_or(true),
             snap_centers: raw.snap.centers.unwrap_or(false),
             background,
             decorations,
@@ -1250,7 +1406,12 @@ impl Config {
             focus_placement,
             output_configs,
             bindings,
+            default_tiling_bindings,
+            canvas_bindings,
+            tiling_bindings,
             tap_bindings,
+            canvas_tap_bindings,
+            tiling_tap_bindings,
             mouse: mouse_bindings,
             resize_on_border,
             decoration_resize_snapped,
@@ -2169,6 +2330,135 @@ mod tests {
     }
 
     #[test]
+    fn canvas_and_tiling_keybindings_are_exclusive() {
+        let config = Config::from_toml(
+            r#"
+                [keybindings.canvas]
+                "mod+left" = "center-nearest left"
+
+                [keybindings.tiling]
+                "mod+left" = "focus-column left"
+            "#,
+        )
+        .unwrap();
+        let focus = parse::parse_key_combo("mod+left", ModKey::Super).unwrap();
+        let canvas_nav = parse::parse_key_combo("mod+left", ModKey::Super).unwrap();
+        let toggle = parse::parse_key_combo("mod+ctrl+t", ModKey::Super).unwrap();
+
+        let focus_mods = ModifiersState {
+            logo: true,
+            ..Default::default()
+        };
+        let logo = ModifiersState {
+            logo: true,
+            ..Default::default()
+        };
+        let toggle_mods = ModifiersState {
+            logo: true,
+            ctrl: true,
+            ..Default::default()
+        };
+
+        assert_eq!(
+            config.lookup_for_mode(&focus_mods, focus.sym, true),
+            Some(&Action::FocusColumn(Direction::Left))
+        );
+        assert_eq!(
+            config.lookup_for_mode(&focus_mods, focus.sym, false),
+            Some(&Action::CenterNearest(Direction::Left))
+        );
+        assert_eq!(
+            config.lookup_for_mode(&logo, canvas_nav.sym, false),
+            Some(&Action::CenterNearest(Direction::Left))
+        );
+        assert_eq!(
+            config.lookup_for_mode(&logo, canvas_nav.sym, true),
+            Some(&Action::FocusColumn(Direction::Left))
+        );
+        assert_eq!(
+            config.lookup_for_mode(&toggle_mods, toggle.sym, false),
+            Some(&Action::ToggleTiling)
+        );
+        assert_eq!(
+            config.lookup_for_mode(&toggle_mods, toggle.sym, true),
+            Some(&Action::ToggleTiling)
+        );
+    }
+
+    #[test]
+    fn default_tiling_keys_use_shortcuts_filtered_from_canvas_actions() {
+        let config = Config::from_toml("").unwrap();
+        let cases = [
+            (
+                "mod+left",
+                ModifiersState {
+                    logo: true,
+                    ..Default::default()
+                },
+                Action::FocusColumn(Direction::Left),
+                Action::PanViewport(Direction::Left),
+            ),
+            (
+                "mod+shift+left",
+                ModifiersState {
+                    logo: true,
+                    shift: true,
+                    ..Default::default()
+                },
+                Action::MoveColumn(Direction::Left),
+                Action::MoveToSnap(Direction::Left),
+            ),
+            (
+                "mod+shift+up",
+                ModifiersState {
+                    logo: true,
+                    shift: true,
+                    ..Default::default()
+                },
+                Action::MoveTiledWindow(Direction::Up),
+                Action::MoveToSnap(Direction::Up),
+            ),
+            (
+                "mod+ctrl+left",
+                ModifiersState {
+                    logo: true,
+                    ctrl: true,
+                    ..Default::default()
+                },
+                Action::MoveIntoColumn(Direction::Left),
+                Action::FocusNearest(Direction::Left),
+            ),
+        ];
+
+        for (binding, modifiers, expected_tiling, expected_canvas) in cases {
+            let combo = parse::parse_key_combo(binding, ModKey::Super).unwrap();
+            assert_eq!(
+                config.lookup_for_mode(&modifiers, combo.sym, true),
+                Some(&expected_tiling)
+            );
+            assert_eq!(
+                config.lookup_for_mode(&modifiers, combo.sym, false),
+                Some(&expected_canvas)
+            );
+        }
+
+        let alt_config = Config::from_toml("mod_key = \"alt\"").unwrap();
+        let alt_combo = parse::parse_key_combo("mod+left", ModKey::Alt).unwrap();
+        let alt_modifiers = ModifiersState {
+            alt: true,
+            ..Default::default()
+        };
+        assert_eq!(
+            alt_config.lookup_for_mode(&alt_modifiers, alt_combo.sym, true),
+            Some(&Action::FocusColumn(Direction::Left))
+        );
+        assert_eq!(
+            alt_config.lookup_for_mode(&alt_modifiers, alt_combo.sym, false),
+            Some(&Action::PanViewport(Direction::Left))
+        );
+    }
+
+    #[test]
     fn plain_keybinding_does_not_fire_when_mod3_is_also_held() {
         let toml_str = r#"
             [keybindings]
@@ -2647,7 +2937,7 @@ mod tests {
 
     #[test]
     fn direction_binding_over_non_continuous_base_does_not_warn() {
-        // Base 4-finger swipe is the default center-nearest (threshold); an
+        // Base 4-finger swipe is the default focus-nearest (threshold); an
         // unbound base (5-finger, unbound here) never shadows — neither warns.
         let toml_str = r#"
             [gestures.anywhere]

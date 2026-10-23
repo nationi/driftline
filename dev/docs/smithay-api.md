@@ -189,7 +189,11 @@ tool.proximity_out(self, &tool::ProximityOutEvent { serial, time });
 
 - `under` is `Option<(ToolFocus, Point<f64, Logical>)>` and may be `None`; every other call before `proximity_in` is dropped with a warning ("the tool hasn't entered tablet proximity"), so pass `None` rather than skipping `proximity_in`.
 - `AxisFrame` has public `Option` fields (`pressure`, `distance`, `tilt`, `rotation`, `slider`, `wheel`) and builder methods; `changed_axes` in `src/input/tablet.rs` fills it from a backend event's `*_has_changed` flags.
-- `FocusTarget` forwards `TabletToolTarget` to `WlSurface`'s impl (`src/state/focus.rs`); `TabletSeat::with_tools` holds the seat lock across its callback and deadlocks if the callback uses a tool handle (master `7ddcd173` replaces it with `get_tools`).
+- `FocusTarget` forwards `TabletToolTarget` to `WlSurface`'s impl (`src/state/focus.rs`). smithay calls a target's `proximity_out` whether or not its client bound the tool, so anything done there beyond forwarding reaches pointer-only clients too. `TabletSeat::with_tools` holds the seat lock across its callback and deadlocks if the callback uses a tool handle (master `7ddcd173` replaces it with `get_tools`).
+- `TabletToolHandle::client_tools(&client) -> impl Iterator<Item = ZwpTabletToolV2>` (`wayland/tablet_manager/tablet_tool.rs`) lists the live `zwp_tablet_tool_v2` instances a client holds for that tool, so non-empty means the client has the tool bound; `wl_pointer_under` in `src/input/mod.rs` gates `wl_pointer` delivery on it. The `Client` comes from `WlSurface::client()`. The iterator holds the instance list's mutex while it lives, so consume it in place. That mutex is not the tool's grab mutex, so calling `client_tools` from inside a `TabletToolTarget` callback is safe.
+- Tool grabs mirror the pointer's (`input/tablet/tool/{mod,grab}.rs`): `TabletToolHandle::{has_grab(serial), is_grabbed(), grab_start_data(), with_grab(..), set_grab(data, grab, time, serial, focus), unset_grab(data, serial, time)}`. `tool::GrabStartData { focus: Option<(ToolFocus, Point)>, trigger: GrabTrigger::{Proximity, Tip, Button(u32)}, location }`. A tip down installs the implicit `DownGrab`, keyed on the `DownEvent`'s serial (the one the client reads in `zwp_tablet_tool_v2.down`) with the tool's focus as start focus; it ends on up or proximity-out and pins tool focus to that surface meanwhile.
+- **No client request validates against a tool.** smithay's `wl_data_device.start_drag` handler (`wayland/selection/data_device/device.rs`) checks `pointer.has_grab(serial)`, then `touch.has_grab(serial)`, and denies otherwise, before `dnd_requested` ever runs, so a drag citing a tablet serial passes only if the pointer grab carries that same serial, and then replaces whatever grab that is. xdg move/resize validation is driftwm's own (`check_grab` in `src/handlers/xdg_shell.rs`), as is the popup-grab serial check. driftwm lends the tip's serial only to a press forwarded to a client (`forward_serial` in `on_pointer_button`), so all three accept a tablet client while a binding's grab stays out of reach.
+- `DnDGrab<D, S, F>` (`input/dnd/grab.rs`) is generic over its source: `S` is `WlDataSource`, or `WlSurface` for a drag with no source. Those are the only `dnd::Source` impls. Its pointer `motion` sends `wl_pointer` to the *start* focus and hands the `focus` argument to `wl_data_device` as the drop target, so a filter on `under` changes the drop target, not `wl_pointer`. The release unsets it with `restore_focus`, which re-sends a motion to `pending_focus`, the `focus` last handed to `PointerHandle::motion`, so the drop target gets a `wl_pointer` enter.
 
 ### Touch (`FrameMarker`, rev `4cf0b620`)
 
@@ -694,3 +698,22 @@ restore both `clear_tex_program_override()` and source-over blending on errors.
 `map_texture(&mapping)` supports direct GPU-mask coverage assertions. A texture's
 `Texture::size()` is in Buffer coordinates; do not compare it directly with a
 Physical size.
+
+`MemoryRenderBufferRenderElement::from_buffer(renderer, location, buffer, alpha,
+src: Option<Rectangle<f64, Logical>>, size: Option<Size<i32, Logical>>, kind)`
+imports the memory buffer using its own stored scale/transform. With both `src`
+and `size` absent it selects the buffer's native logical extent. Preserve that
+path for the first retained-title frame; a texture blend uses explicit physical
+output bounds. `TextureBuffer::from_texture(&renderer, texture, scale, transform,
+opaque_regions)` wraps an already allocated texture without copying its pixels;
+clones must not be overwritten while a retained snapshot owns them.
+
+`OutputDamageTracker::new(size: Size<i32, Physical>, scale, transform)` takes raw
+mode/buffer dimensions. Its render path inverts the surface-oriented output
+transform before passing it to `GlesRenderer::render`; quarter-turns change the
+upright intersection dimensions. For GPU capture tests, pass raw mode size and
+the actual output transform to the tracker, then interpret readback orientation
+explicitly. Discrete pixel permutations require `width - 1 - x`/`height - 1 - y`,
+not continuous edge coordinates. GLES projection also accounts for OpenGL's Y
+axis; verify reflected quarter-turns against independently rendered content rather
+than assuming a continuous geometry-point transform directly indexes readback.
