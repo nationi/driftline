@@ -127,11 +127,14 @@ impl Action {
         let canvas_action = matches!(
             self,
             Action::NudgeWindow(_)
+                | Action::MoveToSnap(_)
                 | Action::GrowWindow(_)
                 | Action::ShrinkWindow(_)
+                | Action::ResizeToSnap(_)
                 | Action::PanViewport(_)
                 | Action::CenterWindow
                 | Action::CenterNearest(_)
+                | Action::FocusNearest(_)
                 | Action::HomeToggle
                 | Action::GoToBookmark(_)
                 | Action::SetBookmark(_)

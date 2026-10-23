@@ -41,10 +41,13 @@ impl TilingOperation<'_> {
                 ) => false,
                 Action::SuspendWindow
                 | Action::NudgeWindow(_)
+                | Action::MoveToSnap(_)
                 | Action::GrowWindow(_)
                 | Action::ShrinkWindow(_)
+                | Action::ResizeToSnap(_)
                 | Action::PanViewport(_)
                 | Action::CenterWindow
+                | Action::FocusNearest(_)
                 | Action::CenterNearest(
                     Direction::UpLeft
                     | Direction::UpRight

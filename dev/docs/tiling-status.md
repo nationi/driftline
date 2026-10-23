@@ -6,10 +6,17 @@ inactive during tiling, tiling controls are inactive on the canvas, and
 `toggle-tiling` works in both. The current remaining roadmap item is recorded
 manual acceptance across the multi-output user journey. Full niri parity
 remains out of scope. The current HEAD is
-`d586253`; the earlier integration checkpoint `8c17428` and upstream `7ce05ed`
-remain in its history. Controlled B1–B4 stabilization gates and extensive
-historical reference audits are delivered. They do not by themselves establish
-that the everyday tiling workflow is release-ready.
+on `nationi/development`; upstream `main` through `e7b6701` is merged. The
+earlier integration checkpoint `8c17428` remains in its history. Controlled
+B1–B4 stabilization gates and extensive historical reference audits are
+delivered. They do not by themselves establish that the everyday tiling
+workflow is release-ready.
+
+2026-10-23 build follow-up: after merging upstream canvas actions for snap
+movement, snap resizing and nearest-window focus, classify them as canvas-only
+in both binding dispatch and tiling exit policy. The release build then
+completed with `cargo build --release --locked`. No tests were run in this
+upgrade session. Existing user config was preserved.
 
 2026-10-23 follow-up: resolved the roadmap's open new-window ownership note.
 An unowned window is assigned by canvas-space center: the active output wins if
