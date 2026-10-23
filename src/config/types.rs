@@ -51,6 +51,7 @@ pub enum Action {
     ToggleTiling,
     FocusColumn(Direction),
     CycleColumnWidth,
+    ToggleWideColumn,
     MoveIntoColumn(Direction),
     ExpelFromColumn,
     ConsumeWindowIntoColumn,
@@ -117,6 +118,7 @@ impl Action {
             self,
             Action::FocusColumn(_)
                 | Action::CycleColumnWidth
+                | Action::ToggleWideColumn
                 | Action::MoveIntoColumn(_)
                 | Action::ExpelFromColumn
                 | Action::ConsumeWindowIntoColumn

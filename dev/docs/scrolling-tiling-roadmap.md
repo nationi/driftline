@@ -52,12 +52,12 @@ These are not parity gaps and should not be implemented just to mirror niri:
 
 - Workspaces, workspace overview, tabs and tab indicators.
 - A complete floating-window layer, tiled fullscreen/maximize policy, or
-  topology/session restore.
+  topology restore across compositor restarts. In-session topology is retained
+  when toggling between canvas and tiling.
 - Every niri action, configuration field, animation, gesture, or edge case.
 - Exact niri workspace/overview semantics.
 - Exhaustive source inventories, differential fixtures and compatibility
-  percentages. Existing pinned niri audits and fixtures remain useful research
-  material, but passing or extending them is not a product milestone.
+  percentages.
 
 ## What is already in place
 

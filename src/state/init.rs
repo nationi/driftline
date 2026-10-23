@@ -275,6 +275,8 @@ impl DriftWm {
             loop_signal,
             stage: driftwm::stage::Stage::new(),
             tiling_view: super::tiling::TilingViews::default(),
+            tiling_topology: None,
+            resume_tiling_after_fullscreen: false,
             space: Space::default(),
             popups: PopupManager::default(),
             compositor_state,

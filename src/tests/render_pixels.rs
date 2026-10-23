@@ -2277,7 +2277,7 @@ fn check_odd_offset_resize_capture(scale: f64, ssd: bool, growing: bool, fractio
         }
         (texels, pixels)
     };
-    let (texels, pixels) = paint((313, 223), CONTENT_BGRA);
+    let (texels, pixels) = paint((313, 223), [255, 255, 255, 255]);
     let surface = map_window_shm(&mut f, client, "odd", (313, 223), texels, &pixels);
     f.client(client)
         .window(&surface)
@@ -2326,7 +2326,7 @@ fn check_odd_offset_resize_capture(scale: f64, ssd: bool, growing: bool, fractio
             .0
             .iter()
             .enumerate()
-            .filter(|(_, pixel)| pixel[2] > 100 && pixel[0] < 100)
+            .filter(|(_, pixel)| pixel[2] > pixel[0] + 40 && pixel[2] > pixel[1] + 40)
             .map(|(i, _)| ((i % 1200) as i32, (i / 1200) as i32))
             .collect();
         let left = points.iter().map(|p| p.0).min().expect("visible popup");
@@ -2822,7 +2822,7 @@ fn check_tiling_view_change(from: f64, to: f64, ssd: bool, mixed: bool, change: 
         "scaled",
         (200, 100),
         (200, 100),
-        &solid_bgra(200, 100, CONTENT_BGRA, false),
+        &solid_bgra(200, 100, [255, 255, 255, 255], false),
     );
     tick_until_settled(&mut f);
     let window = window_by_app_id(&mut f, "scaled").unwrap();
@@ -2941,7 +2941,7 @@ fn check_tiling_view_change(from: f64, to: f64, ssd: bool, mixed: bool, change: 
             .0
             .iter()
             .enumerate()
-            .filter(|(_, p)| p[2] > 100 && p[0] < 100)
+            .filter(|(_, p)| p[2] > p[0] + 40 && p[2] > p[1] + 40)
             .map(|(i, _)| ((i % frame_width) as i32, (i / frame_width) as i32))
             .collect();
         (
@@ -2965,7 +2965,7 @@ fn check_tiling_view_change(from: f64, to: f64, ssd: bool, mixed: bool, change: 
         .0
         .iter()
         .enumerate()
-        .filter(|(_, p)| p[2] > 100 && p[0] < 100)
+        .filter(|(_, p)| p[2] > p[0] + 40 && p[2] > p[1] + 40)
         .map(|(i, _)| (i % frame_width, i / frame_width))
         .collect();
     let width =

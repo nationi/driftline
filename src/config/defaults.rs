@@ -87,28 +87,28 @@ pub(super) fn default_bindings(mod_key: ModKey) -> HashMap<KeyCombo, Action> {
                 modifiers: m_ctrl.clone(),
                 sym: Keysym::from(keysyms::KEY_Up),
             },
-            Action::PanViewport(Direction::Up),
+            Action::FocusNearest(Direction::Up),
         ),
         (
             KeyCombo {
                 modifiers: m_ctrl.clone(),
                 sym: Keysym::from(keysyms::KEY_Down),
             },
-            Action::PanViewport(Direction::Down),
+            Action::FocusNearest(Direction::Down),
         ),
         (
             KeyCombo {
                 modifiers: m_ctrl.clone(),
                 sym: Keysym::from(keysyms::KEY_Left),
             },
-            Action::PanViewport(Direction::Left),
+            Action::FocusNearest(Direction::Left),
         ),
         (
             KeyCombo {
                 modifiers: m_ctrl.clone(),
                 sym: Keysym::from(keysyms::KEY_Right),
             },
-            Action::PanViewport(Direction::Right),
+            Action::FocusNearest(Direction::Right),
         ),
         (
             KeyCombo {
@@ -192,28 +192,28 @@ pub(super) fn default_bindings(mod_key: ModKey) -> HashMap<KeyCombo, Action> {
                 modifiers: m.clone(),
                 sym: Keysym::from(keysyms::KEY_Up),
             },
-            Action::FocusNearest(Direction::Up),
+            Action::PanViewport(Direction::Up),
         ),
         (
             KeyCombo {
                 modifiers: m.clone(),
                 sym: Keysym::from(keysyms::KEY_Down),
             },
-            Action::FocusNearest(Direction::Down),
+            Action::PanViewport(Direction::Down),
         ),
         (
             KeyCombo {
                 modifiers: m.clone(),
                 sym: Keysym::from(keysyms::KEY_Left),
             },
-            Action::FocusNearest(Direction::Left),
+            Action::PanViewport(Direction::Left),
         ),
         (
             KeyCombo {
                 modifiers: m.clone(),
                 sym: Keysym::from(keysyms::KEY_Right),
             },
-            Action::FocusNearest(Direction::Right),
+            Action::PanViewport(Direction::Right),
         ),
         (
             KeyCombo {
@@ -453,133 +453,131 @@ pub(super) fn default_bindings(mod_key: ModKey) -> HashMap<KeyCombo, Action> {
         Action::ToggleTiling,
     );
 
-    // With Alt as Mod, these chords would collide with the existing canvas
-    // nudge and pan defaults. Keep the global toggle and let that uncommon
-    // modifier scheme define its own tiling navigation bindings.
-    if mod_key != ModKey::Alt {
-        let m_ctrl_shift = Modifiers {
-            shift: true,
-            ..m_ctrl.clone()
-        };
-        let m_alt_shift = Modifiers {
-            alt: true,
-            shift: true,
-            ..m.clone()
-        };
-        let m_ctrl_alt = Modifiers {
-            alt: true,
-            ..m_ctrl.clone()
-        };
-        let m_ctrl_alt_shift = Modifiers {
-            shift: true,
-            ..m_ctrl_alt.clone()
-        };
-        bindings.extend([
-            (
-                KeyCombo {
-                    modifiers: m_alt_shift.clone(),
-                    sym: Keysym::from(keysyms::KEY_Left),
-                },
-                Action::FocusColumn(Direction::Left),
-            ),
-            (
-                KeyCombo {
-                    modifiers: m_alt_shift.clone(),
-                    sym: Keysym::from(keysyms::KEY_Right),
-                },
-                Action::FocusColumn(Direction::Right),
-            ),
-            (
-                KeyCombo {
-                    modifiers: m_alt_shift.clone(),
-                    sym: Keysym::from(keysyms::KEY_Up),
-                },
-                Action::FocusColumn(Direction::Up),
-            ),
-            (
-                KeyCombo {
-                    modifiers: m_alt_shift,
-                    sym: Keysym::from(keysyms::KEY_Down),
-                },
-                Action::FocusColumn(Direction::Down),
-            ),
-            (
-                KeyCombo {
-                    modifiers: Modifiers {
-                        alt: true,
-                        ..m.clone()
-                    },
-                    sym: Keysym::from(keysyms::KEY_r),
-                },
-                Action::CycleColumnWidth,
-            ),
-            (
-                KeyCombo {
-                    modifiers: m_ctrl_alt.clone(),
-                    sym: Keysym::from(keysyms::KEY_Left),
-                },
-                Action::MoveColumn(Direction::Left),
-            ),
-            (
-                KeyCombo {
-                    modifiers: m_ctrl_alt,
-                    sym: Keysym::from(keysyms::KEY_Right),
-                },
-                Action::MoveColumn(Direction::Right),
-            ),
-            (
-                KeyCombo {
-                    modifiers: m_ctrl_shift.clone(),
-                    sym: Keysym::from(keysyms::KEY_Up),
-                },
-                Action::MoveTiledWindow(Direction::Up),
-            ),
-            (
-                KeyCombo {
-                    modifiers: m_ctrl_shift.clone(),
-                    sym: Keysym::from(keysyms::KEY_Down),
-                },
-                Action::MoveTiledWindow(Direction::Down),
-            ),
-            (
-                KeyCombo {
-                    modifiers: m_ctrl_alt_shift.clone(),
-                    sym: Keysym::from(keysyms::KEY_Left),
-                },
-                Action::MoveIntoColumn(Direction::Left),
-            ),
-            (
-                KeyCombo {
-                    modifiers: m_ctrl_alt_shift,
-                    sym: Keysym::from(keysyms::KEY_Right),
-                },
-                Action::MoveIntoColumn(Direction::Right),
-            ),
-            (
-                KeyCombo {
-                    modifiers: m_ctrl.clone(),
-                    sym: Keysym::from(keysyms::KEY_e),
-                },
-                Action::ExpelFromColumn,
-            ),
-            (
-                KeyCombo {
-                    modifiers: m_ctrl_shift.clone(),
-                    sym: Keysym::from(keysyms::KEY_Left),
-                },
-                Action::ConsumeWindowIntoColumn,
-            ),
-            (
-                KeyCombo {
-                    modifiers: m_ctrl_shift.clone(),
-                    sym: Keysym::from(keysyms::KEY_Right),
-                },
-                Action::ExpelWindowFromColumn,
-            ),
-        ]);
-    }
-
     bindings
+}
+
+pub(super) fn default_tiling_bindings(mod_key: ModKey) -> HashMap<KeyCombo, Action> {
+    let m = mod_key.base();
+    let m_shift = Modifiers {
+        shift: true,
+        ..m.clone()
+    };
+    let m_ctrl = Modifiers {
+        ctrl: true,
+        ..m.clone()
+    };
+    let m_ctrl_shift = Modifiers {
+        shift: true,
+        ..m_ctrl.clone()
+    };
+
+    HashMap::from([
+        (
+            KeyCombo {
+                modifiers: m.clone(),
+                sym: Keysym::from(keysyms::KEY_Left),
+            },
+            Action::FocusColumn(Direction::Left),
+        ),
+        (
+            KeyCombo {
+                modifiers: m.clone(),
+                sym: Keysym::from(keysyms::KEY_Right),
+            },
+            Action::FocusColumn(Direction::Right),
+        ),
+        (
+            KeyCombo {
+                modifiers: m.clone(),
+                sym: Keysym::from(keysyms::KEY_Up),
+            },
+            Action::FocusColumn(Direction::Up),
+        ),
+        (
+            KeyCombo {
+                modifiers: m.clone(),
+                sym: Keysym::from(keysyms::KEY_Down),
+            },
+            Action::FocusColumn(Direction::Down),
+        ),
+        (
+            KeyCombo {
+                modifiers: m.clone(),
+                sym: Keysym::from(keysyms::KEY_r),
+            },
+            Action::CycleColumnWidth,
+        ),
+        (
+            KeyCombo {
+                modifiers: m_shift.clone(),
+                sym: Keysym::from(keysyms::KEY_r),
+            },
+            Action::ToggleWideColumn,
+        ),
+        (
+            KeyCombo {
+                modifiers: m_shift.clone(),
+                sym: Keysym::from(keysyms::KEY_Left),
+            },
+            Action::MoveColumn(Direction::Left),
+        ),
+        (
+            KeyCombo {
+                modifiers: m_shift.clone(),
+                sym: Keysym::from(keysyms::KEY_Right),
+            },
+            Action::MoveColumn(Direction::Right),
+        ),
+        (
+            KeyCombo {
+                modifiers: m_shift.clone(),
+                sym: Keysym::from(keysyms::KEY_Up),
+            },
+            Action::MoveTiledWindow(Direction::Up),
+        ),
+        (
+            KeyCombo {
+                modifiers: m_shift,
+                sym: Keysym::from(keysyms::KEY_Down),
+            },
+            Action::MoveTiledWindow(Direction::Down),
+        ),
+        (
+            KeyCombo {
+                modifiers: m_ctrl.clone(),
+                sym: Keysym::from(keysyms::KEY_Left),
+            },
+            Action::MoveIntoColumn(Direction::Left),
+        ),
+        (
+            KeyCombo {
+                modifiers: m_ctrl.clone(),
+                sym: Keysym::from(keysyms::KEY_Right),
+            },
+            Action::MoveIntoColumn(Direction::Right),
+        ),
+        (
+            KeyCombo {
+                modifiers: m_ctrl.clone(),
+                sym: Keysym::from(keysyms::KEY_e),
+            },
+            Action::ExpelFromColumn,
+        ),
+        (
+            KeyCombo {
+                modifiers: m_ctrl_shift.clone(),
+                sym: Keysym::from(keysyms::KEY_Left),
+            },
+            Action::ConsumeWindowIntoColumn,
+        ),
+        (
+            KeyCombo {
+                modifiers: m_ctrl_shift,
+                sym: Keysym::from(keysyms::KEY_Right),
+            },
+            Action::ExpelWindowFromColumn,
+        ),
+    ])
 }
 
 pub(super) fn default_mouse_bindings(

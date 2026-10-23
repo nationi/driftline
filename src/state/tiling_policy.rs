@@ -23,6 +23,7 @@ impl TilingOperation<'_> {
                 Action::ToggleTiling
                 | Action::FocusColumn(_)
                 | Action::CycleColumnWidth
+                | Action::ToggleWideColumn
                 | Action::MoveIntoColumn(_)
                 | Action::ConsumeWindowIntoColumn
                 | Action::ExpelWindowFromColumn
@@ -99,11 +100,22 @@ impl DriftWm {
             _ => operation.restores_canvas(),
         };
         if self.tiling_view.is_some() && restores_canvas {
+            if matches!(&operation, TilingOperation::Fullscreen) {
+                self.resume_tiling_after_fullscreen = true;
+            }
             tracing::debug!(
                 ?operation,
                 "Restoring canvas before leaving scrolling tiling"
             );
             self.exit_tiling();
         }
+    }
+
+    pub(crate) fn resume_tiling_after_fullscreen(&mut self) {
+        if !self.resume_tiling_after_fullscreen || self.stage.has_fullscreen() {
+            return;
+        }
+        self.resume_tiling_after_fullscreen = false;
+        self.toggle_tiling();
     }
 }

@@ -18,7 +18,7 @@ mod tiling;
 mod tiling_reference_tests;
 
 pub use element::StageElement;
-pub use tiling::{ColumnId, TiledColumn, TiledWindow, TilingLayoutId};
+pub use tiling::{ColumnId, TiledColumn, TiledWindow, TilingLayoutId, TilingTopology};
 
 use crate::layout::snap::SnapRect;
 use smithay::utils::{Logical, Point, Size};

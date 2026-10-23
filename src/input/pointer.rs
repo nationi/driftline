@@ -18,7 +18,7 @@ use smithay::wayland::seat::WaylandFocus;
 use std::rc::Rc;
 
 use crate::decorations::DecorationHit;
-use crate::grabs::{MoveGrab, NavigateGrab, PanGrab, ResizeGrab};
+use crate::grabs::{MoveGrab, NavigateGrab, PanGrab, ResizeGrab, TilingReorderGrab};
 use crate::input::{DecoTarget, HitKind, PinnedChrome};
 use crate::state::{
     CLICK_NAVIGATE_SLOP, ClusterMember, ClusterResizeSnapshot, DriftWm, FocusTarget,
@@ -571,6 +571,32 @@ impl DriftWm {
                             && let Some(surface) = window.wl_surface()
                             && !config::applied_rule(&surface).is_some_and(|r| r.widget)
                         {
+                            if !want_cluster
+                                && let Some(id) = self.stage.id_of(&window)
+                                && self.stage.is_tiled(id)
+                                && let Some(output_name) =
+                                    self.stage.tiling_output_for_window(id).map(str::to_owned)
+                                && self
+                                    .active_output()
+                                    .is_some_and(|output| output.name() == output_name)
+                            {
+                                self.stage.select_tile(id);
+                                self.refresh_tiling();
+                                self.raise_and_focus(&window, serial);
+                                let start_data = GrabStartData {
+                                    focus: None,
+                                    button,
+                                    location: pos,
+                                };
+                                pointer.set_grab(
+                                    self,
+                                    TilingReorderGrab::new(start_data, id, output_name),
+                                    serial,
+                                    Focus::Clear,
+                                );
+                                return;
+                            }
+
                             self.raise_and_focus(&window, serial);
 
                             let Some(initial_window_location) = self.stage.position_of(&window)

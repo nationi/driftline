@@ -8,17 +8,10 @@
 | [TTY cheat sheet](tty-preview.md) | Local preview launch, F-key bindings, exit and visual checks |
 | [User guide](../../docs/tiling.md) | Available tiling behavior and configuration examples |
 | [Practical roadmap](scrolling-tiling-roadmap.md) | Focused product scope, delivery sequence and acceptance |
-| [Reference inventory](niri-tiling-inventory.md) | Generated pinned symbol index; semantic audit remains partial |
-| [Reference traces](niri-reference-traces.md) | Source-derived fixture method, assumptions and known differences |
-| [History](tiling-history.md) | Earlier batch evidence, investigations and superseded next steps |
-| [Archived parity roadmap](niri-tiling-parity-plan.md) | Superseded full-parity plan retained as a pointer to the current roadmap |
-| [Initial proposal](scrolling-tiling-plan.md) | Historical design proposal |
 
-Keep current facts in status, acceptance criteria in the roadmap, and detailed
-past evidence in history. Niri inventories and fixtures are optional research,
-not product acceptance gates. Update affected user instructions and preview keys
-when behavior changes. Do not treat old percentages and test counts as current
-measurements.
+Keep current behavior and validation evidence in status, acceptance criteria in
+the roadmap. Update affected user instructions and preview keys when behavior
+changes. Niri remains an implementation reference, not a compatibility target.
 
 ## Repository workflow
 

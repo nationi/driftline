@@ -383,7 +383,7 @@ impl DriftWm {
             .filter(|output| !self.disconnected_outputs.contains(&output.name()))
             .cloned()
             .collect();
-        if outputs.is_empty() || self.is_fullscreen() || !self.interactive_move.is_empty() {
+        if outputs.is_empty() || self.stage.has_fullscreen() || !self.interactive_move.is_empty() {
             tracing::warn!(
                 "Scrolling tiling requires connected outputs and no active move or fullscreen"
             );
@@ -441,8 +441,15 @@ impl DriftWm {
             .windows()
             .filter(|window| self.tiling_eligible(window))
             .filter_map(|window| {
-                let output = self.output_for_tiling_window(window)?;
                 let id = self.stage.id_of(window)?;
+                let remembered_output = self
+                    .tiling_topology
+                    .as_ref()
+                    .and_then(|topology| self.stage.tiling_topology_output(topology, id))
+                    .filter(|name| outputs.iter().any(|output| output.name() == *name));
+                let output = remembered_output
+                    .and_then(|name| self.output_by_name(name))
+                    .or_else(|| self.output_for_tiling_window(window))?;
                 let size = window.client().map(configured_window_size)?;
                 Some((output.name(), id, size))
             })
@@ -451,11 +458,16 @@ impl DriftWm {
             self.stage.activate_tiling_output(&output);
             self.stage.tile(id, size);
         }
+        if let Some(topology) = self.tiling_topology.as_ref() {
+            self.stage.restore_tiling_topology(topology);
+        }
         self.update_output_from_camera();
         for output in outputs {
             self.refresh_tiling_for_output(&output, std::time::Instant::now());
         }
         self.focused_output = Some(active_output);
+        self.stage
+            .activate_tiling_output(&self.focused_output.as_ref().unwrap().name());
     }
 
     pub(super) fn exit_tiling(&mut self) {
@@ -463,6 +475,7 @@ impl DriftWm {
         if views.is_empty() {
             return;
         }
+        self.tiling_topology = Some(self.stage.tiling_topology());
         self.cancel_animations_everywhere();
         for mut view in views {
             if let Some(mut commits) = view.commits.take() {
@@ -531,6 +544,36 @@ impl DriftWm {
             self.stage.select_tile(id);
             self.raise_and_focus_element(&element, SERIAL_COUNTER.next_serial());
             self.refresh_tiling();
+        }
+    }
+
+    pub(crate) fn complete_tiling_reorder(
+        &mut self,
+        source: driftwm::stage::ElementId,
+        output_name: &str,
+        position: Point<f64, Logical>,
+    ) {
+        if self.tiling_view.is_none()
+            || self
+                .active_output()
+                .is_none_or(|output| output.name() != output_name)
+        {
+            return;
+        }
+        let Some(target) = self
+            .topmost_client_under(position)
+            .and_then(|window| self.stage.id_of(&window))
+        else {
+            return;
+        };
+        if self.stage.tiling_output_for_window(source) != Some(output_name)
+            || !self.stage.swap_tiled_windows(source, target)
+        {
+            return;
+        }
+        self.refresh_tiling();
+        if let Some(element) = self.stage.window_by_id(source).cloned() {
+            self.raise_and_focus_element(&element, SERIAL_COUNTER.next_serial());
         }
     }
 

@@ -62,7 +62,6 @@ impl DriftWm {
         window: &Window,
         target_output: Option<smithay::output::Output>,
     ) {
-        self.prepare_tiling_operation(super::TilingOperation::Fullscreen);
         // Widgets (immovable canvas layers) never fullscreen. Pinned windows
         // do: they temporarily unpin into a normal fullscreen and re-pin on
         // exit (saved_pinned), so a PiP video can fill the screen and snap back.
@@ -126,6 +125,8 @@ impl DriftWm {
             }
             self.exit_fullscreen_on(&output);
         }
+
+        self.prepare_tiling_operation(super::TilingOperation::Fullscreen);
 
         // The exit this supersedes can be the same-window cross-output one just
         // above, not only a prior fullscreen/fit/fill exit.
@@ -468,6 +469,7 @@ impl DriftWm {
                 );
             }
         }
+        self.resume_tiling_after_fullscreen();
     }
 
     /// Restore an output's camera/zoom after fullscreen ends. Drops any

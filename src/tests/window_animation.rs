@@ -4429,6 +4429,11 @@ fn a_cluster_drag_ends_the_entry_a_member_fights() {
     let gap = f.state().config.snap_gap as i32;
     f.state()
         .map_window(member.clone(), Point::from((800 + gap, 300)), false);
+    map_window(&mut f, id, "outsider", (1500, 800));
+    let outsider = window_by_app_id(&mut f, "outsider").unwrap();
+    f.state()
+        .map_window(outsider.clone(), Point::from((5000, 5000)), false);
+    tick_until_settled(&mut f);
     reset_view(&mut f);
 
     // Something displaced the member; its slide is still running.
@@ -4459,6 +4464,13 @@ fn a_cluster_drag_ends_the_entry_a_member_fights() {
         f.state().window_animations.len(),
         0,
         "a repositioned member is fought on the same terms as the primary"
+    );
+    let order: Vec<_> = f.state().stage.windows().cloned().collect();
+    assert_eq!(order[order.len() - 3], outsider);
+    assert_eq!(order[order.len() - 2], member);
+    assert_eq!(
+        order[order.len() - 1],
+        StageWindow::Suspended(f.state().find_suspended(sid).unwrap())
     );
     end_grab(&mut f);
     f.state().dismiss_suspended(sid);

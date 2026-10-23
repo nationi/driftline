@@ -11,8 +11,8 @@ Traditional window managers arrange windows to fit your screen. Stacking composi
 
 `driftwm` is an infinite-canvas compositor: windows live at their native size on an infinite 2D canvas, and your display is a camera viewing it. When two windows come close, they snap together, forming implicit groups that can be moved, resized, and viewed together. Canvas mode has no workspaces; window overlaps happen only on purpose.
 
-This fork keeps the infinite canvas as the default and develops an optional,
-experimental [scrolling-column tiling mode](docs/tiling.md). Each connected output
+This fork keeps the infinite canvas as the default and provides an optional
+[scrolling-column tiling mode](docs/tiling.md). Each connected output
 gets an independent strip of columns, with windows stacked inside each column.
 The design borrows useful ideas from niri, while keeping driftwm’s canvas-first
 identity and avoiding full niri parity. Multi-output entry, transfer and hotplug
@@ -24,8 +24,9 @@ Navigation is built around trackpad gestures, but every gesture has a mouse or k
 
 Built on [smithay](https://github.com/Smithay/smithay). Inspired by [vxwm](https://codeberg.org/wh1tepearl/vxwm); borrows implementation details from [niri](https://github.com/niri-wm/niri).
 
-> [!WARNING]
-> This is experimental software, primarily built with AI.
+> [!NOTE]
+> This fork is maintained independently from upstream. See the tiling guide for
+> current behavior and the development status for remaining validation.
 
 ## Scrolling tiling in this fork
 
@@ -45,11 +46,11 @@ focus, and the shortcut works in both canvas and tiling modes.
 The implementation includes directional focus, column and tile reordering,
 moving a tile between columns, consuming and splitting stacked windows, width
 presets, client size constraints, canvas geometry/view restoration, and animated
-resize transitions. These behaviors are experimental. Automated coverage handles
-separate layouts, transfer and topology changes, but the ordinary multi-monitor
-workflow still needs a recorded hands-on acceptance on real outputs. Fullscreen,
-pinned-window and general floating-window policies, tiling topology restore,
-workspaces, tabs and layout-native drag/resize are outside the current scope.
+resize transitions. Automated coverage handles separate layouts, transfer,
+topology changes and fullscreen exit recovery; the ordinary multi-monitor
+workflow still needs a recorded hands-on acceptance on real outputs. Full
+floating-window integration, workspaces, tabs, layout-native drag/resize and
+tiling topology restore across compositor restarts are outside the current scope.
 
 Canvas stays the default. `Mod+Ctrl+T` toggles between canvas and tiling by
 default; navigation shortcuts do not change modes. Mode-aware keybinding
@@ -72,7 +73,7 @@ flick carries the viewport smoothly until friction stops it.
 | 3-finger swipe     | Pan viewport      | anywhere  |
 | Trackpad scroll    | Pan viewport      | on-canvas |
 | `Mod` + LMB drag   | Pan viewport      | anywhere  |
-| `Mod+Ctrl` + arrow | Pan viewport      | —         |
+| `Mod` + arrow       | Pan viewport      | —         |
 | 2-finger pinch     | Zoom              | on-canvas |
 | 3-finger pinch     | Zoom              | anywhere  |
 | Mouse wheel        | Zoom              | on-canvas |
@@ -96,7 +97,7 @@ spots the camera jumps straight to.
 
 | Input                        | Action                                                                                          |
 | ---------------------------- | ----------------------------------------------------------------------------------------------- |
-| `Mod` + arrow                | Focus nearest window in direction; scrolls it just in within a cluster, centers it from another |
+| `Mod+Ctrl` + arrow           | Focus nearest window in direction; scrolls it just in within a cluster, centers it from another |
 | 4-finger swipe               | Focus nearest window (natural direction)                                                        |
 | `Mod+Ctrl` + LMB drag        | Focus nearest window (natural direction)                                                        |
 | `Alt-Tab` / `Alt-Shift-Tab`  | Cycle windows (MRU)                                                                             |

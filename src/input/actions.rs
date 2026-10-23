@@ -211,6 +211,10 @@ impl DriftWm {
                 self.stage.cycle_column_width();
                 self.refresh_tiling();
             }
+            Action::ToggleWideColumn => {
+                self.stage.toggle_wide_column();
+                self.refresh_tiling();
+            }
             Action::Exec(cmd) => self.exec_command(cmd),
             Action::ExecTerminal => self.exec_command(&detect_terminal()),
             Action::ExecLauncher => self.exec_command(&detect_launcher()),

@@ -28,21 +28,28 @@ Tiling bindings are provided by default:
 | Keys | Tiling action |
 | --- | --- |
 | `Mod+Ctrl+T` | Toggle tiling and canvas |
-| `Mod+Alt+Shift+Arrow` | Focus a column or a window in its stack |
-| `Mod+Ctrl+Alt+Left/Right` | Reorder the focused column |
-| `Mod+Ctrl+Shift+Up/Down` | Reorder the focused window in its column |
-| `Mod+Ctrl+Alt+Shift+Left/Right` | Move the focused window into a neighboring column |
+| `Mod+Arrow` | Focus a column or a window in its stack |
+| `Mod+Shift+Left/Right` | Reorder the focused column |
+| `Mod+Shift+Up/Down` | Reorder the focused window in its column |
+| `Mod+Ctrl+Left/Right` | Move the focused window into a neighboring column |
 | `Mod+Ctrl+Shift+Left/Right` | Consume from the next column / expel its last window |
 | `Mod+Ctrl+E` | Expel the focused window into a new column |
-| `Mod+Alt+R` | Cycle column width |
+| `Mod+R` | Cycle column width |
+| `Mod+Shift+R` | Toggle the focused column between half width and wide (full usable width) |
+
+In tiling, hold `Alt` and drag a window with the left mouse button onto another
+tile on the same monitor to swap their positions. On the canvas, the same
+gesture continues to move windows freely.
 
 The compositor filters these actions against the active mode, so rebinding a
 tiling action does not make it run on the canvas, and rebinding a canvas action
 does not make it run during tiling. General actions such as closing a window
 remain available in both modes. You can override or unbind entries in
 `[keybindings]` as usual. The actions are also available in mouse and gesture
-bindings. If `mod_key = "alt"`, the default tiling navigation keys are omitted
-to avoid replacing existing canvas shortcuts; configure them explicitly.
+bindings. These defaults reuse familiar canvas chords; the active mode decides
+which action each chord runs. The same defaults also work with
+`mod_key = "alt"`. Navigation and rearrangement shortcuts never switch modes;
+only `Mod+Ctrl+T` toggles between the canvas and tiling.
 
 To use the same chord for different actions in each mode, add separate tables:
 
@@ -55,8 +62,11 @@ To use the same chord for different actions in each mode, add separate tables:
 ```
 
 Entering the mode sets zoom to 1 and arranges eligible windows. Columns start
-at half the usable output width. Width cycling selects full width, one third,
-then one half again. Client size constraints and compositor decorations are
+at half the usable output width. `Mod+Shift+R` expands the focused column to
+full usable width, effectively taking the space of two default-width columns;
+press it again to return to half width. Width cycling with `Mod+R` selects full
+width, one third, then one half again. Width belongs to the whole column, so
+windows stacked in it expand together. Client size constraints and compositor decorations are
 included. Panels reserve their usual space. A client that delays or refuses a
 resize keeps enough space for its current width and height.
 
@@ -114,13 +124,17 @@ Column snapping at the end of a gesture is not implemented yet.
 
 Toggle again to restore the saved canvas positions, sizes, camera and zoom.
 Windows opened during tiling return to the canvas placement they received when
-opening. Saved sessions retain these canvas rectangles and the pre-tiling view;
-tiling topology itself is not restored across restarts.
+opening. While the compositor stays running, re-entering tiling restores each
+window's output, column order, vertical stack, width and selected tile. A window
+closed while in canvas mode is skipped; new windows are added as new columns.
+Saved sessions retain canvas rectangles and the pre-tiling view, but tiling
+topology is not restored after restarting the compositor.
 
 Dialogs, widgets, pinned windows, fitted/filled windows and suspended stand-ins
 are not enrolled. Fullscreen, fit/fill, pinning and free window movement or
-resizing leave tiling before running. A zoom change also leaves tiling and
-restores the saved view. Outputs connected during tiling receive an empty
+resizing leave tiling before running. Fullscreen temporarily suspends tiling;
+when the fullscreen window exits or closes, the previous tiling layout resumes.
+A zoom change also leaves tiling and restores the saved view. Outputs connected during tiling receive an empty
 strip. When one of several outputs disconnects, its columns move to a surviving
 output; disconnecting the last output exits tiling and restores the canvas.
 

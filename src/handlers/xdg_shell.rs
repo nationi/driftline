@@ -283,6 +283,7 @@ impl XdgShellHandler for DriftWm {
             );
             self.convert_to_suspended(window, &wl_surface, conv);
             self.cleanup_surface_state(&wl_surface);
+            self.resume_tiling_after_fullscreen();
             return;
         }
 
@@ -436,6 +437,7 @@ impl XdgShellHandler for DriftWm {
         // window's snap rect from stable_snap_rects (and, on a cache miss, live
         // geometry reading its decorations/pinned entries), so clear last.
         self.cleanup_surface_state(&wl_surface);
+        self.resume_tiling_after_fullscreen();
     }
 
     fn move_request(&mut self, surface: ToplevelSurface, _seat: wl_seat::WlSeat, serial: Serial) {

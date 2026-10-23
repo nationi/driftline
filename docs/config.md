@@ -45,7 +45,7 @@ A window too big to fit on an axis with its two gutters centers on that axis rat
 
 It applies to the centering actions and wherever the camera jumps to a window — center-window, focus-center, center-nearest, Alt-Tab, click-to-navigate, activation, a newly mapped window, the window focus follows when one closes (see auto_navigate_on_close) and `driftwm msg focus`. The centering actions (center-window, focus-center, center-nearest) always park the window there, even one already fully on screen — center-nearest is how you walk a placement through your windows one step at a time. Alt-Tab, click-to-navigate, activation, focus following a close and `msg focus` don't pan at all for a window that is already fully on screen, so they place a window only when the camera has to move rather than holding one against the edge continuously. Fullscreen, pinned and fit windows lock or fill the viewport and ignore it, as does a filled window returning to the view it was filled in.
 
-focus-nearest (Mod+Arrow, the 4-finger swipe and Mod+Ctrl+drag by default) walks within the focused window's snap cluster and jumps out of it. A step to a clipped window in the same cluster, or one overlapping the focused window, scrolls it just far enough to show it whole, snap.outer_gap in from the edge it hung past, and centers only on an axis where the window doesn't fit. A step to a clipped window in another cluster, or from no focused window or a pinned one, lands it here, as Alt-Tab does. A window already fully on screen takes focus without a pan either way.
+focus-nearest (Mod+Ctrl+Arrow, the 4-finger swipe and Mod+Ctrl+drag by default) walks within the focused window's snap cluster and jumps out of it. A step to a clipped window in the same cluster, or one overlapping the focused window, scrolls it just far enough to show it whole, snap.outer_gap in from the edge it hung past, and centers only on an axis where the window doesn't fit. A step to a clipped window in another cluster, or from no focused window or a pinned one, lands it here, as Alt-Tab does. A window already fully on screen takes focus without a pan either way.
 
 Because the spawn point follows it too (see window_placement above), this also shifts where a new window lands on the *canvas* — the position `msg move` reports and the session file stores. Under window_placement = "auto" that only applies to the fallback: a spawn that finds a slot next to the anchor still goes there.
 
@@ -366,13 +366,13 @@ px per grow-window/shrink-window action (both unbound by default; does not affec
 
 Default: `100.0`
 
-px per pan-viewport action (mod-ctrl-arrow by default)
+px per pan-viewport action (Mod+Arrow by default)
 
 ### `anchors`
 
 Default: `[]`
 
-Anchors: canvas points discoverable by focus-nearest (Mod+Arrow / 4-finger swipe) and center-nearest even when no window is there. Uses Y-up coordinate system. Empty by default.
+Anchors: canvas points discoverable by focus-nearest (Mod+Ctrl+Arrow / 4-finger swipe) and center-nearest even when no window is there. Uses Y-up coordinate system. Empty by default.
 
 **Example: origin + 4 corners**
 
@@ -759,7 +759,7 @@ For different actions on the same chord, use `[keybindings.canvas]` and `[keybin
 
 [keybindings.canvas] Canvas-only keyboard overrides; the same chord can have a different tiling action. [keybindings.tiling] Tiling-only keyboard overrides; the same chord can have a different canvas action.
 
-Default tiling keys are active only in tiling: Mod+Alt+Shift+arrows focus, Mod+Ctrl+Alt+arrows reorder columns, Mod+Ctrl+Shift+Up/Down reorder tiles, Mod+Ctrl+Alt+Shift+Left/Right move into a column; Mod+Ctrl+Shift+Left/Right consume/expel; Mod+Ctrl+E expels a focused tile; Mod+Alt+R cycles width. Mod+Ctrl+T toggles mode. With mod_key = "alt", navigation defaults are omitted to avoid collisions; add your own tiling actions to [keybindings].
+Default tiling keys are active only in tiling: Mod+arrows focus, Mod+Shift+Left/Right reorder columns, Mod+Shift+Up/Down reorder tiles, Mod+Ctrl+Left/Right move a tile into a neighboring column; Mod+Ctrl+Shift+Left/Right consume/expel a window; Mod+Ctrl+E splits a tile; Mod+R cycles column width; Mod+Shift+R toggles between half and full width. Mod+Ctrl+T toggles mode. These shortcuts can reuse canvas chords because each mode filters the other's actions. This also applies when mod_key = "alt".
 
 "mod" expands to mod_key. Literal modifiers: alt, super (alias logo), ctrl (alias control), shift, mod3. Keysyms are XKB names (case-insensitive): return, tab, up, a, equal, etc. A bare modifier combo (e.g. "alt+shift") is a tap binding (fires on chord release; see [input.keyboard] options).
 
@@ -797,6 +797,7 @@ Actions:
 - `toggle-tiling` — toggle scrolling columns across outputs; toggle again to restore canvas positions, sizes and view
 - `focus-column <dir>` — focus a scrolling column (left/right) or a window inside it (up/down); center-nearest also follows this structure while tiling
 - `cycle-column-width` — cycle the active column through 1/3, 1/2 and full usable width
+- `toggle-wide-column` — toggle the active column between half and full usable width
 - `move-into-column <dir>` — move the focused tiled window into the neighboring column (left/right), after its selected window
 - `consume-window-into-column` — append the first window from the next column, preserving focus
 - `expel-window-from-column` — split the last window right, keeping focus in the source column
@@ -830,18 +831,18 @@ Directions: up, down, left, right, up-left, up-right, down-left, down-right
 | `"mod+c"` | `center-window` |  |
 | `"mod+x"` | `focus-center` |  |
 | `"mod+a"` | `home-toggle` |  |
-| `"mod+up"` | `focus-nearest up` |  |
-| `"mod+down"` | `focus-nearest down` |  |
-| `"mod+left"` | `focus-nearest left` |  |
-| `"mod+right"` | `focus-nearest right` |  |
+| `"mod+up"` | `pan-viewport up` |  |
+| `"mod+down"` | `pan-viewport down` |  |
+| `"mod+left"` | `pan-viewport left` |  |
+| `"mod+right"` | `pan-viewport right` |  |
 | `"mod+shift+up"` | `move-to-snap up` |  |
 | `"mod+shift+down"` | `move-to-snap down` |  |
 | `"mod+shift+left"` | `move-to-snap left` |  |
 | `"mod+shift+right"` | `move-to-snap right` |  |
-| `"mod+ctrl+up"` | `pan-viewport up` |  |
-| `"mod+ctrl+down"` | `pan-viewport down` |  |
-| `"mod+ctrl+left"` | `pan-viewport left` |  |
-| `"mod+ctrl+right"` | `pan-viewport right` |  |
+| `"mod+ctrl+up"` | `focus-nearest up` |  |
+| `"mod+ctrl+down"` | `focus-nearest down` |  |
+| `"mod+ctrl+left"` | `focus-nearest left` |  |
+| `"mod+ctrl+right"` | `focus-nearest right` |  |
 | `"alt+tab"` | `cycle-windows forward` |  |
 | `"alt+shift+tab"` | `cycle-windows backward` |  |
 | `"mod+equal"` | `zoom-in` |  |

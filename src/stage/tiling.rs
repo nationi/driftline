@@ -27,6 +27,25 @@ pub struct TiledColumn {
     pub windows: Vec<TiledWindow>,
 }
 
+#[derive(Clone, Debug, Default)]
+pub struct TilingTopology {
+    outputs: BTreeMap<String, SavedOutputTopology>,
+}
+
+#[derive(Clone, Debug, Default)]
+struct SavedOutputTopology {
+    columns: Vec<SavedColumnTopology>,
+    active: Option<ColumnId>,
+}
+
+#[derive(Clone, Debug)]
+struct SavedColumnTopology {
+    id: ColumnId,
+    selected: ElementId,
+    width: ColumnWidth,
+    windows: Vec<ElementId>,
+}
+
 #[derive(Default)]
 pub(super) struct OutputTiling {
     pub(super) columns: Vec<TiledColumn>,
@@ -83,6 +102,128 @@ impl DerefMut for Tiling {
 }
 
 impl<W: StageElement> Stage<W> {
+    /// Capture column order, stacking, width and selection for a later tiling
+    /// entry. Window restore rectangles are refreshed from their current canvas
+    /// geometry when the topology is reapplied.
+    pub fn tiling_topology(&self) -> TilingTopology {
+        TilingTopology {
+            outputs: self
+                .tiling
+                .outputs
+                .iter()
+                .filter(|(_, layout)| !layout.columns.is_empty())
+                .map(|(output, layout)| {
+                    (
+                        output.clone(),
+                        SavedOutputTopology {
+                            columns: layout
+                                .columns
+                                .iter()
+                                .map(|column| SavedColumnTopology {
+                                    id: column.id,
+                                    selected: column.selected,
+                                    width: column.width,
+                                    windows: column.windows.iter().map(|tile| tile.id).collect(),
+                                })
+                                .collect(),
+                            active: layout.active,
+                        },
+                    )
+                })
+                .collect(),
+        }
+    }
+
+    pub fn tiling_topology_output<'a>(
+        &self,
+        topology: &'a TilingTopology,
+        id: ElementId,
+    ) -> Option<&'a str> {
+        topology.outputs.iter().find_map(|(output, saved)| {
+            saved
+                .columns
+                .iter()
+                .any(|column| column.windows.contains(&id))
+                .then_some(output.as_str())
+        })
+    }
+
+    /// Reapply saved topology to the freshly enrolled live windows. Stale or
+    /// ineligible IDs are ignored, while newly opened windows keep their new
+    /// singleton columns after the remembered columns.
+    pub fn restore_tiling_topology(&mut self, topology: &TilingTopology) {
+        let mut live = BTreeMap::new();
+        for (output, layout) in &self.tiling.outputs {
+            for column in &layout.columns {
+                for window in &column.windows {
+                    live.insert(window.id, (output.clone(), *window));
+                }
+            }
+        }
+
+        for (output, layout) in &mut self.tiling.outputs {
+            let Some(saved) = topology.outputs.get(output) else {
+                continue;
+            };
+            let mut restored = Vec::new();
+            let mut included = std::collections::HashSet::new();
+            for column in &saved.columns {
+                let windows: Vec<_> = column
+                    .windows
+                    .iter()
+                    .filter_map(|id| {
+                        let (owner, window) = live.get(id)?;
+                        (owner == output && included.insert(*id)).then_some(*window)
+                    })
+                    .collect();
+                if windows.is_empty() {
+                    continue;
+                }
+                let selected = windows
+                    .iter()
+                    .find(|window| window.id == column.selected)
+                    .map_or(windows[0].id, |window| window.id);
+                restored.push(TiledColumn {
+                    id: column.id,
+                    selected,
+                    width: column.width,
+                    windows,
+                });
+            }
+            for current in &layout.columns {
+                if current
+                    .windows
+                    .iter()
+                    .all(|window| included.contains(&window.id))
+                {
+                    continue;
+                }
+                for window in &current.windows {
+                    if included.insert(window.id) {
+                        restored.push(TiledColumn {
+                            id: current.id,
+                            selected: window.id,
+                            width: current.width,
+                            windows: vec![*window],
+                        });
+                    }
+                }
+            }
+            layout.active = saved
+                .active
+                .filter(|id| restored.iter().any(|column| column.id == *id))
+                .or_else(|| {
+                    layout
+                        .active
+                        .filter(|id| restored.iter().any(|column| column.id == *id))
+                })
+                .or_else(|| restored.last().map(|column| column.id));
+            layout.columns = restored;
+            layout.restore_previous = None;
+            layout.pending_close_return = None;
+        }
+    }
+
     /// Selects the output whose layout is used by the existing focused-layout APIs.
     pub fn activate_tiling_output(&mut self, output: &str) {
         self.tiling.outputs.entry(output.to_owned()).or_default();
@@ -333,6 +474,85 @@ impl<W: StageElement> Stage<W> {
         true
     }
 
+    /// Swap two tiled windows in the same output layout, preserving their
+    /// columns' selected-window identities and widths.
+    pub fn swap_tiled_windows(&mut self, first: ElementId, second: ElementId) -> bool {
+        if first == second {
+            return false;
+        }
+        let Some(output) = self.output_for_tile(first) else {
+            return false;
+        };
+        if self.output_for_tile(second).as_deref() != Some(output.as_str()) {
+            return false;
+        }
+        self.activate_tiling_output(&output);
+        let Some(first_column) = self.column_index(first) else {
+            return false;
+        };
+        let Some(second_column) = self.column_index(second) else {
+            return false;
+        };
+        let active_before = self.active_tile();
+        let first_column_id = self.tiling.columns[first_column].id;
+        let second_column_id = self.tiling.columns[second_column].id;
+        if first_column == second_column {
+            let column = &mut self.tiling.columns[first_column];
+            let a = column
+                .windows
+                .iter()
+                .position(|tile| tile.id == first)
+                .unwrap();
+            let b = column
+                .windows
+                .iter()
+                .position(|tile| tile.id == second)
+                .unwrap();
+            column.windows.swap(a, b);
+        } else {
+            let (left, right) = if first_column < second_column {
+                let (left, right) = self.tiling.columns.split_at_mut(second_column);
+                (&mut left[first_column], &mut right[0])
+            } else {
+                let (left, right) = self.tiling.columns.split_at_mut(first_column);
+                (&mut right[0], &mut left[second_column])
+            };
+            let a = left
+                .windows
+                .iter()
+                .position(|tile| tile.id == first)
+                .unwrap();
+            let b = right
+                .windows
+                .iter()
+                .position(|tile| tile.id == second)
+                .unwrap();
+            std::mem::swap(&mut left.windows[a], &mut right.windows[b]);
+
+            for column in [first_column, second_column] {
+                let tiled = &mut self.tiling.columns[column];
+                if !tiled.windows.iter().any(|tile| tile.id == tiled.selected) {
+                    tiled.selected = tiled.windows[0].id;
+                }
+            }
+            match active_before {
+                Some(id) if id == first => {
+                    self.tiling.columns[second_column].selected = first;
+                    self.tiling.active = Some(second_column_id);
+                }
+                Some(id) if id == second => {
+                    self.tiling.columns[first_column].selected = second;
+                    self.tiling.active = Some(first_column_id);
+                }
+                _ => {}
+            }
+        }
+        let layout = self.tiling.active_mut();
+        layout.restore_previous = None;
+        layout.pending_close_return = None;
+        true
+    }
+
     /// Move the active window after the selected window of its neighboring column.
     pub fn move_into_column(&mut self, backward: bool) -> bool {
         let Some(active) = self.active_tile() else {
@@ -449,6 +669,20 @@ impl<W: StageElement> Stage<W> {
                 ColumnWidth::Proportion(p) if p < 0.5 => ColumnWidth::Proportion(0.5),
                 ColumnWidth::Proportion(p) if p < 1.0 => ColumnWidth::Proportion(1.0),
                 _ => ColumnWidth::Proportion(1.0 / 3.0),
+            };
+        }
+    }
+
+    pub fn toggle_wide_column(&mut self) {
+        if let Some(index) = self
+            .tiling
+            .active
+            .and_then(|id| self.tiling.columns.iter().position(|c| c.id == id))
+        {
+            let column = &mut self.tiling.columns[index];
+            column.width = match column.width {
+                ColumnWidth::Proportion(p) if p >= 1.0 => ColumnWidth::default(),
+                _ => ColumnWidth::Proportion(1.0),
             };
         }
     }

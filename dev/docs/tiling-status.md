@@ -1,342 +1,51 @@
-# Tiling development status and handoff
+# Tiling development status
 
-Updated 2026-10-23. Multi-output tiling implementation and exclusive default
-keyboard controls are in place. Canvas navigation/geometry shortcuts are
-inactive during tiling, tiling controls are inactive on the canvas, and
-`toggle-tiling` works in both. The current remaining roadmap item is recorded
-manual acceptance across the multi-output user journey. Full niri parity
-remains out of scope. The current HEAD is
-on `nationi/development`; upstream `main` through `e7b6701` is merged. The
-earlier integration checkpoint `8c17428` remains in its history. Controlled
-B1–B4 stabilization gates and extensive historical reference audits are
-delivered. They do not by themselves establish that the everyday tiling
-workflow is release-ready.
+Updated 2026-10-23. This is the fork's 1.0.0 baseline on
+`nationi/development`; the integration pull request targets `nationi/driftwm`
+`main`. Canvas remains the default. Niri is a design reference, not a parity
+target.
 
-2026-10-23 build follow-up: after merging upstream canvas actions for snap
-movement, snap resizing and nearest-window focus, classify them as canvas-only
-in both binding dispatch and tiling exit policy. The release build then
-completed with `cargo build --release --locked`. No tests were run in this
-upgrade session. Existing user config was preserved.
+## Current behavior
 
-2026-10-23 follow-up: resolved the roadmap's open new-window ownership note.
-An unowned window is assigned by canvas-space center: the active output wins if
-its viewport contains the center; otherwise a viewport containing the center
-wins, then the active output is the fallback. Existing compositor tests cover
-overlapping and separated viewports. The user guide now states this policy, and
-the TTY guide has a five-step two-output acceptance checklist covering separate
-strips, per-output focus, new windows, transfer/hotplug and canvas restore.
-Physical multi-monitor acceptance is still pending. The guide now distinguishes
-automated topology coverage from that manual release gate. Mode-exclusive
-keyboard profiles remain covered by the existing config and compositor tests;
-no behavior change was needed for that item.
+- Each connected output owns an independent scrolling strip. Windows can be
+  focused, reordered, stacked, widened, transferred between outputs and
+  restored to their canvas geometry.
+- Canvas and tiling keyboard actions are mode-exclusive. `Mod+Ctrl+T` toggles
+  modes; `Mod+R` cycles column widths; `Mod+Shift+R` toggles half/full width.
+- Alt+left-drag swaps tiled windows on the same output. Fullscreen temporarily
+  suspends tiling and resumes the prior layout when fullscreen ends or closes.
+- Toggling back into tiling during the same compositor session restores output
+  ownership, column order, vertical stacks, widths and selected tiles. Closed
+  or ineligible windows are skipped; new windows get new columns. This topology
+  is not persisted across compositor restarts.
+- Removing one output transfers its columns to a surviving output. Removing the
+  last output restores canvas mode. Canvas geometry and view are retained.
 
-Keyboard dispatch is mode-exclusive across key presses, tap bindings, mouse
-actions and gestures. Canvas navigation/geometry actions are ignored while
-tiling; scrolling-column actions are ignored on the canvas. `Mod+Ctrl+T`
-switches modes in either state. Default tiling controls cover focus, column and
-tile reorder, moving/consuming/expelling windows, and width cycling. With
-`mod_key = "alt"`, tiling navigation defaults are omitted to avoid colliding
-with the existing canvas nudge/pan scheme. The exclusive-mode config test and
-all 49 compositor tiling tests pass. The generated config reference and user
-guide were updated. `[keybindings.canvas]` and `[keybindings.tiling]` support
-different actions on the same chord, mode-specific unbinding and tap bindings.
-Full `dev/scripts/ci-local` passes on the preceding action-gate implementation,
-including 1499 binary tests plus integration and soak lanes after profile-table
-support. One GPU pixel scenario failed once in the full lane and passed both in
-isolation and on the subsequent full rerun. Manual multi-output acceptance
-remains.
+## Scope and known limits
 
-The persistent development branch is `nationi/development`. Use the
-[practical roadmap](scrolling-tiling-roadmap.md) for current scope, sequence and
-acceptance. Older “next” statements in this file's evidence log and the
-[history](tiling-history.md) are historical unless repeated in the roadmap.
+The fork focuses on dependable scrolling columns alongside the infinite canvas.
+It does not add workspaces, tabs, a general floating-window policy, or layout
+restore across compositor restarts. Fullscreen uses the existing canvas
+transition path, then resumes tiling. Trackpad column snapping and layout-native
+drag resizing are not implemented.
 
-## Where to look
+The automated multi-output fixtures cover independent layouts, mapping,
+cross-output transfer, disconnect/reconnect policy and tiling re-entry. A
+recorded physical TTY acceptance of the full multi-monitor workflow remains a
+useful final release check; automated tests do not replace that observation.
 
-| Need | Reference |
-| --- | --- |
-| Available behavior and configuration | [User guide](../../docs/tiling.md) |
-| Product objective, sequence and acceptance | [Practical roadmap](scrolling-tiling-roadmap.md) |
-| Pinned symbols and conservative compatibility labels | [Generated inventory](niri-tiling-inventory.md) |
-| Decoded layout options, defaults and merge semantics | [Configuration audit](niri-layout-config-audit.md) |
-| Color/gradient, border/shadow, tab/insert-hint decoding and merges | [Appearance audit](niri-appearance-config-audit.md) |
-| Override precedence, rule matching, initial map and reload | [Lifecycle audit](niri-config-lifecycle-audit.md) |
-| Radius, workspace shadow, blur and background-effect policy | [Effects audit](niri-effects-config-audit.md) |
-| Entire source-file/root-node coverage and exclusions | [Schema coverage](niri-config-schema-coverage.md) |
-| Layer matching/reload/render and overview consumers | [Layer/overview audit](niri-layer-overview-audit.md) |
-| Source-derived fixture assumptions | [Reference traces](niri-reference-traces.md) |
-| Local preview launch, keys and return path | [TTY guide](tty-preview.md) |
-| Per-batch results and investigation logs | [History](tiling-history.md) |
+## Latest validation
 
-## Goal and current implementation
+`dev/scripts/ci-local` passed in full: format, locked check, all-target clippy,
+test compilation, 1668 library/compositor tests including ignored GPU cases,
+all integration targets and the isolated soak test. `git diff --check` also
+passes. A recorded physical TTY acceptance remains useful validation for the
+multi-monitor journey; `.github/workflows/ci.yml` is authoritative for CI.
 
-The goal is practical scrolling-column tiling on multiple outputs, retaining
-canvas as the default. Niri reference material is optional design research; the
-pinned revision is `12de51d6a60baad8896366920278a24f17921f52`. No
-workspace/overview or full-parity design decision is pending.
+## Start here
 
-Implemented, with partial reference coverage:
-
-- Single-output columns, stable layout/column IDs, separate selection, reorder,
-  focused merge/split, and distinct reference first-consume/last-expel actions.
-- Initial size offers before the first buffer; mapping-time enrollment and
-  neighbor selection. No unbuffered phantom columns.
-- Generation/serial tracking, bounded 300 ms commit groups, deferred placement
-  and view updates, timeout/supersession/removal/exit cleanup.
-- Canvas geometry/view restoration, horizontal anchoring and close-return focus.
-- Retained parent images, separate popup updates, live backdrop blur, native
-  SSD/CSD frames, premultiplied resize blending and inherited opening.
-- Repeated capture/release retains mixed texels and fractional client-mask
-  coverage. Changed client-only regions blend independent source alpha; region-only
-  commits stay hidden while held. Immediate recapture and disabling blur have
-  controlled tests. Mixed client/window-rule blur now retains native SSD title
-  coverage separately from the body, including title-only policy changes.
-  Late responses can animate once without reopening the group.
-- Optional udev `--drm-connector NAME` restricts preview output enrollment.
-
-The core mechanisms are implemented, but there has not yet been a recent,
-recorded end-to-end acceptance of the ordinary user workflow. That practical
-validation, rather than closing old reference milestones, is the current gap.
-
-Multi-output tiling entry now creates one Stage layout and compositor view per
-connected output, assigns existing windows to one output, preserves each
-camera/zoom, and exits by draining and restoring each view. Configure responses,
-timers and snapshots route through the owning output. Width presets remain 1/3,
-1/2 and full width; there is no direct layout resize gesture, tabs, workspace
-model, floating/fullscreen integration or tiling topology restore. A monitor
-connected during tiling now gets an empty output layout at unit zoom without
-changing the selected layout or reconfiguring existing windows. Disconnecting
-one of multiple outputs transfers its columns to a survivor and reflows there;
-disconnecting the last output exits tiling and restores the canvas. Transfer
-preserves stable window/column IDs and saved canvas restore rectangles. Source
-commit groups are canceled and their clients woken; the source configure timer,
-snapshot state and view are dropped before output removal.
-
-## Verified evidence and its limits
-
-Latest A0 geometry evidence: [twenty-nine executable layout contracts](niri-geometry-reference-fixtures.md)
-passed against pinned niri's library harness. Previous twenty-four retain sizes,
-scales, operations, constraints, weights, synthetic responses and dynamic bounds.
-Five new contracts check default/omitted/empty width resolution, initial offer
-versus enrolled geometry at 1.25/1.5/2, offer constraints, client-chosen width and
-explicit fixed/proportional height. Offer calculation on an empty workspace
-leaves zero enrolled windows. At 1.5 the half-width offer is 409×461, then layout
-requests 408×460: initial sizing uses configured logical border and floors;
-enrolled tiles use physically rounded border and nearest Auto height. Unspecified
-width stays zero unless exact width constraints apply; choosing 173 retains that
-client width. All twenty-nine passed first run without changed expectations.
-Reference/archive/lock/fixture/log hashes and clean checkout retained. No driftwm
-runtime change/full CI rerun; implementation evidence remains B4. These execute
-sizing functions used by initial configure, not actual Wayland configure/ack/
-buffer-first-map, floating/fullscreen/maximized or rule matching acceptance.
-Next: rule-derived border/min-max overrides in initial/enrolled sizing and
-remaining parser/scalar/consumer plus reference/differential acceptance before
-feature expansion.
-
-A0 parser reference evidence: the
-[pinned parser corpus](niri-parser-reference-fixtures.md) ran 16 Rust contract
-tests against actual niri-config at the pinned revision: 16 passed, zero failed,
-zero ignored. The runner archives a clean checkout, injects only the maintained
-external fixture, uses --locked and separate build/scratch paths, and records
-reference/archive/lock/fixture/log hashes plus compiler and results. Original
-reference and driftwm lockfile/runtime remained unchanged. Contracts cover
-positional/nested includes, duplicate/error/optional/depth/watch-list behavior,
-MRU first/later binds and on/off merge, filter acceptance and fresh cursor parse.
-One source inference was disproved: explicit filter="all" is accepted; corrected
-MRU audit and typed-result/unknown-filter assertions record the finding. Initial
-fixture separator errors were corrected separately and are not semantic findings.
-Runner path/revision guards, Python syntax, Rust fixture formatting, provenance,
-source inventory/links and diff checks passed. All 576 fields /186 actions retain
-source links; this small parser corpus does not prove driftwm parity, watcher/UI/
-geometry/protocol/GPU behavior or complete A0. Implementation CI remains B4.
-
-Latest validation gate: `/tmp/driftwm-b4-output-ci.log`, exit 0: full
-`dev/scripts/ci-local`, 369 library cases, 1490 binary cases including ignored
-GPU scenarios, integration suites and isolated soak. Dedicated B4 output gate:
-`/tmp/driftwm-b4-output.log`, 12 SSD/CSD scenes at 1x/1.25x/1.5x, held/mixed
-resize with a ready peer, stalled peer and popup, plus a hermetic regression.
-Sole-output removal now explicitly leaves tiling before teardown: queued buffers
-are released, retained images/animations and output GPU state drain, and clients
-leave the removed output. A disconnected placeholder cannot start tiling.
-Re-adding an output with the same name retires the placeholder; manual tiling
-re-entry uses a fresh layout ID, preserves window IDs, restores focus/membership
-and shows the latest body/popup pixels without a repeated animation. This uses
-the shared backend policy and simulated globals, not actual DRM unplug/replug.
-Dedicated B4 supersession gate: `/tmp/driftwm-b4-supersede.log`, 12 SSD/CSD scenes at 1x/1.25x/1.5x,
-ordinary held or recaptured mixed resize, two independent clients and a popup.
-A new width request releases the old queued buffer while retaining the pending
-peer. The held frame remains exact; a newly ready buffer still waits for the
-other peer. Release continuity stays within two bytes and settled frames contain
-only the latest body colors. Stable IDs, focus/output membership, zero retained
-snapshots/pending configures/crossfades and no repeated animation are checked.
-The existing hermetic queued-buffer supersession scenario also passed. No
-production fix was needed for these controlled supersession cases.
-Dedicated B4 protocol gate:
-`/tmp/driftwm-b4-protocol.log`, 12 SSD/CSD scenes at 1x/1.25x/1.5x with held
-or recaptured mixed content and a popup, plus a hermetic ready-peer scenario.
-Null-buffer unmap removes layout membership and retained animation state without
-ending the tiling session or replacing the stage ID. A new empty commit starts
-a fresh initial configure; only the first buffer enrolls the window again.
-The hidden frame equals an independent empty render; remap shows only the new
-blue body, restores SSD/focus/output membership and does not animate twice.
-Stage untile/re-enrollment and 4000-case stage properties also passed
-(`/tmp/driftwm-b4-protocol-stage.log`). This preserves driftwm's existing live
-stage record for a hidden surface; it is not complete niri lifecycle parity.
-Dedicated B4 peer gate:
-`/tmp/driftwm-b4-peer.log`, 12 SSD/CSD scenes at 1x/1.25x/1.5x: an ordinary
-held group or a recaptured mixed resize waits for a stalled client while the
-survivor has a ready buffer. Disconnect releases that buffer; any full-height
-reflow is answered, retained images/crossfades/transactions settle, and a later
-repaint does not restart animation. Exact held-frame comparison, final green
-body/blue popup and absent magenta departed content, stable survivor ID, focus
-and actual client-side output membership are checked. This is controlled
-two-client disconnect coverage, not all lifecycle combinations.
-Dedicated B4 remap gate:
-`/tmp/driftwm-b4-remap.log`, 12 SSD/CSD scenes at 1x/1.25x/1.5x with ordinary
-held images or a recaptured mixed resize. Explicit remap cancels the group,
-images and crossfades; late tiling buffers and the canvas restore response must
-preserve the new placement and stable window ID. A deferred exit recenter used
-to override that placement after a committed tiling resize; remap now discards
-it. A hermetic regression covers the restore response without GLES
-(`/tmp/driftwm-b4-remap-unit.log`). This is direct compositor remap, not protocol
-unmap/remap or a complete lifecycle gate.
-Dedicated allocation gate:
-`/tmp/driftwm-b3-failures.log`, 90 scenes passed across five capture allocation
-sites, three scales, SSD/CSD and reply/timeout/exit. Parent/popup failure installs
-no partial image tree; resize-bake failure retains the held image but releases
-through live content. A later successful capture restores content retention,
-with entry and recovered release within two bytes. Content-only bakes no longer
-pad to the chrome alignment grid, fixing a fractional-scale edge stretch found
-by this recovery check. Failures are scoped one-shot test injections, not actual
-GPU OOM, bind/import/draw failures or every resource-failure combination.
-Dedicated stale-effect gates:
-`/tmp/driftwm-b3-minify.log` (24 grow/minify scenes),
-`/tmp/driftwm-b3-degraded-blur.log` (24 client-region scenes), both passed. Dedicated mode gate
-`/tmp/driftwm-b3-mode.log` passed 48 width-growth/shrink scenes. Transform gates:
-`/tmp/driftwm-b3-transform.log` (84 tiling scenes),
-`/tmp/driftwm-b3-orientation.log` (seven-transform pixel oracle), both passed. Dedicated view gate
-`/tmp/driftwm-b3-views.log` passed all three tests / 36 scenes, including 24 new
-fractional-camera/mode-height cases. Dedicated title gate
-`/tmp/driftwm-b3-ssd.log` passed all 12 CSD/SSD scale-change scenes with opacity
-0.6, title-alpha checks and repeated mixed recapture/release. Dedicated degraded gate
-`/tmp/driftwm-b3-degraded.log` passed 12 SSD/CSD capped live-fallback scenes. Dedicated fractional-client
-gate `/tmp/driftwm-b2-fractional.log` passed 12 scenes with patterned/transparent
-content, changed offsets and both recapture response size directions.
-Earlier B2 dedicated gate:
-`/tmp/driftwm-b2-odd.log`, 12 SSD/CSD grow/shrink scenes passed with odd geometry
-and offset (7,9). Whole-frame capture/release/recapture tolerance remains two
-bytes; independent popup bounds and parent displacement checks passed.
-Earlier global-reload gate: `/tmp/driftwm-b1-reload.log`, 24 scenes passed.
-Dedicated mixed-policy GPU gate: `/tmp/driftwm-b1-mixed.log`, passed 18 scenes:
-SSD/CSD, static 1x/1.25x/1.5x, opening/seeded canvas resize, actual client-buffer
-growth and shrink, opacity 0.6, rounded frames and transparent new-source pixels.
-It checks partial → rule fallback → partial, native title weights/corner cutouts,
-body-identical but title-different policies, held region-only changes and immediate/
-mid-animation recapture. Earlier integration evidence remains in history.
-Logs in `/tmp` are disposable; persistent test names and details are in history.
-
-Global reload evidence adds 12 SSD/CSD scenes and 12 SSD exit/disconnect scenes
-at the same static scales, with opening/seeded resize. Held images remain exact
-after both enable and disable reload; release stays within two bytes. Disconnect
-returns to an independently rendered empty background after closing completes.
-These tests exercise real config reload with unchanged output mode/scale; output
-changes and broader lifecycle permutations remain B3/B4.
-
-Current client-mask evidence covers 18 fixed/proportional-region scenes and
-12 changed-mask scenes, plus the 18 mixed-policy scenes above: SSD/CSD, static 1x/1.25x/1.5x, opening/motion/canvas resize,
-opacity and rounded frames. Changed-mask tests check GPU weights, transparent
-new-source pixels, immediate and mid-animation recapture, held region-only
-commits, disable and settled cleanup. Full-frame transition tolerance is two
-bytes; held-frame comparisons are exact. Previous window-rule/opening/frame
-regressions remain in CI. These controlled scenes do not establish universal
-atomicity or parity across every policy, extent, scale transition and lifecycle.
-
-GPU evidence is from NVIDIA RTX 3060. Reference fixtures are hand-reviewed,
-source-derived expectations, not recordings of niri. Older direct-udev feedback
-confirmed the single-output bindings/menu scenario; it does not validate later
-commits automatically. No release build, installation or manual TTY acceptance
-was performed for these B1–B4 batches. Nested winit NVIDIA blur artifacts/lag remain
-unresolved; use direct TTY for visual acceptance.
-
-## Next work
-
-Multi-output tiling entry, independent output views, hotplug connect, survivor
-transfer on disconnect, last-output exit and same-name reconnect are implemented
-and fixture-covered. Disconnect tests now keep configure requests pending
-through unplug and verify they drain after survivor reflow. An ignored GLES test
-keeps the survivor's retained pixels stable while the removed view is discarded.
-
-`send-to-output` now preserves tiling for a focused tiled window: singleton
-columns retain their column ID, while moving a stacked tile creates a new
-destination column. Window ID and saved canvas geometry remain stable; the
-destination gains focus and receives a size configure. Stage tests cover the
-stack split, and a compositor fixture covers transfer, configure convergence
-and canvas restore on a 1.5x output with a 700-pixel minimum window width.
-
-Latest `dev/scripts/ci-local` passed with the output-transfer behavior: 372
-library tests, 1498 binary tests (including ignored GPU cases), all integration
-targets, all-target clippy, locked check, formatting and the serial soak test.
-The final animation/recenter cleanup after a cross-output move also passed
-all-target clippy and the send-to-output, pending-configure unplug and retained
-snapshot unplug tests. The transfer's 1.5x/minimum-size and stacked-window
-compositor cases also pass individually. Manual multi-monitor TTY validation
-remains open. Next: perform the multi-output user journey on real monitors and
-decide after manual use whether whole-column transfer needs its own binding. Do
-not extend the niri parser/schema audits for this work.
-
-## Implementation evidence log
-
-Delivered B3 subsets: 12 stale/capped live-fallback scenes and 12 CSD/SSD output
-scale + camera scenes (ordinary/mixed snapshot, opacity 0.6, repeated recapture/
-release, independent native popup bounds, translated pixels and title-alpha
-sample). Scales cover 1→1.25, 1.25→1.5, 1.5→1. Another 12 scenes cover camera
-(16.4,12.2), including fractional physical displacement, and 12 scenes cover mode
-height growth 1200x800→1200x1000. They retain popup anchors, release/recapture
-continuity and independent configure-height checks. Mode application is simulated
-at the backend-success boundary; real DRM modesetting is not exercised. These
-are controlled integration gates, not all output transitions. Another 84 scenes
-cover all seven non-normal transforms, SSD/CSD, 1x/1.25x/1.5x and ordinary/mixed
-snapshots, including release/recapture, native popup anchors/title alpha and
-configure-height reflow. Another 48 mode scenes cover width growth, width shrink,
-height shrink and combined shrink (1600x800/900x800/1200x600/900x600), with exact
-proportional-width/native-height offers and complete release/recapture checks.
-A separate seven-transform scene verifies actual GPU orientation against an
-independent upright render. Real DRM scanout is not tested. Zoom, every degraded/effect/minification path,
-other GPU failure APIs and multi-output ownership remain unproven. The controlled
-B4 lifecycle gates are delivered; broader combinations remain unproven. Full
-tiling multi-output support remains P11; enrolling a second output still leaves tiling.
-Degraded coverage also adds 12 stale-minification scenes and 24 client-region blur
-scenes (grow/shrink, SSD/CSD, 1x/1.25x/1.5x, reply/timeout). Rendered blur differences
-stay within the independently transformed client region, region-only restoration
-is exact, and settled disable/empty regions agree. These do not cover every
-constraint, anisotropic ratio, effect policy or degraded lifecycle combination.
-
-Controlled B2 gates now include 12 solid 1x-client scenes and 12 patterned
-fractional-client scenes: odd extents, SSD/CSD, canvas grow/shrink, changed
-geometry offsets, capture/release/recapture/release, native popup size/anchor and
-independent settled transparency/opacity samples. Scales stay fixed per scene;
-this does not establish behavior during scale/output transitions or every
-client texture/extent combination. Controlled B1 blur/reload/cancellation gates
-remain in CI. Mapped rule flags stay sticky until remapping; the existing effect
-policy still differs from pinned niri's tri-state rules. Do not restart the
-already delivered controlled B1/B2 matrices.
-
-This evidence log records the former parity investigation. Its A0/P0/P* labels
-are historical queue labels; they do not constrain the current product roadmap.
-
-## Working-tree and session precautions
-
-- Read `AGENTS.md`, contribution, caveat and testing rules before implementation.
-  Stage is the sole window authority; input retains its destination contract.
-- Inspect Git status/history before editing. Update this handoff after delivery;
-  append detailed evidence to history, not to `AGENTS.md` or the roadmap.
-- Follow the TTY guide. The launcher uses the last local `target/release/driftwm`,
-  not a binary pinned by the preview directory name. Do not replace the installed
-  compositor or restart the main desktop for routine tests.
-- Follow [the Git workflow](git-workflow.md) for branch tracking and integration PRs.
-- `origin`: `https://github.com/nationi/driftwm.git`;
-  `upstream`: `https://github.com/malbiruk/driftwm.git`.
-  This plan does not grant push, publish, installation or messaging permission.
-- Never reuse historical uncommitted-file lists as current tree state.
-- Documentation-only cleanup needs content/link/diff checks. Implementation
-  changes require the meaningful targeted and full CI gates in the testing guide.
+- User behavior and bindings: [tiling guide](../../docs/tiling.md)
+- Scope, sequence and acceptance: [roadmap](scrolling-tiling-roadmap.md)
+- Architecture and testing rules: [caveats](caveats.md),
+  [testing](testing.md)
+- Local hardware preview: [TTY guide](tty-preview.md)

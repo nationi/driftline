@@ -202,6 +202,7 @@ pub fn parse_action(s: &str) -> Result<Action, String> {
             Ok(Action::FocusColumn(dir))
         }
         "cycle-column-width" => Ok(Action::CycleColumnWidth),
+        "toggle-wide-column" => Ok(Action::ToggleWideColumn),
         "move-into-column" => {
             let dir = parse_direction(arg.ok_or("move-into-column requires left or right")?)?;
             if !matches!(dir, Direction::Left | Direction::Right) {
@@ -279,6 +280,7 @@ pub const ACTION_NAMES: &[(&str, &str)] = &[
     ("toggle-tiling", "toggle-tiling"),
     ("focus-column", "focus-column left"),
     ("cycle-column-width", "cycle-column-width"),
+    ("toggle-wide-column", "toggle-wide-column"),
     ("move-into-column", "move-into-column left"),
     ("expel-from-column", "expel-from-column"),
     ("consume-window-into-column", "consume-window-into-column"),
@@ -676,6 +678,7 @@ mod tests {
             Action::ToggleTiling => "toggle-tiling",
             Action::FocusColumn(_) => "focus-column",
             Action::CycleColumnWidth => "cycle-column-width",
+            Action::ToggleWideColumn => "toggle-wide-column",
             Action::MoveIntoColumn(_) => "move-into-column",
             Action::ExpelFromColumn => "expel-from-column",
             Action::ConsumeWindowIntoColumn => "consume-window-into-column",

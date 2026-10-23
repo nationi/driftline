@@ -23,7 +23,8 @@ use smithay::utils::Transform;
 use smithay::utils::{Logical, Point};
 
 use defaults::{
-    default_bindings, default_gesture_bindings, default_mouse_bindings, default_touch_bindings,
+    default_bindings, default_gesture_bindings, default_mouse_bindings, default_tiling_bindings,
+    default_touch_bindings,
 };
 use parse_helpers::{
     Warnings, clamp_warn, collect_warn, non_negative, parse_backend_config,
@@ -273,6 +274,7 @@ pub struct Config {
     pub child_env: HashMap<String, String>,
     pub output_configs: Vec<OutputConfig>,
     bindings: HashMap<KeyCombo, Action>,
+    default_tiling_bindings: HashMap<KeyCombo, Action>,
     canvas_bindings: HashMap<KeyCombo, Option<Action>>,
     tiling_bindings: HashMap<KeyCombo, Option<Action>>,
     /// Tap-modifier bindings: a bare modifier chord (e.g. `alt+shift`) that
@@ -339,7 +341,15 @@ impl Config {
         let action = match profile.get(&combo) {
             Some(Some(action)) => Some(action),
             Some(None) => None,
-            None => self.bindings.get(&combo),
+            None => self
+                .bindings
+                .get(&combo)
+                .filter(|action| action.allowed_in_tiling(tiling))
+                .or_else(|| {
+                    tiling
+                        .then(|| self.default_tiling_bindings.get(&combo))
+                        .flatten()
+                }),
         };
         action.filter(|action| action.allowed_in_tiling(tiling))
     }
@@ -619,6 +629,17 @@ impl Config {
                 })
                 .collect()
         };
+        let mut default_tiling_bindings = if disable_keys {
+            HashMap::new()
+        } else {
+            default_tiling_bindings(mod_key)
+                .into_iter()
+                .map(|(mut combo, action)| {
+                    combo.normalize();
+                    (combo, action)
+                })
+                .collect()
+        };
 
         let mut tap_bindings: HashMap<Modifiers, Action> = HashMap::new();
         {
@@ -649,6 +670,7 @@ impl Config {
                         combo.normalize();
                         if action_str == "none" {
                             bindings.remove(&combo);
+                            default_tiling_bindings.remove(&combo);
                         } else {
                             match parse_action(action_str) {
                                 Ok(action) => {
@@ -1384,6 +1406,7 @@ impl Config {
             focus_placement,
             output_configs,
             bindings,
+            default_tiling_bindings,
             canvas_bindings,
             tiling_bindings,
             tap_bindings,
@@ -2318,14 +2341,12 @@ mod tests {
             "#,
         )
         .unwrap();
-        let focus = parse::parse_key_combo("mod+alt+shift+left", ModKey::Super).unwrap();
+        let focus = parse::parse_key_combo("mod+left", ModKey::Super).unwrap();
         let canvas_nav = parse::parse_key_combo("mod+left", ModKey::Super).unwrap();
         let toggle = parse::parse_key_combo("mod+ctrl+t", ModKey::Super).unwrap();
 
         let focus_mods = ModifiersState {
             logo: true,
-            alt: true,
-            shift: true,
             ..Default::default()
         };
         let logo = ModifiersState {
@@ -2342,7 +2363,10 @@ mod tests {
             config.lookup_for_mode(&focus_mods, focus.sym, true),
             Some(&Action::FocusColumn(Direction::Left))
         );
-        assert_eq!(config.lookup_for_mode(&focus_mods, focus.sym, false), None);
+        assert_eq!(
+            config.lookup_for_mode(&focus_mods, focus.sym, false),
+            Some(&Action::CenterNearest(Direction::Left))
+        );
         assert_eq!(
             config.lookup_for_mode(&logo, canvas_nav.sym, false),
             Some(&Action::CenterNearest(Direction::Left))
@@ -2358,6 +2382,79 @@ mod tests {
         assert_eq!(
             config.lookup_for_mode(&toggle_mods, toggle.sym, true),
             Some(&Action::ToggleTiling)
+        );
+    }
+
+    #[test]
+    fn default_tiling_keys_use_shortcuts_filtered_from_canvas_actions() {
+        let config = Config::from_toml("").unwrap();
+        let cases = [
+            (
+                "mod+left",
+                ModifiersState {
+                    logo: true,
+                    ..Default::default()
+                },
+                Action::FocusColumn(Direction::Left),
+                Action::PanViewport(Direction::Left),
+            ),
+            (
+                "mod+shift+left",
+                ModifiersState {
+                    logo: true,
+                    shift: true,
+                    ..Default::default()
+                },
+                Action::MoveColumn(Direction::Left),
+                Action::MoveToSnap(Direction::Left),
+            ),
+            (
+                "mod+shift+up",
+                ModifiersState {
+                    logo: true,
+                    shift: true,
+                    ..Default::default()
+                },
+                Action::MoveTiledWindow(Direction::Up),
+                Action::MoveToSnap(Direction::Up),
+            ),
+            (
+                "mod+ctrl+left",
+                ModifiersState {
+                    logo: true,
+                    ctrl: true,
+                    ..Default::default()
+                },
+                Action::MoveIntoColumn(Direction::Left),
+                Action::FocusNearest(Direction::Left),
+            ),
+        ];
+
+        for (binding, modifiers, expected_tiling, expected_canvas) in cases {
+            let combo = parse::parse_key_combo(binding, ModKey::Super).unwrap();
+            assert_eq!(
+                config.lookup_for_mode(&modifiers, combo.sym, true),
+                Some(&expected_tiling)
+            );
+            assert_eq!(
+                config.lookup_for_mode(&modifiers, combo.sym, false),
+                Some(&expected_canvas)
+            );
+        }
+
+        let alt_config = Config::from_toml("mod_key = \"alt\"").unwrap();
+        let alt_combo = parse::parse_key_combo("mod+left", ModKey::Alt).unwrap();
+        let alt_modifiers = ModifiersState {
+            alt: true,
+            ..Default::default()
+        };
+        assert_eq!(
+            alt_config.lookup_for_mode(&alt_modifiers, alt_combo.sym, true),
+            Some(&Action::FocusColumn(Direction::Left))
+        );
+        assert_eq!(
+            alt_config.lookup_for_mode(&alt_modifiers, alt_combo.sym, false),
+            Some(&Action::PanViewport(Direction::Left))
         );
     }
 

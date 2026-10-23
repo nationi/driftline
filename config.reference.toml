@@ -69,7 +69,7 @@
 # # or fill the viewport and ignore it, as does a filled window returning to
 # # the view it was filled in.
 # #
-# # focus-nearest (Mod+Arrow, the 4-finger swipe and Mod+Ctrl+drag by default)
+# # focus-nearest (Mod+Ctrl+Arrow, the 4-finger swipe and Mod+Ctrl+drag by default)
 # # walks within the focused window's snap cluster and jumps out of it. A step
 # # to a clipped window in the same cluster, or one overlapping the focused
 # # window, scrolls it just far enough to show it whole, snap.outer_gap in from
@@ -208,8 +208,8 @@
                               # fully visible → focus only
 # nudge_step = 20             # px per nudge-window action (unbound by default)
 # resize_step = 20            # px per grow-window/shrink-window action (both unbound by default; does not affect drag-resize)
-# pan_step = 100.0            # px per pan-viewport action (mod-ctrl-arrow by default)
-# # Anchors: canvas points discoverable by focus-nearest (Mod+Arrow / 4-finger swipe) and center-nearest
+# pan_step = 100.0            # px per pan-viewport action (Mod+Arrow by default)
+# # Anchors: canvas points discoverable by focus-nearest (Mod+Ctrl+Arrow / 4-finger swipe) and center-nearest
 # # even when no window is there. Uses Y-up coordinate system. Empty by default.
 # anchors = []
 # # Example: origin + 4 corners
@@ -425,13 +425,14 @@
 # # [keybindings.tiling]
 # # Tiling-only keyboard overrides; the same chord can have a different canvas action.
 # #
-# # Default tiling keys are active only in tiling: Mod+Alt+Shift+arrows focus,
-# # Mod+Ctrl+Alt+arrows reorder columns, Mod+Ctrl+Shift+Up/Down reorder tiles,
-# # Mod+Ctrl+Alt+Shift+Left/Right move into a column; Mod+Ctrl+Shift+Left/Right
-# # consume/expel; Mod+Ctrl+E expels a focused tile; Mod+Alt+R cycles width.
+# # Default tiling keys are active only in tiling: Mod+arrows focus,
+# # Mod+Shift+Left/Right reorder columns, Mod+Shift+Up/Down reorder tiles,
+# # Mod+Ctrl+Left/Right move a tile into a neighboring column;
+# # Mod+Ctrl+Shift+Left/Right consume/expel a window; Mod+Ctrl+E splits a tile;
+# # Mod+R cycles column width; Mod+Shift+R toggles between half and full width.
 # # Mod+Ctrl+T toggles mode.
-# # With mod_key = "alt", navigation defaults are omitted to avoid collisions;
-# # add your own tiling actions to [keybindings].
+# # These shortcuts can reuse canvas chords because each mode filters the
+# # other's actions. This also applies when mod_key = "alt".
 # #
 # # "mod" expands to mod_key. Literal modifiers: alt, super (alias logo),
 # # ctrl (alias control), shift, mod3.
@@ -471,6 +472,7 @@
 # #   toggle-tiling           — toggle scrolling columns across outputs; toggle again to restore canvas positions, sizes and view
 # #   focus-column <dir>      — focus a scrolling column (left/right) or a window inside it (up/down); center-nearest also follows this structure while tiling
 # #   cycle-column-width      — cycle the active column through 1/3, 1/2 and full usable width
+# #   toggle-wide-column      — toggle the active column between half and full usable width
 # #   move-into-column <dir>  — move the focused tiled window into the neighboring column (left/right), after its selected window
 # #   consume-window-into-column — append the first window from the next column, preserving focus
 # #   expel-window-from-column — split the last window right, keeping focus in the source column
@@ -501,18 +503,18 @@
 # "mod+c" = "center-window"
 # "mod+x" = "focus-center"
 # "mod+a" = "home-toggle"
-# "mod+up" = "focus-nearest up"
-# "mod+down" = "focus-nearest down"
-# "mod+left" = "focus-nearest left"
-# "mod+right" = "focus-nearest right"
+# "mod+up" = "pan-viewport up"
+# "mod+down" = "pan-viewport down"
+# "mod+left" = "pan-viewport left"
+# "mod+right" = "pan-viewport right"
 # "mod+shift+up" = "move-to-snap up"
 # "mod+shift+down" = "move-to-snap down"
 # "mod+shift+left" = "move-to-snap left"
 # "mod+shift+right" = "move-to-snap right"
-# "mod+ctrl+up" = "pan-viewport up"
-# "mod+ctrl+down" = "pan-viewport down"
-# "mod+ctrl+left" = "pan-viewport left"
-# "mod+ctrl+right" = "pan-viewport right"
+# "mod+ctrl+up" = "focus-nearest up"
+# "mod+ctrl+down" = "focus-nearest down"
+# "mod+ctrl+left" = "focus-nearest left"
+# "mod+ctrl+right" = "focus-nearest right"
 # "alt+tab" = "cycle-windows forward"
 # "alt+shift+tab" = "cycle-windows backward"
 # "mod+equal" = "zoom-in"

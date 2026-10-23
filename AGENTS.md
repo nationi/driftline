@@ -2,7 +2,7 @@
 
 ## Project
 
-driftwm — a trackpad-first infinite canvas Wayland compositor written in Rust. Windows float on an unbounded 2D plane navigated via trackpad gestures (pan, zoom, pinch). The canvas remains the default; this fork also adds an experimental scrolling-tiling mode. Built on [smithay](https://github.com/Smithay/smithay).
+driftwm — a trackpad-first infinite canvas Wayland compositor written in Rust. Windows float on an unbounded 2D plane navigated via trackpad gestures (pan, zoom, pinch). The canvas remains the default; this fork also provides practical scrolling-column tiling. Built on [smithay](https://github.com/Smithay/smithay).
 
 Actively developed and released — a public, multi-contributor project, so match existing conventions carefully. Guidelines live next to the code, read them before working:
 

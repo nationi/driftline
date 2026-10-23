@@ -98,22 +98,7 @@ For this checkout's isolated launcher, keys and return path, see
 environment for the current NVIDIA blur work; nested winit still has
 artifacts/lag. The surfaceless GLES helper self-skips without EGL; current local
 pixel evidence comes from NVIDIA RTX 3060, not an assumed Mesa software renderer.
-Record automated checks and manual observations separately in
-[the maintained status](tiling-status.md), with detailed logs in
-[history](tiling-history.md).
-
-
-## Manual pinned-reference contracts
-
-The [niri parser reference corpus](niri-parser-reference-fixtures.md) runs
-maintained Rust fixtures against an archived clean pinned niri checkout using
-`dev/scripts/niri-config-reference.py`. The default suite builds only the niri-config test target,
-keeps separate dependency/cache/provenance and leaves driftwm's lockfile/runtime
-unchanged. This manual external-reference gate is separate from ordinary driftwm
-CI; it validates reference contracts before differential implementation fixtures.
-
-Use `--suite geometry` for the [executable layout contracts](niri-geometry-reference-fixtures.md).
-This builds the pinned root niri library test target without default features and runs
-only the injected geometry module. Native build dependencies are still required;
-the test runtime needs no display or GPU. Keep executable reference evidence
-separate from the older source-derived Stage fixtures.
+Record automated checks and manual observations in the
+[maintained status](tiling-status.md). Niri source is an optional implementation
+reference; external niri builds and parity audits are not project acceptance
+gates.

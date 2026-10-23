@@ -137,46 +137,46 @@ fn nudge_window_still_binds_explicitly() {
     );
 }
 
-// ── Super+Ctrl+Arrow → PanViewport ──────────────────────────────────────
+// ── Super+Arrow → PanViewport ───────────────────────────────────────────
 
 #[test]
-fn super_ctrl_left_resolves_to_pan_viewport_left() {
+fn super_left_resolves_to_pan_viewport_left() {
     let config = Config::default();
-    let result = config.lookup(&logo_ctrl(), Keysym::from(keysyms::KEY_Left));
-    assert!(result.is_some(), "Super+Ctrl+Left should be bound");
+    let result = config.lookup(&logo(), Keysym::from(keysyms::KEY_Left));
+    assert!(result.is_some(), "Super+Left should be bound");
     assert!(
         matches!(result.unwrap(), Action::PanViewport(Direction::Left)),
-        "Super+Ctrl+Left should resolve to PanViewport(Left)"
+        "Super+Left should resolve to PanViewport(Left)"
     );
 }
 
 #[test]
-fn super_ctrl_right_resolves_to_pan_viewport_right() {
+fn super_right_resolves_to_pan_viewport_right() {
     let config = Config::default();
-    let result = config.lookup(&logo_ctrl(), Keysym::from(keysyms::KEY_Right));
+    let result = config.lookup(&logo(), Keysym::from(keysyms::KEY_Right));
     assert!(
         matches!(result.unwrap(), Action::PanViewport(Direction::Right)),
-        "Super+Ctrl+Right should resolve to PanViewport(Right)"
+        "Super+Right should resolve to PanViewport(Right)"
     );
 }
 
 #[test]
-fn super_ctrl_up_resolves_to_pan_viewport_up() {
+fn super_up_resolves_to_pan_viewport_up() {
     let config = Config::default();
-    let result = config.lookup(&logo_ctrl(), Keysym::from(keysyms::KEY_Up));
+    let result = config.lookup(&logo(), Keysym::from(keysyms::KEY_Up));
     assert!(
         matches!(result.unwrap(), Action::PanViewport(Direction::Up)),
-        "Super+Ctrl+Up should resolve to PanViewport(Up)"
+        "Super+Up should resolve to PanViewport(Up)"
     );
 }
 
 #[test]
-fn super_ctrl_down_resolves_to_pan_viewport_down() {
+fn super_down_resolves_to_pan_viewport_down() {
     let config = Config::default();
-    let result = config.lookup(&logo_ctrl(), Keysym::from(keysyms::KEY_Down));
+    let result = config.lookup(&logo(), Keysym::from(keysyms::KEY_Down));
     assert!(
         matches!(result.unwrap(), Action::PanViewport(Direction::Down)),
-        "Super+Ctrl+Down should resolve to PanViewport(Down)"
+        "Super+Down should resolve to PanViewport(Down)"
     );
 }
 
@@ -256,49 +256,49 @@ fn super_c_does_not_conflict_with_close_window() {
     );
 }
 
-// ── Super+Arrow → FocusNearest ──────────────────────────────────────────
+// ── Super+Ctrl+Arrow → FocusNearest ─────────────────────────────────────
 
 #[test]
-fn super_up_resolves_to_focus_nearest_up() {
+fn super_ctrl_up_resolves_to_focus_nearest_up() {
     let config = Config::default();
-    let result = config.lookup(&logo(), Keysym::from(keysyms::KEY_Up));
-    assert!(result.is_some(), "Super+Up should be bound");
+    let result = config.lookup(&logo_ctrl(), Keysym::from(keysyms::KEY_Up));
+    assert!(result.is_some(), "Super+Ctrl+Up should be bound");
     assert!(
         matches!(result.unwrap(), Action::FocusNearest(Direction::Up)),
-        "Super+Up should resolve to FocusNearest(Up)"
+        "Super+Ctrl+Up should resolve to FocusNearest(Up)"
     );
 }
 
 #[test]
-fn super_down_resolves_to_focus_nearest_down() {
+fn super_ctrl_down_resolves_to_focus_nearest_down() {
     let config = Config::default();
-    let result = config.lookup(&logo(), Keysym::from(keysyms::KEY_Down));
-    assert!(result.is_some(), "Super+Down should be bound");
+    let result = config.lookup(&logo_ctrl(), Keysym::from(keysyms::KEY_Down));
+    assert!(result.is_some(), "Super+Ctrl+Down should be bound");
     assert!(
         matches!(result.unwrap(), Action::FocusNearest(Direction::Down)),
-        "Super+Down should resolve to FocusNearest(Down)"
+        "Super+Ctrl+Down should resolve to FocusNearest(Down)"
     );
 }
 
 #[test]
-fn super_left_resolves_to_focus_nearest_left() {
+fn super_ctrl_left_resolves_to_focus_nearest_left() {
     let config = Config::default();
-    let result = config.lookup(&logo(), Keysym::from(keysyms::KEY_Left));
-    assert!(result.is_some(), "Super+Left should be bound");
+    let result = config.lookup(&logo_ctrl(), Keysym::from(keysyms::KEY_Left));
+    assert!(result.is_some(), "Super+Ctrl+Left should be bound");
     assert!(
         matches!(result.unwrap(), Action::FocusNearest(Direction::Left)),
-        "Super+Left should resolve to FocusNearest(Left)"
+        "Super+Ctrl+Left should resolve to FocusNearest(Left)"
     );
 }
 
 #[test]
-fn super_right_resolves_to_focus_nearest_right() {
+fn super_ctrl_right_resolves_to_focus_nearest_right() {
     let config = Config::default();
-    let result = config.lookup(&logo(), Keysym::from(keysyms::KEY_Right));
-    assert!(result.is_some(), "Super+Right should be bound");
+    let result = config.lookup(&logo_ctrl(), Keysym::from(keysyms::KEY_Right));
+    assert!(result.is_some(), "Super+Ctrl+Right should be bound");
     assert!(
         matches!(result.unwrap(), Action::FocusNearest(Direction::Right)),
-        "Super+Right should resolve to FocusNearest(Right)"
+        "Super+Ctrl+Right should resolve to FocusNearest(Right)"
     );
 }
 
