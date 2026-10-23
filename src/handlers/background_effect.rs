@@ -10,7 +10,7 @@ use smithay::wayland::compositor::{
 };
 
 use crate::region::region_to_non_overlapping_rects;
-use crate::state::DriftWm;
+use crate::state::Driftline;
 
 #[derive(Default)]
 struct CachedBlurRegionUserData(Mutex<CachedBlurRegionInner>);
@@ -31,7 +31,7 @@ struct CachedBlurRegionInner {
 ///
 /// Limitation: this is per-surface. The render path uses the toplevel
 /// wl_surface only, so blur regions on subsurfaces are silently ignored —
-/// matches driftwm's whole-surface-tree alpha-mask flow today. Most expected
+/// matches driftline's whole-surface-tree alpha-mask flow today. Most expected
 /// clients (mako, swaync, custom shells) use a single toplevel.
 pub fn get_cached_blur_region(states: &SurfaceData) -> Option<Arc<Vec<Rectangle<i32, Logical>>>> {
     let cache = states
@@ -96,7 +96,7 @@ fn mark_blur_region_pending_dirty(wl_surface: &WlSurface) {
     });
 
     if register_hook {
-        add_post_commit_hook::<DriftWm, _>(wl_surface, |state, _dh, surface| {
+        add_post_commit_hook::<Driftline, _>(wl_surface, |state, _dh, surface| {
             let became_dirty = with_states(surface, |states| {
                 let Some(cache) = states.data_map.get::<CachedBlurRegionUserData>() else {
                     tracing::error!("unexpected missing CachedBlurRegionUserData");
@@ -123,7 +123,7 @@ fn mark_blur_region_pending_dirty(wl_surface: &WlSurface) {
     }
 }
 
-impl ExtBackgroundEffectHandler for DriftWm {
+impl ExtBackgroundEffectHandler for Driftline {
     fn capabilities(&self) -> background_effect::Capability {
         background_effect::Capability::Blur
     }

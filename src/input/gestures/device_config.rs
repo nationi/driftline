@@ -1,13 +1,13 @@
 //! libinput device configuration — trackpad and mouse knobs applied from
 //! the user's config on device hotplug or config reload.
 
-use crate::state::DriftWm;
+use crate::state::Driftline;
 
 fn set_accel_profile(
     device: &mut smithay::reexports::input::Device,
-    profile: driftwm::config::AccelProfile,
+    profile: driftline::config::AccelProfile,
 ) {
-    use driftwm::config::AccelProfile;
+    use driftline::config::AccelProfile;
     let libinput_profile = match profile {
         AccelProfile::Flat => smithay::reexports::input::AccelProfile::Flat,
         AccelProfile::Adaptive => smithay::reexports::input::AccelProfile::Adaptive,
@@ -19,9 +19,9 @@ fn set_accel_profile(
 
 fn set_send_events(
     device: &mut smithay::reexports::input::Device,
-    mode: driftwm::config::SendEvents,
+    mode: driftline::config::SendEvents,
 ) {
-    use driftwm::config::SendEvents;
+    use driftline::config::SendEvents;
     let libinput_mode = match mode {
         SendEvents::Enabled => smithay::reexports::input::SendEventsMode::ENABLED,
         SendEvents::Disabled => smithay::reexports::input::SendEventsMode::DISABLED,
@@ -41,7 +41,7 @@ fn is_trackpad(device: &smithay::reexports::input::Device) -> bool {
     device.config_tap_finger_count() > 0
 }
 
-impl DriftWm {
+impl Driftline {
     /// Configure a libinput device using settings from config.
     /// Trackpads get trackpad settings, mice get mouse settings.
     pub fn configure_libinput_device(&self, device: &mut smithay::reexports::input::Device) {
@@ -54,7 +54,7 @@ impl DriftWm {
 
     /// The send-events mode in force: a runtime `set-trackpad` press if there
     /// has been one this session, otherwise the `[input.trackpad]` seed.
-    pub fn effective_send_events(&self) -> driftwm::config::SendEvents {
+    pub fn effective_send_events(&self) -> driftline::config::SendEvents {
         self.trackpad_send_events
             .unwrap_or(self.config.trackpad.send_events)
     }

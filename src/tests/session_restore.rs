@@ -15,9 +15,9 @@
 use std::collections::{BTreeMap, HashMap};
 use std::rc::Rc;
 
-use driftwm::config::Config;
-use driftwm::desktop_entry::DesktopEntryCache;
-use driftwm::session::{self, Origin, SessionEntry, SessionEnvelope, SessionOutput};
+use driftline::config::Config;
+use driftline::desktop_entry::DesktopEntryCache;
+use driftline::session::{self, Origin, SessionEntry, SessionEnvelope, SessionOutput};
 use smithay::utils::{Point, Rectangle, SERIAL_COUNTER, Size};
 use wayland_protocols_wlr::layer_shell::v1::client::{zwlr_layer_shell_v1, zwlr_layer_surface_v1};
 
@@ -78,10 +78,10 @@ fn tiling_saves_the_canvas_rectangle_and_view_instead_of_temporary_geometry() {
     f.state().session_store_write_now();
     let before = session::read(&path);
     f.state()
-        .execute_action(&driftwm::config::Action::ToggleTiling);
+        .execute_action(&driftline::config::Action::ToggleTiling);
     f.state()
-        .execute_action(&driftwm::config::Action::MoveIntoColumn(
-            driftwm::config::Direction::Left,
+        .execute_action(&driftline::config::Action::MoveIntoColumn(
+            driftline::config::Direction::Left,
         ));
     f.state().session_store_write_now();
     let after = session::read(&path);
@@ -160,7 +160,7 @@ fn entry(id: u64, app: &str, origin: Origin) -> SessionEntry {
 }
 
 /// A flush records live windows (`restore_windows = true`), then a fresh
-/// `DriftWm` materializes them in z-order at their exact rects with `Quit`
+/// `Driftline` materializes them in z-order at their exact rects with `Quit`
 /// origin.
 #[test]
 fn quit_serialize_round_trip() {
@@ -767,7 +767,7 @@ fn center_seed_restores_the_framed_viewport() {
     let logical = Size::from((1920, 1080));
     let camera = Point::from((-1234.0, -5678.0));
     let zoom = 0.75;
-    let (x, y) = driftwm::canvas::viewport_center(camera, zoom, logical);
+    let (x, y) = driftline::canvas::viewport_center(camera, zoom, logical);
 
     let saved = HashMap::from([(
         "HEADLESS-1".to_string(),
@@ -957,7 +957,7 @@ fn v2_session_entry_round_trips_unchanged() {
 }
 
 /// A version this build doesn't recognize (too new, or garbled) is
-/// quarantined at the `DriftWm::load_session` boundary, not just at the
+/// quarantined at the `Driftline::load_session` boundary, not just at the
 /// lower-level `session::read` the lib-crate unit tests already cover:
 /// nothing materializes, and the bad file is renamed aside rather than
 /// silently misread.
@@ -1702,7 +1702,7 @@ fn create_and_dismiss_arm_the_debounce() {
 
     // Suspend → convert.
     f.state()
-        .execute_action(&driftwm::config::Action::SuspendWindow);
+        .execute_action(&driftline::config::Action::SuspendWindow);
     f.client(id).window(&surface).destroy();
     f.roundtrip(id);
     f.dispatch();
@@ -1983,8 +1983,8 @@ fn a_debounce_armed_before_a_kill_flushes_without_the_killed_window() {
     let serial = SERIAL_COUNTER.next_serial();
     f.state().raise_and_focus(&beta, serial);
     f.state()
-        .execute_action(&driftwm::config::Action::NudgeWindow(
-            driftwm::config::Direction::Right,
+        .execute_action(&driftline::config::Action::NudgeWindow(
+            driftline::config::Direction::Right,
         ));
     assert!(
         f.state().session_store_dirty(),
@@ -2077,7 +2077,7 @@ fn csd_flag_round_trips_through_session() {
         f.state().raise_and_focus(&window, serial);
         let surface = f.client(id).state.windows[0].surface.clone();
         f.state()
-            .execute_action(&driftwm::config::Action::SuspendWindow);
+            .execute_action(&driftline::config::Action::SuspendWindow);
         f.client(id).window(&surface).destroy();
         f.roundtrip(id);
         f.dispatch();
@@ -2408,7 +2408,7 @@ fn restore_windows_false_rule_still_saves_an_explicit_stand_in() {
     let serial = SERIAL_COUNTER.next_serial();
     f.state().raise_and_focus(&window, serial);
     f.state()
-        .execute_action(&driftwm::config::Action::SuspendWindow);
+        .execute_action(&driftline::config::Action::SuspendWindow);
     f.client(id).window(&surface).destroy();
     f.roundtrip(id);
     f.dispatch();

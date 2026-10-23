@@ -73,7 +73,7 @@ jobs:
         env:
           VERSION: ${{ steps.ver.outputs.version }}
         run: |
-          ASSET="driftwm-$VERSION-vendor.tar.xz"
+          ASSET="driftline-$VERSION-vendor.tar.xz"
           # Own line so a failure here stops the step: tar only warns about an
           # unparseable --mtime, and a substitution inside a word drops its status.
           MTIME=$(git log -1 --format=%ct)

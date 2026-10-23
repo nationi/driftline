@@ -10,7 +10,7 @@ use smithay::output::Output;
 use smithay::reexports::wayland_server::protocol::wl_surface::WlSurface;
 use smithay::utils::{Logical, Point};
 
-use super::DriftWm;
+use super::Driftline;
 
 /// A layer surface pinned to a canvas position instead of being anchored
 /// via LayerMap. Created when a layer's namespace matches a rule with `position`.
@@ -27,7 +27,7 @@ pub struct CanvasLayer {
     pub configured_size: Option<smithay::utils::Size<i32, Logical>>,
 }
 
-impl DriftWm {
+impl Driftline {
     /// Layer-shell surfaces of `layer` on `output` with their mapped
     /// geometries, topmost first. The protocol has no z-order within a
     /// wlr-layer, so map order decides (newest on top) unless `layer_order`
@@ -85,7 +85,7 @@ impl DriftWm {
     pub fn canvas_layer_applied_rule(
         &self,
         idx: usize,
-    ) -> Option<driftwm::config::AppliedWindowRule> {
+    ) -> Option<driftline::config::AppliedWindowRule> {
         let cl = self.canvas_layers.get(idx)?;
         let instance_idx = self.canvas_layers[..idx]
             .iter()
@@ -97,8 +97,8 @@ impl DriftWm {
 
     /// The chrome a canvas layer wears. A layer never gets a title bar and does
     /// not inherit `[decorations]`, so this is the per-rule opt-in border alone.
-    pub fn canvas_layer_chrome(&self, idx: usize) -> driftwm::canvas::Chrome {
-        driftwm::canvas::Chrome {
+    pub fn canvas_layer_chrome(&self, idx: usize) -> driftline::canvas::Chrome {
+        driftline::canvas::Chrome {
             bar: 0,
             border: self
                 .canvas_layer_applied_rule(idx)

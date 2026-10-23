@@ -1,18 +1,18 @@
 # IPC
 
-driftwm exposes a small IPC over a Unix domain socket so external tools and
-scripts can query and control the running compositor. The `driftwm msg`
+driftline exposes a small IPC over a Unix domain socket so external tools and
+scripts can query and control the running compositor. The `driftline msg`
 subcommand is the built-in client; the wire protocol is plain line-delimited
 JSON, so any language can speak it directly.
 
-## `driftwm msg`
+## `driftline msg`
 
-Run `driftwm msg <command>` from inside a driftwm session. The commands —
+Run `driftline msg <command>` from inside a driftline session. The commands —
 `camera`, `zoom`, `focus`, `move`, `resize`, `opacity`, `pin`, `close`,
 `suspend`, `relaunch`, `layout`, `cursor`, `action`, `bookmark`, `screenshot`,
 `state`, `subscribe`, and `debug-counters` — with their arguments, flags, and
 JSON reply shapes are documented in the generated [CLI reference](cli.md);
-`driftwm msg <command> --help` prints the same for one command. The conventions
+`driftline msg <command> --help` prints the same for one command. The conventions
 they share follow below.
 
 `camera`, `zoom`, `focus`, `move`, `resize`, `opacity`, `pin`, and `bookmark`
@@ -127,7 +127,7 @@ over the stand-in's slot), a snapshot lists both entries — count windows by
 
 `screenshot` re-renders the canvas rather than copying the framebuffer, so it
 reaches off-screen content; its four targets, flags, and caveats are in the
-[CLI reference](cli.md#driftwm-msg-screenshot) and their wire forms in
+[CLI reference](cli.md#driftline-msg-screenshot) and their wire forms in
 [Requests](#requests).
 
 ### Subscribing to changes
@@ -137,13 +137,13 @@ per change (per rendered frame while something animates), each a whole-state
 snapshot rather than a granular event type (window-opened, focus-changed, …) —
 diff consecutive snapshots if you need the delta. Nothing is pushed while
 nothing changes. Mechanics are in the
-[CLI reference](cli.md#driftwm-msg-subscribe); the wire-level event shape is
+[CLI reference](cli.md#driftline-msg-subscribe); the wire-level event shape is
 under [Events](#events) below.
 
 A one-liner that prints the focused window's `app_id` whenever anything changes:
 
 ```bash
-driftwm msg --json subscribe \
+driftline msg --json subscribe \
   | jq --unbuffered -r '.State.windows[] | select(.is_focused) | .app_id'
 ```
 
@@ -151,15 +151,16 @@ driftwm msg --json subscribe \
 
 `debug-counters` reports the sizes of the compositor's internal per-window,
 per-surface, and per-client collections; its keys are **unstable** internal
-field names. See the [CLI reference](cli.md#driftwm-msg-debug-counters).
+field names. See the [CLI reference](cli.md#driftline-msg-debug-counters).
 
 ## Wire protocol
 
 The socket path is `$XDG_RUNTIME_DIR/driftwm/ipc-<WAYLAND_DISPLAY>.sock`
-(permissions `0600`). The name is derived from the compositor's `WAYLAND_DISPLAY`,
-so each instance owns a distinct socket and a client launched inside a session
-automatically targets that session. Set `DRIFTWM_SOCKET` to point a client at an
-explicit path.
+(permissions `0600`). The `driftwm` directory name is retained for compatibility
+with existing integrations. The socket name is derived from the compositor's
+`WAYLAND_DISPLAY`, so each instance owns a distinct socket and a client launched
+inside a session automatically targets that session. Set `DRIFTLINE_SOCKET` to
+point a client at an explicit path; `DRIFTWM_SOCKET` remains accepted as an alias.
 
 > [!WARNING]
 > The socket is a full control surface, not a read-only one: `action` can run
@@ -231,7 +232,7 @@ client is free not to commit. Read it back with a bare `{"Resize":{}}` to see
 what the window actually has. Every other setter (`Camera`, `Zoom`, `Position`,
 `Opacity`, `Pin`) echoes state the compositor owns outright.
 
-The `windows` array is the same shape driftwm writes to its [state file](#state-file),
+The `windows` array is the same shape driftline writes to its [state file](#state-file),
 focused window first — but only while something is focused; with nothing focused
 no entry is promoted, so filter on `is_focused` instead of indexing `windows[0]`.
 Each entry's `id` is a stable per-session window handle — pass it back as a
@@ -292,7 +293,7 @@ echo '{"Camera":[500,300]}' | socat -t1 - UNIX-CONNECT:"$SOCK"
 
 ## State file
 
-For read-only polling (status bars, scripts), driftwm also writes a throttled
+For read-only polling (status bars, scripts), driftline also writes a throttled
 (~10 Hz) snapshot to `$XDG_RUNTIME_DIR/driftwm/state` — one `key=value` per
 line. Reading that file avoids a socket round-trip when you only need to
 observe; when you'd rather be pushed than poll, use

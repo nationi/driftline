@@ -20,7 +20,7 @@ use std::process::{Child, Command, Stdio};
 use smithay::reexports::rustix;
 use smithay::reexports::rustix::io::Errno;
 
-use crate::state::DriftWm;
+use crate::state::Driftline;
 
 const MAX_DISPLAY: u32 = 50;
 
@@ -34,7 +34,7 @@ pub struct Satellite {
 /// Spawn `xwayland-satellite :N` eagerly, export `DISPLAY=:N`. Fails soft:
 /// any error leaves `state.satellite = None` so X11 apps don't work but
 /// the compositor runs.
-pub fn setup(state: &mut DriftWm) {
+pub fn setup(state: &mut Driftline) {
     if state.satellite.is_some() {
         return;
     }
@@ -71,7 +71,7 @@ pub fn setup(state: &mut DriftWm) {
         process.pre_exec(|| {
             // Don't pass the compositor's blocked sigmask to satellite.
             crate::signals::unblock_all()?;
-            // SIGCHLD inherits as SIG_IGN from driftwm — satellite needs
+            // SIGCHLD inherits as SIG_IGN from driftline — satellite needs
             // SIG_DFL so it can wait() on its own children (Xwayland).
             libc::signal(libc::SIGCHLD, libc::SIG_DFL);
             Ok(())

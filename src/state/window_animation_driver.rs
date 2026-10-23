@@ -4,7 +4,7 @@
 //! rect, fullscreen cover, effective opacity.
 //!
 //! [`super::window_animation`] holds the smithay-free state machine; this is
-//! everything that needs `DriftWm` (config, stage, per-output camera) to feed
+//! everything that needs `Driftline` (config, stage, per-output camera) to feed
 //! it. The split is a file boundary, not encapsulation: `WindowAnimations`'
 //! own methods stay `pub(crate)` for `fit.rs`, `suspended.rs`, the winit
 //! backend, and the tests.
@@ -16,7 +16,7 @@ use smithay::reexports::wayland_server::Resource;
 use smithay::reexports::wayland_server::protocol::wl_surface::WlSurface;
 use smithay::utils::{Logical, Point, Rectangle, Size};
 
-use driftwm::stage::{ElementId, StageElement};
+use driftline::stage::{ElementId, StageElement};
 use smithay::wayland::compositor::{BufferAssignment, SurfaceAttributes, get_parent, with_states};
 use smithay::wayland::seat::WaylandFocus;
 
@@ -26,9 +26,9 @@ use super::window_animation::{
     AnimSpace, AnimatedVisual, ContentPolicy, FrozenPicture, FullscreenCover, GeometryRole,
     MIN_ANIMATED_RESIZE,
 };
-use super::{DriftWm, PendingView, StageWindow, output_logical_size, output_state};
+use super::{Driftline, PendingView, StageWindow, output_logical_size, output_state};
 
-impl DriftWm {
+impl Driftline {
     /// Render-time animated stand-in for the window with stable id `id`, given
     /// its live target rect (canvas rect for a normal window, screen rect for a
     /// pinned one). Identity when nothing is animating.
@@ -111,7 +111,7 @@ impl DriftWm {
             // growing fullscreen entry.
             let (camera, zoom) = self.world_view(o);
             let viewport = super::output_logical_size(o);
-            driftwm::canvas::visible_canvas_rect(camera.to_i32_round(), viewport, zoom)
+            driftline::canvas::visible_canvas_rect(camera.to_i32_round(), viewport, zoom)
                 .overlaps(rect)
         })
     }
@@ -557,7 +557,7 @@ impl DriftWm {
             && self.visually_fullscreen_windows_on(output).iter().all(|w| {
                 w.wl_surface()
                     .as_deref()
-                    .and_then(driftwm::config::applied_rule)
+                    .and_then(driftline::config::applied_rule)
                     .and_then(|r| r.opacity)
                     .unwrap_or(1.0)
                     >= 1.0
@@ -574,8 +574,8 @@ impl DriftWm {
         };
         let is_focused = focused == Some(window);
         let is_fullscreen = self.stage.is_fullscreen(window) || self.chrome_fullscreen(window);
-        driftwm::config::effective_opacity(
-            driftwm::config::applied_rule(&surface).as_ref(),
+        driftline::config::effective_opacity(
+            driftline::config::applied_rule(&surface).as_ref(),
             &self.config.decorations,
             is_focused,
             is_fullscreen,
@@ -1123,18 +1123,18 @@ impl DriftWm {
         surface: &WlSurface,
         fullscreen: bool,
     ) -> crate::render::BakeChrome {
-        let applied = driftwm::config::applied_rule(surface);
-        let mode = driftwm::config::effective_decoration_mode(
+        let applied = driftline::config::applied_rule(surface);
+        let mode = driftline::config::effective_decoration_mode(
             applied.as_ref().and_then(|r| r.decoration.as_ref()),
             &self.config.decorations.default_mode,
         );
-        if fullscreen || matches!(mode, driftwm::config::DecorationMode::None) {
+        if fullscreen || matches!(mode, driftline::config::DecorationMode::None) {
             return crate::render::BakeChrome {
                 bare: true,
                 corner_radius: [0.0; 4],
             };
         }
-        let radius = driftwm::config::effective_corner_radius(
+        let radius = driftline::config::effective_corner_radius(
             applied.as_ref(),
             mode,
             &self.config.decorations,
@@ -1166,12 +1166,12 @@ impl DriftWm {
         if policy.bare {
             None
         } else {
-            let applied = driftwm::config::applied_rule(surface);
-            let mode = driftwm::config::effective_decoration_mode(
+            let applied = driftline::config::applied_rule(surface);
+            let mode = driftline::config::effective_decoration_mode(
                 applied.as_ref().and_then(|r| r.decoration.as_ref()),
                 &self.config.decorations.default_mode,
             );
-            let bw = driftwm::config::effective_border_width(
+            let bw = driftline::config::effective_border_width(
                 applied.as_ref(),
                 mode,
                 &self.config.decorations,
@@ -1182,14 +1182,17 @@ impl DriftWm {
                 .and_then(|kb| kb.current_focus())
                 .is_some_and(|f| f.0 == *surface);
             let border_color = if focused {
-                driftwm::config::effective_border_color_focused(
+                driftline::config::effective_border_color_focused(
                     applied.as_ref(),
                     &self.config.decorations,
                 )
             } else {
-                driftwm::config::effective_border_color(applied.as_ref(), &self.config.decorations)
+                driftline::config::effective_border_color(
+                    applied.as_ref(),
+                    &self.config.decorations,
+                )
             };
-            let shadow_on = driftwm::config::effective_shadow_enabled(
+            let shadow_on = driftline::config::effective_shadow_enabled(
                 applied.as_ref(),
                 mode,
                 &self.config.decorations,
@@ -1244,7 +1247,7 @@ impl DriftWm {
                 };
                 let viewport = super::output_logical_size(o);
                 let visible =
-                    driftwm::canvas::visible_canvas_rect(camera.to_i32_round(), viewport, zoom);
+                    driftline::canvas::visible_canvas_rect(camera.to_i32_round(), viewport, zoom);
                 visible
                     .overlaps(rect)
                     .then(|| o.current_scale().fractional_scale() * zoom)
@@ -1403,7 +1406,7 @@ impl DriftWm {
     ) -> bool {
         let name = output.name();
         let viewport = output_logical_size(output);
-        let visible = driftwm::canvas::visible_canvas_rect(camera.to_i32_round(), viewport, zoom);
+        let visible = driftline::canvas::visible_canvas_rect(camera.to_i32_round(), viewport, zoom);
 
         for snapshot in &self.closing_snapshots {
             match snapshot.pinned_output() {
@@ -1465,13 +1468,13 @@ impl DriftWm {
     /// open entry, a resize crossfade (used for scoping only).
     fn animation_open_canvas_rect(
         &self,
-        id: driftwm::stage::ElementId,
+        id: driftline::stage::ElementId,
     ) -> Option<Rectangle<i32, Logical>> {
         let window = self.stage.window_by_id(id)?;
         let loc = self.stage.position_of(window)?;
         Some(Rectangle::new(
             loc,
-            driftwm::stage::StageElement::size(window),
+            driftline::stage::StageElement::size(window),
         ))
     }
 }

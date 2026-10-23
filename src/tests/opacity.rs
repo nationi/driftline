@@ -10,7 +10,7 @@ use super::{
 use crate::ipc::dispatch;
 use crate::ipc::protocol::{Request, Response, WindowSelector};
 use crate::state::FocusTarget;
-use driftwm::window_ext::WindowExt;
+use driftline::window_ext::WindowExt;
 use smithay::utils::SERIAL_COUNTER;
 
 fn read_opacity(f: &mut Fixture, window: Option<WindowSelector>) -> f64 {

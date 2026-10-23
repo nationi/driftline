@@ -2,7 +2,7 @@
 //! source contributes at most one message; the bar shows the union and clears
 //! per-source as each problem is resolved (config reload, background reload).
 
-use super::DriftWm;
+use super::Driftline;
 
 /// Collapse config warnings into one line for the error bar (the bar has room
 /// for one; the full list stays in the log): first message, plus `(+N more)`.
@@ -26,7 +26,7 @@ pub enum ErrorSource {
     Keyboard,
 }
 
-impl DriftWm {
+impl Driftline {
     /// Show `message` for `source` in the error bar. No-op (and no redraw) when
     /// that source's message is unchanged.
     pub fn set_error(&mut self, source: ErrorSource, message: impl Into<String>) {

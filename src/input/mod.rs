@@ -38,19 +38,19 @@ use self::constraint::{
     ConstraintKind, activate_constraint, deactivate_constraint, find_constraint,
 };
 use crate::decorations::{DecorationHit, DecorationKey};
-use crate::state::{DriftWm, FocusTarget, PickTarget, StageWindow, SuspendedWindow};
-use driftwm::canvas::{
+use crate::state::{Driftline, FocusTarget, PickTarget, StageWindow, SuspendedWindow};
+use driftline::canvas::{
     CanvasPos, ScreenPos, clamp_to_output, screen_space_focus_loc, screen_to_canvas,
 };
-use driftwm::config::HotCorner;
-use driftwm::protocols::output_power::OutputPowerHandler;
+use driftline::config::HotCorner;
+use driftline::protocols::output_power::OutputPowerHandler;
 
 /// What holds the pointer grab, as far as focus delivery is concerned.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum PointerGrabKind {
     /// No grab: `under` reaches the client as is.
     Free,
-    /// smithay's popup grab, live in driftwm's bookkeeping too: it forwards
+    /// smithay's popup grab, live in driftline's bookkeeping too: it forwards
     /// `under` to the popup's client and `None` to anyone else.
     Popup,
     /// smithay's implicit click grab: it keeps delivering to the surface the
@@ -62,11 +62,11 @@ pub(crate) enum PointerGrabKind {
 
 /// Whether a drag-and-drop holds the pointer. Its source is a client's data
 /// source, or the origin surface for a drag that carries none.
-fn pointer_drags(pointer: &PointerHandle<DriftWm>) -> bool {
+fn pointer_drags(pointer: &PointerHandle<Driftline>) -> bool {
     pointer
         .with_grab(|_, grab| {
-            grab.is::<DnDGrab<DriftWm, WlDataSource, FocusTarget>>()
-                || grab.is::<DnDGrab<DriftWm, WlSurface, FocusTarget>>()
+            grab.is::<DnDGrab<Driftline, WlDataSource, FocusTarget>>()
+                || grab.is::<DnDGrab<Driftline, WlSurface, FocusTarget>>()
         })
         .unwrap_or(false)
 }
@@ -211,7 +211,7 @@ where
 /// be called from inside a `with_states` closure on the same surface — that
 /// mutex is not re-entrant.
 pub(crate) fn window_origin_for_surface(
-    state: &DriftWm,
+    state: &Driftline,
     surface: &smithay::reexports::wayland_server::protocol::wl_surface::WlSurface,
 ) -> Option<Point<f64, smithay::utils::Logical>> {
     let window = state.window_for_surface_root(surface)?;
@@ -284,7 +284,7 @@ pub(crate) fn is_interaction_tail<I: InputBackend>(event: &InputEvent<I>) -> boo
     }
 }
 
-impl DriftWm {
+impl Driftline {
     /// Fire any hot-corner action the cursor is currently inside.
     /// `screen_pos` is output-local screen-space. `output` is the output the
     /// cursor is on (the caller knows — for absolute motion it's `active_output()`,
@@ -715,8 +715,8 @@ impl DriftWm {
         // Pinned windows render above the canvas and hit-test in screen space,
         // so they take focus priority — mirror the pointer-focus ordering
         // (pinned_window_under sits above the canvas in pointer_focus_under).
-        let screen_pos = driftwm::canvas::canvas_to_screen(
-            driftwm::canvas::CanvasPos(canvas_pos),
+        let screen_pos = driftline::canvas::canvas_to_screen(
+            driftline::canvas::CanvasPos(canvas_pos),
             self.camera(),
             self.zoom(),
         )
@@ -769,7 +769,7 @@ impl DriftWm {
     fn hover_focus_window(&mut self, window: Window) {
         let is_widget = window
             .wl_surface()
-            .and_then(|s| driftwm::config::applied_rule(&s))
+            .and_then(|s| driftline::config::applied_rule(&s))
             .is_some_and(|r| r.widget);
         if is_widget {
             return;
@@ -962,17 +962,17 @@ impl DriftWm {
         );
     }
 
-    pub(crate) fn pointer_grab_kind(&self, pointer: &PointerHandle<DriftWm>) -> PointerGrabKind {
+    pub(crate) fn pointer_grab_kind(&self, pointer: &PointerHandle<Driftline>) -> PointerGrabKind {
         let kinds = pointer.with_grab(|_, grab| {
             (
-                grab.is::<PopupPointerGrab<DriftWm>>(),
-                grab.is::<ClickGrab<DriftWm>>(),
+                grab.is::<PopupPointerGrab<Driftline>>(),
+                grab.is::<ClickGrab<Driftline>>(),
             )
         });
         match kinds {
             None => PointerGrabKind::Free,
             Some((true, _)) if self.popup_grab.is_some() => PointerGrabKind::Popup,
-            // The pointer grab outlives driftwm's own teardown by one idle
+            // The pointer grab outlives driftline's own teardown by one idle
             // (`tear_down_popup_grab` defers the ungrab). Dispatched into, the
             // dead grab unsets itself and restores focus from the `under` it
             // is handed, so it delivers as no grab does.
@@ -983,7 +983,7 @@ impl DriftWm {
     }
 
     /// The tool of the pen that owns the seat pointer, if one does.
-    pub(crate) fn pointer_pen_tool(&self) -> Option<TabletToolHandle<DriftWm>> {
+    pub(crate) fn pointer_pen_tool(&self) -> Option<TabletToolHandle<Driftline>> {
         self.seat.tablet_seat().get_tool(self.pointer_pen.as_ref()?)
     }
 
@@ -1011,7 +1011,7 @@ impl DriftWm {
     /// [`PointerGrabKind`].
     fn delivered_focus(
         &self,
-        pointer: &PointerHandle<DriftWm>,
+        pointer: &PointerHandle<Driftline>,
         grab: PointerGrabKind,
         under: Option<(FocusTarget, Point<f64, Logical>)>,
     ) -> Option<(FocusTarget, Point<f64, Logical>)> {
@@ -1092,7 +1092,7 @@ impl DriftWm {
         // carried motion in `warp_pointer` drive those, and the first pull after
         // the release repicks. A popup grab forwards what it is handed and does
         // nothing else while live, so a menu keeps its hover state as things
-        // move under a stationary cursor. Once ended, driftwm's own teardown
+        // move under a stationary cursor. Once ended, driftline's own teardown
         // runs first — smithay's would unset the keyboard grab and rewrite
         // keyboard focus from inside the pointer dispatch — and the pick then
         // goes through the dead grab, so the focus it restores is this pick,
@@ -1112,8 +1112,8 @@ impl DriftWm {
             return;
         }
         let canvas_pos = pointer.current_location();
-        let screen_pos = driftwm::canvas::canvas_to_screen(
-            driftwm::canvas::CanvasPos(canvas_pos),
+        let screen_pos = driftline::canvas::canvas_to_screen(
+            driftline::canvas::CanvasPos(canvas_pos),
             self.camera(),
             self.zoom(),
         )
@@ -1427,8 +1427,8 @@ impl DriftWm {
         let output_size = crate::state::output_logical_size(&cur_output);
 
         // Convert old canvas pos to screen pos, add layout_position → old layout pos
-        let old_screen = driftwm::canvas::canvas_to_screen(
-            driftwm::canvas::CanvasPos(old_canvas),
+        let old_screen = driftline::canvas::canvas_to_screen(
+            driftline::canvas::CanvasPos(old_canvas),
             cur_camera,
             cur_zoom,
         )
@@ -1485,7 +1485,8 @@ impl DriftWm {
             (os.camera, os.zoom)
         };
         let canvas_pos =
-            driftwm::canvas::screen_to_canvas(ScreenPos(screen_pos), target_camera, target_zoom).0;
+            driftline::canvas::screen_to_canvas(ScreenPos(screen_pos), target_camera, target_zoom)
+                .0;
 
         let prev_focused_output = self.focused_output.clone();
         let prev_pointer_over_layer = self.pointer_over_layer;
@@ -1626,9 +1627,12 @@ impl DriftWm {
             (os.camera, os.zoom)
         };
         let canvas_pos = pointer.current_location();
-        let screen_pos =
-            driftwm::canvas::canvas_to_screen(driftwm::canvas::CanvasPos(canvas_pos), camera, zoom)
-                .0;
+        let screen_pos = driftline::canvas::canvas_to_screen(
+            driftline::canvas::CanvasPos(canvas_pos),
+            camera,
+            zoom,
+        )
+        .0;
 
         // Floating bars/docks may reserve no exclusive zone, so there's nothing
         // to measure against -- hit-test directly instead, or hovering the bar
@@ -1944,7 +1948,7 @@ impl DriftWm {
         widget_filter: Option<bool>,
     ) -> Option<(FocusTarget, Point<f64, smithay::utils::Logical>)> {
         let bar_height = self.config.decorations.title_bar_height;
-        let border_width = driftwm::config::DecorationConfig::RESIZE_BORDER_WIDTH;
+        let border_width = driftline::config::DecorationConfig::RESIZE_BORDER_WIDTH;
         let active_output = self.active_output();
 
         for entry in self.stage.entries().rev() {
@@ -1969,7 +1973,7 @@ impl DriftWm {
             if self.root_hidden_by_deferred_adopt(&wl_surface) {
                 continue;
             }
-            let rule = driftwm::config::applied_rule(&wl_surface);
+            let rule = driftline::config::applied_rule(&wl_surface);
             if let Some(want_widget) = widget_filter {
                 let is_widget = rule.as_ref().is_some_and(|r| r.widget);
                 if is_widget != want_widget {
@@ -2057,7 +2061,7 @@ impl DriftWm {
     ) -> Option<(FocusTarget, Point<f64, smithay::utils::Logical>)> {
         let output_name = self.pinned_hit_output()?;
         let bar_height = self.config.decorations.title_bar_height;
-        let border_width = driftwm::config::DecorationConfig::RESIZE_BORDER_WIDTH;
+        let border_width = driftline::config::DecorationConfig::RESIZE_BORDER_WIDTH;
 
         for window in self.stage.windows().rev().filter_map(|w| w.client()) {
             let Some(wl_surface) = window.wl_surface() else {
@@ -2112,7 +2116,7 @@ impl DriftWm {
                 }
             } else {
                 let is_widget =
-                    driftwm::config::applied_rule(&wl_surface).is_some_and(|r| r.widget);
+                    driftline::config::applied_rule(&wl_surface).is_some_and(|r| r.widget);
                 if !is_widget
                     && crate::decorations::resize_edge_at(
                         screen_pos,
@@ -2144,7 +2148,7 @@ impl DriftWm {
             return PinnedChrome::Miss;
         };
         let bar_height = self.config.decorations.title_bar_height;
-        let border_width = driftwm::config::DecorationConfig::RESIZE_BORDER_WIDTH;
+        let border_width = driftline::config::DecorationConfig::RESIZE_BORDER_WIDTH;
 
         for window in self.stage.windows().rev().filter_map(|w| w.client()) {
             let Some(wl_surface) = window.wl_surface() else {
@@ -2197,7 +2201,7 @@ impl DriftWm {
                 }
             } else {
                 let is_widget =
-                    driftwm::config::applied_rule(&wl_surface).is_some_and(|r| r.widget);
+                    driftline::config::applied_rule(&wl_surface).is_some_and(|r| r.widget);
                 if self.config.resize_on_border
                     && !is_widget
                     && let Some(edge) =
@@ -2264,8 +2268,8 @@ impl DriftWm {
         }
         // Pinned windows are screen-space; check them first (they're above
         // normal windows), then fall back to the canvas decoration hit-test.
-        let screen_pos = driftwm::canvas::canvas_to_screen(
-            driftwm::canvas::CanvasPos(canvas_pos),
+        let screen_pos = driftline::canvas::canvas_to_screen(
+            driftline::canvas::CanvasPos(canvas_pos),
             self.camera(),
             self.zoom(),
         )
@@ -2495,7 +2499,7 @@ impl DriftWm {
         pos: Point<f64, Logical>,
     ) -> Option<DecorationHit> {
         let wl_surface = window.wl_surface()?;
-        let border_width = driftwm::config::DecorationConfig::RESIZE_BORDER_WIDTH;
+        let border_width = driftline::config::DecorationConfig::RESIZE_BORDER_WIDTH;
         let size = window.geometry().size;
 
         if self
@@ -2512,7 +2516,7 @@ impl DriftWm {
         // point actually in the margin — the walks that call this visit every
         // window on every pointer motion.
         let edge = crate::decorations::resize_edge_at(pos, loc, size, 0, border_width)?;
-        if driftwm::config::applied_rule(&wl_surface).is_some_and(|r| r.widget)
+        if driftline::config::applied_rule(&wl_surface).is_some_and(|r| r.widget)
             || self.is_window_fullscreen(window)
         {
             return None;
@@ -2531,7 +2535,7 @@ impl DriftWm {
     /// the answer is the same whichever of the two the pointer is really over.
     fn resize_margin_under(&self, pos: Point<f64, Logical>) -> bool {
         let active = self.active_output();
-        let border_width = driftwm::config::DecorationConfig::RESIZE_BORDER_WIDTH;
+        let border_width = driftline::config::DecorationConfig::RESIZE_BORDER_WIDTH;
 
         self.stage.entries().any(|entry| match entry.window {
             StageWindow::Suspended(s) => crate::decorations::resize_edge_at(
@@ -2602,7 +2606,7 @@ impl DriftWm {
         // under it, so the bar band and close button sit at the same offsets as
         // an SSD-origin stand-in's.
         let bar = self.config.decorations.title_bar_height;
-        let border_width = driftwm::config::DecorationConfig::RESIZE_BORDER_WIDTH;
+        let border_width = driftline::config::DecorationConfig::RESIZE_BORDER_WIDTH;
 
         if crate::decorations::close_button_contains(pos, loc, size.w, bar) {
             return Some(DecorationHit::CloseButton);

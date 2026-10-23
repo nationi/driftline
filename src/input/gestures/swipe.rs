@@ -18,16 +18,16 @@ use smithay::{
     wayland::seat::WaylandFocus,
 };
 
-use driftwm::canvas::{self, CanvasPos, canvas_to_screen};
-use driftwm::config::{
+use driftline::canvas::{self, CanvasPos, canvas_to_screen};
+use driftline::config::{
     Action, BindingContext, ContinuousAction, GestureConfigEntry, GestureTrigger, ThresholdAction,
 };
-use driftwm::layout::snap::SnapState;
-use driftwm::window_ext::WindowExt;
+use driftline::layout::snap::SnapState;
+use driftline::window_ext::WindowExt;
 
 use crate::grabs::{MoveGrab, ResizeGrab};
 use crate::input::pointer::{edges_from_position, resize_cursor};
-use crate::state::{ClusterMember, DriftWm, StageWindow};
+use crate::state::{ClusterMember, Driftline, StageWindow};
 
 use super::{GestureState, direction_from_vector};
 
@@ -38,7 +38,7 @@ enum GestureTarget {
     Canvas(StageWindow),
 }
 
-impl DriftWm {
+impl Driftline {
     pub fn on_gesture_swipe_begin<I: InputBackend>(&mut self, event: I::GestureSwipeBeginEvent) {
         let fingers = event.fingers();
         let time = Event::time_msec(&event);

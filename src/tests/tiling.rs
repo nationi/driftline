@@ -1,4 +1,4 @@
-use driftwm::config::{Action, BTN_LEFT, BTN_MIDDLE, BTN_RIGHT, Direction};
+use driftline::config::{Action, BTN_LEFT, BTN_MIDDLE, BTN_RIGHT, Direction};
 use smithay::utils::SERIAL_COUNTER;
 
 use super::input_backend::{FakeDevice, key_press, key_release, pointer_to, press, release};
@@ -364,7 +364,7 @@ fn new_windows_join_after_the_focused_column_and_close_prunes_membership() {
 
 #[test]
 fn multiple_outputs_create_independent_layouts_on_tiling_entry() {
-    use driftwm::layout::scrolling::transaction::ConfigureProgress;
+    use driftline::layout::scrolling::transaction::ConfigureProgress;
     let mut f = Fixture::new();
     let first = f.add_output(1, (1200, 800));
     let second = f.add_output(2, (1920, 1080));
@@ -1017,7 +1017,7 @@ fn empty_tiling_keeps_its_layout_identity_until_toggle_off() {
 
 #[test]
 fn grouped_configures_follow_reference_sequential_height_rounding() {
-    let config = driftwm::config::Config::from_toml("[snap]\ngap = 0\n").unwrap();
+    let config = driftline::config::Config::from_toml("[snap]\ngap = 0\n").unwrap();
     let mut f = Fixture::with_config(config);
     f.add_output(1, (1200, 604));
     let client = f.add_client();
@@ -1161,7 +1161,7 @@ fn a_background_close_and_an_intentional_focus_clear_do_not_steal_focus() {
 #[test]
 fn closing_a_new_column_restores_the_stationary_view_target_once() {
     for (resized, crash) in [(false, false), (true, false), (false, true)] {
-        let config = driftwm::config::Config::from_toml("[snap]\ngap = 0\n").unwrap();
+        let config = driftline::config::Config::from_toml("[snap]\ngap = 0\n").unwrap();
         let mut f = Fixture::with_config(config);
         f.add_output(1, (1200, 800));
         let client = f.add_client();
@@ -1222,7 +1222,7 @@ fn closing_a_new_column_restores_the_stationary_view_target_once() {
 
 #[test]
 fn switching_columns_cancels_the_saved_return_view() {
-    let config = driftwm::config::Config::from_toml("[snap]\ngap = 0\n").unwrap();
+    let config = driftline::config::Config::from_toml("[snap]\ngap = 0\n").unwrap();
     let mut f = Fixture::with_config(config);
     f.add_output(1, (1200, 800));
     let client = f.add_client();
@@ -1254,7 +1254,7 @@ fn switching_columns_cancels_the_saved_return_view() {
 
 #[test]
 fn tiling_ack_and_empty_commit_do_not_complete_a_resize_without_matching_geometry() {
-    use driftwm::layout::scrolling::transaction::ConfigureProgress;
+    use driftline::layout::scrolling::transaction::ConfigureProgress;
     let mut f = Fixture::new();
     f.add_output(1, (1200, 800));
     let client = f.add_client();
@@ -1294,7 +1294,7 @@ fn tiling_ack_and_empty_commit_do_not_complete_a_resize_without_matching_geometr
 
 #[test]
 fn an_old_tiling_reply_cannot_complete_the_latest_size_or_survive_mode_exit() {
-    use driftwm::layout::scrolling::transaction::ConfigureProgress;
+    use driftline::layout::scrolling::transaction::ConfigureProgress;
     let mut f = Fixture::new();
     f.add_output(1, (1200, 800));
     let client = f.add_client();
@@ -1358,7 +1358,7 @@ fn an_old_tiling_reply_cannot_complete_the_latest_size_or_survive_mode_exit() {
 
 #[test]
 fn new_tiled_windows_receive_their_content_size_in_the_first_configure() {
-    use driftwm::layout::scrolling::transaction::ConfigureProgress;
+    use driftline::layout::scrolling::transaction::ConfigureProgress;
     for (decorations, expected) in [
         ("client", (600, 800)),
         ("server", (596, 771)),
@@ -1374,7 +1374,7 @@ fn new_tiled_windows_receive_their_content_size_in_the_first_configure() {
         } else {
             ""
         };
-        let config = driftwm::config::Config::from_toml(&format!(
+        let config = driftline::config::Config::from_toml(&format!(
             "[snap]\ngap = 0\n[decorations]\ndefault_mode = \"{default}\"\nborder_width = {}\ntitle_bar_height = 25\n{rule}",
             if decorations == "server" { 2 } else { 0 },
         )).unwrap();
@@ -1412,7 +1412,7 @@ fn new_tiled_windows_receive_their_content_size_in_the_first_configure() {
 
 #[test]
 fn initial_tiling_configure_respects_client_size_limits() {
-    let config = driftwm::config::Config::from_toml("[snap]\ngap = 0\n").unwrap();
+    let config = driftline::config::Config::from_toml("[snap]\ngap = 0\n").unwrap();
     let mut f = Fixture::with_config(config);
     f.add_output(1, (1200, 800));
     let client = f.add_client();
@@ -1461,7 +1461,7 @@ fn explicit_window_rules_keep_their_initial_sizing_policy_in_tiling_mode() {
         ("size = [400, 250]", (400, 250)),
         ("pinned_to_screen = true", (0, 0)),
     ] {
-        let config = driftwm::config::Config::from_toml(&format!(
+        let config = driftline::config::Config::from_toml(&format!(
             "[snap]\ngap = 0\n[[window_rules]]\napp_id = \"explicit-initial\"\n{rule}\n"
         ))
         .unwrap();
@@ -1485,7 +1485,7 @@ fn explicit_window_rules_keep_their_initial_sizing_policy_in_tiling_mode() {
 
 #[test]
 fn a_refused_initial_offer_keeps_the_first_buffer_size_for_canvas_restore() {
-    let config = driftwm::config::Config::from_toml("[snap]\ngap = 0\n").unwrap();
+    let config = driftline::config::Config::from_toml("[snap]\ngap = 0\n").unwrap();
     let mut f = Fixture::with_config(config);
     f.add_output(1, (1200, 800));
     let client = f.add_client();
@@ -1526,7 +1526,7 @@ fn becoming_a_dialog_after_initial_configure_retires_the_early_tiling_request() 
 
 #[test]
 fn reference_mapping_order_follows_first_buffers_without_reserving_empty_columns() {
-    let config = driftwm::config::Config::from_toml("[snap]\ngap = 0\n").unwrap();
+    let config = driftline::config::Config::from_toml("[snap]\ngap = 0\n").unwrap();
     let mut f = Fixture::with_config(config);
     f.add_output(1, (1200, 800));
     let client = f.add_client();
@@ -1780,7 +1780,7 @@ fn superseding_a_group_releases_its_queued_buffer_and_keeps_pending_peers() {
 
 #[test]
 fn a_pending_merge_preserves_positions_until_both_buffers_arrive() {
-    let config = driftwm::config::Config::from_toml("[snap]\ngap = 0\n").unwrap();
+    let config = driftline::config::Config::from_toml("[snap]\ngap = 0\n").unwrap();
     let mut f = Fixture::with_config(config);
     f.add_output(1, (1200, 800));
     let client = f.add_client();
@@ -1817,7 +1817,7 @@ fn tiling_anchor_translation_waits_for_other_surface_blockers_too() {
     use smithay::wayland::compositor::{Barrier, add_blocker, add_pre_commit_hook};
     use smithay::wayland::seat::WaylandFocus;
 
-    let config = driftwm::config::Config::from_toml("[snap]\ngap = 0\n").unwrap();
+    let config = driftline::config::Config::from_toml("[snap]\ngap = 0\n").unwrap();
     let mut f = Fixture::with_config(config);
     f.add_output(1, (1200, 800));
     let client = f.add_client();
@@ -1846,7 +1846,7 @@ fn tiling_anchor_translation_waits_for_other_surface_blockers_too() {
     let surface = wa.wl_surface().unwrap().into_owned();
     let barrier = Barrier::new(false);
     let blocker = barrier.clone();
-    let hook = add_pre_commit_hook::<crate::state::DriftWm, _>(&surface, move |_, _, s| {
+    let hook = add_pre_commit_hook::<crate::state::Driftline, _>(&surface, move |_, _, s| {
         add_blocker(s, blocker.clone());
     });
     let window = f.client(client).window(&a);

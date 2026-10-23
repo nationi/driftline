@@ -9,7 +9,7 @@ use smithay::utils::IsAlive;
 use smithay::utils::{Physical, Point, Scale};
 use smithay::wayland::compositor::with_states;
 
-use driftwm::canvas::{CanvasPos, canvas_to_screen};
+use driftline::canvas::{CanvasPos, canvas_to_screen};
 
 use super::elements::OutputRenderElements;
 
@@ -18,7 +18,7 @@ use super::elements::OutputRenderElements;
 /// while the session is locked.
 /// Returns `OutputRenderElements` — either xcursor memory buffers or client surface elements.
 pub fn build_cursor_elements(
-    state: &mut crate::state::DriftWm,
+    state: &mut crate::state::Driftline,
     renderer: &mut GlesRenderer,
     camera: Point<f64, smithay::utils::Logical>,
     zoom: f64,
@@ -123,7 +123,7 @@ pub fn build_cursor_elements(
 
 /// Build xcursor memory buffer elements for a named cursor icon.
 fn build_xcursor_elements(
-    state: &mut crate::state::DriftWm,
+    state: &mut crate::state::Driftline,
     renderer: &mut GlesRenderer,
     physical_pos: Point<f64, Physical>,
     name: &'static str,

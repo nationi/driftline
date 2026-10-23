@@ -98,7 +98,7 @@ class Pen:
             fcntl.ioctl(fd, UI_ABS_SETUP, struct.pack("H2x6i", code, 0, 0, maximum, 0, 0, resolution))
         # struct uinput_setup: input_id (bus, vendor, product, version), name,
         # ff_effects_max. 0x1209 is pid.codes' test vendor, so no libwacom match.
-        fcntl.ioctl(fd, UI_DEV_SETUP, struct.pack("4H80sI", BUS_USB, 0x1209, 0x0001, 1, b"driftwm fake pen", 0))
+        fcntl.ioctl(fd, UI_DEV_SETUP, struct.pack("4H80sI", BUS_USB, 0x1209, 0x0001, 1, b"driftline fake pen", 0))
         fcntl.ioctl(fd, UI_DEV_CREATE)
         return fd
 

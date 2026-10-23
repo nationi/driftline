@@ -5,7 +5,7 @@
 //! by the udev backend — so these cover `effective_send_events()`, the value
 //! `configure_trackpad` writes to each device.
 
-use driftwm::config::{Action, SendEvents, TrackpadState};
+use driftline::config::{Action, SendEvents, TrackpadState};
 
 use super::{Fixture, config};
 

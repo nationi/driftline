@@ -10,11 +10,11 @@ use smithay::{
     utils::SERIAL_COUNTER,
 };
 
-use driftwm::config::Modifiers;
+use driftline::config::Modifiers;
 
-use crate::state::DriftWm;
+use crate::state::Driftline;
 
-impl DriftWm {
+impl Driftline {
     /// Drop the input state that only a release event would otherwise clear,
     /// for the moments where releases stop being delivered: a VT switch, and a
     /// session pause. `held_action` above all — its repeat would go on firing,
@@ -36,7 +36,7 @@ impl DriftWm {
 
         // A virtual keyboard may have left the focused client on its own keymap.
         let seat = self.seat.clone();
-        driftwm::protocols::virtual_keyboard::restore_seat_keymap(self, &seat);
+        driftline::protocols::virtual_keyboard::restore_seat_keymap(self, &seat);
 
         // When session is locked, only allow VT switching — forward everything else
         if self.session_lock.is_locked() {

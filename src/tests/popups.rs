@@ -2,7 +2,7 @@
 //! client: mapping/tracking, parent teardown, grab-serial handling, client
 //! crash reaping, and the serial gate on activation.
 
-use driftwm::config::BindingContext;
+use driftline::config::BindingContext;
 use smithay::reexports::wayland_protocols::xdg::shell::server::xdg_toplevel;
 use smithay::utils::{Logical, Point};
 use wayland_client::protocol::wl_surface::WlSurface;
@@ -81,12 +81,12 @@ fn popup_orphaned_when_parent_closes_reaps_cleanly() {
     f.pump(5);
     f.roundtrip(id);
 
-    // driftwm does not proactively dismiss an orphaned popup: no popup_done is
+    // driftline does not proactively dismiss an orphaned popup: no popup_done is
     // sent and it stays tracked. Reaping is deferred to the popup's own
     // teardown (below) or the client's death — never leaked, never a crash.
     assert!(
         !f.client(id).popup(&popup).popup_done,
-        "driftwm sends no popup_done on parent close"
+        "driftline sends no popup_done on parent close"
     );
     assert!(
         f.state().popups.find_popup(&popup_server).is_some(),
@@ -122,7 +122,7 @@ fn popup_grab_with_unrecognized_serial_is_honored() {
     popup.ack_last_and_commit();
     f.double_roundtrip(id);
 
-    // driftwm does not validate the grab serial: the grab is installed and the
+    // driftline does not validate the grab serial: the grab is installed and the
     // popup stays mapped rather than being dismissed.
     assert!(
         f.state().popup_grab.is_some(),

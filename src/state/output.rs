@@ -5,18 +5,18 @@ use smithay::output::Output;
 use smithay::utils::{Logical, Point};
 use smithay::wayland::seat::WaylandFocus;
 
-use driftwm::canvas::{ScreenPos, clamp_to_output};
-use driftwm::config::OutputPosition;
-use driftwm::stage::StageElement;
+use driftline::canvas::{ScreenPos, clamp_to_output};
+use driftline::config::OutputPosition;
+use driftline::stage::StageElement;
 
 #[cfg(test)]
 use super::OutputState;
 use super::{
-    CameraSeed, DriftWm, StageWindow, canvas_render_loc, init_output_state, output_logical_size,
+    CameraSeed, Driftline, StageWindow, canvas_render_loc, init_output_state, output_logical_size,
     output_state,
 };
 
-impl DriftWm {
+impl Driftline {
     /// Resolve an output name (the stage's fullscreen key) back to the live
     /// `Output`. `None` if the output was disconnected in the meantime.
     pub fn output_by_name(&self, name: &str) -> Option<Output> {
@@ -81,7 +81,7 @@ impl DriftWm {
             let os = output_state(output);
             (os.camera, os.zoom)
         };
-        let visible = driftwm::canvas::visible_canvas_rect(
+        let visible = driftline::canvas::visible_canvas_rect(
             camera.to_i32_round(),
             output_logical_size(output),
             zoom,
@@ -231,7 +231,7 @@ impl DriftWm {
         // Both are no-ops when no windows exist, so this is safe at boot too.
         self.reassign_orphaned_pinned(output);
         self.output_connected_during_tiling(output);
-        driftwm::protocols::foreign_toplevel::send_output_enter_all(
+        driftline::protocols::foreign_toplevel::send_output_enter_all(
             &mut self.foreign_toplevel_state,
             output,
         );
@@ -279,11 +279,14 @@ impl DriftWm {
         // smithay's enter tracking, so the later refresh-driven leave is a no-op.
         output.leave_all();
 
-        driftwm::protocols::foreign_toplevel::send_output_leave_all(
+        driftline::protocols::foreign_toplevel::send_output_leave_all(
             &mut self.foreign_toplevel_state,
             output,
         );
-        driftwm::protocols::ext_workspace::send_output_leave(&mut self.ext_workspace_state, output);
+        driftline::protocols::ext_workspace::send_output_leave(
+            &mut self.ext_workspace_state,
+            output,
+        );
         self.image_copy_capture_state.remove_output(output);
         self.screencopy_state.remove_output(output);
         self.gamma_control_manager_state.output_removed(output);
@@ -296,7 +299,7 @@ impl DriftWm {
         // failed explicitly.
         self.pending_screencopies.retain(|s| s.output() != output);
         {
-            use driftwm::protocols::image_copy_capture::PendingCaptureKind;
+            use driftline::protocols::image_copy_capture::PendingCaptureKind;
             use smithay::reexports::wayland_protocols::ext::image_copy_capture::v1::server::ext_image_copy_capture_frame_v1::FailureReason;
             let mut i = 0;
             while i < self.pending_captures.len() {
@@ -445,7 +448,7 @@ impl DriftWm {
     pub fn output_in_direction(
         &self,
         from: &Output,
-        dir: &driftwm::config::Direction,
+        dir: &driftline::config::Direction,
     ) -> Option<Output> {
         let from_center: Point<f64, Logical> = {
             let os = output_state(from);
@@ -510,8 +513,8 @@ impl DriftWm {
         canvas_pos: Point<f64, Logical>,
         os: &OutputState,
     ) -> Point<f64, Logical> {
-        let screen = driftwm::canvas::canvas_to_screen(
-            driftwm::canvas::CanvasPos(canvas_pos),
+        let screen = driftline::canvas::canvas_to_screen(
+            driftline::canvas::CanvasPos(canvas_pos),
             os.camera,
             os.zoom,
         )
@@ -532,7 +535,12 @@ impl DriftWm {
             layout_pos.x - os.layout_position.x as f64,
             layout_pos.y - os.layout_position.y as f64,
         ));
-        driftwm::canvas::screen_to_canvas(driftwm::canvas::ScreenPos(screen), os.camera, os.zoom).0
+        driftline::canvas::screen_to_canvas(
+            driftline::canvas::ScreenPos(screen),
+            os.camera,
+            os.zoom,
+        )
+        .0
     }
 
     /// Sync each output's position to its camera so render_output
@@ -566,7 +574,7 @@ impl DriftWm {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use driftwm::canvas::MomentumState;
+    use driftline::canvas::MomentumState;
     use std::time::Instant;
 
     fn mock_output_state(
@@ -603,8 +611,8 @@ mod tests {
     fn canvas_to_layout_round_trip_zoom_1() {
         let os = mock_output_state((100.0, 200.0), 1.0, (0, 0));
         let canvas = Point::from((150.0, 250.0));
-        let layout = DriftWm::canvas_to_layout_pos(canvas, &os);
-        let back = DriftWm::layout_to_canvas_pos(layout, &os);
+        let layout = Driftline::canvas_to_layout_pos(canvas, &os);
+        let back = Driftline::layout_to_canvas_pos(layout, &os);
         assert!((back.x - canvas.x).abs() < 0.001);
         assert!((back.y - canvas.y).abs() < 0.001);
     }
@@ -613,8 +621,8 @@ mod tests {
     fn canvas_to_layout_round_trip_with_zoom() {
         let os = mock_output_state((50.0, 75.0), 2.0, (1920, 0));
         let canvas = Point::from((80.0, 100.0));
-        let layout = DriftWm::canvas_to_layout_pos(canvas, &os);
-        let back = DriftWm::layout_to_canvas_pos(layout, &os);
+        let layout = Driftline::canvas_to_layout_pos(canvas, &os);
+        let back = Driftline::layout_to_canvas_pos(layout, &os);
         assert!((back.x - canvas.x).abs() < 0.001);
         assert!((back.y - canvas.y).abs() < 0.001);
     }
@@ -626,7 +634,7 @@ mod tests {
         // layout = screen + layout_position = -100+1920 = 1820, -300+0 = -300
         let os = mock_output_state((100.0, 200.0), 2.0, (1920, 0));
         let canvas = Point::from((50.0, 50.0));
-        let layout = DriftWm::canvas_to_layout_pos(canvas, &os);
+        let layout = Driftline::canvas_to_layout_pos(canvas, &os);
         assert!((layout.x - 1820.0).abs() < 0.001);
         assert!((layout.y - (-300.0)).abs() < 0.001);
     }
@@ -638,7 +646,7 @@ mod tests {
         // canvas = screen / zoom + camera = 0 + 500 = 500, 0 + 300 = 300
         let os = mock_output_state((500.0, 300.0), 1.0, (1920, 0));
         let layout = Point::from((1920.0, 0.0));
-        let canvas = DriftWm::layout_to_canvas_pos(layout, &os);
+        let canvas = Driftline::layout_to_canvas_pos(layout, &os);
         assert!((canvas.x - 500.0).abs() < 0.001);
         assert!((canvas.y - 300.0).abs() < 0.001);
     }
@@ -650,14 +658,14 @@ mod tests {
 
         let canvas = Point::from((600.0, 300.0));
         // Through output A
-        let layout_a = DriftWm::canvas_to_layout_pos(canvas, &os_a);
-        let back_a = DriftWm::layout_to_canvas_pos(layout_a, &os_a);
+        let layout_a = Driftline::canvas_to_layout_pos(canvas, &os_a);
+        let back_a = Driftline::layout_to_canvas_pos(layout_a, &os_a);
         assert!((back_a.x - canvas.x).abs() < 0.001);
         assert!((back_a.y - canvas.y).abs() < 0.001);
 
         // Through output B
-        let layout_b = DriftWm::canvas_to_layout_pos(canvas, &os_b);
-        let back_b = DriftWm::layout_to_canvas_pos(layout_b, &os_b);
+        let layout_b = Driftline::canvas_to_layout_pos(canvas, &os_b);
+        let back_b = Driftline::layout_to_canvas_pos(layout_b, &os_b);
         assert!((back_b.x - canvas.x).abs() < 0.001);
         assert!((back_b.y - canvas.y).abs() < 0.001);
     }

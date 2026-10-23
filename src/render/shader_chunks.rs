@@ -28,7 +28,7 @@ use super::tile_chunks::{ChunkMeta, evict_lru_to_budget, pick_lod};
 const BASE_CHUNK_CANVAS: i32 = 1024;
 
 /// Number of LOD levels. LOD k spans `BASE << k` canvas units, so LOD 7 reaches
-/// zoom ≈ 1/128 — past driftwm's practical zoom-out.
+/// zoom ≈ 1/128 — past driftline's practical zoom-out.
 const N_LODS: u32 = 8;
 
 /// Fine-refinement bakes per frame. The resident coarse cover (see

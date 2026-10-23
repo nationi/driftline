@@ -1,9 +1,9 @@
-//! The [`DriftWm`] struct — every field of compositor state — together with the
+//! The [`Driftline`] struct — every field of compositor state — together with the
 //! ancillary types those fields are built from and the whole-state routines
-//! that have to enumerate them ([`DriftWm::debug_counters`],
-//! [`DriftWm::verify_stage_invariants`]).
+//! that have to enumerate them ([`Driftline::debug_counters`],
+//! [`Driftline::verify_stage_invariants`]).
 //!
-//! Behaviour does not belong here. An `impl DriftWm` method goes beside the
+//! Behaviour does not belong here. An `impl Driftline` method goes beside the
 //! subsystem it serves — `output.rs`, `keyboard_focus.rs`, `redraw.rs`,
 //! `window_lifecycle.rs`, … — leaving this file the state declarations and the
 //! routines that must name every field. Nothing said so before, and the file
@@ -97,7 +97,7 @@ use std::collections::{BTreeMap, HashMap, HashSet};
 use std::sync::{Mutex, MutexGuard, TryLockError};
 use std::time::Instant;
 
-use driftwm::protocols::virtual_keyboard::VirtualKeyboardManagerState;
+use driftline::protocols::virtual_keyboard::VirtualKeyboardManagerState;
 use smithay::backend::renderer::damage::OutputDamageTracker;
 use smithay::backend::renderer::gles::GlesTexture;
 use smithay::reexports::wayland_protocols::ext::session_lock::v1::server::ext_session_lock_v1::ExtSessionLockV1;
@@ -131,9 +131,9 @@ use smithay::reexports::drm::control::crtc;
 use crate::backend::Backend;
 use crate::input::gestures::GestureState;
 use crate::input::keyboard::TapTracker;
-use driftwm::canvas::MomentumState;
-use driftwm::config::{Config, HotCorner};
-use driftwm::window_ext::WindowExt;
+use driftline::canvas::MomentumState;
+use driftline::config::{Config, HotCorner};
+use driftline::window_ext::WindowExt;
 
 /// Min visible fraction an element needs before auto-placement will anchor a
 /// new window to its cluster — of the focused window, and of every candidate
@@ -325,7 +325,7 @@ pub(crate) fn log_err(context: &str, result: Result<impl Sized, impl std::fmt::D
 /// with their own signal handlers still see those signals normally.
 ///
 /// `env` is layered on top of inherited env (toolkit defaults + user `[env]` +
-/// XCURSOR_*); driftwm never mutates its own process env at runtime, so this
+/// XCURSOR_*); driftline never mutates its own process env at runtime, so this
 /// is the only way config-defined env vars reach children.
 pub fn spawn_command(cmd: &str, env: &HashMap<String, String>) {
     use std::os::unix::process::CommandExt;
@@ -361,7 +361,7 @@ pub struct FullscreenReturn {
     /// If the window was screen-pinned when it entered fullscreen, its pin
     /// site, re-inserted on exit so fullscreen is a transparent round-trip
     /// (pinned → fullscreen → pinned) rather than a permanent unpin.
-    pub pinned: Option<driftwm::stage::PinnedSite>,
+    pub pinned: Option<driftline::stage::PinnedSite>,
 }
 
 pub struct PendingRecenter {
@@ -427,7 +427,7 @@ pub struct PendingView {
 
 /// Per-output viewport state, stored on each `Output` via `UserDataMap`
 /// (wrapped in `Mutex` since `UserDataMap` requires `Sync`). !Send fields
-/// and non-Copy ownership types (fullscreen, lock_surface) stay on DriftWm.
+/// and non-Copy ownership types (fullscreen, lock_surface) stay on Driftline.
 #[derive(Clone)]
 pub struct OutputState {
     pub camera: Point<f64, Logical>,
@@ -587,7 +587,7 @@ pub fn output_viewport_rect(output: &Output) -> Rectangle<i32, Logical> {
 /// keyboard would stay pinned to `root` while navigation moves the camera.
 pub struct PopupGrabState {
     pub root: WlSurface,
-    pub grab: PopupGrab<DriftWm>,
+    pub grab: PopupGrab<Driftline>,
     /// False = pointer-only grab, for a root that takes no keyboard focus. Gates
     /// the focus-change teardown: focus can never reach such a root, so tearing
     /// down there would just dismiss the popup.
@@ -596,26 +596,27 @@ pub struct PopupGrabState {
 
 /// One `wl_pointer.motion` as the client received it: the focus target, the
 /// surface origin it was measured against, and the resulting surface-local
-/// point. See [`DriftWm::last_pointer_delivery`].
+/// point. See [`Driftline::last_pointer_delivery`].
 pub type PointerDelivery = (FocusTarget, Point<f64, Logical>, Point<f64, Logical>);
 
 /// Central compositor state.
-pub struct DriftWm {
+pub struct Driftline {
     pub start_time: Instant,
     pub display_handle: DisplayHandle,
-    pub loop_handle: LoopHandle<'static, DriftWm>,
+    pub loop_handle: LoopHandle<'static, Driftline>,
     pub loop_signal: LoopSignal,
 
     /// Sole source of truth for the window list, z-order, positions, focus
     /// history / MRU cycle, fullscreen membership, and fit state. Mutate
     /// through [`Self::map_window`] / [`Self::raise_window`] /
     /// [`Self::unmap_window`] and the stage-backed methods.
-    pub stage: driftwm::stage::Stage<StageWindow>,
+    pub stage: driftline::stage::Stage<StageWindow>,
     pub(crate) tiling_view: tiling::TilingViews,
     /// Canvas-space pointer delta for the tile currently being dragged to a
     /// new position. The stage keeps its layout slot until the drop commits.
-    pub(crate) tiling_drag_visual: Option<(driftwm::stage::ElementId, String, Point<f64, Logical>)>,
-    pub(crate) tiling_topology: Option<driftwm::stage::TilingTopology>,
+    pub(crate) tiling_drag_visual:
+        Option<(driftline::stage::ElementId, String, Point<f64, Logical>)>,
+    pub(crate) tiling_topology: Option<driftline::stage::TilingTopology>,
     /// Output registry only (`map_output` / `outputs` / `output_geometry`);
     /// holds no window elements. Per-window output membership
     /// (`wl_surface.enter`/`leave`) is driven by [`Self::refresh_window_outputs`],
@@ -628,10 +629,10 @@ pub struct DriftWm {
     pub shm_state: ShmState,
     #[allow(dead_code)]
     pub output_manager_state: OutputManagerState,
-    pub seat_state: SeatState<DriftWm>,
+    pub seat_state: SeatState<Driftline>,
     pub data_device_state: DataDeviceState,
 
-    pub seat: Seat<DriftWm>,
+    pub seat: Seat<Driftline>,
 
     pub cursor: CursorState,
     pub dnd_icon: Option<DndIcon>,
@@ -674,7 +675,7 @@ pub struct DriftWm {
     /// The old content of a resized window, fading out over the new content for
     /// the length of its geometry leg.
     pub(crate) resize_crossfades:
-        HashMap<driftwm::stage::ElementId, crate::render::ResizeCrossfade>,
+        HashMap<driftline::stage::ElementId, crate::render::ResizeCrossfade>,
 
     pub dmabuf_state: DmabufState,
     pub dmabuf_global: Option<DmabufGlobal>,
@@ -702,7 +703,7 @@ pub struct DriftWm {
     pub virtual_keyboard_state: VirtualKeyboardManagerState,
     /// Per-virtual-keyboard xkb mirror for resolving compositor bindings on
     /// OSK input (see `protocols::virtual_keyboard`).
-    pub virtual_kb_bindings: driftwm::protocols::virtual_keyboard::VirtualKeyboardBindings,
+    pub virtual_kb_bindings: driftline::protocols::virtual_keyboard::VirtualKeyboardBindings,
     #[allow(dead_code)]
     pub security_context_state: SecurityContextState,
     #[allow(dead_code)]
@@ -711,41 +712,41 @@ pub struct DriftWm {
     /// scanning out count, so a hidden browser tab playing video can't keep
     /// the screen awake.
     pub idle_inhibiting_surfaces: HashSet<WlSurface>,
-    pub idle_notifier_state: IdleNotifierState<DriftWm>,
+    pub idle_notifier_state: IdleNotifierState<Driftline>,
     #[allow(dead_code)]
     pub presentation_state: PresentationState,
     #[allow(dead_code)]
     pub decoration_state: XdgDecorationState,
     pub layer_shell_state: WlrLayerShellState,
-    pub foreign_toplevel_state: driftwm::protocols::foreign_toplevel::ForeignToplevelManagerState,
+    pub foreign_toplevel_state: driftline::protocols::foreign_toplevel::ForeignToplevelManagerState,
     pub foreign_toplevel_list_state:
         smithay::wayland::foreign_toplevel_list::ForeignToplevelListState,
-    pub ext_workspace_state: driftwm::protocols::ext_workspace::ExtWorkspaceManagerState,
-    pub screencopy_state: driftwm::protocols::screencopy::ScreencopyManagerState,
-    pub output_management_state: driftwm::protocols::output_management::OutputManagementState,
-    pub output_power_state: driftwm::protocols::output_power::OutputPowerState,
+    pub ext_workspace_state: driftline::protocols::ext_workspace::ExtWorkspaceManagerState,
+    pub screencopy_state: driftline::protocols::screencopy::ScreencopyManagerState,
+    pub output_management_state: driftline::protocols::output_management::OutputManagementState,
+    pub output_power_state: driftline::protocols::output_power::OutputPowerState,
     /// Outputs currently in DPMS off; render loop skips these.
     pub dpms_off_outputs: HashSet<Output>,
     /// Client-requested DPMS transitions awaiting the udev render loop —
     /// can't touch DrmCompositor from wayland dispatch (it lives behind
     /// Rc<RefCell<>> in calloop closures).
     pub pending_dpms: HashMap<Output, bool>,
-    pub pending_screencopies: Vec<driftwm::protocols::screencopy::Screencopy>,
+    pub pending_screencopies: Vec<driftline::protocols::screencopy::Screencopy>,
     #[allow(dead_code)]
     pub image_capture_source_state: smithay::wayland::image_capture_source::ImageCaptureSourceState,
     pub output_capture_source_state:
         smithay::wayland::image_capture_source::OutputCaptureSourceState,
     pub toplevel_capture_source_state:
         smithay::wayland::image_capture_source::ToplevelCaptureSourceState,
-    pub image_copy_capture_state: driftwm::protocols::image_copy_capture::ImageCopyCaptureState,
-    pub pending_captures: Vec<driftwm::protocols::image_copy_capture::PendingCapture>,
+    pub image_copy_capture_state: driftline::protocols::image_copy_capture::ImageCopyCaptureState,
+    pub pending_captures: Vec<driftline::protocols::image_copy_capture::PendingCapture>,
     pub xdg_foreign_state: XdgForeignState,
     #[allow(dead_code)]
     pub background_effect_state: BackgroundEffectState,
     pub session_lock_manager_state: SessionLockManagerState,
     #[allow(dead_code)]
     pub tablet_state: smithay::wayland::tablet_manager::TabletManagerState,
-    pub gamma_control_manager_state: driftwm::protocols::gamma_control::GammaControlManagerState,
+    pub gamma_control_manager_state: driftline::protocols::gamma_control::GammaControlManagerState,
     pub session_lock: SessionLock,
     pub lock_surfaces: HashMap<Output, LockSurface>,
 
@@ -755,7 +756,7 @@ pub struct DriftWm {
     pub pointer_over_screen_space: bool,
     /// The pen that owns the seat pointer: the last device to move it, still
     /// in proximity. While set, a client with the tool bound is withheld from
-    /// `wl_pointer` (see [`DriftWm::wl_pointer_under`]). Mouse motion clears
+    /// `wl_pointer` (see [`Driftline::wl_pointer_under`]). Mouse motion clears
     /// it, or a pen and a mouse used together would flap the client's focus.
     pub pointer_pen: Option<smithay::backend::input::TabletToolDescriptor>,
     pub canvas_layers: Vec<CanvasLayer>,
@@ -794,7 +795,7 @@ pub struct DriftWm {
     /// shrink/reposition their buffer during destroy.
     pub stable_snap_rects: HashMap<
         smithay::reexports::wayland_server::backend::ObjectId,
-        driftwm::layout::snap::SnapRect,
+        driftline::layout::snap::SnapRect,
     >,
     /// Adopted windows still owing the stable snap rect their adopt would have
     /// written, holding the size the adopt configured. Seeding at adopt time
@@ -838,7 +839,7 @@ pub struct DriftWm {
     /// Resolved desktop-entry database for identity + relaunch. Warmed on a
     /// background thread at startup (delivered by ping); a suspend before the
     /// warm lands builds it synchronously. `None` until either populates it.
-    pub desktop_entry_cache: Option<driftwm::desktop_entry::DesktopEntryCache>,
+    pub desktop_entry_cache: Option<driftline::desktop_entry::DesktopEntryCache>,
     /// Monotonic source of per-process suspended-window ids. Durable session
     /// keys are layered on top later (session restore).
     pub next_suspended_id: u64,
@@ -854,10 +855,10 @@ pub struct DriftWm {
     /// Adoptions a live interactive grab held back, in deferral order. The
     /// window keeps whatever placement it was given and moves into the
     /// stand-in's slot once the grab lets go; see
-    /// [`DriftWm::flush_deferred_adoptions`] for what lands and what doesn't.
+    /// [`Driftline::flush_deferred_adoptions`] for what lands and what doesn't.
     /// A first-commit entry does more than postpone: it is also what keeps its
     /// window off the screen and out of every canvas relation for the duration
-    /// ([`DriftWm::reveal_deferred_adopt`] hands all of that back), so an entry
+    /// ([`Driftline::reveal_deferred_adopt`] hands all of that back), so an entry
     /// that outlives its purpose is an invisible window.
     pub(crate) deferred_adoptions: Vec<DeferredAdopt>,
     /// Durable session store (session restore): the `session.json` path, dirty
@@ -893,7 +894,7 @@ pub struct DriftWm {
     /// this is the only thing left that can hand it over once the grab lets go.
     pub(crate) deferred_views: HashMap<String, PendingView>,
 
-    pub held_action: Option<(u32, driftwm::config::Action, Instant)>,
+    pub held_action: Option<(u32, driftline::config::Action, Instant)>,
 
     /// Fractional wheel-notch credit for wheel-up/wheel-down bindings.
     /// High-resolution wheels emit sub-notch v120 deltas; they accumulate
@@ -904,7 +905,7 @@ pub struct DriftWm {
     pub tap: TapTracker,
     /// Action queued by a completed tap chord, run after the closure forwards
     /// the modifier events so the focused client still sees them.
-    pub pending_tap_action: Option<driftwm::config::Action>,
+    pub pending_tap_action: Option<driftline::config::Action>,
 
     /// Keycodes whose press was intercepted by a binding. Their releases must
     /// also be intercepted, otherwise the focused client receives a "release
@@ -938,11 +939,11 @@ pub struct DriftWm {
     pub input_devices: Vec<smithay::reexports::input::Device>,
 
     /// Runtime trackpad send-events override set by
-    /// [`Action::SetTrackpad`](driftwm::config::Action::SetTrackpad). `None`
+    /// [`Action::SetTrackpad`](driftline::config::Action::SetTrackpad). `None`
     /// follows `[input.trackpad]`. Config is a seed: reload clears this only
     /// when the resolved mode changed, so an unrelated edit can't silently
     /// re-enable a trackpad the user turned off.
-    pub trackpad_send_events: Option<driftwm::config::SendEvents>,
+    pub trackpad_send_events: Option<driftline::config::SendEvents>,
 
     pub state_file_cameras: HashMap<String, (Point<f64, Logical>, f64)>,
     pub state_file_last_write: Instant,
@@ -1002,10 +1003,10 @@ pub struct DriftWm {
     pub last_animation_tick: Instant,
     /// The last [`PointerDelivery`] actually put on the wire. `None` while the
     /// record can't be trusted — nothing under the cursor, or a grab that does
-    /// its own work in `motion` (every driftwm grab); smithay's click and popup
+    /// its own work in `motion` (every driftline grab); smithay's click and popup
     /// grabs are recorded as what they forward. Written only by
-    /// [`DriftWm::dispatch_pointer_motion`], read by
-    /// [`DriftWm::refresh_pointer_focus`] to drop a re-seat the client would see
+    /// [`Driftline::dispatch_pointer_motion`], read by
+    /// [`Driftline::refresh_pointer_focus`] to drop a re-seat the client would see
     /// as a phantom mouse move.
     pub last_pointer_delivery: Option<PointerDelivery>,
     /// The raw `under` last handed to `pointer.motion`, grabbed or not — a
@@ -1013,14 +1014,14 @@ pub struct DriftWm {
     /// from. `relative_motion` sets that too, but with the same focus, so the
     /// shadow stays exact.
     pub last_pointer_under: Option<(FocusTarget, Point<f64, Logical>)>,
-    /// The surface whose constraint [`DriftWm::maybe_activate_pointer_constraint`]
+    /// The surface whose constraint [`Driftline::maybe_activate_pointer_constraint`]
     /// last armed, for the pull to release. Recorded rather than found by
     /// walking up from focus: a destroyed subsurface is cut from its parent first.
     pub armed_constraint: Option<WlSurface>,
     /// The viewport `(camera, zoom)` sloppy focus was last evaluated at, on the
-    /// active output. Written by [`DriftWm::maybe_hover_focus`] on every path
+    /// active output. Written by [`Driftline::maybe_hover_focus`] on every path
     /// through it, and by the pull while [`Self::hover_follows_camera`] holds
-    /// it back; read by [`DriftWm::refresh_pointer_focus`] to tell a viewport
+    /// it back; read by [`Driftline::refresh_pointer_focus`] to tell a viewport
     /// that has moved — the case where a different window slides under a cursor
     /// that never does — from a scene change that left the one under it alone.
     pub hover_viewport: Option<(Point<f64, Logical>, f64)>,
@@ -1100,7 +1101,7 @@ pub struct DriftWm {
 
     /// Cursor edge-pan: when true, the viewport pans while the bare cursor
     /// touches a screen edge. Toggled by
-    /// [`Action::ToggleCursorPan`](driftwm::config::Action::ToggleCursorPan).
+    /// [`Action::ToggleCursorPan`](driftline::config::Action::ToggleCursorPan).
     pub cursor_edge_pan: bool,
     pub touch_state: crate::input::touch::TouchState,
 }
@@ -1139,7 +1140,7 @@ pub(crate) fn client_is_unrestricted(client: &smithay::reexports::wayland_server
         .is_none_or(|d| !d.is_restricted)
 }
 
-impl DriftWm {
+impl Driftline {
     /// Drop dead inhibitors and tell idle-notifier whether any *visible*
     /// inhibitor surface is scanning out. Hidden inhibitors don't count —
     /// otherwise a backgrounded browser tab would keep the screen awake.
@@ -1205,7 +1206,7 @@ impl DriftWm {
         pointer.button(
             self,
             &smithay::input::pointer::ButtonEvent {
-                button: driftwm::config::BTN_MIDDLE,
+                button: driftline::config::BTN_MIDDLE,
                 state: smithay::backend::input::ButtonState::Pressed,
                 serial,
                 time: press_time,
@@ -1217,7 +1218,7 @@ impl DriftWm {
             pointer.button(
                 self,
                 &smithay::input::pointer::ButtonEvent {
-                    button: driftwm::config::BTN_MIDDLE,
+                    button: driftline::config::BTN_MIDDLE,
                     state: smithay::backend::input::ButtonState::Released,
                     serial,
                     time: rt,
@@ -1304,7 +1305,7 @@ impl DriftWm {
     }
 }
 
-impl DriftWm {
+impl Driftline {
     /// The per-iteration duties shared by the main loop and the test server
     /// pump, so the two can't drift apart; runs even on idle (no-render) turns.
     /// The adoption sweep sits behind `retain_alive` on purpose — it adopts by

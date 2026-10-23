@@ -105,7 +105,7 @@ fn shadow_uniforms_precise(
     shadow_radius: f32,
     corner_radius_phys: f32,
 ) -> (Vec<Uniform<'static>>, ShadowPhysKey) {
-    use driftwm::config::DecorationConfig;
+    use driftline::config::DecorationConfig;
     let sc = DecorationConfig::SHADOW_COLOR;
     let zoom_scale = Scale::from(zoom);
 
@@ -172,7 +172,7 @@ fn shadow_uniforms_precise(
 /// radius on every side. Shared by the live push and the close-fade bake so the
 /// two can't drift.
 fn shadow_area_for(body_logical: Rectangle<f64, Logical>) -> Rectangle<i32, Logical> {
-    let pad = driftwm::config::DecorationConfig::SHADOW_RADIUS.ceil() as i32;
+    let pad = driftline::config::DecorationConfig::SHADOW_RADIUS.ceil() as i32;
     let body_x = body_logical.loc.x.round() as i32;
     let body_y = body_logical.loc.y.round() as i32;
     let body_w = body_logical.size.w.round() as i32;
@@ -218,7 +218,7 @@ pub(super) fn bake_shadow_element(
     corner_radius_logical: f32,
     output_scale: Scale<f64>,
 ) -> (PixelShaderElement, Rectangle<i32, Logical>) {
-    let shadow_radius = driftwm::config::DecorationConfig::SHADOW_RADIUS;
+    let shadow_radius = driftline::config::DecorationConfig::SHADOW_RADIUS;
     let shadow_area = shadow_area_for(body_logical);
     let (uniforms, _key) = shadow_uniforms_precise(
         painted_rect(body_logical, output_scale),
@@ -306,7 +306,7 @@ pub(super) fn push_shadow_element(
     zoom: f64,
     animation: Option<super::WindowRenderAnimation>,
 ) {
-    use driftwm::config::DecorationConfig;
+    use driftline::config::DecorationConfig;
     let shadow_radius = DecorationConfig::SHADOW_RADIUS;
     let shadow_area = shadow_area_for(body_logical);
 

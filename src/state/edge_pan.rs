@@ -12,7 +12,7 @@ use std::time::{Duration, Instant};
 use smithay::output::Output;
 use smithay::utils::{Logical, Point, Size};
 
-use super::{DriftWm, output_logical_size, output_state};
+use super::{Driftline, output_logical_size, output_state};
 
 #[derive(Clone, Copy)]
 pub(crate) struct EdgePanDelay {
@@ -20,7 +20,7 @@ pub(crate) struct EdgePanDelay {
     pub(crate) entered_at: Instant,
 }
 
-impl DriftWm {
+impl Driftline {
     const EDGE_LEFT: u8 = 1 << 0;
     const EDGE_RIGHT: u8 = 1 << 1;
     const EDGE_TOP: u8 = 1 << 2;
@@ -196,26 +196,26 @@ mod tests {
         let other_size = Size::from((1280, 600));
 
         let edges = |y| {
-            DriftWm::shared_edges_at(loc, size, Point::from((1919.0, y)), other_loc, other_size)
+            Driftline::shared_edges_at(loc, size, Point::from((1919.0, y)), other_loc, other_size)
         };
         assert_eq!(edges(299.999), 0);
-        assert_eq!(edges(300.0), DriftWm::EDGE_RIGHT);
-        assert_eq!(edges(899.999), DriftWm::EDGE_RIGHT);
+        assert_eq!(edges(300.0), Driftline::EDGE_RIGHT);
+        assert_eq!(edges(899.999), Driftline::EDGE_RIGHT);
         assert_eq!(edges(900.0), 0);
     }
 
     #[test]
     fn edge_pan_delay_only_covers_shared_horizontal_segment() {
-        let edges = DriftWm::shared_edges_at(
+        let edges = Driftline::shared_edges_at(
             Point::from((-1000, 200)),
             Size::from((1600, 900)),
             Point::from((750.0, 0.0)),
             Point::from((-500, -700)),
             Size::from((600, 900)),
         );
-        assert_eq!(edges, DriftWm::EDGE_TOP);
+        assert_eq!(edges, Driftline::EDGE_TOP);
 
-        let outside = DriftWm::shared_edges_at(
+        let outside = Driftline::shared_edges_at(
             Point::from((-1000, 200)),
             Size::from((1600, 900)),
             Point::from((1100.0, 0.0)),
@@ -227,7 +227,7 @@ mod tests {
 
     #[test]
     fn edge_pan_delay_ignores_corner_only_contact() {
-        let edges = DriftWm::shared_edges_at(
+        let edges = Driftline::shared_edges_at(
             Point::from((0, 0)),
             Size::from((1000, 1000)),
             Point::from((999.0, 999.0)),
@@ -242,14 +242,14 @@ mod tests {
         let loc = Point::from((0, 0));
         let size = Size::from((1000, 1000));
         let screen_pos = Point::from((999.0, 500.0));
-        let upper = DriftWm::shared_edges_at(
+        let upper = Driftline::shared_edges_at(
             loc,
             size,
             screen_pos,
             Point::from((1000, 0)),
             Size::from((500, 500)),
         );
-        let lower = DriftWm::shared_edges_at(
+        let lower = Driftline::shared_edges_at(
             loc,
             size,
             screen_pos,
@@ -257,12 +257,12 @@ mod tests {
             Size::from((500, 500)),
         );
         assert_eq!(upper, 0);
-        assert_eq!(lower, DriftWm::EDGE_RIGHT);
+        assert_eq!(lower, Driftline::EDGE_RIGHT);
     }
 
     #[test]
     fn edge_pan_delay_geometry_does_not_overflow_extreme_positions() {
-        let edges = DriftWm::shared_edges_at(
+        let edges = Driftline::shared_edges_at(
             Point::from((i32::MAX - 10, i32::MIN)),
             Size::from((100, 100)),
             Point::from((99.0, 50.0)),

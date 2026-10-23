@@ -1,8 +1,8 @@
-//! Shared IPC protocol types for the compositor and the `driftwm msg` client.
+//! Shared IPC protocol types for the compositor and the `driftline msg` client.
 //!
 //! The transport is line-delimited JSON over a Unix socket: one `Request` per
 //! line, one `Reply` per line. Keeping it JSON means the socket is debuggable
-//! with `socat` and usable from any scripting language, not just `driftwm msg`.
+//! with `socat` and usable from any scripting language, not just `driftline msg`.
 
 use std::collections::BTreeMap;
 use std::path::PathBuf;
@@ -357,10 +357,12 @@ pub struct CanvasLayerInfo {
 /// `$XDG_RUNTIME_DIR/driftwm/ipc-<wayland_display>.sock` (falls back to `/tmp`).
 ///
 /// Deriving the name from the wayland display lets each compositor instance own
-/// a distinct socket and lets `driftwm msg` auto-target the session it runs in.
+/// a distinct socket and lets `driftline msg` auto-target the session it runs in.
 pub fn socket_path(wayland_display: &str) -> PathBuf {
     let dir = std::env::var("XDG_RUNTIME_DIR").unwrap_or_else(|_| "/tmp".to_string());
     PathBuf::from(dir)
+        // Keep the transport directory stable so existing bars and scripts
+        // that connect directly to the socket survive the rebrand.
         .join("driftwm")
         .join(format!("ipc-{wayland_display}.sock"))
 }
@@ -748,7 +750,7 @@ mod tests {
 
     /// A reply from a compositor without the `layout`/`layout_short`/`outputs`
     /// fields still parses — that's what their `#[serde(default)]`s are for
-    /// (a newer `driftwm msg` against an older compositor).
+    /// (a newer `driftline msg` against an older compositor).
     #[test]
     fn state_reply_without_new_fields_parses() {
         let old = r#"{"Ok":{"State":{"camera":[0.0,0.0],"zoom":1.0,"windows":[

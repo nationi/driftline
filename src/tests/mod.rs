@@ -1,6 +1,6 @@
 //! In-process compositor test harness.
 //!
-//! A real [`DriftWm`](crate::state::DriftWm) runs on its own headless calloop
+//! A real [`Driftline`](crate::state::Driftline) runs on its own headless calloop
 //! loop with no backend (no renderer, no DRM, no sockets). Real wayland test
 //! clients connect over socket pairs, and an outer calloop loop nests both the
 //! server loop and every client loop by their epoll fds, so one
@@ -93,8 +93,8 @@ use fixture::Fixture;
 
 use std::time::Duration;
 
-use driftwm::config::Config;
-use driftwm::window_ext::WindowExt;
+use driftline::config::Config;
+use driftline::window_ext::WindowExt;
 use smithay::desktop::Window;
 use smithay::input::pointer::MotionEvent;
 use smithay::reexports::wayland_server::protocol::wl_surface::WlSurface;
@@ -471,7 +471,7 @@ fn server_surface(window: &Window) -> WlSurface {
 /// Canvas-space point that maps to output-relative screen position `screen`.
 fn to_canvas(f: &mut Fixture, screen: Point<f64, Logical>) -> Point<f64, Logical> {
     let (camera, zoom) = (f.state().camera(), f.state().zoom());
-    driftwm::canvas::screen_to_canvas(driftwm::canvas::ScreenPos(screen), camera, zoom).0
+    driftline::canvas::screen_to_canvas(driftline::canvas::ScreenPos(screen), camera, zoom).0
 }
 
 /// Register an SSD title bar for `window`, exactly as the compositor does on the
@@ -549,8 +549,8 @@ fn fit_and_frame(
 /// debug-asserts, so a test must not read the inventory (a `state` IPC request
 /// or `window_inventory()`) between seeding and the clearing entry point.
 fn seed_fit_and_fill(f: &mut Fixture, window: &Window) {
-    use driftwm::layout::snap::SnapRect;
-    use driftwm::stage::FillSaved;
+    use driftline::layout::snap::SnapRect;
+    use driftline::stage::FillSaved;
     use smithay::reexports::wayland_protocols::xdg::shell::server::xdg_toplevel;
 
     let loc = f.state().stage.position_of(window).expect("staged");
@@ -659,7 +659,7 @@ fn install_client_resize_grab(
 ) {
     use crate::grabs::{ResizeGrab, SizeConstraints, resize_screen_anchor};
     use crate::state::{ClusterMember, StageWindow};
-    use driftwm::layout::snap::SnapState;
+    use driftline::layout::snap::SnapState;
     use smithay::input::pointer::{Focus, GrabStartData};
 
     let initial_window_location = f
@@ -677,7 +677,7 @@ fn install_client_resize_grab(
     let grab = ResizeGrab {
         start_data: GrabStartData {
             focus: None,
-            button: driftwm::config::BTN_LEFT,
+            button: driftline::config::BTN_LEFT,
             location: start,
         },
         target: ClusterMember::Client(window.clone()),

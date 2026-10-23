@@ -1,6 +1,6 @@
 # Writing background shaders
 
-driftwm renders the canvas background using a GLSL fragment shader. You can
+driftline renders the canvas background using a GLSL fragment shader. You can
 write your own to replace the default dot grid.
 
 > [!TIP]
@@ -29,12 +29,12 @@ type = "shader"
 path = "~/shaders/my_bg.glsl"
 ```
 
-driftwm watches the config file, so saving it applies the background. The shader
+driftline watches the config file, so saving it applies the background. The shader
 is re-read from disk on every config reload, so after editing the `.glsl` itself,
 trigger one:
 
 ```bash
-touch ~/.config/driftwm/config.toml
+touch ~/.config/driftline/config.toml
 ```
 
 > [!NOTE]
@@ -57,7 +57,7 @@ The result covers the entire output behind all windows.
 | `v_coords` | `vec2` | Normalized position within the output, 0.0–1.0    |
 | `size`     | `vec2` | Output dimensions in pixels (e.g. 1920.0, 1080.0) |
 
-### Custom (provided by driftwm)
+### Custom (provided by driftline)
 
 | Name       | Type    | Description                                                       |
 | ---------- | ------- | ----------------------------------------------------------------- |
@@ -121,7 +121,7 @@ void main() {
   using `floor()`/`fract()` internally are naturally resilient since the hash
   functions wrap.
 - **Animated shaders**: `u_time` gives seconds since compositor start, enabling
-  time-driven animations. driftwm re-renders every frame when a shader uses
+  time-driven animations. driftline re-renders every frame when a shader uses
   `u_time`, unless `animate_fps` caps the rate.
 - **Zoom-aware shaders**: declare `uniform float u_zoom;` to react to viewport
   zoom. Common pattern: divide canvas-pixel sizes by `u_zoom` to keep features
@@ -133,13 +133,13 @@ void main() {
   `static/` (`blue_drift`, `compass_grid`, `dark_sea`, `pink_cloud`),
   `animated/` (`acid_lava`, `dense_clouds`, `fast_smoke`), and `textured/`
   (`mirrored_parallax`, `ripple`). `make install` copies them to
-  `$(PREFIX)/share/driftwm/wallpapers/` — `/usr/local/share/driftwm/wallpapers/`
-  by default, `/usr/share/driftwm/wallpapers/` from a distro package.
+  `$(PREFIX)/share/driftline/wallpapers/` — `/usr/local/share/driftline/wallpapers/`
+  by default, `/usr/share/driftline/wallpapers/` from a distro package.
 
 ## Sampling an image (textured shaders)
 
 A `type = "shader"` background can sample a single image by adding a `texture`
-path. driftwm loads the image and binds it to the shader's `tex` sampler:
+path. driftline loads the image and binds it to the shader's `tex` sampler:
 
 ```toml
 [background]
@@ -154,11 +154,11 @@ Adding a `texture` compiles the shader as a _texture_ shader, whose input set is
 | ---------------- | ----------- | ----------- | ----------------------------------------------- |
 | `tex`            | `sampler2D` | smithay     | The configured image. Sample with `texture2D`   |
 | `v_coords`       | `vec2`      | smithay     | Normalized position within the output, 0.0–1.0  |
-| `u_texture_size` | `vec2`      | driftwm     | Image dimensions in pixels                      |
-| `u_output_size`  | `vec2`      | driftwm     | Viewport dimensions in pixels (= output / zoom) |
-| `u_camera`       | `vec2`      | driftwm     | Canvas→screen offset in canvas pixels           |
-| `u_zoom`         | `float`     | driftwm     | Canvas→screen scale                             |
-| `u_time`         | `float`     | driftwm     | Seconds since compositor start                  |
+| `u_texture_size` | `vec2`      | driftline     | Image dimensions in pixels                      |
+| `u_output_size`  | `vec2`      | driftline     | Viewport dimensions in pixels (= output / zoom) |
+| `u_camera`       | `vec2`      | driftline     | Canvas→screen offset in canvas pixels           |
+| `u_zoom`         | `float`     | driftline     | Canvas→screen scale                             |
+| `u_time`         | `float`     | driftline     | Seconds since compositor start                  |
 
 Notes on the texture path:
 
@@ -254,7 +254,7 @@ and always render live, so the flag costs nothing there.
 
 ## Transparent backgrounds
 
-By default driftwm composites the background as fully opaque, a fast path that
+By default driftline composites the background as fully opaque, a fast path that
 skips blending and skips redrawing anything beneath it. The background sits
 _above_ any `wlr-layer-shell` **Background**-layer surface, so making it
 see-through lets an external wallpaper engine (a QuickShell or `swaybg` setup,
@@ -264,7 +264,7 @@ built-in background entirely instead, use `type = "none"` (below).
 Two ways to opt in, depending on background type:
 
 **Images (`tile` / `wallpaper`)** — automatic. If the PNG carries an alpha
-channel with any transparent pixels, driftwm honors it: transparent areas blend
+channel with any transparent pixels, driftline honors it: transparent areas blend
 to whatever's below. A fully opaque image keeps the fast path. No config needed.
 
 ```toml
@@ -305,13 +305,13 @@ Notes:
 
 `type = "none"` renders no built-in background at all, so whatever sits on the
 `wlr-layer-shell` **Background** layer becomes the wallpaper — letting you use a
-standard Wayland wallpaper daemon instead of driftwm's shader/image modes:
+standard Wayland wallpaper daemon instead of driftline's shader/image modes:
 
 - `swaybg` — static images
 - `swww` / `wpaperd` — animated wallpapers and transitions
 - `mpvpaper` — **live video** wallpapers (mpv on a layer surface)
 
-Launch the daemon yourself (e.g. from `autostart`); driftwm just gets out of the
+Launch the daemon yourself (e.g. from `autostart`); driftline just gets out of the
 way. With nothing on the Background layer, you'll see the clear color (black).
 
 Notes:
@@ -322,7 +322,7 @@ Notes:
 
 ## Reloading after edits
 
-driftwm reloads the config automatically when the file changes, and re-reads the
+driftline reloads the config automatically when the file changes, and re-reads the
 shader from disk on every reload. Bind the reload action to pick up shader edits
 without editing the config:
 
@@ -334,10 +334,10 @@ without editing the config:
 Without a keybinding, touching the config file has the same effect:
 
 ```bash
-touch ~/.config/driftwm/config.toml
+touch ~/.config/driftline/config.toml
 ```
 
-If the shader can't be read or fails to compile, driftwm falls back to the
+If the shader can't be read or fails to compile, driftline falls back to the
 built-in dot grid and reports the reason on the error bar
 (`background shader: compile error: …`). A dot grid after an edit means the
 shader was rejected, not that the config was ignored. The error clears on the

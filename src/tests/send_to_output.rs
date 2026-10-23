@@ -7,7 +7,7 @@
 
 use smithay::utils::{Point, Size};
 
-use driftwm::config::{Action, Direction};
+use driftline::config::{Action, Direction};
 
 use crate::state::StageWindow;
 

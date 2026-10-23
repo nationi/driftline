@@ -1,6 +1,6 @@
 use insta::assert_snapshot;
 
-use driftwm::config::Config;
+use driftline::config::Config;
 
 use super::{Fixture, adopt_last_configure, map_window, window_by_app_id};
 
@@ -34,7 +34,7 @@ fn simple() {
     );
 }
 
-/// No outputs: opening a window must not panic. Whatever driftwm configures
+/// No outputs: opening a window must not panic. Whatever driftline configures
 /// with zero outputs is snapshotted as-is.
 #[test]
 fn no_output() {

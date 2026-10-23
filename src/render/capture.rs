@@ -54,12 +54,12 @@ fn stamp_capture_submit(
 
 /// Fulfill pending screencopy requests by rendering to offscreen textures.
 pub fn render_screencopy(
-    state: &mut crate::state::DriftWm,
+    state: &mut crate::state::Driftline,
     renderer: &mut GlesRenderer,
     output: &Output,
     elements: &[OutputRenderElements],
 ) {
-    use driftwm::protocols::screencopy::ScreencopyBuffer;
+    use driftline::protocols::screencopy::ScreencopyBuffer;
     use smithay::backend::renderer::{ExportMem, Renderer};
     use smithay::wayland::shm;
     use std::ptr;
@@ -429,7 +429,7 @@ fn render_to_dmabuf(
 
 /// Fulfill pending ext-image-copy-capture frames by rendering to offscreen textures.
 pub fn render_capture_frames(
-    state: &mut crate::state::DriftWm,
+    state: &mut crate::state::Driftline,
     renderer: &mut GlesRenderer,
     output: &Output,
     elements: &[OutputRenderElements],
@@ -456,7 +456,7 @@ pub fn render_capture_frames(
     while i < state.pending_captures.len() {
         let matches = matches!(
             &state.pending_captures[i].kind,
-            driftwm::protocols::image_copy_capture::PendingCaptureKind::Output(o) if o == output,
+            driftline::protocols::image_copy_capture::PendingCaptureKind::Output(o) if o == output,
         );
         if matches {
             pending.push(state.pending_captures.swap_remove(i));
@@ -608,7 +608,7 @@ pub fn render_capture_frames(
 
             let frame_data = capture
                 .frame
-                .data::<std::sync::Mutex<driftwm::protocols::image_copy_capture::CaptureFrameData>>(
+                .data::<std::sync::Mutex<driftline::protocols::image_copy_capture::CaptureFrameData>>(
                 );
             if let Some(fd) = frame_data {
                 let fd = fd.lock().unwrap();
@@ -631,8 +631,8 @@ pub fn render_capture_frames(
 /// compositing the cursor onto a window-relative buffer requires intersecting
 /// the cursor position against the captured window's geometry, which isn't
 /// wired in yet. Per-window screencast clients typically don't request it.
-pub fn render_toplevel_captures(state: &mut crate::state::DriftWm, renderer: &mut GlesRenderer) {
-    use driftwm::protocols::image_copy_capture::PendingCaptureKind;
+pub fn render_toplevel_captures(state: &mut crate::state::Driftline, renderer: &mut GlesRenderer) {
+    use driftline::protocols::image_copy_capture::PendingCaptureKind;
     use smithay::backend::renderer::element::Kind;
     use smithay::backend::renderer::element::surface::WaylandSurfaceRenderElement;
     use smithay::backend::renderer::element::surface::render_elements_from_surface_tree;
@@ -693,7 +693,7 @@ pub fn render_toplevel_captures(state: &mut crate::state::DriftWm, renderer: &mu
         let origin = Point::<i32, smithay::utils::Logical>::from((-geo.loc.x, -geo.loc.y))
             .to_physical_precise_round(scale);
 
-        let opacity = driftwm::config::applied_rule(surface)
+        let opacity = driftline::config::applied_rule(surface)
             .and_then(|r| r.opacity)
             .unwrap_or(1.0) as f32;
 
@@ -830,7 +830,7 @@ pub fn render_toplevel_captures(state: &mut crate::state::DriftWm, renderer: &mu
 
             let frame_data = capture
                 .frame
-                .data::<std::sync::Mutex<driftwm::protocols::image_copy_capture::CaptureFrameData>>(
+                .data::<std::sync::Mutex<driftline::protocols::image_copy_capture::CaptureFrameData>>(
                 );
             if let Some(fd) = frame_data {
                 let fd = fd.lock().unwrap();

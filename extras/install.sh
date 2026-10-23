@@ -1,16 +1,22 @@
 #!/bin/sh
-# Install the driftwm "home dashboard" rice into your config dir.
+# Install the driftline "home dashboard" rice into your config dir.
 #
 # Idempotent and non-destructive: existing config/scripts/dashboard are backed
 # up (timestamped, never clobbered) before the rice's versions are copied into
-# ~/.config/driftwm. See README.md for the tools this setup expects.
+# ~/.config/driftline. See README.md for the tools this setup expects.
 set -eu
 
 src="$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)"
-cfg="${XDG_CONFIG_HOME:-$HOME/.config}/driftwm"
+config_home="${XDG_CONFIG_HOME:-$HOME/.config}"
+cfg="$config_home/driftline"
+legacy_cfg="$config_home/driftwm"
 ts="$(date +%Y%m%d-%H%M%S)"
 
 mkdir -p "$cfg"
+if [ ! -e "$cfg/config.toml" ] && [ -e "$legacy_cfg/config.toml" ]; then
+    cp -- "$legacy_cfg/config.toml" "$cfg/config.toml"
+    echo "copied legacy config for backup from $legacy_cfg/config.toml"
+fi
 
 # Move an existing target aside (timestamped) so a customized one is never lost.
 backup() {
@@ -23,14 +29,14 @@ backup() {
 backup config.toml
 cp -- "$src/config.toml" "$cfg/config.toml"
 
-# Scripts: config.toml references them by absolute path (~/.config/driftwm/...)
+# Scripts: config.toml references them by absolute path (~/.config/driftline/...)
 # rather than bare name, because a systemd user service launched by a display
 # manager gets a minimal PATH that often excludes ~/.local/bin.
 backup scripts
 cp -r -- "$src/scripts" "$cfg/scripts"
 chmod +x "$cfg"/scripts/*
 
-# Quickshell home dashboard (the only part driftwm itself doesn't provide).
+# Quickshell home dashboard (the only part driftline itself doesn't provide).
 backup quickshell
 cp -r -- "$src/quickshell" "$cfg/quickshell"
 
@@ -39,7 +45,7 @@ backup wallpapers
 cp -r -- "$src/wallpapers" "$cfg/wallpapers"
 
 # Fuzzel + swaync themes matching the dashboard. These live in their own config
-# dirs, so they're copied (and backed up) separately from the driftwm dir.
+# dirs, so they're copied (and backed up) separately from the driftline dir.
 install_themed() {
     [ -f "$src/$1" ] || return 0
     dir="${XDG_CONFIG_HOME:-$HOME/.config}/$2"
@@ -53,7 +59,7 @@ install_themed() {
 install_themed fuzzel/fuzzel.ini fuzzel fuzzel.ini
 install_themed swaync/style.css swaync style.css
 
-echo "installed driftwm rice -> $cfg"
+echo "installed driftline rice -> $cfg"
 
 # The rice still runs without these — missing pieces just no-op — but warn so the
 # experience isn't silently incomplete.

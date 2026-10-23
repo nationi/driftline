@@ -4,12 +4,12 @@
 //! Every assertion here checks the settled **edge**, not the center — a
 //! center-only check can't distinguish a correct placement from a plain,
 //! wrong-by-half-a-window centering (see `align_point_on`'s doc comment on
-//! `DriftWm` for the math).
+//! `Driftline` for the math).
 
 use smithay::desktop::Window;
 use smithay::utils::{Logical, Point, SERIAL_COUNTER, Size};
 
-use driftwm::config::{Action, Direction, FocusPlacement};
+use driftline::config::{Action, Direction, FocusPlacement};
 
 use crate::state::{NavZoom, StageWindow};
 

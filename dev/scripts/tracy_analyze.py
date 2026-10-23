@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
-"""Analyze a driftwm Tracy capture: frame cadence and per-zone timing.
+"""Analyze a driftline Tracy capture: frame cadence and per-zone timing.
 
 Exports CSVs from a .tracy file via `tracy-csvexport`, then reports:
   - exec-time stats for each Tracy zone (span)
   - frame-to-frame interval cadence during *active* rendering (idle gaps
-    filtered out — driftwm parks the render loop when nothing moves, so raw
+    filtered out — driftline parks the render loop when nothing moves, so raw
     intervals are dominated by multi-second idle pauses)
   - optional: frame times bucketed by a Tracy plot value (e.g. the chunked
     tile-bg's `bg_chunks.target_lod`), for per-LOD / per-state breakdowns

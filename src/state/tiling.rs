@@ -3,34 +3,34 @@ use smithay::reexports::wayland_server::Resource;
 use smithay::utils::{Logical, Point, SERIAL_COUNTER};
 use smithay::wayland::seat::WaylandFocus;
 
-use driftwm::config::Direction;
-use driftwm::layout::scrolling::{self, Column, Constraints, Tile};
-use driftwm::window_ext::WindowExt;
+use driftline::config::Direction;
+use driftline::layout::scrolling::{self, Column, Constraints, Tile};
+use driftline::window_ext::WindowExt;
 
-use super::{DriftWm, StageWindow, configured_window_size, output_state, visual_frame_center};
+use super::{Driftline, StageWindow, configured_window_size, output_state, visual_frame_center};
 use crate::grabs::SizeConstraints;
 
 pub(crate) struct TilingView {
-    layout_id: driftwm::stage::TilingLayoutId,
+    layout_id: driftline::stage::TilingLayoutId,
     output: Output,
     camera: Point<f64, Logical>,
     zoom: f64,
     origin: Point<i32, Logical>,
     last_usable: Option<smithay::utils::Rectangle<i32, Logical>>,
-    anchor: Option<(driftwm::stage::ColumnId, i32)>,
+    anchor: Option<(driftline::stage::ColumnId, i32)>,
     close_return: Option<CloseReturnView>,
     configures: scrolling::transaction::ConfigureBatch,
     commits: Option<TilingCommits>,
     commit_wakeups: usize,
     presentation: Option<TilingPresentation>,
-    snapshots: std::collections::HashMap<driftwm::stage::ElementId, TilingSnapshot>,
+    snapshots: std::collections::HashMap<driftline::stage::ElementId, TilingSnapshot>,
     pending_close_return: Option<CloseReturnView>,
-    selected: Option<driftwm::stage::ElementId>,
+    selected: Option<driftline::stage::ElementId>,
     configure_timer: Option<smithay::reexports::calloop::RegistrationToken>,
     initial_configures:
-        std::collections::HashMap<driftwm::stage::ElementId, InitialTilingConfigure>,
+        std::collections::HashMap<driftline::stage::ElementId, InitialTilingConfigure>,
     revealed: Option<(
-        driftwm::stage::ElementId,
+        driftline::stage::ElementId,
         smithay::utils::Rectangle<i32, Logical>,
     )>,
 }
@@ -199,7 +199,7 @@ struct TilingPopupSnapshot {
 }
 
 struct TilingPresentation {
-    requests: std::collections::HashMap<driftwm::stage::ElementId, smithay::utils::Serial>,
+    requests: std::collections::HashMap<driftline::stage::ElementId, smithay::utils::Serial>,
     deadline: std::time::Instant,
 }
 
@@ -218,8 +218,8 @@ struct InitialTilingConfigure {
 
 #[derive(Clone, Copy)]
 struct CloseReturnView {
-    opened: driftwm::stage::ColumnId,
-    previous: driftwm::stage::ColumnId,
+    opened: driftline::stage::ColumnId,
+    previous: driftline::stage::ColumnId,
     offset: f64,
 }
 
@@ -236,10 +236,10 @@ fn mapped_tiling_popups(
     })
 }
 
-impl DriftWm {
+impl Driftline {
     pub(crate) fn move_tiled_window_to_output(
         &mut self,
-        id: driftwm::stage::ElementId,
+        id: driftline::stage::ElementId,
         target: &Output,
     ) -> bool {
         let Some(source_name) = self.stage.tiling_output_for_window(id).map(str::to_owned) else {
@@ -553,7 +553,7 @@ impl DriftWm {
 
     pub(crate) fn complete_tiling_reorder(
         &mut self,
-        source: driftwm::stage::ElementId,
+        source: driftline::stage::ElementId,
         output_name: &str,
         position: Point<f64, Logical>,
     ) {
@@ -655,8 +655,8 @@ impl DriftWm {
     pub(crate) fn initial_tiling_size(
         &self,
         window: &smithay::desktop::Window,
-        decoration: &driftwm::config::DecorationMode,
-        rule: Option<&driftwm::config::AppliedWindowRule>,
+        decoration: &driftline::config::DecorationMode,
+        rule: Option<&driftline::config::AppliedWindowRule>,
     ) -> Option<smithay::utils::Size<i32, Logical>> {
         use smithay::wayland::compositor::with_states;
         use smithay::wayland::shell::xdg::XdgToplevelSurfaceData;
@@ -770,7 +770,7 @@ impl DriftWm {
         false
     }
 
-    fn select_tiling_output_for_window(&mut self, id: driftwm::stage::ElementId) -> bool {
+    fn select_tiling_output_for_window(&mut self, id: driftline::stage::ElementId) -> bool {
         let Some(output) = self.stage.tiling_output_for_window(id).map(str::to_owned) else {
             return false;
         };
@@ -1414,8 +1414,8 @@ impl DriftWm {
                     .decorations
                     .contains_key(&crate::decorations::DecorationKey::Surface(surface.id()))
                     .then_some(self.config.decorations.title_bar_height),
-                window_blur: driftwm::config::effective_blur(
-                    driftwm::config::applied_rule(&surface).as_ref(),
+                window_blur: driftline::config::effective_blur(
+                    driftline::config::applied_rule(&surface).as_ref(),
                     &self.config.decorations,
                     false,
                 ),
@@ -1638,7 +1638,10 @@ impl DriftWm {
         self.backend = Some(backend);
     }
 
-    pub(crate) fn release_tiling_snapshot_for_animation(&mut self, id: driftwm::stage::ElementId) {
+    pub(crate) fn release_tiling_snapshot_for_animation(
+        &mut self,
+        id: driftline::stage::ElementId,
+    ) {
         if self
             .tiling_view
             .iter_mut()
@@ -1650,7 +1653,7 @@ impl DriftWm {
         }
     }
 
-    pub(crate) fn invalidate_tiling_snapshot_animation(&mut self, id: driftwm::stage::ElementId) {
+    pub(crate) fn invalidate_tiling_snapshot_animation(&mut self, id: driftline::stage::ElementId) {
         if self
             .tiling_view
             .iter()
@@ -1683,7 +1686,7 @@ impl DriftWm {
 
     pub(crate) fn tiling_snapshot_elements(
         &self,
-        id: driftwm::stage::ElementId,
+        id: driftline::stage::ElementId,
         output: &Output,
         camera: Point<f64, Logical>,
         zoom: f64,
@@ -2341,7 +2344,7 @@ impl DriftWm {
     #[cfg(test)]
     pub(crate) fn tiling_configure_progress(
         &self,
-        id: driftwm::stage::ElementId,
+        id: driftline::stage::ElementId,
     ) -> Option<scrolling::transaction::ConfigureProgress> {
         let output = self.stage.tiling_output_for_window(id)?;
         let output = self.output_by_name(output)?;

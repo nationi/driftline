@@ -1,6 +1,6 @@
 //! Smithay-free source of truth for window state: the window list, z-order,
 //! per-window canvas position, focus history / MRU cycle, fullscreen
-//! membership, pin-to-screen membership, and fit state. `DriftWm` wrapper
+//! membership, pin-to-screen membership, and fit state. `Driftline` wrapper
 //! methods (`map_window` / `raise_window` / `unmap_window`) are the only way
 //! to mutate it, and a debug end-of-tick check asserts its invariants.
 //!
@@ -31,7 +31,7 @@ pub struct ElementId(pub u64);
 
 /// Fullscreen membership plus the pre-fullscreen geometry restored on exit.
 /// The viewport half of fullscreen state (saved camera/zoom) stays on
-/// `DriftWm`'s per-output state — *live* camera state is not stage domain.
+/// `Driftline`'s per-output state — *live* camera state is not stage domain.
 /// [`FillSaved`] keeps to that rule with a snapshot derived from the camera
 /// rather than the camera itself, and says there why the snapshot belongs here.
 pub struct FullscreenEntry<W> {
@@ -82,7 +82,7 @@ pub struct FitPush {
 ///
 /// That viewport rect is a canvas-space snapshot, not live camera state, and its
 /// lifetime is exactly fill membership's — which is why it lives here rather
-/// than on `DriftWm`: `clear_fill` is a stage method and cannot reach a second
+/// than on `Driftline`: `clear_fill` is a stage method and cannot reach a second
 /// half elsewhere, so each of its ~15 call sites would be a chance to desync.
 pub struct FillSaved {
     pub pre_fill_position: Point<i32, Logical>,

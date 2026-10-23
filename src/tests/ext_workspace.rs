@@ -1,4 +1,4 @@
-//! `ext-workspace-v1`: driftwm exports its bookmark registry to bars as
+//! `ext-workspace-v1`: driftline exports its bookmark registry to bars as
 //! workspaces — one group (the whole canvas), one workspace per bookmark, and a
 //! single `active` bit tracking the focused viewport's nearest visible bookmark.
 //! These scenarios drive a real client through the protocol and assert the
@@ -130,7 +130,7 @@ fn activate_then_commit_jumps_the_camera_to_the_bookmark() {
     // go-to-bookmark centers the usable area on the bookmark — the same math
     // set-bookmark inverts (no panels here, so usable center == viewport center).
     let viewport = crate::state::output_logical_size(&out);
-    let expected = driftwm::canvas::camera_for_center(500.0, -300.0, f.state().zoom(), viewport);
+    let expected = driftline::canvas::camera_for_center(500.0, -300.0, f.state().zoom(), viewport);
     assert!((target.x - expected.x).abs() < 1e-6 && (target.y - expected.y).abs() < 1e-6);
 }
 

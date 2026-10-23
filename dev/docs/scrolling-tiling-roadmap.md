@@ -22,7 +22,7 @@ windows in a predictable usable state.
 Borrow niri's ownership boundary, not its whole workspace system:
 
 ```text
-DriftWm
+Driftline
 └── connected outputs
     └── per-output tiling state
         └── scrolling columns and their windows

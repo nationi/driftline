@@ -21,7 +21,7 @@ use super::{Fixture, config, map_window, tick_until_settled, window_by_app_id};
 
 /// A `[[window_rules]]` block seeding app_id `fs` with `opacity`, or no rule at
 /// all when `opacity` is `None`.
-fn config_with_opacity(opacity: Option<f64>) -> driftwm::config::Config {
+fn config_with_opacity(opacity: Option<f64>) -> driftline::config::Config {
     match opacity {
         Some(value) => config(&format!(
             "[[window_rules]]\napp_id = \"fs\"\nopacity = {value}\n"

@@ -1,4 +1,4 @@
-# driftwm — example "home dashboard" rice
+# driftline — example "home dashboard" rice
 #
 # An opinionated starting point: a single Quickshell dashboard pinned at the
 # canvas origin (your "home"), plus the shell around it. Install with
@@ -9,8 +9,8 @@
 autostart = [
     "swaync",                                      # notification daemon
     "swayosd-server --top-margin 0.95",            # volume/brightness OSD
-    "qs -p ~/.config/driftwm/quickshell",          # the home dashboard (Quickshell)
-    "~/.config/driftwm/scripts/battery_notify.sh", # low-battery alert
+    "qs -p ~/.config/driftline/quickshell",          # the home dashboard (Quickshell)
+    "~/.config/driftline/scripts/battery_notify.sh", # low-battery alert
     "swayidle -w before-sleep 'swaylock'",         # lock before sleep
 ]
 
@@ -24,7 +24,7 @@ focus_follows_mouse = true
 # type = "tile"
 # path = "~/Pictures/wallpaper.jpg"
 # mirror_tile = true
-# The shaders installed to ~/.config/driftwm/wallpapers/ work the same way with
+# The shaders installed to ~/.config/driftline/wallpapers/ work the same way with
 # type = "shader".
 
 [snap]
@@ -47,7 +47,7 @@ anchors = [[0, 0]]
 "mod+n" = "spawn swaync-client -t"
 # Spotlight: one search over open windows, suspended windows, and installed
 # apps — it replaces the plain launcher on mod+d.
-"mod+d" = "exec ~/.config/driftwm/scripts/spotlight.sh"
+"mod+d" = "exec ~/.config/driftline/scripts/spotlight.sh"
 # Route media keys through swayosd for on-screen feedback.
 "XF86AudioRaiseVolume" = "spawn swayosd-client --output-volume raise"
 "XF86AudioLowerVolume" = "spawn swayosd-client --output-volume lower"
@@ -55,7 +55,7 @@ anchors = [[0, 0]]
 "XF86MonBrightnessUp" = "spawn swayosd-client --brightness raise"
 "XF86MonBrightnessDown" = "spawn swayosd-client --brightness lower"
 # Screenshot the focused window straight to the clipboard.
-"ctrl+print" = "spawn driftwm msg screenshot window -o - | wl-copy"
+"ctrl+print" = "spawn driftline msg screenshot window -o - | wl-copy"
 "mod+alt+shift+q" = "exec systemctl poweroff"
 
 # The home dashboard, pinned at the canvas origin. `position` is the window

@@ -4,8 +4,8 @@
 //! and pointer focus is suppressed over it in both cascades. Above the
 //! threshold (or with the feature off at `0.0`) nothing changes.
 
-use driftwm::canvas::{CanvasPos, canvas_to_screen};
-use driftwm::config::{BTN_LEFT, BTN_RIGHT, BindingContext, Config, MouseAction};
+use driftline::canvas::{CanvasPos, canvas_to_screen};
+use driftline::config::{BTN_LEFT, BTN_RIGHT, BindingContext, Config, MouseAction};
 use smithay::backend::input::AxisSource;
 use smithay::input::keyboard::ModifiersState;
 use smithay::input::pointer::{CursorIcon, CursorImageStatus};
@@ -69,7 +69,7 @@ fn clear_targets(f: &mut Fixture) {
     });
 }
 
-fn pointer(f: &mut Fixture) -> smithay::input::pointer::PointerHandle<crate::state::DriftWm> {
+fn pointer(f: &mut Fixture) -> smithay::input::pointer::PointerHandle<crate::state::Driftline> {
     f.state().seat.get_pointer().unwrap()
 }
 
@@ -197,7 +197,7 @@ fn stand_in_press_bypasses_relaunch_label() {
     .unwrap();
     let mut f = Fixture::with_config(config_pick_ssd());
     f.add_output(1, (1920, 1080));
-    f.state().desktop_entry_cache = Some(driftwm::desktop_entry::DesktopEntryCache::new(vec![
+    f.state().desktop_entry_cache = Some(driftline::desktop_entry::DesktopEntryCache::new(vec![
         tmp.path().to_path_buf(),
     ]));
     let sid = f.state().insert_suspended_for_test(

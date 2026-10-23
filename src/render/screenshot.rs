@@ -1,4 +1,4 @@
-//! Off-screen capture of canvas regions to PNG, for `driftwm msg screenshot`.
+//! Off-screen capture of canvas regions to PNG, for `driftline msg screenshot`.
 //!
 //! A capture is a virtual viewport — a canvas rectangle rendered at a chosen
 //! DPI, independent of any output's current zoom. Captures larger than the GPU's
@@ -38,7 +38,7 @@ pub struct Capture {
 /// `isolate` is `Some`, only that element (client or suspended stand-in) is
 /// composed — see [`compose_capture_elements`].
 pub fn capture_region_to_png(
-    state: &mut crate::state::DriftWm,
+    state: &mut crate::state::Driftline,
     renderer: &mut GlesRenderer,
     region: Rectangle<i32, Logical>,
     dpi_scale: f64,

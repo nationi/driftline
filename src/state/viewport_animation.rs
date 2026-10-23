@@ -1,5 +1,5 @@
 //! Per-output camera motion: scroll momentum, edge pan, and the camera and
-//! zoom animations, plus the [`DriftWm::tick_all_animations`] turn that drives
+//! zoom animations, plus the [`Driftline::tick_all_animations`] turn that drives
 //! them from the event loop.
 //!
 //! Carries a second, unrelated subject that belongs in `src/input/`:
@@ -16,20 +16,20 @@ use smithay::input::pointer::CursorImageStatus;
 use smithay::reexports::calloop::timer::{TimeoutAction, Timer};
 use smithay::utils::{Logical, Point};
 
-use driftwm::canvas::{self, CanvasPos};
+use driftline::canvas::{self, CanvasPos};
 use smithay::wayland::shell::wlr_layer::Layer as WlrLayer;
 
 use smithay::output::Output;
 use smithay::reexports::wayland_server::protocol::wl_surface::WlSurface;
 
-use super::{DriftWm, FocusTarget, output_state};
+use super::{Driftline, FocusTarget, output_state};
 use crate::input::constraint::{ConstraintKind, deactivate_constraint, find_constraint};
 
 /// How long after the last pan event momentum auto-launches, covering touchpads
 /// that don't send AxisStop on finger lift.
 const MOMENTUM_LAUNCH_DELAY: Duration = Duration::from_millis(50);
 
-impl DriftWm {
+impl Driftline {
     /// Stop `output`'s camera flight where it stands: both targets, the zoom
     /// anchor they lerp around, and any momentum still feeding them.
     /// `overview_return` deliberately survives — it is a place to go back to,
@@ -412,7 +412,7 @@ impl DriftWm {
             .loop_handle
             .insert_source(
                 Timer::from_duration(MOMENTUM_LAUNCH_DELAY),
-                |_, _, data: &mut DriftWm| {
+                |_, _, data: &mut Driftline| {
                     let Some((deadline, name)) = data.momentum_deadline.clone() else {
                         // Clearing before the drop is what lets the next pan
                         // re-arm; leaving the token set wedges `is_some()` true

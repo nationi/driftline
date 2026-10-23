@@ -7,8 +7,8 @@ use smithay::{
     utils::{Logical, Point, SERIAL_COUNTER},
 };
 
-use crate::state::{DriftWm, output_logical_size, output_state};
-use driftwm::canvas::{CanvasPos, ScreenPos, canvas_to_screen, screen_to_canvas};
+use crate::state::{Driftline, output_logical_size, output_state};
+use driftline::canvas::{CanvasPos, ScreenPos, canvas_to_screen, screen_to_canvas};
 
 /// Max squared screen-pixel distance for a press-release to count as a
 /// "click" (deselect) rather than a "drag" (pan). 5px → 25.
@@ -22,7 +22,7 @@ const WARP_NOISE: f64 = 1e-6;
 /// Super+left-click or left-click on empty canvas; accumulates momentum so
 /// the viewport coasts on release.
 pub struct PanGrab {
-    pub start_data: GrabStartData<DriftWm>,
+    pub start_data: GrabStartData<Driftline>,
     pub last_screen_pos: Point<f64, Logical>,
     /// Position at grab start — compared on release to decide click vs drag.
     pub start_screen_pos: Point<f64, Logical>,
@@ -36,12 +36,15 @@ pub struct PanGrab {
     pub last_clamped_location: Point<f64, Logical>,
 }
 
-impl PointerGrab<DriftWm> for PanGrab {
+impl PointerGrab<Driftline> for PanGrab {
     fn motion(
         &mut self,
-        data: &mut DriftWm,
-        handle: &mut PointerInnerHandle<'_, DriftWm>,
-        _focus: Option<(<DriftWm as SeatHandler>::PointerFocus, Point<f64, Logical>)>,
+        data: &mut Driftline,
+        handle: &mut PointerInnerHandle<'_, Driftline>,
+        _focus: Option<(
+            <Driftline as SeatHandler>::PointerFocus,
+            Point<f64, Logical>,
+        )>,
         event: &MotionEvent,
     ) {
         // If input routing crossed to another output mid-pan, event.location is
@@ -122,8 +125,8 @@ impl PointerGrab<DriftWm> for PanGrab {
 
     fn button(
         &mut self,
-        data: &mut DriftWm,
-        handle: &mut PointerInnerHandle<'_, DriftWm>,
+        data: &mut Driftline,
+        handle: &mut PointerInnerHandle<'_, Driftline>,
         event: &ButtonEvent,
     ) {
         handle.button(data, event);
@@ -141,7 +144,7 @@ impl PointerGrab<DriftWm> for PanGrab {
         }
     }
 
-    fn unset(&mut self, _data: &mut DriftWm) {}
+    fn unset(&mut self, _data: &mut Driftline) {}
 
     crate::grabs::forward_pointer_grab_methods!();
 }

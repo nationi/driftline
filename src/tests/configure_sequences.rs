@@ -1,8 +1,8 @@
 //! Exact configure sequences as the client sees them — the desync class where
 //! a toolkit acks one configure while the compositor already believes another.
 
-use driftwm::canvas::Chrome;
-use driftwm::config::{Action, BTN_LEFT, Config, DecorationMode, Direction};
+use driftline::canvas::Chrome;
+use driftline::config::{Action, BTN_LEFT, Config, DecorationMode, Direction};
 use smithay::input::pointer::MotionEvent;
 use smithay::reexports::wayland_server::Resource;
 use smithay::utils::{Logical, Point, SERIAL_COUNTER, Size};
@@ -2147,7 +2147,7 @@ fn a_fill_camera_off_the_integer_grid_still_restores() {
     let saved = f.state().stage.fill_saved(&a).unwrap();
     let stored_w = saved.viewport_bounds.x_high - saved.viewport_bounds.x_low;
     assert!(
-        1920.0 / stored_w > driftwm::canvas::MAX_ZOOM,
+        1920.0 / stored_w > driftline::canvas::MAX_ZOOM,
         "precondition: the fractional camera pushed the derived zoom past \
          MAX_ZOOM — stored width {stored_w}"
     );
@@ -3234,7 +3234,7 @@ fn owe_a_fill_exit_recenter(
 /// sizes used below; an odd one would part company with the settle by the
 /// truncation `map_window_to_rule_point` documents.
 fn rule_point_loc(x: i32, y: i32, size: Size<i32, Logical>, chrome: Chrome) -> Point<i32, Logical> {
-    driftwm::canvas::rule_to_content(x, y, size, chrome)
+    driftline::canvas::rule_to_content(x, y, size, chrome)
 }
 
 /// Ack the outstanding restore configure and then commit a buffer at a size of

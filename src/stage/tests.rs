@@ -576,7 +576,7 @@ fn labels(order: &[TestWindow]) -> Vec<u64> {
 }
 
 /// Randomized op-sequence harness. Each op mirrors the sequence of stage
-/// calls a `DriftWm` entry point performs (new_toplevel, toplevel_destroyed,
+/// calls a `Driftline` entry point performs (new_toplevel, toplevel_destroyed,
 /// raise_and_focus, fullscreen enter/exit, fit toggle, MRU cycle, cluster
 /// move/resize); `verify_invariants` runs after every op. Cluster ops drive
 /// the real `cluster_of` / `adjacent_side` / `resolve_cluster_shifts`.
@@ -794,7 +794,7 @@ mod harness {
             && b.y_low < a.y_high - EPS
     }
 
-    /// Mirrors the modal walk in `DriftWm::cycle_anchor`.
+    /// Mirrors the modal walk in `Driftline::cycle_anchor`.
     fn cycle_anchor(focused: &TestWindow) -> TestWindow {
         let mut window = focused.clone();
         for _ in 0..10 {
@@ -824,7 +824,7 @@ mod harness {
         false
     }
 
-    /// Innermost modal descendant, mirroring `DriftWm::topmost_modal_child`.
+    /// Innermost modal descendant, mirroring `Driftline::topmost_modal_child`.
     fn topmost_modal_child(stage: &Stage<TestWindow>, w: &TestWindow) -> Option<TestWindow> {
         let mut current = w.clone();
         for _ in 0..10 {
@@ -947,7 +947,7 @@ mod harness {
             (!self.windows.is_empty()).then(|| self.windows[idx % self.windows.len()].clone())
         }
 
-        /// Mirrors `DriftWm::raise_and_focus` + the `focus_changed` history push.
+        /// Mirrors `Driftline::raise_and_focus` + the `focus_changed` history push.
         /// Returns the window pushed to the MRU, if any.
         fn raise_and_focus(&mut self, w: &TestWindow) -> Option<TestWindow> {
             let order = self.stage.raise_with_children(w);
@@ -1006,7 +1006,7 @@ mod harness {
             }
         }
 
-        /// Mirrors `DriftWm::exit_fullscreen_on`'s stage half, including the
+        /// Mirrors `Driftline::exit_fullscreen_on`'s stage half, including the
         /// pin restore and the pinned-loc sync that follows.
         fn exit_fullscreen(&mut self, output: &str) {
             if let Some(entry) = self.stage.take_fullscreen(output) {
@@ -1561,7 +1561,7 @@ mod harness {
                     }
                 }
                 Op::ToggleFillMembership { idx } => {
-                    // Fill's geometry lives in DriftWm, not the stage; here we
+                    // Fill's geometry lives in Driftline, not the stage; here we
                     // only exercise the membership field so verify_invariants
                     // covers it. Same eligibility as the keybinding path.
                     let Some(w) = self.pick(*idx) else { return };

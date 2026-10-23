@@ -11,12 +11,12 @@ use smithay::reexports::calloop::{
 };
 use smithay::reexports::wayland_server::backend::GlobalId;
 
-use driftwm::config::Config;
+use driftline::config::Config;
 
 use super::client::{Client, ClientId};
 use super::headless;
 use super::server::Server;
-use crate::state::DriftWm;
+use crate::state::Driftline;
 
 /// Drives the whole graph: an outer calloop loop that nests the server's loop
 /// and every client's loop by their epoll fds. Reading a nested loop's fd means
@@ -91,7 +91,7 @@ impl Fixture {
             .unwrap();
     }
 
-    pub fn state(&mut self) -> &mut DriftWm {
+    pub fn state(&mut self) -> &mut Driftline {
         &mut self.state.server.state
     }
 
@@ -156,9 +156,9 @@ impl Fixture {
         let dh = self.state().display_handle.clone();
         self.state().output_disconnected(output, is_last);
         let global = self.output_globals.remove(&output.name()).unwrap();
-        dh.disable_global::<DriftWm>(global.clone());
+        dh.disable_global::<Driftline>(global.clone());
         self.pump(3);
-        dh.remove_global::<DriftWm>(global);
+        dh.remove_global::<Driftline>(global);
         self.pump(3);
     }
 
@@ -252,7 +252,7 @@ impl Drop for Fixture {
             baseline,
             "fixture teardown left compositor state above baseline — a \
              window/surface/client-keyed collection leaked (see \
-             DriftWm::debug_counters); tear the scenario down cleanly or call \
+             Driftline::debug_counters); tear the scenario down cleanly or call \
              skip_baseline_check"
         );
     }

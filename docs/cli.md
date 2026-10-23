@@ -3,14 +3,14 @@
 <!-- Generated from the clap command tree — do not edit by hand.
      Regenerate with: UPDATE_CLI_DOCS=1 cargo test docs_cli_md_is_up_to_date -->
 
-driftwm's command-line interface: the root command that starts the compositor,
-and every `driftwm msg` subcommand for controlling a running one. For the raw
+driftline's command-line interface: the root command that starts the compositor,
+and every `driftline msg` subcommand for controlling a running one. For the raw
 JSON wire protocol behind `msg`, see [ipc.md](ipc.md).
 
-## `driftwm`
+## `driftline`
 
 ```
-driftwm [OPTIONS] [COMMAND]
+driftline [OPTIONS] [COMMAND]
 ```
 
 A trackpad-first infinite canvas Wayland compositor.
@@ -25,18 +25,18 @@ With no subcommand, starts the compositor, auto-detecting the backend (udev on a
 - `-V, --version` — Print version
 
 ```bash
-driftwm --backend winit --config ~/dev.toml
+driftline --backend winit --config ~/dev.toml
 ```
 
-### `driftwm msg`
+### `driftline msg`
 
 ```
-driftwm msg [OPTIONS] <COMMAND>
+driftline msg [OPTIONS] <COMMAND>
 ```
 
 Send a command to the running compositor over its IPC socket.
 
-Auto-targets the instance named by `WAYLAND_DISPLAY` (override with `DRIFTWM_SOCKET`).
+Auto-targets the instance named by `WAYLAND_DISPLAY` (override with `DRIFTLINE_SOCKET`, with `DRIFTWM_SOCKET` accepted for compatibility).
 
 A window command selects its target by `app_id` substring (case-insensitive) or by `--id <n>`, the stable id `state` prints. Widgets match no `app_id` search — reach one by `--id`.
 
@@ -45,35 +45,35 @@ Add `--json` for the raw JSON reply. A command that fails (bad value, no match, 
 - `--json` — Print the raw JSON reply
 
 ```bash
-driftwm msg state
-driftwm msg --json focus --id 5
+driftline msg state
+driftline msg --json focus --id 5
 ```
 
 | Command | Description |
 | --- | --- |
-| [`state`](#driftwm-msg-state) | Dump camera, zoom, and the window inventory |
-| [`subscribe`](#driftwm-msg-subscribe) | Stream state snapshots as they change (one JSON line per event with --json) |
-| [`focus`](#driftwm-msg-focus) | Print the focused window, or focus one by `app_id` substring or `--id` |
-| [`move`](#driftwm-msg-move) | Get a window's position, or move it to `<x> <y>` (visible-frame center, Y-up) |
-| [`resize`](#driftwm-msg-resize) | Get a window's size, or resize it to `<width> <height>` |
-| [`close`](#driftwm-msg-close) | Close the focused window, or one by `app_id` substring or `--id` |
-| [`opacity`](#driftwm-msg-opacity) | Get a window's opacity, or set it with `<value>` — `0` transparent, `1` opaque |
-| [`pin`](#driftwm-msg-pin) | Get whether a window is pinned to the screen, or set it with `on`/`off` |
-| [`suspend`](#driftwm-msg-suspend) | Suspend the focused window, or one by `app_id` substring or `--id` |
-| [`relaunch`](#driftwm-msg-relaunch) | Relaunch a suspended window: the focused stand-in, or one by `app_id` substring or `--id` |
-| [`camera`](#driftwm-msg-camera) | Get the camera position, or pan the viewport to `<x> <y>` (canvas point, Y-up) |
-| [`zoom`](#driftwm-msg-zoom) | Get the zoom level, or set it with `<level>` |
-| [`bookmark`](#driftwm-msg-bookmark) | List bookmarks, get or set one by `<name>`, or delete with `--delete` |
-| [`layout`](#driftwm-msg-layout) | Print the active keyboard layout (full XKB name, e.g. `English (US)`) |
-| [`cursor`](#driftwm-msg-cursor) | Print the pointer position in the global output layout (logical pixels, Y-down, the space slurp prints) and the output it is on |
-| [`action`](#driftwm-msg-action) | Run a config action, e.g. `action close-window`, `action switch-layout next` |
-| [`screenshot`](#driftwm-msg-screenshot) | Capture a canvas PNG. With no subcommand, captures the active output's current view of the canvas |
-| [`debug-counters`](#driftwm-msg-debug-counters) | Print internal collection sizes for leak diagnosis (unstable keys) |
+| [`state`](#driftline-msg-state) | Dump camera, zoom, and the window inventory |
+| [`subscribe`](#driftline-msg-subscribe) | Stream state snapshots as they change (one JSON line per event with --json) |
+| [`focus`](#driftline-msg-focus) | Print the focused window, or focus one by `app_id` substring or `--id` |
+| [`move`](#driftline-msg-move) | Get a window's position, or move it to `<x> <y>` (visible-frame center, Y-up) |
+| [`resize`](#driftline-msg-resize) | Get a window's size, or resize it to `<width> <height>` |
+| [`close`](#driftline-msg-close) | Close the focused window, or one by `app_id` substring or `--id` |
+| [`opacity`](#driftline-msg-opacity) | Get a window's opacity, or set it with `<value>` — `0` transparent, `1` opaque |
+| [`pin`](#driftline-msg-pin) | Get whether a window is pinned to the screen, or set it with `on`/`off` |
+| [`suspend`](#driftline-msg-suspend) | Suspend the focused window, or one by `app_id` substring or `--id` |
+| [`relaunch`](#driftline-msg-relaunch) | Relaunch a suspended window: the focused stand-in, or one by `app_id` substring or `--id` |
+| [`camera`](#driftline-msg-camera) | Get the camera position, or pan the viewport to `<x> <y>` (canvas point, Y-up) |
+| [`zoom`](#driftline-msg-zoom) | Get the zoom level, or set it with `<level>` |
+| [`bookmark`](#driftline-msg-bookmark) | List bookmarks, get or set one by `<name>`, or delete with `--delete` |
+| [`layout`](#driftline-msg-layout) | Print the active keyboard layout (full XKB name, e.g. `English (US)`) |
+| [`cursor`](#driftline-msg-cursor) | Print the pointer position in the global output layout (logical pixels, Y-down, the space slurp prints) and the output it is on |
+| [`action`](#driftline-msg-action) | Run a config action, e.g. `action close-window`, `action switch-layout next` |
+| [`screenshot`](#driftline-msg-screenshot) | Capture a canvas PNG. With no subcommand, captures the active output's current view of the canvas |
+| [`debug-counters`](#driftline-msg-debug-counters) | Print internal collection sizes for leak diagnosis (unstable keys) |
 
-#### `driftwm msg state`
+#### `driftline msg state`
 
 ```
-driftwm msg state
+driftline msg state
 ```
 
 Dump camera, zoom, and the window inventory.
@@ -83,13 +83,13 @@ Also prints the keyboard layout, the fullscreen and pinned screen-space inventor
 `--json` reply: `{"Ok":{"State":{"camera":[..],"zoom":1.0,"windows":[..],"outputs":[..]}}}`.
 
 ```bash
-driftwm msg --json state | jq '.Ok.State.windows'
+driftline msg --json state | jq '.Ok.State.windows'
 ```
 
-#### `driftwm msg subscribe`
+#### `driftline msg subscribe`
 
 ```
-driftwm msg subscribe
+driftline msg subscribe
 ```
 
 Stream state snapshots as they change (one JSON line per event with --json).
@@ -99,13 +99,13 @@ The server acks, pushes the current state immediately, then pushes a fresh snaps
 Each event is `{"State":{..}}` — the whole snapshot, same shape as the `state` reply, and not wrapped in `Ok`/`Err`. A slow subscriber never blocks the compositor: it drops snapshots and catches up in full on the next change.
 
 ```bash
-driftwm msg --json subscribe | jq --unbuffered -r '.State.zoom'
+driftline msg --json subscribe | jq --unbuffered -r '.State.zoom'
 ```
 
-#### `driftwm msg focus`
+#### `driftline msg focus`
 
 ```
-driftwm msg focus [OPTIONS] [APP_ID]
+driftline msg focus [OPTIONS] [APP_ID]
 ```
 
 Print the focused window, or focus one by `app_id` substring or `--id`.
@@ -117,14 +117,14 @@ Focusing pans the camera to the window unless it is already fully visible. Widge
 - `--id <ID>` — Target this window id
 
 ```bash
-driftwm msg focus firefox
-driftwm msg focus --id 5
+driftline msg focus firefox
+driftline msg focus --id 5
 ```
 
-#### `driftwm msg move`
+#### `driftline msg move`
 
 ```
-driftwm msg move [OPTIONS] [X] [Y]
+driftline msg move [OPTIONS] [X] [Y]
 ```
 
 Get a window's position, or move it to `<x> <y>` (visible-frame center, Y-up).
@@ -136,14 +136,14 @@ Pinned and fullscreen windows live in screen space, not on the canvas, so `move`
 - `--id <ID>` — Target this window id
 
 ```bash
-driftwm msg move
-driftwm msg move -400 200 --id 5
+driftline msg move
+driftline msg move -400 200 --id 5
 ```
 
-#### `driftwm msg resize`
+#### `driftline msg resize`
 
 ```
-driftwm msg resize [OPTIONS] [WIDTH] [HEIGHT]
+driftline msg resize [OPTIONS] [WIDTH] [HEIGHT]
 ```
 
 Get a window's size, or resize it to `<width> <height>`.
@@ -155,14 +155,14 @@ Dimensions are the visible frame, including any compositor-drawn title bar and b
 - `--id <ID>` — Target this window id
 
 ```bash
-driftwm msg resize
-driftwm msg resize 800 600 --id 5
+driftline msg resize
+driftline msg resize 800 600 --id 5
 ```
 
-#### `driftwm msg close`
+#### `driftline msg close`
 
 ```
-driftwm msg close [OPTIONS] [APP_ID]
+driftline msg close [OPTIONS] [APP_ID]
 ```
 
 Close the focused window, or one by `app_id` substring or `--id`.
@@ -174,13 +174,13 @@ Errors when nothing matches.
 - `--id <ID>` — Target this window id
 
 ```bash
-driftwm msg close firefox
+driftline msg close firefox
 ```
 
-#### `driftwm msg opacity`
+#### `driftline msg opacity`
 
 ```
-driftwm msg opacity [OPTIONS] [VALUE]
+driftline msg opacity [OPTIONS] [VALUE]
 ```
 
 Get a window's opacity, or set it with `<value>` — `0` transparent, `1` opaque.
@@ -192,13 +192,13 @@ A get returns the value the window draws at right now — the `[decorations]` fo
 - `--id <ID>` — Target this window id
 
 ```bash
-driftwm msg opacity 0.85 --id 5
+driftline msg opacity 0.85 --id 5
 ```
 
-#### `driftwm msg pin`
+#### `driftline msg pin`
 
 ```
-driftwm msg pin [OPTIONS] [on|off]
+driftline msg pin [OPTIONS] [on|off]
 ```
 
 Get whether a window is pinned to the screen, or set it with `on`/`off`.
@@ -210,14 +210,14 @@ The pin `toggle-pin-to-screen` sets: neither direction moves the window visually
 - `--id <ID>` — Target this window id
 
 ```bash
-driftwm msg pin
-driftwm msg pin on --id 5
+driftline msg pin
+driftline msg pin on --id 5
 ```
 
-#### `driftwm msg suspend`
+#### `driftline msg suspend`
 
 ```
-driftwm msg suspend [OPTIONS] [APP_ID]
+driftline msg suspend [OPTIONS] [APP_ID]
 ```
 
 Suspend the focused window, or one by `app_id` substring or `--id`.
@@ -229,13 +229,13 @@ The same conversion as the `suspend-window` action: the client goes away and a c
 - `--id <ID>` — Target this window id
 
 ```bash
-driftwm msg suspend firefox
+driftline msg suspend firefox
 ```
 
-#### `driftwm msg relaunch`
+#### `driftline msg relaunch`
 
 ```
-driftwm msg relaunch [OPTIONS] [APP_ID]
+driftline msg relaunch [OPTIONS] [APP_ID]
 ```
 
 Relaunch a suspended window: the focused stand-in, or one by `app_id` substring or `--id`.
@@ -247,13 +247,13 @@ Spawns the app from its `.desktop` entry and adopts the new window into the stan
 - `--id <ID>` — Target this window id
 
 ```bash
-driftwm msg relaunch firefox
+driftline msg relaunch firefox
 ```
 
-#### `driftwm msg camera`
+#### `driftline msg camera`
 
 ```
-driftwm msg camera [X] [Y]
+driftline msg camera [X] [Y]
 ```
 
 Get the camera position, or pan the viewport to `<x> <y>` (canvas point, Y-up).
@@ -265,14 +265,14 @@ A fullscreen window parks the viewport, so setting a position exits fullscreen f
 `--json` reply: `{"Ok":{"Camera":{"x":500.0,"y":300.0}}}`.
 
 ```bash
-driftwm msg camera
-driftwm msg camera 500 300
+driftline msg camera
+driftline msg camera 500 300
 ```
 
-#### `driftwm msg zoom`
+#### `driftline msg zoom`
 
 ```
-driftwm msg zoom [LEVEL]
+driftline msg zoom [LEVEL]
 ```
 
 Get the zoom level, or set it with `<level>`.
@@ -282,13 +282,13 @@ Setting is animated and clamped: out to fit-all, in to native resolution (no mag
 `--json` reply: `{"Ok":{"Zoom":0.5}}`.
 
 ```bash
-driftwm msg zoom 0.5
+driftline msg zoom 0.5
 ```
 
-#### `driftwm msg bookmark`
+#### `driftline msg bookmark`
 
 ```
-driftwm msg bookmark [OPTIONS] [NAME] [X] [Y]
+driftline msg bookmark [OPTIONS] [NAME] [X] [Y]
 ```
 
 List bookmarks, get or set one by `<name>`, or delete with `--delete`.
@@ -303,15 +303,15 @@ Coordinates are canvas points, Y-up and window-center, the same convention as `m
 - `--delete` — Delete the named bookmark
 
 ```bash
-driftwm msg bookmark
-driftwm msg bookmark inbox 500 300
-driftwm msg bookmark inbox --delete
+driftline msg bookmark
+driftline msg bookmark inbox 500 300
+driftline msg bookmark inbox --delete
 ```
 
-#### `driftwm msg layout`
+#### `driftline msg layout`
 
 ```
-driftwm msg layout [OPTIONS]
+driftline msg layout [OPTIONS]
 ```
 
 Print the active keyboard layout (full XKB name, e.g. `English (US)`).
@@ -321,13 +321,13 @@ Print the active keyboard layout (full XKB name, e.g. `English (US)`).
 - `--short` — Print the configured code for the active group instead (e.g. `us`, `ru`)
 
 ```bash
-driftwm msg layout --short
+driftline msg layout --short
 ```
 
-#### `driftwm msg cursor`
+#### `driftline msg cursor`
 
 ```
-driftwm msg cursor
+driftline msg cursor
 ```
 
 Print the pointer position in the global output layout (logical pixels, Y-down, the space slurp prints) and the output it is on.
@@ -335,13 +335,13 @@ Print the pointer position in the global output layout (logical pixels, Y-down, 
 `--json` reply: `{"Ok":{"Cursor":{"x":2600.5,"y":12.0,"output":"DP-1"}}}`.
 
 ```bash
-driftwm msg --json cursor
+driftline msg --json cursor
 ```
 
-#### `driftwm msg action`
+#### `driftline msg action`
 
 ```
-driftwm msg action <SPEC>...
+driftline msg action <SPEC>...
 ```
 
 Run a config action, e.g. `action close-window`, `action switch-layout next`.
@@ -357,14 +357,14 @@ The socket is a full control surface: `action` can `exec`/`spawn`, `quit`, and `
 - `<SPEC>...` — Action and arguments, exactly as written in config (e.g. `nudge-window up`)
 
 ```bash
-driftwm msg action switch-layout next
-driftwm msg action toggle-fullscreen
+driftline msg action switch-layout next
+driftline msg action toggle-fullscreen
 ```
 
-#### `driftwm msg screenshot`
+#### `driftline msg screenshot`
 
 ```
-driftwm msg screenshot [OPTIONS] [COMMAND]
+driftline msg screenshot [OPTIONS] [COMMAND]
 ```
 
 Capture a canvas PNG. With no subcommand, captures the active output's current view of the canvas.
@@ -376,16 +376,16 @@ Blur caveat: a scene capture (viewport/`all`/`region`) shows a translucent windo
 `--json` reply: `{"Ok":{"Screenshot":{"path":"/abs/shot.png","width":1920,"height":1080}}}`.
 
 - `--scale <SCALE>` — Pixels per canvas unit — higher captures more detail than the screen shows, independent of zoom (default: `1`)
-- `-o, --output <OUTPUT>` — Output PNG path, or `-` for stdout (default: `./driftwm-screenshot-<time>.png`)
+- `-o, --output <OUTPUT>` — Output PNG path, or `-` for stdout (default: `./driftline-screenshot-<time>.png`)
 
 ```bash
-driftwm msg screenshot --scale 2 -o ~/canvas.png
+driftline msg screenshot --scale 2 -o ~/canvas.png
 ```
 
-##### `driftwm msg screenshot window`
+##### `driftline msg screenshot window`
 
 ```
-driftwm msg screenshot window [OPTIONS] [APP_ID]
+driftline msg screenshot window [OPTIONS] [APP_ID]
 ```
 
 The focused window, or one by `app_id` substring or `--id`.
@@ -395,13 +395,13 @@ Composed alone on transparency, so overlapping windows never appear; pinned and 
 - `--id <ID>` — Target this window id
 
 ```bash
-driftwm msg screenshot window -o - | wl-copy
+driftline msg screenshot window -o - | wl-copy
 ```
 
-##### `driftwm msg screenshot all`
+##### `driftline msg screenshot all`
 
 ```
-driftwm msg screenshot all
+driftline msg screenshot all
 ```
 
 The bounding box of all non-widget windows.
@@ -409,13 +409,13 @@ The bounding box of all non-widget windows.
 A scene with the canvas background plus every window's chrome, framed with a `[zoom] fit_padding` margin. `--json` reply shape is the shared `Screenshot` reply above.
 
 ```bash
-driftwm msg screenshot all --scale 0.5
+driftline msg screenshot all --scale 0.5
 ```
 
-##### `driftwm msg screenshot region`
+##### `driftline msg screenshot region`
 
 ```
-driftwm msg screenshot region [OPTIONS] <COORDS>...
+driftline msg screenshot region [OPTIONS] <COORDS>...
 ```
 
 A rectangle — `X Y W H` (canvas coords, center/Y-up) or slurp's native `X,Y WxH`. Commas and the `x` separator are tolerated, so `$(slurp)` drops in directly. Treated as output-screen pixels with `--from-screen`.
@@ -426,14 +426,14 @@ Captures a scene (canvas background plus window chrome) over the rectangle. `--j
 - `--from-screen` — Treat the rectangle as output-screen pixels mapped via the active viewport
 
 ```bash
-driftwm msg screenshot region -1000 -500 2000 1000
-driftwm msg screenshot region "$(slurp)" --from-screen
+driftline msg screenshot region -1000 -500 2000 1000
+driftline msg screenshot region "$(slurp)" --from-screen
 ```
 
-#### `driftwm msg debug-counters`
+#### `driftline msg debug-counters`
 
 ```
-driftwm msg debug-counters
+driftline msg debug-counters
 ```
 
 Print internal collection sizes for leak diagnosis (unstable keys).
@@ -443,5 +443,5 @@ Keys are internal field names and change between releases; don't script against 
 `--json` reply: `{"Ok":{"DebugCounters":{"decorations":2,"stage_entries":2}}}`.
 
 ```bash
-driftwm msg debug-counters
+driftline msg debug-counters
 ```

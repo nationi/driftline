@@ -363,7 +363,7 @@ mod tests {
     fn tmp_path(name: &str) -> PathBuf {
         let mut p = std::env::temp_dir();
         p.push(format!(
-            "driftwm-tiff-test-{}-{name}.tif",
+            "driftline-tiff-test-{}-{name}.tif",
             std::process::id()
         ));
         p
@@ -382,7 +382,7 @@ mod tests {
 
     #[test]
     fn rejects_missing_file() {
-        let err = TiffSource::open("/nonexistent/driftwm-tiff-missing.tif")
+        let err = TiffSource::open("/nonexistent/driftline-tiff-missing.tif")
             .err()
             .expect("missing file must be rejected");
         assert!(err.contains("open"), "got: {err}");

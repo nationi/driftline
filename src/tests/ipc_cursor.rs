@@ -1,8 +1,8 @@
-//! `driftwm msg cursor` reports the pointer in the global output layout: screen
+//! `driftline msg cursor` reports the pointer in the global output layout: screen
 //! space, Y-down, offset by its output's layout position, whatever camera and
 //! zoom that output views the canvas through.
 
-use driftwm::canvas::{CanvasPos, canvas_to_screen};
+use driftline::canvas::{CanvasPos, canvas_to_screen};
 use smithay::output::Output;
 use smithay::utils::Point;
 

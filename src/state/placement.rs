@@ -4,11 +4,11 @@ use smithay::desktop::Window;
 use smithay::utils::{Logical, Size};
 use smithay::wayland::seat::WaylandFocus;
 
-use driftwm::canvas::Chrome;
+use driftline::canvas::Chrome;
 
-use super::{AUTO_PLACE_CLUSTER_THRESHOLD, DriftWm, StageWindow};
+use super::{AUTO_PLACE_CLUSTER_THRESHOLD, Driftline, StageWindow};
 
-impl DriftWm {
+impl Driftline {
     /// Spawn pos for `placement = "cursor"`: center the visual frame
     /// (titlebar + content + border) on the cursor, clamped to the active
     /// output's usable rect. Returns a content top-left.
@@ -167,7 +167,7 @@ impl DriftWm {
 
         // Widgets sit visually below windows (wallpaper-like) — neither
         // anchors nor obstacles for auto placement.
-        let mut rects: Vec<driftwm::layout::auto_placement::Rect> = Vec::new();
+        let mut rects: Vec<driftline::layout::auto_placement::Rect> = Vec::new();
         let mut eligible: HashSet<usize> = HashSet::new();
         let mut anchor_idx: Option<usize> = None;
         for w in self.stage.windows() {
@@ -176,7 +176,7 @@ impl DriftWm {
             }
             let widget = w
                 .wl_surface()
-                .and_then(|s| driftwm::config::applied_rule(&s))
+                .and_then(|s| driftline::config::applied_rule(&s))
                 .is_some_and(|r| r.widget);
             let is_fs = self.is_window_fullscreen(w);
             // A window awaiting a deferred adopt occupies no visible ground: it
@@ -193,7 +193,7 @@ impl DriftWm {
             let b = self.window_ssd_bar(w);
             let bw = self.element_border_width(w) as f64;
             let idx = rects.len();
-            rects.push(driftwm::layout::auto_placement::Rect {
+            rects.push(driftline::layout::auto_placement::Rect {
                 x: loc.x as f64 - bw,
                 y: (loc.y - b) as f64 - bw,
                 w: size.w as f64 + 2.0 * bw,
@@ -214,7 +214,7 @@ impl DriftWm {
         let vc_screen = self.usable_center_screen();
         let vc = (camera.x + vc_screen.x / zoom, camera.y + vc_screen.y / zoom);
 
-        let pos = driftwm::layout::auto_placement::place_auto(
+        let pos = driftline::layout::auto_placement::place_auto(
             &rects,
             anchor_idx,
             &eligible,
@@ -274,7 +274,7 @@ impl DriftWm {
             .wl_surface()
             .map_or(0, |s| self.window_border_width(&s)) as f64;
         let fs_bar = self.window_ssd_bar(&fs.window);
-        let anchor_rect = driftwm::layout::auto_placement::Rect {
+        let anchor_rect = driftline::layout::auto_placement::Rect {
             x: fs.saved_location.x as f64 - fs_bw,
             y: (fs.saved_location.y - fs_bar) as f64 - fs_bw,
             w: fs.saved_size.w as f64 + 2.0 * fs_bw,
@@ -291,7 +291,7 @@ impl DriftWm {
             }
             let widget = w
                 .wl_surface()
-                .and_then(|s| driftwm::config::applied_rule(&s))
+                .and_then(|s| driftline::config::applied_rule(&s))
                 .is_some_and(|r| r.widget);
             if widget || self.is_window_fullscreen(w) || self.is_pinned(w) {
                 continue;
@@ -303,7 +303,7 @@ impl DriftWm {
             let b = self.window_ssd_bar(w);
             let bw = self.element_border_width(w) as f64;
             let idx = rects.len();
-            rects.push(driftwm::layout::auto_placement::Rect {
+            rects.push(driftline::layout::auto_placement::Rect {
                 x: loc.x as f64 - bw,
                 y: (loc.y - b) as f64 - bw,
                 w: size.w as f64 + 2.0 * bw,
@@ -322,7 +322,7 @@ impl DriftWm {
             anchor_rect.y + anchor_rect.h / 2.0,
         );
 
-        if let Some(pos) = driftwm::layout::auto_placement::place_auto(
+        if let Some(pos) = driftline::layout::auto_placement::place_auto(
             &rects,
             0,
             &eligible,

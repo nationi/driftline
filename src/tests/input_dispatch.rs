@@ -9,7 +9,7 @@
 
 use std::time::Duration;
 
-use driftwm::config::{BTN_LEFT, BTN_MIDDLE, Config};
+use driftline::config::{BTN_LEFT, BTN_MIDDLE, Config};
 use smithay::backend::input::ButtonState;
 use smithay::desktop::Window;
 use smithay::utils::{Logical, Point, SERIAL_COUNTER, Transform};

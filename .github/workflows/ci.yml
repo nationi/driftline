@@ -66,7 +66,7 @@ jobs:
       # reason as the step above.
       - name: Run soak
         timeout-minutes: 15
-        run: cargo test --bin driftwm -- --include-ignored --test-threads=1 soak
+        run: cargo test --bin driftline -- --include-ignored --test-threads=1 soak
 
   clippy:
     name: clippy

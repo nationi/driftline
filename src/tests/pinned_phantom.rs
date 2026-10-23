@@ -24,9 +24,9 @@
 //! `decoration_under`, which skips pins and would answer for a canvas window
 //! drawn behind the one actually there.
 
-use driftwm::canvas::{CanvasPos, canvas_to_screen};
-use driftwm::config::{BTN_LEFT, BTN_RIGHT, BindingContext};
-use driftwm::stage::PinnedSite;
+use driftline::canvas::{CanvasPos, canvas_to_screen};
+use driftline::config::{BTN_LEFT, BTN_RIGHT, BindingContext};
+use driftline::stage::PinnedSite;
 use smithay::desktop::Window;
 use smithay::input::keyboard::ModifiersState;
 use smithay::input::pointer::{CursorIcon, CursorImageStatus};

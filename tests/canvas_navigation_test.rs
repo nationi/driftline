@@ -1,5 +1,5 @@
-use driftwm::canvas::find_nearest;
-use driftwm::config::Direction;
+use driftline::canvas::find_nearest;
+use driftline::config::Direction;
 use smithay::utils::{Logical, Point};
 use std::f64::consts::FRAC_1_SQRT_2;
 

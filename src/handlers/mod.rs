@@ -4,8 +4,8 @@ pub mod layer_shell;
 pub mod xdg_shell;
 
 use crate::decorations::DecorationKey;
-use crate::state::{DriftWm, FocusIntent, FocusTarget};
-use driftwm::window_ext::WindowExt;
+use crate::state::{Driftline, FocusIntent, FocusTarget};
+use driftline::window_ext::WindowExt;
 use smithay::wayland::seat::WaylandFocus;
 use smithay::{
     backend::renderer::ImportDma,
@@ -54,9 +54,9 @@ use smithay::{
     },
 };
 
-smithay::delegate_dispatch2!(DriftWm);
+smithay::delegate_dispatch2!(Driftline);
 
-impl SeatHandler for DriftWm {
+impl SeatHandler for Driftline {
     type KeyboardFocus = FocusTarget;
     type PointerFocus = FocusTarget;
     type TouchFocus = FocusTarget;
@@ -132,17 +132,17 @@ impl SeatHandler for DriftWm {
     }
 }
 
-impl SelectionHandler for DriftWm {
+impl SelectionHandler for Driftline {
     type SelectionUserData = ();
 }
 
-impl DataDeviceHandler for DriftWm {
+impl DataDeviceHandler for Driftline {
     fn data_device_state(&mut self) -> &mut DataDeviceState {
         &mut self.data_device_state
     }
 }
 
-impl WaylandDndGrabHandler for DriftWm {
+impl WaylandDndGrabHandler for Driftline {
     fn dnd_requested<S: dnd::Source>(
         &mut self,
         source: S,
@@ -175,7 +175,7 @@ impl WaylandDndGrabHandler for DriftWm {
         self.dnd_icon = dnd_icon;
     }
 }
-impl dnd::DndGrabHandler for DriftWm {
+impl dnd::DndGrabHandler for Driftline {
     fn dropped(
         &mut self,
         _target: Option<dnd::DndTarget<'_, Self>>,
@@ -191,9 +191,9 @@ impl dnd::DndGrabHandler for DriftWm {
     }
 }
 
-impl OutputHandler for DriftWm {}
+impl OutputHandler for Driftline {}
 
-impl TabletSeatHandler for DriftWm {
+impl TabletSeatHandler for Driftline {
     type ToolFocus = FocusTarget;
 
     fn tablet_tool_image(
@@ -205,7 +205,7 @@ impl TabletSeatHandler for DriftWm {
     }
 }
 
-impl DmabufHandler for DriftWm {
+impl DmabufHandler for Driftline {
     fn dmabuf_state(&mut self) -> &mut DmabufState {
         &mut self.dmabuf_state
     }
@@ -221,14 +221,14 @@ impl DmabufHandler for DriftWm {
             return;
         };
         if backend.renderer().import_dmabuf(&dmabuf, None).is_ok() {
-            let _ = notifier.successful::<DriftWm>();
+            let _ = notifier.successful::<Driftline>();
         } else {
             notifier.failed();
         }
     }
 }
 
-impl FractionalScaleHandler for DriftWm {
+impl FractionalScaleHandler for Driftline {
     fn new_fractional_scale(&mut self, surface: WlSurface) {
         let scale = self
             .active_output()
@@ -242,7 +242,7 @@ impl FractionalScaleHandler for DriftWm {
     }
 }
 
-impl XdgActivationHandler for DriftWm {
+impl XdgActivationHandler for Driftline {
     fn activation_state(&mut self) -> &mut XdgActivationState {
         &mut self.xdg_activation_state
     }
@@ -338,25 +338,25 @@ impl XdgActivationHandler for DriftWm {
     }
 }
 
-impl PrimarySelectionHandler for DriftWm {
+impl PrimarySelectionHandler for Driftline {
     fn primary_selection_state(&mut self) -> &mut PrimarySelectionState {
         &mut self.primary_selection_state
     }
 }
 
-impl DataControlHandler for DriftWm {
+impl DataControlHandler for Driftline {
     fn data_control_state(&mut self) -> &mut DataControlState {
         &mut self.data_control_state
     }
 }
 
-impl ExtDataControlHandler for DriftWm {
+impl ExtDataControlHandler for Driftline {
     fn data_control_state(&mut self) -> &mut ExtDataControlState {
         &mut self.ext_data_control_state
     }
 }
 
-impl PointerConstraintsHandler for DriftWm {
+impl PointerConstraintsHandler for Driftline {
     fn new_constraint(&mut self, surface: &WlSurface, pointer: &PointerHandle<Self>) {
         // Constraints arm against pointer focus, so a re-created oneshot
         // constraint needs it current — but only when it is actually stale. The
@@ -414,7 +414,7 @@ impl PointerConstraintsHandler for DriftWm {
     }
 }
 
-impl KeyboardShortcutsInhibitHandler for DriftWm {
+impl KeyboardShortcutsInhibitHandler for Driftline {
     fn keyboard_shortcuts_inhibit_state(
         &mut self,
     ) -> &mut smithay::wayland::keyboard_shortcuts_inhibit::KeyboardShortcutsInhibitState {
@@ -440,7 +440,7 @@ impl KeyboardShortcutsInhibitHandler for DriftWm {
     fn inhibitor_destroyed(&mut self, _inhibitor: KeyboardShortcutsInhibitor) {}
 }
 
-impl SecurityContextHandler for DriftWm {
+impl SecurityContextHandler for Driftline {
     fn context_created(&mut self, source: SecurityContextListenerSource, context: SecurityContext) {
         let result = self
             .loop_handle
@@ -462,10 +462,10 @@ impl SecurityContextHandler for DriftWm {
 
 // Replaces smithay's virtual-keyboard delegate so OSK key presses run through
 // compositor bindings first (see `protocols::virtual_keyboard`).
-impl driftwm::protocols::virtual_keyboard::VirtualKeyboardBindingHandler for DriftWm {
+impl driftline::protocols::virtual_keyboard::VirtualKeyboardBindingHandler for Driftline {
     fn virtual_keyboard_bindings(
         &mut self,
-    ) -> &mut driftwm::protocols::virtual_keyboard::VirtualKeyboardBindings {
+    ) -> &mut driftline::protocols::virtual_keyboard::VirtualKeyboardBindings {
         &mut self.virtual_kb_bindings
     }
 
@@ -500,7 +500,7 @@ impl driftwm::protocols::virtual_keyboard::VirtualKeyboardBindingHandler for Dri
     }
 }
 
-impl InputMethodHandler for DriftWm {
+impl InputMethodHandler for Driftline {
     fn new_popup(&mut self, surface: PopupSurface) {
         if let Err(err) = self
             .popups
@@ -531,7 +531,7 @@ impl InputMethodHandler for DriftWm {
     }
 }
 
-impl IdleInhibitHandler for DriftWm {
+impl IdleInhibitHandler for Driftline {
     fn inhibit(&mut self, surface: WlSurface) {
         self.idle_inhibiting_surfaces.insert(surface);
     }
@@ -542,7 +542,7 @@ impl IdleInhibitHandler for DriftWm {
 
 use smithay::wayland::idle_notify::{IdleNotifierHandler, IdleNotifierState};
 
-impl IdleNotifierHandler for DriftWm {
+impl IdleNotifierHandler for Driftline {
     fn idle_notifier_state(&mut self) -> &mut IdleNotifierState<Self> {
         &mut self.idle_notifier_state
     }
@@ -550,7 +550,7 @@ impl IdleNotifierHandler for DriftWm {
 
 use smithay::wayland::xdg_foreign::{XdgForeignHandler, XdgForeignState};
 
-impl XdgForeignHandler for DriftWm {
+impl XdgForeignHandler for Driftline {
     fn xdg_foreign_state(&mut self) -> &mut XdgForeignState {
         &mut self.xdg_foreign_state
     }
@@ -558,7 +558,7 @@ impl XdgForeignHandler for DriftWm {
 
 use smithay::wayland::shell::xdg::dialog::XdgDialogHandler;
 
-impl XdgDialogHandler for DriftWm {
+impl XdgDialogHandler for Driftline {
     fn dialog_hint_changed(
         &mut self,
         toplevel: ToplevelSurface,
@@ -579,9 +579,9 @@ impl XdgDialogHandler for DriftWm {
 use smithay::wayland::shell::xdg::ToplevelSurface;
 use smithay::wayland::shell::xdg::decoration::XdgDecorationHandler;
 
-pub use driftwm::window_ext::{decoration_mode_to_wire, set_tiled_states, unset_tiled_states};
+pub use driftline::window_ext::{decoration_mode_to_wire, set_tiled_states, unset_tiled_states};
 
-impl XdgDecorationHandler for DriftWm {
+impl XdgDecorationHandler for Driftline {
     fn new_decoration(&mut self, toplevel: ToplevelSurface) {
         // Advertise the global default mode. Per-window rules override this in the
         // commit handler once app_id is known.
@@ -612,24 +612,24 @@ impl XdgDecorationHandler for DriftWm {
             toplevel.send_configure();
         }
 
-        // Decide whether this client gets a driftwm title bar:
+        // Decide whether this client gets a driftline title bar:
         //   - Explicit rule decoration → only `Server` gets a bar.
         //   - No explicit rule → defer to default_mode, but fall back to
         //     creating a bar when default is `Client` and the client itself
         //     asked for SSD (Alacritty / no-CSD apps need *some* chrome).
         let wl_surface = toplevel.wl_surface().clone();
-        let applied = driftwm::config::applied_rule(&wl_surface);
+        let applied = driftline::config::applied_rule(&wl_surface);
         let rule_explicit = applied
             .as_ref()
             .and_then(|a| a.decoration.as_ref())
             .cloned();
         let create_titlebar = match rule_explicit {
-            Some(driftwm::config::DecorationMode::Server) => true,
+            Some(driftline::config::DecorationMode::Server) => true,
             Some(_) => false,
             None => matches!(
                 (&mode, &self.config.decorations.default_mode),
-                (Mode::ServerSide, driftwm::config::DecorationMode::Client)
-                    | (_, driftwm::config::DecorationMode::Server)
+                (Mode::ServerSide, driftline::config::DecorationMode::Client)
+                    | (_, driftline::config::DecorationMode::Server)
             ),
         };
 
@@ -677,9 +677,9 @@ impl XdgDecorationHandler for DriftWm {
     }
 }
 
-use driftwm::protocols::foreign_toplevel::{ForeignToplevelHandler, ForeignToplevelManagerState};
+use driftline::protocols::foreign_toplevel::{ForeignToplevelHandler, ForeignToplevelManagerState};
 
-impl ForeignToplevelHandler for DriftWm {
+impl ForeignToplevelHandler for Driftline {
     fn foreign_toplevel_manager_state(&mut self) -> &mut ForeignToplevelManagerState {
         &mut self.foreign_toplevel_state
     }
@@ -746,11 +746,11 @@ impl ForeignToplevelHandler for DriftWm {
     }
 }
 
-driftwm::delegate_foreign_toplevel!(DriftWm);
+driftline::delegate_foreign_toplevel!(Driftline);
 
-use driftwm::protocols::ext_workspace::{ExtWorkspaceHandler, ExtWorkspaceManagerState};
+use driftline::protocols::ext_workspace::{ExtWorkspaceHandler, ExtWorkspaceManagerState};
 
-impl ExtWorkspaceHandler for DriftWm {
+impl ExtWorkspaceHandler for Driftline {
     fn ext_workspace_state(&mut self) -> &mut ExtWorkspaceManagerState {
         &mut self.ext_workspace_state
     }
@@ -767,7 +767,7 @@ impl ExtWorkspaceHandler for DriftWm {
     }
 
     fn workspace_activate(&mut self, name: String) {
-        self.execute_action(&driftwm::config::Action::GoToBookmark(name));
+        self.execute_action(&driftline::config::Action::GoToBookmark(name));
     }
 
     fn workspace_create(&mut self, name: String) {
@@ -777,7 +777,7 @@ impl ExtWorkspaceHandler for DriftWm {
         }
         // Capture the focused viewport center under this name — set-bookmark
         // semantics (overwrites an existing bookmark; registry keys are unique).
-        self.execute_action(&driftwm::config::Action::SetBookmark(name));
+        self.execute_action(&driftline::config::Action::SetBookmark(name));
         // The registry change reaches clients only through the per-frame
         // refresh, so poke a render (nothing else self-schedules one at idle).
         self.mark_all_dirty();
@@ -791,9 +791,9 @@ impl ExtWorkspaceHandler for DriftWm {
     }
 }
 
-driftwm::delegate_ext_workspace!(DriftWm);
+driftline::delegate_ext_workspace!(Driftline);
 
-impl smithay::wayland::foreign_toplevel_list::ForeignToplevelListHandler for DriftWm {
+impl smithay::wayland::foreign_toplevel_list::ForeignToplevelListHandler for Driftline {
     fn foreign_toplevel_list_state(
         &mut self,
     ) -> &mut smithay::wayland::foreign_toplevel_list::ForeignToplevelListState {
@@ -801,9 +801,9 @@ impl smithay::wayland::foreign_toplevel_list::ForeignToplevelListHandler for Dri
     }
 }
 
-use driftwm::protocols::screencopy::{Screencopy, ScreencopyHandler, ScreencopyManagerState};
+use driftline::protocols::screencopy::{Screencopy, ScreencopyHandler, ScreencopyManagerState};
 
-impl ScreencopyHandler for DriftWm {
+impl ScreencopyHandler for Driftline {
     fn frame(&mut self, screencopy: Screencopy) {
         // A plain `copy` (e.g. grim) wants the current frame now, so kick a
         // redraw: render_if_needed bails when redraws_needed is empty, and an
@@ -823,11 +823,11 @@ impl ScreencopyHandler for DriftWm {
     }
 }
 
-driftwm::delegate_screencopy!(DriftWm);
+driftline::delegate_screencopy!(Driftline);
 
-use driftwm::protocols::output_power::{OutputPowerHandler, OutputPowerState};
+use driftline::protocols::output_power::{OutputPowerHandler, OutputPowerState};
 
-impl OutputPowerHandler for DriftWm {
+impl OutputPowerHandler for Driftline {
     fn output_power_state(&mut self) -> &mut OutputPowerState {
         &mut self.output_power_state
     }
@@ -871,7 +871,7 @@ impl OutputPowerHandler for DriftWm {
     }
 }
 
-driftwm::delegate_output_power!(DriftWm);
+driftline::delegate_output_power!(Driftline);
 
 use smithay::wayland::foreign_toplevel_list::ForeignToplevelHandle;
 use smithay::wayland::image_capture_source::{
@@ -879,11 +879,11 @@ use smithay::wayland::image_capture_source::{
     OutputCaptureSourceState, ToplevelCaptureSourceHandler, ToplevelCaptureSourceState,
 };
 
-impl ImageCaptureSourceHandler for DriftWm {
+impl ImageCaptureSourceHandler for Driftline {
     fn source_destroyed(&mut self, _source: ImageCaptureSource) {}
 }
 
-impl OutputCaptureSourceHandler for DriftWm {
+impl OutputCaptureSourceHandler for Driftline {
     fn output_capture_source_state(&mut self) -> &mut OutputCaptureSourceState {
         &mut self.output_capture_source_state
     }
@@ -894,12 +894,12 @@ impl OutputCaptureSourceHandler for DriftWm {
         output: &smithay::output::Output,
     ) {
         source.user_data().insert_if_missing(|| {
-            driftwm::protocols::image_capture_source::SourceKind::Output(output.clone())
+            driftline::protocols::image_capture_source::SourceKind::Output(output.clone())
         });
     }
 }
 
-impl ToplevelCaptureSourceHandler for DriftWm {
+impl ToplevelCaptureSourceHandler for Driftline {
     fn toplevel_capture_source_state(&mut self) -> &mut ToplevelCaptureSourceState {
         &mut self.toplevel_capture_source_state
     }
@@ -909,7 +909,7 @@ impl ToplevelCaptureSourceHandler for DriftWm {
         source: ImageCaptureSource,
         toplevel: ForeignToplevelHandle,
     ) {
-        let kind = match driftwm::protocols::foreign_toplevel::surface_for_ext_handle(&toplevel) {
+        let kind = match driftline::protocols::foreign_toplevel::surface_for_ext_handle(&toplevel) {
             Some(surface) => {
                 let initial_size = self
                     .stage
@@ -920,28 +920,28 @@ impl ToplevelCaptureSourceHandler for DriftWm {
                         smithay::utils::Size::from((geo.w.max(1), geo.h.max(1)))
                     })
                     .unwrap_or_else(|| (1, 1).into());
-                driftwm::protocols::image_capture_source::SourceKind::Toplevel {
+                driftline::protocols::image_capture_source::SourceKind::Toplevel {
                     surface,
                     initial_size,
                 }
             }
-            None => driftwm::protocols::image_capture_source::SourceKind::Destroyed,
+            None => driftline::protocols::image_capture_source::SourceKind::Destroyed,
         };
         source.user_data().insert_if_missing(|| kind);
     }
 }
 
-use driftwm::protocols::image_copy_capture::{
+use driftline::protocols::image_copy_capture::{
     ImageCopyCaptureHandler, ImageCopyCaptureState, PendingCapture,
 };
 
-impl ImageCopyCaptureHandler for DriftWm {
+impl ImageCopyCaptureHandler for Driftline {
     fn image_copy_capture_state(&mut self) -> &mut ImageCopyCaptureState {
         &mut self.image_copy_capture_state
     }
 
     fn capture_frame(&mut self, capture: PendingCapture) {
-        use driftwm::protocols::image_copy_capture::PendingCaptureKind;
+        use driftline::protocols::image_copy_capture::PendingCaptureKind;
         // Kick a redraw so an idle-system capture is fulfilled promptly instead
         // of stalling until unrelated damage. Toplevel captures drain on any
         // output's render path, so the active output suffices.
@@ -963,13 +963,13 @@ impl ImageCopyCaptureHandler for DriftWm {
     }
 }
 
-driftwm::delegate_image_copy_capture!(DriftWm);
+driftline::delegate_image_copy_capture!(Driftline);
 
-use driftwm::protocols::output_management::{
+use driftline::protocols::output_management::{
     OutputManagementHandler, OutputManagementState, RequestedHeadConfig,
 };
 
-impl OutputManagementHandler for DriftWm {
+impl OutputManagementHandler for Driftline {
     fn output_management_state(&mut self) -> &mut OutputManagementState {
         &mut self.output_management_state
     }
@@ -1090,7 +1090,7 @@ impl OutputManagementHandler for DriftWm {
     }
 }
 
-driftwm::delegate_output_management!(DriftWm);
+driftline::delegate_output_management!(Driftline);
 
 use crate::state::SessionLock;
 use smithay::wayland::session_lock::{
@@ -1104,7 +1104,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 /// state shape alone — `ext_session_lock_surface_v1` has no destroy seam a
 /// handler could hook.
 pub(crate) struct LockRoleMarker {
-    /// driftwm answered this role's creation with a configure. Rules out a role
+    /// driftline answered this role's creation with a configure. Rules out a role
     /// `new_surface` returned early on: that one stays live and unconfigured
     /// forever, and must keep getting smithay's real error on a live proxy.
     pub configured: AtomicBool,
@@ -1114,7 +1114,7 @@ pub(crate) struct LockRoleMarker {
     pub orphaned: AtomicBool,
 }
 
-impl SessionLockHandler for DriftWm {
+impl SessionLockHandler for Driftline {
     fn lock_state(&mut self) -> &mut SessionLockManagerState {
         &mut self.session_lock_manager_state
     }
@@ -1300,8 +1300,8 @@ impl SessionLockHandler for DriftWm {
         // still parks them mid-lock — the gate there stops the pointer hand-off,
         // not the camera move. The cursor still lands where it appears on
         // screen, since `unlock` reads the camera as it is then.
-        let screen_pos = driftwm::canvas::canvas_to_screen(
-            driftwm::canvas::CanvasPos(pointer.current_location()),
+        let screen_pos = driftline::canvas::canvas_to_screen(
+            driftline::canvas::CanvasPos(pointer.current_location()),
             self.camera(),
             self.zoom(),
         )
@@ -1347,8 +1347,8 @@ impl SessionLockHandler for DriftWm {
         // Undo the canvas→screen conversion `lock` established, before anything
         // hit-tests with the stored location again.
         let pointer = self.seat.get_pointer().unwrap();
-        let canvas_pos = driftwm::canvas::screen_to_canvas(
-            driftwm::canvas::ScreenPos(pointer.current_location()),
+        let canvas_pos = driftline::canvas::screen_to_canvas(
+            driftline::canvas::ScreenPos(pointer.current_location()),
             self.camera(),
             self.zoom(),
         )
@@ -1429,9 +1429,9 @@ impl SessionLockHandler for DriftWm {
     }
 }
 
-use driftwm::protocols::gamma_control::{GammaControlHandler, GammaControlManagerState};
+use driftline::protocols::gamma_control::{GammaControlHandler, GammaControlManagerState};
 
-impl GammaControlHandler for DriftWm {
+impl GammaControlHandler for Driftline {
     fn gamma_control_manager_state(&mut self) -> &mut GammaControlManagerState {
         &mut self.gamma_control_manager_state
     }
@@ -1449,4 +1449,4 @@ impl GammaControlHandler for DriftWm {
     }
 }
 
-driftwm::delegate_gamma_control!(DriftWm);
+driftline::delegate_gamma_control!(Driftline);

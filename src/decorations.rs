@@ -3,7 +3,7 @@ use smithay::backend::renderer::element::memory::MemoryRenderBuffer;
 use smithay::reexports::wayland_protocols::xdg::shell::server::xdg_toplevel;
 use smithay::utils::{Logical, Point, Rectangle, Size, Transform};
 
-use driftwm::config::{DecorationConfig, TitleAlign};
+use driftline::config::{DecorationConfig, TitleAlign};
 
 /// Per-window SSD decoration state.
 pub struct WindowDecoration {
@@ -82,7 +82,7 @@ impl WindowDecoration {
             title: String::new(),
             pinned: false,
             corner_radius,
-            fonts_ready: driftwm::text::fonts_ready(),
+            fonts_ready: driftline::text::fonts_ready(),
         }
     }
 
@@ -99,7 +99,7 @@ impl WindowDecoration {
         corner_radius: i32,
         config: &DecorationConfig,
     ) -> bool {
-        let fonts_ready = driftwm::text::fonts_ready();
+        let fonts_ready = driftline::text::fonts_ready();
         if width == self.width
             && focused == self.focused
             && pinned == self.pinned
@@ -323,14 +323,14 @@ pub fn render_title_bar(
         // absorb an oversized font.
         let font_px = (config.font_size as f32 * PT_TO_PX * s as f32).max(1.0);
         let (text, text_w) =
-            driftwm::text::fit_text(title, &config.font, font_px, config.font_weight, available);
+            driftline::text::fit_text(title, &config.font, font_px, config.font_weight, available);
         let origin_x = match config.title_align {
             TitleAlign::Left => left_pad,
             // Centered in the full bar, clamped clear of the close button and
             // the left padding (long titles end up left-aligned + ellipsized).
             TitleAlign::Center => ((w - text_w) / 2).min(right_limit - text_w).max(left_pad),
         };
-        driftwm::text::rasterize_into(
+        driftline::text::rasterize_into(
             &mut pixels,
             w,
             h,

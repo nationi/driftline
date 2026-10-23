@@ -1,4 +1,4 @@
-use driftwm::config::{Action, Config, Direction};
+use driftline::config::{Action, Config, Direction};
 use smithay::input::keyboard::{Keysym, ModifiersState, keysyms};
 
 // ── Modifier helpers ─────────────────────────────────────────────────────

@@ -1,4 +1,4 @@
-use driftwm::config::{
+use driftline::config::{
     AppliedWindowRule, BTN_LEFT, BTN_MIDDLE, BTN_RIGHT, Config, DecorationConfig, DecorationMode,
     Modifiers, MouseBinding, MouseTrigger, PassKeys, PassMouse, Pattern, WindowRule,
     effective_blur, effective_opacity, glob_matches,
@@ -171,8 +171,8 @@ fn pass_keys_all_is_sticky_against_none() {
 fn pass_keys_all_is_sticky_against_only() {
     let combo = smithay::input::keyboard::Keysym::from(smithay::input::keyboard::keysyms::KEY_q);
     let mut base = PassKeys::All;
-    base.merge_from(&PassKeys::Only(vec![driftwm::config::KeyCombo {
-        modifiers: driftwm::config::Modifiers::EMPTY,
+    base.merge_from(&PassKeys::Only(vec![driftline::config::KeyCombo {
+        modifiers: driftline::config::Modifiers::EMPTY,
         sym: combo,
     }]));
     assert!(matches!(base, PassKeys::All));
@@ -181,8 +181,8 @@ fn pass_keys_all_is_sticky_against_only() {
 #[test]
 fn pass_keys_none_plus_only_becomes_only() {
     let combo = smithay::input::keyboard::Keysym::from(smithay::input::keyboard::keysyms::KEY_q);
-    let c = driftwm::config::KeyCombo {
-        modifiers: driftwm::config::Modifiers::EMPTY,
+    let c = driftline::config::KeyCombo {
+        modifiers: driftline::config::Modifiers::EMPTY,
         sym: combo,
     };
     let mut base = PassKeys::None;
@@ -193,8 +193,8 @@ fn pass_keys_none_plus_only_becomes_only() {
 #[test]
 fn pass_keys_only_union_deduplicates() {
     use smithay::input::keyboard::keysyms;
-    let mk = |raw| driftwm::config::KeyCombo {
-        modifiers: driftwm::config::Modifiers::EMPTY,
+    let mk = |raw| driftline::config::KeyCombo {
+        modifiers: driftline::config::Modifiers::EMPTY,
         sym: smithay::input::keyboard::Keysym::from(raw),
     };
     let a = mk(keysyms::KEY_a);
@@ -213,8 +213,8 @@ fn pass_keys_only_union_deduplicates() {
 #[test]
 fn pass_keys_only_plus_none_unchanged() {
     let combo = smithay::input::keyboard::Keysym::from(smithay::input::keyboard::keysyms::KEY_q);
-    let c = driftwm::config::KeyCombo {
-        modifiers: driftwm::config::Modifiers::EMPTY,
+    let c = driftline::config::KeyCombo {
+        modifiers: driftline::config::Modifiers::EMPTY,
         sym: combo,
     };
     let mut base = PassKeys::Only(vec![c]);
@@ -225,8 +225,8 @@ fn pass_keys_only_plus_none_unchanged() {
 #[test]
 fn pass_keys_only_plus_all_upgrades_to_all() {
     let combo = smithay::input::keyboard::Keysym::from(smithay::input::keyboard::keysyms::KEY_q);
-    let c = driftwm::config::KeyCombo {
-        modifiers: driftwm::config::Modifiers::EMPTY,
+    let c = driftline::config::KeyCombo {
+        modifiers: driftline::config::Modifiers::EMPTY,
         sym: combo,
     };
     let mut base = PassKeys::Only(vec![c]);

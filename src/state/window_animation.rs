@@ -3,7 +3,7 @@ use std::time::{Duration, Instant};
 
 use smithay::utils::{Logical, Point, Rectangle, Size};
 
-use driftwm::stage::ElementId;
+use driftline::stage::ElementId;
 
 use super::PendingView;
 
@@ -212,7 +212,7 @@ pub(crate) struct FrozenPicture {
     pub bare: bool,
     /// Marked pinned on its title bar, and drawn in the screen-pinned z-bucket
     /// — except on an output some picture is covering, where see
-    /// [`crate::state::DriftWm::draws_pinned_on`].
+    /// [`crate::state::Driftline::draws_pinned_on`].
     pub pinned: bool,
     /// There is no earlier picture at all: this entry took over an open fade
     /// that had never been drawn, so the fields above describe nothing that was

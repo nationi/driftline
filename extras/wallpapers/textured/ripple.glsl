@@ -4,7 +4,7 @@
 //
 //     [background]
 //     type = "shader"
-//     path = "~/.config/driftwm/wallpapers/ripple.glsl"
+//     path = "~/.config/driftline/wallpapers/ripple.glsl"
 //     texture = "~/Pictures/your_image.png"
 //
 // `tex` is the configured image. u_texture_size / u_output_size are the image's

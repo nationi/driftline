@@ -1,10 +1,10 @@
 use crate::grabs::{MoveGrab, ResizeGrab};
 use crate::state::{
-    ClusterMember, DriftWm, FocusTarget, NavZoom, PopupGrabState, StageWindow, output_logical_size,
-    output_state,
+    ClusterMember, Driftline, FocusTarget, NavZoom, PopupGrabState, StageWindow,
+    output_logical_size, output_state,
 };
 use crate::surface_tree::focus_belongs_to_toplevel;
-use driftwm::window_ext::WindowExt;
+use driftline::window_ext::WindowExt;
 use smithay::{
     desktop::{
         PopupKeyboardGrab, PopupKind, PopupPointerGrab, PopupUngrabStrategy, Window,
@@ -33,7 +33,7 @@ use smithay::{
     },
 };
 
-impl XdgShellHandler for DriftWm {
+impl XdgShellHandler for Driftline {
     fn xdg_shell_state(&mut self) -> &mut XdgShellState {
         &mut self.xdg_shell_state
     }
@@ -212,7 +212,7 @@ impl XdgShellHandler for DriftWm {
         }
     }
 
-    // driftwm has no minimize concept, but a client that minimizes itself
+    // driftline has no minimize concept, but a client that minimizes itself
     // stalls: xdg-shell carries no "minimized" state, so the toolkit stops
     // drawing and only clears its internal minimized flag on a configure with
     // `Activated`. The exclusive-activation gate would suppress that configure
@@ -440,7 +440,7 @@ impl XdgShellHandler for DriftWm {
 
     fn move_request(&mut self, surface: ToplevelSurface, _seat: wl_seat::WlSeat, serial: Serial) {
         let wl_surface = surface.wl_surface().clone();
-        if driftwm::config::applied_rule(&wl_surface).is_some_and(|r| r.widget) {
+        if driftline::config::applied_rule(&wl_surface).is_some_and(|r| r.widget) {
             return;
         }
         let Some(window) = self.window_for_surface(&wl_surface) else {
@@ -543,7 +543,7 @@ impl XdgShellHandler for DriftWm {
         edges: xdg_toplevel::ResizeEdge,
     ) {
         let wl_surface = surface.wl_surface().clone();
-        if driftwm::config::applied_rule(&wl_surface).is_some_and(|r| r.widget) {
+        if driftline::config::applied_rule(&wl_surface).is_some_and(|r| r.widget) {
             return;
         }
         let Some(window) = self.window_for_surface(&wl_surface) else {
@@ -612,7 +612,7 @@ impl XdgShellHandler for DriftWm {
             start_screen,
             start_zoom,
             last_clamped_location,
-            snap: driftwm::layout::snap::SnapState::default(),
+            snap: driftline::layout::snap::SnapState::default(),
             constraints,
             cluster_resize,
             pinned_initial_screen_pos,
@@ -633,11 +633,11 @@ impl XdgShellHandler for DriftWm {
 /// `serial` its tip carried. The pointer grab must hold that serial too,
 /// which only a press forwarded to the client gives it, not a binding's grab.
 fn check_grab(
-    pointer: &smithay::input::pointer::PointerHandle<DriftWm>,
-    pen: Option<&TabletToolHandle<DriftWm>>,
+    pointer: &smithay::input::pointer::PointerHandle<Driftline>,
+    pen: Option<&TabletToolHandle<Driftline>>,
     surface: &smithay::reexports::wayland_server::protocol::wl_surface::WlSurface,
     serial: Serial,
-) -> Option<GrabStartData<DriftWm>> {
+) -> Option<GrabStartData<Driftline>> {
     let start_data = pointer.grab_start_data()?;
     let focus = match &start_data.focus {
         Some((focus, _)) => focus.clone(),
@@ -660,9 +660,9 @@ fn check_grab(
 /// Touch analogue of `check_grab`: validate that the active touch grab started
 /// on (a child of) the given surface, returning its start data.
 fn check_touch_grab(
-    touch: &smithay::input::touch::TouchHandle<DriftWm>,
+    touch: &smithay::input::touch::TouchHandle<Driftline>,
     surface: &smithay::reexports::wayland_server::protocol::wl_surface::WlSurface,
-) -> Option<smithay::input::touch::GrabStartData<DriftWm>> {
+) -> Option<smithay::input::touch::GrabStartData<Driftline>> {
     let start_data = touch.grab_start_data()?;
     let (focus, _) = start_data.focus.as_ref()?;
 
@@ -673,7 +673,7 @@ fn check_touch_grab(
     Some(start_data)
 }
 
-impl DriftWm {
+impl Driftline {
     /// Decide whether a popup grab on `root` should be honored.
     ///
     /// Rules:
@@ -732,7 +732,7 @@ impl DriftWm {
             let os = output_state(&output);
             (os.camera, os.zoom)
         };
-        Some(driftwm::canvas::visible_canvas_rect(
+        Some(driftline::canvas::visible_canvas_rect(
             camera.to_i32_round(),
             output_logical_size(&output),
             zoom,

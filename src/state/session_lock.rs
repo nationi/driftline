@@ -10,7 +10,7 @@
 use std::collections::HashSet;
 use std::time::Duration;
 
-use driftwm::protocols::output_power::OutputPowerHandler;
+use driftline::protocols::output_power::OutputPowerHandler;
 use smithay::{
     output::Output,
     reexports::{
@@ -24,7 +24,7 @@ use smithay::{
     wayland::session_lock::SessionLocker,
 };
 
-use super::{DriftWm, FocusTarget, SessionLock};
+use super::{Driftline, FocusTarget, SessionLock};
 
 /// How long to wait for the outstanding outputs before blanking them instead.
 ///
@@ -45,7 +45,7 @@ pub const LOCK_CONFIRM_TIMEOUT: Duration = Duration::from_secs(1);
 /// screen. A lock that spends both in full reaches `locked` after their sum.
 pub const PENDING_LOCK_DEADLINE: Duration = Duration::from_secs(1);
 
-impl DriftWm {
+impl Driftline {
     /// Enter [`SessionLock::Locked`] on the lock surface's first commit and
     /// start waiting for the outputs to put a lock frame on screen.
     ///
@@ -296,7 +296,7 @@ impl DriftWm {
     pub fn arm_pending_deadline(&mut self) -> Option<RegistrationToken> {
         match self.loop_handle.insert_source(
             Timer::from_duration(PENDING_LOCK_DEADLINE),
-            |_, _, data: &mut DriftWm| {
+            |_, _, data: &mut Driftline| {
                 if !matches!(data.session_lock, SessionLock::Pending { .. }) {
                     return TimeoutAction::Drop;
                 }
@@ -328,7 +328,7 @@ impl DriftWm {
         // is what keeps re-arming from ever confirming a later client's lock.
         let timer = self.loop_handle.insert_source(
             Timer::from_duration(LOCK_CONFIRM_TIMEOUT),
-            move |_, _, data: &mut DriftWm| {
+            move |_, _, data: &mut Driftline| {
                 data.blank_outputs_owing_lock_frames(&lock);
                 TimeoutAction::ToDuration(LOCK_CONFIRM_TIMEOUT)
             },

@@ -3,11 +3,11 @@
 
 use smithay::input::keyboard::XkbConfig;
 
-use super::{DriftWm, ErrorSource, output_state};
+use super::{Driftline, ErrorSource, output_state};
 
-impl DriftWm {
+impl Driftline {
     pub fn reload_config(&mut self) {
-        let config_path = driftwm::config::config_path();
+        let config_path = driftline::config::config_path();
         let contents = match std::fs::read_to_string(&config_path) {
             Ok(c) => c,
             Err(e) => {
@@ -29,7 +29,7 @@ impl DriftWm {
     /// drive reload without a config file.
     pub fn reload_config_from_contents(&mut self, contents: &str) {
         let (mut new_config, config_errors) =
-            match driftwm::config::Config::from_toml_collect(contents) {
+            match driftline::config::Config::from_toml_collect(contents) {
                 Ok((c, errs)) => (c, errs),
                 Err(e) => {
                     tracing::error!("Config reload: parse error: {e}");
@@ -63,7 +63,7 @@ impl DriftWm {
                 new_config.keyboard_layout = self.config.keyboard_layout.clone();
             } else {
                 tracing::info!("Config reload: keyboard layout updated");
-                driftwm::protocols::virtual_keyboard::seat_keymap_changed(self, &keyboard);
+                driftline::protocols::virtual_keyboard::seat_keymap_changed(self, &keyboard);
                 let mut mods = keyboard.modifier_state();
                 if mods.num_lock != num_lock {
                     mods.num_lock = num_lock;
@@ -264,7 +264,7 @@ impl DriftWm {
     /// in-place via `Output::change_current_state`. Same position lookup as
     /// `output_connected` so reload and startup place outputs identically.
     fn apply_output_rules_after_reload(&mut self) {
-        use driftwm::config::{OutputMode as ConfigOutputMode, OutputPosition};
+        use driftline::config::{OutputMode as ConfigOutputMode, OutputPosition};
         use smithay::utils::Transform;
 
         let outputs: Vec<smithay::output::Output> = self.space.outputs().cloned().collect();

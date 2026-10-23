@@ -1,6 +1,6 @@
 [Desktop Entry]
-Name=driftwm
+Name=driftline
 Comment=A trackpad-first infinite canvas Wayland compositor
-Exec=driftwm-session
+Exec=driftline-session
 Type=Application
-DesktopNames=driftwm
+DesktopNames=driftline

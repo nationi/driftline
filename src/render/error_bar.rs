@@ -16,7 +16,7 @@ use smithay::backend::renderer::gles::GlesRenderer;
 use smithay::output::Output;
 use smithay::utils::{Logical, Physical, Point, Transform};
 
-use driftwm::config::FontWeight;
+use driftline::config::FontWeight;
 
 use crate::state::ErrorSource;
 
@@ -42,7 +42,7 @@ pub struct ErrorBarCache {
 
 /// Build the error bar element, or an empty vec when there are no errors.
 pub fn build_error_bar_elements(
-    state: &mut crate::state::DriftWm,
+    state: &mut crate::state::Driftline,
     renderer: &mut GlesRenderer,
     output: &Output,
 ) -> Vec<OutputRenderElements> {
@@ -59,7 +59,7 @@ pub fn build_error_bar_elements(
     let bar_height = ERROR_BAR_FONT_PX.ceil() as i32 + 2 * ERROR_BAR_PAD_Y;
     let width = viewport.w.max(1);
 
-    let key = (text, width, s, driftwm::text::fonts_ready());
+    let key = (text, width, s, driftline::text::fonts_ready());
     if state.render.cached_error_bar.get(&name).map(|c| &c.key) != Some(&key) {
         let buffer = render_error_bar(&key.0, width, bar_height, s);
         state
@@ -118,8 +118,8 @@ fn render_error_bar(text: &str, width: i32, bar_height: i32, scale: i32) -> Memo
     let available = w - 2 * pad_x;
     if available > 0 {
         let (fitted, _) =
-            driftwm::text::fit_text(text, ERROR_BAR_FONT, font_px, FontWeight::Normal, available);
-        driftwm::text::rasterize_into(
+            driftline::text::fit_text(text, ERROR_BAR_FONT, font_px, FontWeight::Normal, available);
+        driftline::text::rasterize_into(
             &mut pixels,
             w,
             h,

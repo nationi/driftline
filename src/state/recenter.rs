@@ -12,9 +12,9 @@ use smithay::reexports::wayland_server::Resource;
 use smithay::utils::{Logical, Point, Size};
 use smithay::wayland::seat::WaylandFocus;
 
-use super::{DriftWm, PendingRecenter, StageWindow};
+use super::{Driftline, PendingRecenter, StageWindow};
 
-impl DriftWm {
+impl Driftline {
     /// Discard a recenter this window still owes from a fullscreen/fit/fill
     /// exit it has not acked.
     ///
@@ -79,7 +79,7 @@ impl DriftWm {
         let chrome = self.element_chrome(window);
         self.map_window(
             window.clone(),
-            driftwm::canvas::rule_to_content(x, y, size, chrome),
+            driftline::canvas::rule_to_content(x, y, size, chrome),
             activate,
         );
 

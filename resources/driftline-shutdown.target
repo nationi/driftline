@@ -1,5 +1,5 @@
 [Unit]
-Description=Shutdown running driftwm session
+Description=Shutdown running driftline session
 DefaultDependencies=no
 StopWhenUnneeded=yes
 Conflicts=graphical-session.target graphical-session-pre.target

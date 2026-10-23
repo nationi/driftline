@@ -1,7 +1,7 @@
 //! Per-window output membership: sends clients `wl_surface.enter`/`leave` for
 //! the outputs each window overlaps. Replaces the membership half of
 //! `Space::refresh`, driven from `post_render` and the idle turn via
-//! [`DriftWm::refresh_window_outputs`].
+//! [`Driftline::refresh_window_outputs`].
 //!
 //! Two behaviours differ from `Space`'s geometric-overlap default: a
 //! fullscreen or pinned window belongs only to its single home output, and
@@ -15,7 +15,7 @@ use smithay::desktop::space::SpaceElement;
 use smithay::output::Output;
 use smithay::utils::{Logical, Rectangle};
 
-use super::DriftWm;
+use super::Driftline;
 
 /// Which outputs a window bbox belongs to: geometric overlap, restricted to a
 /// single allowed output when the window is bound to one (fullscreen home /
@@ -45,7 +45,7 @@ fn desired_memberships(
 #[derive(Default)]
 struct WindowOutputs(RefCell<HashMap<Output, Rectangle<i32, Logical>>>);
 
-impl DriftWm {
+impl Driftline {
     /// Update every window's output membership, sending `wl_surface.enter`/
     /// `leave` as it changes.
     pub fn refresh_window_outputs(&self) {

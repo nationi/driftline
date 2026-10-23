@@ -4,8 +4,8 @@
 //!
 //! Relaunch mints an activation token to spawn the app, then adopts the
 //! returning window into the stand-in's slot; the pending-launch state (which
-//! [`DriftWm::is_suspended_launching`] reads for the "launching…" label) is the
-//! single owner, on `DriftWm`.
+//! [`Driftline::is_suspended_launching`] reads for the "launching…" label) is the
+//! single owner, on `Driftline`.
 
 use std::collections::HashMap;
 use std::rc::Rc;
@@ -20,12 +20,12 @@ use smithay::wayland::compositor::{BufferAssignment, SurfaceAttributes, with_sta
 use smithay::wayland::seat::WaylandFocus;
 use smithay::wayland::xdg_activation::XdgActivationToken;
 
-use driftwm::desktop_entry::{AppIdentity, DesktopEntryCache};
-use driftwm::window_ext::WindowExt;
+use driftline::desktop_entry::{AppIdentity, DesktopEntryCache};
+use driftline::window_ext::WindowExt;
 
 use crate::decorations::DecorationKey;
 use crate::grabs::ResizeState;
-use crate::state::{DriftWm, NavZoom, StageWindow, SuspendedId, SuspendedWindow};
+use crate::state::{Driftline, NavZoom, StageWindow, SuspendedId, SuspendedWindow};
 use crate::surface_tree::focus_belongs_to_toplevel;
 
 /// A close whose `toplevel_destroyed` should convert into a suspended window,
@@ -107,7 +107,7 @@ pub enum RevealCause {
 /// One adopt a live grab held back. Four things drain it — the grab-release
 /// flush, the per-frame liveness sweep, `cleanup_surface_state`, and a second
 /// deferral superseding it — and every one of the first three goes through
-/// [`DriftWm::reveal_deferred_adopt`], because a first-commit entry is also
+/// [`Driftline::reveal_deferred_adopt`], because a first-commit entry is also
 /// what keeps its window off the screen.
 pub struct DeferredAdopt {
     /// The relaunched window's root surface.
@@ -129,7 +129,7 @@ pub struct PendingRelaunch {
     deadline: Instant,
 }
 
-impl DriftWm {
+impl Driftline {
     /// The suspended element with `id`, if it's on the stage.
     pub fn find_suspended(&self, id: SuspendedId) -> Option<Rc<SuspendedWindow>> {
         self.stage
@@ -146,7 +146,7 @@ impl DriftWm {
             return;
         };
         let element = StageWindow::Suspended(s);
-        // Go through the `DriftWm` wrapper (not `stage` directly) so the previous
+        // Go through the `Driftline` wrapper (not `stage` directly) so the previous
         // client's xdg `activated` hint clears when focus moves to the stand-in.
         self.raise_with_children(&element);
         self.enforce_below_windows();
@@ -533,7 +533,7 @@ impl DriftWm {
         // window is absent from the focus history entirely: Alt-Tab skips it,
         // and an adopt that follows finds no history slot to restore. Widgets
         // and `focus_on_open = false` keep their exemption.
-        let may_focus = driftwm::config::applied_rule(root)
+        let may_focus = driftline::config::applied_rule(root)
             .is_none_or(|r| !r.widget && r.focus_on_open != Some(false));
         // The background arm of the placement never focuses or raises a window
         // it tucked behind a fullscreen one, and the reveal stands in for that
@@ -1168,8 +1168,8 @@ impl DriftWm {
             let os = crate::state::output_state(&output);
             (os.camera, os.zoom)
         };
-        let canvas = driftwm::canvas::screen_to_canvas(
-            driftwm::canvas::ScreenPos(site.screen_pos.to_f64()),
+        let canvas = driftline::canvas::screen_to_canvas(
+            driftline::canvas::ScreenPos(site.screen_pos.to_f64()),
             camera,
             zoom,
         )
@@ -1546,7 +1546,7 @@ impl DriftWm {
             sid,
             body.size,
             conv.identity,
-            driftwm::session::Origin::Explicit,
+            driftline::session::Origin::Explicit,
             conv.csd,
         ));
         let new_element = StageWindow::Suspended(suspended);
@@ -1606,7 +1606,7 @@ impl DriftWm {
         let slot_for_handler = slot.clone();
         let inserted =
             self.loop_handle
-                .insert_source(ready_source, move |_, _, data: &mut DriftWm| {
+                .insert_source(ready_source, move |_, _, data: &mut Driftline| {
                     // Keep a synchronously-built cache if a suspend already forced
                     // one before the warm landed.
                     if let Some(cache) = slot_for_handler.lock().unwrap().take()
@@ -1620,7 +1620,7 @@ impl DriftWm {
             return;
         }
         let spawned = std::thread::Builder::new()
-            .name("driftwm-desktop-entry-warm".into())
+            .name("driftline-desktop-entry-warm".into())
             .spawn(move || {
                 *slot.lock().unwrap() = Some(DesktopEntryCache::from_env());
                 ready_ping.ping();
@@ -1687,7 +1687,7 @@ thread_local! {
 }
 
 #[cfg(test)]
-impl DriftWm {
+impl Driftline {
     /// Materialize a suspended window at `pos` (content top-left) sized `size`,
     /// raised to the top of the z-order. Production never constructs a suspended
     /// element this way — chunk 4 owns conversion — so this exists only to
@@ -1701,7 +1701,7 @@ impl DriftWm {
         display_name: &str,
     ) -> SuspendedId {
         let sid = SuspendedId(id);
-        let identity = driftwm::desktop_entry::AppIdentity {
+        let identity = driftline::desktop_entry::AppIdentity {
             app_id: app_id.to_string(),
             desktop_id: app_id.to_string(),
             display_name: display_name.to_string(),
@@ -1710,7 +1710,7 @@ impl DriftWm {
             sid,
             size,
             identity,
-            driftwm::session::Origin::Explicit,
+            driftline::session::Origin::Explicit,
             false,
         ));
         self.map_window(StageWindow::Suspended(s), pos, true);
@@ -1729,7 +1729,7 @@ impl DriftWm {
         display_name: &str,
     ) -> SuspendedId {
         let sid = SuspendedId(id);
-        let identity = driftwm::desktop_entry::AppIdentity {
+        let identity = driftline::desktop_entry::AppIdentity {
             app_id: app_id.to_string(),
             desktop_id: app_id.to_string(),
             display_name: display_name.to_string(),
@@ -1738,7 +1738,7 @@ impl DriftWm {
             sid,
             size,
             identity,
-            driftwm::session::Origin::Explicit,
+            driftline::session::Origin::Explicit,
             true,
         ));
         self.map_window(StageWindow::Suspended(s), pos, true);

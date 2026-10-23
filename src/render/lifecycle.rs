@@ -6,7 +6,7 @@ use smithay::input::pointer::CursorImageStatus;
 use smithay::output::Output;
 use smithay::wayland::shell::wlr_layer::Layer as WlrLayer;
 
-use driftwm::canvas;
+use driftline::canvas;
 
 /// Frame-callback heartbeat for off-screen toplevels: at most one callback per
 /// this interval, vs. full render rate on-screen. Sending zero callbacks
@@ -21,7 +21,7 @@ const FRAME_CALLBACK_THROTTLE: Duration = Duration::from_millis(995);
 
 /// Sync foreign-toplevel protocol state with the current window list.
 /// Call once per frame iteration (not per-output).
-pub fn refresh_foreign_toplevels(state: &mut crate::state::DriftWm) {
+pub fn refresh_foreign_toplevels(state: &mut crate::state::Driftline) {
     let keyboard = state.seat.get_keyboard().unwrap();
     let focused = keyboard.current_focus().map(|f| f.0);
     // Skip virtual placeholders for disconnected monitors — their wl_output
@@ -33,7 +33,7 @@ pub fn refresh_foreign_toplevels(state: &mut crate::state::DriftWm) {
         .filter(|o| !state.disconnected_outputs.contains(&o.name()))
         .cloned()
         .collect();
-    driftwm::protocols::foreign_toplevel::refresh::<crate::state::DriftWm, _>(
+    driftline::protocols::foreign_toplevel::refresh::<crate::state::Driftline, _>(
         &mut state.foreign_toplevel_state,
         &mut state.foreign_toplevel_list_state,
         &state.stage,
@@ -46,7 +46,7 @@ pub fn refresh_foreign_toplevels(state: &mut crate::state::DriftWm) {
 /// Call once per frame alongside `refresh_foreign_toplevels`. Incumbents live
 /// per-output in `OutputState`; the focused output's is what the protocol's
 /// single `active` bit and the IPC `active_bookmark` fields report.
-pub fn refresh_ext_workspaces(state: &mut crate::state::DriftWm) {
+pub fn refresh_ext_workspaces(state: &mut crate::state::Driftline) {
     use crate::state::{output_logical_size, output_state};
 
     let outputs: Vec<Output> = state.space.outputs().cloned().collect();
@@ -82,7 +82,7 @@ pub fn refresh_ext_workspaces(state: &mut crate::state::DriftWm) {
         .filter(|o| !state.disconnected_outputs.contains(&o.name()))
         .cloned()
         .collect();
-    driftwm::protocols::ext_workspace::refresh::<crate::state::DriftWm>(
+    driftline::protocols::ext_workspace::refresh::<crate::state::Driftline>(
         &mut state.ext_workspace_state,
         &state.bookmarks,
         active.as_deref(),
@@ -116,7 +116,7 @@ fn frame_callback_filter<'a>(
 /// uses this to decide where to deliver presentation feedback. Must be called
 /// after `compositor.render_frame()` so we have render-element states.
 pub fn update_primary_scanout_output(
-    state: &crate::state::DriftWm,
+    state: &crate::state::Driftline,
     output: &Output,
     states: &RenderElementStates,
 ) {
@@ -195,7 +195,7 @@ pub fn update_primary_scanout_output(
 /// Hand the result to `compositor.queue_frame()` and let `frame_submitted()`
 /// return it to be consumed by `presented()` on VBlank.
 pub fn take_presentation_feedback(
-    state: &crate::state::DriftWm,
+    state: &crate::state::Driftline,
     output: &Output,
     states: &RenderElementStates,
 ) -> smithay::desktop::utils::OutputPresentationFeedback {
@@ -246,7 +246,7 @@ pub fn take_presentation_feedback(
 }
 
 /// Post-render: frame callbacks, space cleanup.
-pub fn post_render(state: &mut crate::state::DriftWm, output: &Output) {
+pub fn post_render(state: &mut crate::state::Driftline, output: &Output) {
     let time = state.start_time.elapsed();
 
     // On-screen windows get callbacks at render rate; off-screen ones get the
@@ -369,7 +369,7 @@ pub fn post_render(state: &mut crate::state::DriftWm, output: &Output) {
 /// frame, static fullscreen), a panel needs this to keep getting callbacks once
 /// its whole output goes quiet. Lock surfaces are excluded — `post_render`
 /// doesn't gate them.
-pub fn send_frame_callbacks_fallback(state: &mut crate::state::DriftWm) {
+pub fn send_frame_callbacks_fallback(state: &mut crate::state::Driftline) {
     let time = state.start_time.elapsed();
     // Skip the virtual placeholders a full disconnect leaves behind: they have
     // no DRM surface, so nothing composites and nothing releases the buffers a

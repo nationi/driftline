@@ -2,12 +2,12 @@ use std::collections::HashSet;
 use std::time::Duration;
 
 use crate::surface_tree::focus_belongs_to_window;
-use driftwm::canvas::{
+use driftline::canvas::{
     CanvasPos, ScreenPos, canvas_to_screen, closest_point_on_rect, minimal_reveal_camera,
     screen_to_canvas,
 };
-use driftwm::layout::snap::SnapRect;
-use driftwm::window_ext::WindowExt;
+use driftline::layout::snap::SnapRect;
+use driftline::window_ext::WindowExt;
 use smithay::{
     desktop::Window,
     output::Output,
@@ -19,7 +19,7 @@ use smithay::{
     wayland::seat::WaylandFocus,
 };
 
-use super::{DriftWm, PendingClickNavigate, PendingPick, PickTarget, StageWindow, output_state};
+use super::{Driftline, PendingClickNavigate, PendingPick, PickTarget, StageWindow, output_state};
 
 /// Max pointer travel (screen px) between press and release for a click to
 /// still count as a click rather than a drag. Beyond it, no auto-navigate — a
@@ -85,7 +85,7 @@ impl NavZoom {
     }
 }
 
-/// How [`DriftWm::reveal_element`] pans to a target that isn't fully on
+/// How [`Driftline::reveal_element`] pans to a target that isn't fully on
 /// screen.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum RevealPan {
@@ -96,7 +96,7 @@ pub enum RevealPan {
     Minimal,
 }
 
-impl DriftWm {
+impl Driftline {
     /// Navigate the active output's viewport to a window: raise, focus, animate
     /// the camera until the window sits on the `focus_placement` point (the
     /// usable-area center by default).
@@ -398,7 +398,7 @@ impl DriftWm {
         ));
         self.click_navigate_timer = self
             .loop_handle
-            .insert_source(timer, move |_, _, data: &mut DriftWm| {
+            .insert_source(timer, move |_, _, data: &mut Driftline| {
                 data.click_navigate_timer = None;
                 data.fire_click_navigate(&window);
                 TimeoutAction::Drop
@@ -647,7 +647,7 @@ impl DriftWm {
     /// Allows zooming out far enough to see all windows.
     pub fn min_zoom(&self) -> f64 {
         let viewport = self.get_usable_area().size;
-        driftwm::canvas::dynamic_min_zoom(
+        driftline::canvas::dynamic_min_zoom(
             self.stage
                 .windows()
                 .filter(|w| self.is_canvas_window(*w))
@@ -685,7 +685,7 @@ impl DriftWm {
     pub(crate) fn enters_focus_history(&self, window: &StageWindow) -> bool {
         !window
             .wl_surface()
-            .and_then(|s| driftwm::config::applied_rule(&s))
+            .and_then(|s| driftline::config::applied_rule(&s))
             .is_some_and(|r| r.widget)
             && !self.is_pinned(window)
             && !window.is_modal()
@@ -922,7 +922,7 @@ impl DriftWm {
         }
         // Members may traverse through a suspended stand-in, so a client on the
         // far side of a stand-in it was snapped to still resolves as related.
-        let mut related = driftwm::layout::cluster::cluster_of(of, &rects, self.config.snap_gap);
+        let mut related = driftline::layout::cluster::cluster_of(of, &rects, self.config.snap_gap);
         related.extend(
             rects
                 .into_iter()

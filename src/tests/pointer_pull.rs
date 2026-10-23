@@ -1,4 +1,4 @@
-//! `DriftWm::refresh_pointer_focus` runs once per iteration from
+//! `Driftline::refresh_pointer_focus` runs once per iteration from
 //! `refresh_and_flush_clients`, so every fixture pump is a pull. Coverage
 //! scenarios: a popup or layer mapping under a stationary cursor, a
 //! compositor-side move shoving a neighbour or nudging a window. Contract
@@ -19,12 +19,12 @@ use smithay::input::pointer::{
 use smithay::utils::{Logical, Point, SERIAL_COUNTER};
 use wayland_protocols_wlr::layer_shell::v1::client::zwlr_layer_surface_v1;
 
-use driftwm::config::{Action, BTN_LEFT, Direction};
+use driftline::config::{Action, BTN_LEFT, Direction};
 
 use crate::input::PointerGrabKind;
 use crate::ipc::dispatch;
 use crate::ipc::protocol::{Request, Response, WindowSelector};
-use crate::state::{DriftWm, StageWindow};
+use crate::state::{Driftline, StageWindow};
 
 use super::client::ClientId;
 use super::input_backend::{
@@ -539,16 +539,19 @@ fn a_layer_surface_mapping_under_a_stationary_cursor_gets_enter_and_a_click_grab
 /// A `PointerGrab` that counts every `motion` it receives, standing in for
 /// any grab that supplies its own focus and does work in `motion`.
 struct CountingGrab {
-    start_data: GrabStartData<DriftWm>,
+    start_data: GrabStartData<Driftline>,
     motions: Arc<AtomicUsize>,
 }
 
-impl PointerGrab<DriftWm> for CountingGrab {
+impl PointerGrab<Driftline> for CountingGrab {
     fn motion(
         &mut self,
-        data: &mut DriftWm,
-        handle: &mut PointerInnerHandle<'_, DriftWm>,
-        _focus: Option<(<DriftWm as SeatHandler>::PointerFocus, Point<f64, Logical>)>,
+        data: &mut Driftline,
+        handle: &mut PointerInnerHandle<'_, Driftline>,
+        _focus: Option<(
+            <Driftline as SeatHandler>::PointerFocus,
+            Point<f64, Logical>,
+        )>,
         event: &MotionEvent,
     ) {
         self.motions.fetch_add(1, Ordering::SeqCst);
@@ -557,15 +560,15 @@ impl PointerGrab<DriftWm> for CountingGrab {
 
     fn button(
         &mut self,
-        data: &mut DriftWm,
-        handle: &mut PointerInnerHandle<'_, DriftWm>,
+        data: &mut Driftline,
+        handle: &mut PointerInnerHandle<'_, Driftline>,
         event: &ButtonEvent,
     ) {
         handle.button(data, event);
         handle.unset_grab(self, data, event.serial, event.time, true);
     }
 
-    fn unset(&mut self, _data: &mut DriftWm) {}
+    fn unset(&mut self, _data: &mut Driftline) {}
 
     crate::grabs::forward_pointer_grab_methods!();
 }

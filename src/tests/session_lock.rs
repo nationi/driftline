@@ -13,7 +13,7 @@
 
 use std::time::{Duration, Instant};
 
-use driftwm::canvas::{CanvasPos, canvas_to_screen};
+use driftline::canvas::{CanvasPos, canvas_to_screen};
 use smithay::desktop::Window;
 use smithay::output::Output;
 use smithay::reexports::wayland_server::protocol::wl_surface::WlSurface;
@@ -410,7 +410,7 @@ fn second_lock_is_refused_while_the_first_client_is_alive() {
     );
 }
 
-/// Pins smithay, not driftwm: `unlock_and_destroy` from any lock object other
+/// Pins smithay, not driftline: `unlock_and_destroy` from any lock object other
 /// than the one holding `LockStatus::Locked` is `invalid_unlock`, never an
 /// unlock of the incumbent's session.
 ///
@@ -2047,9 +2047,9 @@ fn a_second_orphaned_lock_commit_does_not_kill_the_client_either() {
 
 /// The unlock is incidental: what kills the client is the destroyed role plus
 /// the hook smithay left behind, and a lock screen that retires one prompt for
-/// another does that mid-lock, while driftwm still owns the entry. This is why
+/// another does that mid-lock, while driftline still owns the entry. This is why
 /// the orphan has to be recognised from the state a destroyed role leaves —
-/// no disown site of driftwm's own observes this one at all.
+/// no disown site of driftline's own observes this one at all.
 /// See [`an_orphaned_lock_commit_does_not_kill_the_client`] for why the failure
 /// arrives as a `Broken pipe` panic rather than a protocol error.
 #[test]
@@ -2081,7 +2081,7 @@ fn an_orphaned_lock_commit_mid_lock_does_not_kill_the_client() {
     map_window(&mut f, id, "still-alive", (400, 300));
 }
 
-/// The suppression has to stay narrow. A role driftwm configured and the client
+/// The suppression has to stay narrow. A role driftline configured and the client
 /// has not acked is *live* — committing on it is a real protocol violation, and
 /// smithay must be left to punish it. Only the shape a destroyed role leaves
 /// behind may be neutralised, and this one still holds the configure it was
@@ -2117,10 +2117,10 @@ fn a_live_lock_role_still_errors_on_a_commit_before_its_first_ack() {
 /// also the shape of a role nobody configured: smithay never calls
 /// `new_surface` for a role created on a lock it has finished, and sends it no
 /// configure. That role is live, so its commits must still reach the client as
-/// real errors — which is the whole job of the gate's "driftwm configured
+/// real errors — which is the whole job of the gate's "driftline configured
 /// this" half.
 #[test]
-fn a_lock_role_driftwm_declined_to_configure_still_errors_on_a_commit() {
+fn a_lock_role_driftline_declined_to_configure_still_errors_on_a_commit() {
     let mut f = Fixture::new();
     // The incumbent's lock is still up at teardown, so `lock_surfaces` never
     // drains.
@@ -2143,7 +2143,7 @@ fn a_lock_role_driftwm_declined_to_configure_still_errors_on_a_commit() {
             .last_lock_surface()
             .configures_received
             .is_empty(),
-        "precondition: driftwm declined to configure the refused client's role"
+        "precondition: driftline declined to configure the refused client's role"
     );
 
     f.client(refused).last_lock_surface().commit();
@@ -2223,13 +2223,13 @@ fn a_lock_role_retaken_after_an_orphaned_commit_is_configured_and_validated_afre
     );
 }
 
-/// "driftwm configured this" is a verdict on the *role*, and a `wl_surface`
+/// "driftline configured this" is a verdict on the *role*, and a `wl_surface`
 /// outlives its roles — so the two can disagree. A lock screen that loses the
 /// session between one lock and the next brings its old surfaces to a lock
-/// driftwm refuses. smithay never calls `new_surface` for a role created on a
+/// driftline refuses. smithay never calls `new_surface` for a role created on a
 /// lock it has already finished, so the verdict reset at the top of
 /// `new_surface` cannot run for it: the neutraliser then finds a role nobody
-/// configured on a `wl_surface` driftwm configured once, reads it as an orphan
+/// configured on a `wl_surface` driftline configured once, reads it as an orphan
 /// of that earlier role, and defuses its commits. The refused client is not
 /// told, but nothing of its shows either — the role never becomes a lock
 /// surface, the session stays with the incumbent, and the client lives on.

@@ -8,12 +8,12 @@
 //! applies without remapping the window; the SSD title bar stays with the
 //! compositor whatever the rule says.
 
-use driftwm::config::{BTN_LEFT, BTN_RIGHT};
+use driftline::config::{BTN_LEFT, BTN_RIGHT};
 use smithay::desktop::Window;
 use smithay::utils::{Logical, Point};
 
 use crate::grabs::{MoveGrab, PanGrab, ResizeGrab};
-use crate::state::{DriftWm, StageWindow};
+use crate::state::{Driftline, StageWindow};
 
 use super::client::ClientId;
 use super::input_backend::{
@@ -151,7 +151,7 @@ fn center_of(f: &mut Fixture, window: &Window) -> Point<f64, Logical> {
     ))
 }
 
-fn grab_is<G: smithay::input::pointer::PointerGrab<DriftWm>>(f: &mut Fixture) -> bool {
+fn grab_is<G: smithay::input::pointer::PointerGrab<Driftline>>(f: &mut Fixture) -> bool {
     f.state()
         .seat
         .get_pointer()

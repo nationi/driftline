@@ -16,10 +16,10 @@ use smithay::utils::{IsAlive, Logical, Rectangle, Size};
 use smithay::wayland::seat::WaylandFocus;
 use smithay::wayland::shell::xdg::ToplevelSurface;
 
-use driftwm::desktop_entry::AppIdentity;
-use driftwm::session::Origin;
-use driftwm::stage::StageElement;
-use driftwm::window_ext::WindowExt;
+use driftline::desktop_entry::AppIdentity;
+use driftline::session::Origin;
+use driftline::stage::StageElement;
+use driftline::window_ext::WindowExt;
 
 /// Durable session-record key for a suspended window. Distinct from the
 /// per-process stage `ElementId`: this one survives compositor restarts.
@@ -29,7 +29,7 @@ pub struct SuspendedId(pub u64);
 /// Compositor-drawn body + centered label, cached across frames so the damage
 /// tracker sees stable element ids. Rebuilt only when size, scale, or the
 /// "launching…" flag change. Lives on the `Rc<SuspendedWindow>` (interior
-/// mutability) so the render pass can refresh it without a `&mut DriftWm`
+/// mutability) so the render pass can refresh it without a `&mut Driftline`
 /// borrow while the stage iterator is live.
 #[derive(Debug, Default)]
 pub struct SuspendedChrome {

@@ -6,9 +6,9 @@ mod swipe;
 use smithay::output::Output;
 use smithay::utils::{Logical, Point};
 
-use driftwm::config::{Action, Direction, ThresholdAction};
+use driftline::config::{Action, Direction, ThresholdAction};
 
-use crate::state::DriftWm;
+use crate::state::Driftline;
 
 /// Active gesture — decided at Begin, locked for the gesture's duration.
 pub enum GestureState {
@@ -49,7 +49,7 @@ pub enum GestureState {
 
 pub(crate) const DOUBLE_TAP_WINDOW_MS: u64 = 300;
 
-impl DriftWm {
+impl Driftline {
     /// Read camera/zoom from the pinned gesture output, falling back to active output.
     pub(super) fn gesture_camera_zoom(&self) -> (f64, Point<f64, Logical>) {
         match self.gesture_output {

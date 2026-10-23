@@ -83,16 +83,16 @@ stage_test() {
 			--test-threads="$TEST_THREADS" --include-ignored
 	done
 
-	run_bounded cargo test --bin driftwm --jobs "$JOBS" -- \
+	run_bounded cargo test --bin driftline --jobs "$JOBS" -- \
 		--test-threads="$TEST_THREADS" --include-ignored --skip soak
 }
 
 stage_soak() {
 	if [[ -n $LOW_MEM ]]; then
-		run_bounded cargo test --bin driftwm --jobs "$JOBS" -- \
+		run_bounded cargo test --bin driftline --jobs "$JOBS" -- \
 			--include-ignored --test-threads=1 soak
 	else
-		run_bounded cargo test --bin driftwm -- --include-ignored --test-threads=1 soak
+		run_bounded cargo test --bin driftline -- --include-ignored --test-threads=1 soak
 	fi
 }
 

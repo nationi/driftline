@@ -1,4 +1,4 @@
-//! `driftwm msg zoom` / `driftwm msg camera` setters: on a fullscreen output
+//! `driftline msg zoom` / `driftline msg camera` setters: on a fullscreen output
 //! they must exit fullscreen before applying, not arm a target the per-tick
 //! fullscreen disarm silently drops, and during a flight they must land rather
 //! than be steered away by it. The disarm and the camera/zoom locks it backs up

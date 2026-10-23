@@ -4,8 +4,8 @@
 //! leaves it, since the stand-in keeps the fitted spot, and a close that pushed
 //! nothing moves nothing: closes don't tidy gaps.
 
-use driftwm::config::Action;
-use driftwm::desktop_entry::DesktopEntryCache;
+use driftline::config::Action;
+use driftline::desktop_entry::DesktopEntryCache;
 use smithay::desktop::Window;
 use smithay::utils::{Logical, Point, SERIAL_COUNTER};
 use wayland_client::protocol::wl_surface::WlSurface;

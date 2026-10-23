@@ -454,9 +454,10 @@ impl Default for XwaylandConfig {
 }
 
 pub fn config_path() -> std::path::PathBuf {
-    // --config <path> sets DRIFTWM_CONFIG at startup; read via var_os so a
-    // non-UTF-8 path still resolves instead of falling through to the default.
-    if let Some(p) = std::env::var_os("DRIFTWM_CONFIG") {
+    // Keep the old override for existing session wrappers and user scripts.
+    if let Some(p) =
+        std::env::var_os("DRIFTLINE_CONFIG").or_else(|| std::env::var_os("DRIFTWM_CONFIG"))
+    {
         return match p.into_string() {
             Ok(p) => std::path::PathBuf::from(expand_tilde(&p)),
             Err(p) => std::path::PathBuf::from(p),
@@ -466,7 +467,17 @@ pub fn config_path() -> std::path::PathBuf {
         let home = std::env::var("HOME").unwrap_or_else(|_| ".".into());
         format!("{home}/.config")
     });
-    std::path::PathBuf::from(config_dir).join("driftwm/config.toml")
+    default_config_path(&std::path::PathBuf::from(config_dir))
+}
+
+fn default_config_path(config_dir: &std::path::Path) -> std::path::PathBuf {
+    let driftline = config_dir.join("driftline/config.toml");
+    let legacy = config_dir.join("driftwm/config.toml");
+    if driftline.exists() || !legacy.exists() {
+        driftline
+    } else {
+        legacy
+    }
 }
 
 pub fn expand_tilde(path: &str) -> String {
@@ -476,4 +487,68 @@ pub fn expand_tilde(path: &str) -> String {
         return format!("{home}/{rest}");
     }
     path.to_string()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::default_config_path;
+    use std::path::{Path, PathBuf};
+
+    struct TempConfigDir(PathBuf);
+
+    impl TempConfigDir {
+        fn new() -> Self {
+            let path = std::env::temp_dir().join(format!(
+                "driftline-config-path-test-{}-{:?}",
+                std::process::id(),
+                std::thread::current().id()
+            ));
+            let _ = std::fs::remove_dir_all(&path);
+            std::fs::create_dir_all(&path).unwrap();
+            Self(path)
+        }
+
+        fn path(&self) -> &Path {
+            &self.0
+        }
+    }
+
+    impl Drop for TempConfigDir {
+        fn drop(&mut self) {
+            let _ = std::fs::remove_dir_all(&self.0);
+        }
+    }
+
+    #[test]
+    fn new_config_path_is_the_default() {
+        let temp = TempConfigDir::new();
+        assert_eq!(
+            default_config_path(temp.path()),
+            temp.path().join("driftline/config.toml")
+        );
+    }
+
+    #[test]
+    fn legacy_config_is_kept_until_a_new_config_exists() {
+        let temp = TempConfigDir::new();
+        std::fs::create_dir_all(temp.path().join("driftwm")).unwrap();
+        std::fs::write(temp.path().join("driftwm/config.toml"), "mod_key = 'alt'").unwrap();
+        assert_eq!(
+            default_config_path(temp.path()),
+            temp.path().join("driftwm/config.toml")
+        );
+    }
+
+    #[test]
+    fn new_config_takes_precedence_over_legacy_config() {
+        let temp = TempConfigDir::new();
+        std::fs::create_dir_all(temp.path().join("driftline")).unwrap();
+        std::fs::create_dir_all(temp.path().join("driftwm")).unwrap();
+        std::fs::write(temp.path().join("driftline/config.toml"), "").unwrap();
+        std::fs::write(temp.path().join("driftwm/config.toml"), "").unwrap();
+        assert_eq!(
+            default_config_path(temp.path()),
+            temp.path().join("driftline/config.toml")
+        );
+    }
 }

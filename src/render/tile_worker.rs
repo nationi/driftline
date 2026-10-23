@@ -80,7 +80,7 @@ impl WorkerPool {
                 .map_err(|e| format!("tile worker {worker_id}: open: {e}"))
                 .and_then(|source| {
                     std::thread::Builder::new()
-                        .name(format!("driftwm-tile-{worker_id}"))
+                        .name(format!("driftline-tile-{worker_id}"))
                         .spawn(move || worker_loop(source, worker_queue, resp_tx, loop_signal))
                         .map_err(|e| format!("spawn tile worker {worker_id}: {e}"))
                 });

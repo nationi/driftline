@@ -26,7 +26,7 @@ use smithay::reexports::wayland_server::protocol::wl_surface::WlSurface;
 use smithay::utils::{Logical, Point, SERIAL_COUNTER, Size};
 use smithay::wayland::compositor::with_states;
 
-use driftwm::config::{BTN_LEFT, Config};
+use driftline::config::{BTN_LEFT, Config};
 use wayland_client::protocol::wl_surface::WlSurface as WlClientSurface;
 
 use crate::grabs::ResizeState;

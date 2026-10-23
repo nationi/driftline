@@ -107,7 +107,7 @@ pub struct Client {
 }
 
 /// The client-side dispatch state (distinct from the compositor's
-/// `crate::state::DriftWm`). Tracks bound globals and the surfaces this test
+/// `crate::state::Driftline`). Tracks bound globals and the surfaces this test
 /// client created.
 pub struct State {
     pub qh: QueueHandle<State>,
@@ -914,7 +914,7 @@ impl Client {
 
     /// Unlock the session over the wire
     /// (`ext_session_lock_v1.unlock_and_destroy`), the way a lock screen ends a
-    /// lock it confirmed. Prefer this to calling `DriftWm::unlock` directly:
+    /// lock it confirmed. Prefer this to calling `Driftline::unlock` directly:
     /// only the request clears smithay's own `locked_outputs`.
     ///
     /// Like [`Self::destroy_lock_object`], the destroyed proxy stays `last()` in
@@ -1544,7 +1544,7 @@ impl State {
 fn shm_file(pixels: &[u8]) -> std::fs::File {
     static COUNTER: AtomicU64 = AtomicU64::new(0);
     let n = COUNTER.fetch_add(1, Ordering::Relaxed);
-    let path = std::env::temp_dir().join(format!("driftwm-test-shm-{}-{n}", std::process::id()));
+    let path = std::env::temp_dir().join(format!("driftline-test-shm-{}-{n}", std::process::id()));
     let mut file = std::fs::OpenOptions::new()
         .read(true)
         .write(true)

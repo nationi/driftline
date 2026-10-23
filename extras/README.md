@@ -1,8 +1,8 @@
 # Extras
 
-A curated, install-and-go starting point for driftwm: a single
+A curated, install-and-go starting point for driftline: a single
 [Quickshell](https://quickshell.org/) dashboard pinned at the canvas origin
-(your "home"), plus the shell around it. It's an alternative to bare driftwm
+(your "home"), plus the shell around it. It's an alternative to bare driftline
 rather than a copy of the built-in defaults — tweak or strip freely.
 
 ## Install
@@ -12,7 +12,7 @@ rather than a copy of the built-in defaults — tweak or strip freely.
 ```
 
 Backs up any existing config (timestamped), then copies the config, helper
-scripts, shader wallpapers, and the dashboard into `~/.config/driftwm`, plus
+scripts, shader wallpapers, and the dashboard into `~/.config/driftline`, plus
 matching fuzzel and swaync themes into `~/.config/fuzzel` and
 `~/.config/swaync`. Safe to re-run.
 
@@ -39,14 +39,14 @@ notifications button, and a power menu. Tiles open their controls on click:
 - **power** — lock, log out, suspend, reboot, power off
 
 Media controls follow the active player. Run the dashboard by hand with
-`qs -p ~/.config/driftwm/quickshell`.
+`qs -p ~/.config/driftline/quickshell`.
 
 ## Contents
 
 - `config.toml` — the compositor config (installed)
 - `quickshell/` — the home dashboard (installed)
 - `scripts/` — spotlight (open windows, suspended windows, and apps in one
-  fuzzel search), the low-battery alert, and `driftwm-decal` for pinning
+  fuzzel search), the low-battery alert, and `driftline-decal` for pinning
   transparent images to the canvas (installed)
 - `wallpapers/` — GLSL shader wallpapers (installed; point `[background]` at
   one to use it)

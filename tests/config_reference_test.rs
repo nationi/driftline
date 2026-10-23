@@ -6,7 +6,7 @@
 //! `dev/docs/reference-config-format.md`) must yield TOML that parses to exactly
 //! `Config::from_toml("")`.
 
-use driftwm::config::{ACTION_NAMES, Config};
+use driftline::config::{ACTION_NAMES, Config};
 use std::collections::{BTreeMap, BTreeSet};
 
 const REFERENCE: &str = include_str!("../config.reference.toml");

@@ -1,6 +1,6 @@
 //! Generates `docs/cli.md` from the clap command tree and asserts the committed
 //! page is in sync — the CLI analogue of `tests/config_docs_test.rs`. The
-//! `driftwm` root command and its `msg` subcommands are the single source of
+//! `driftline` root command and its `msg` subcommands are the single source of
 //! truth; this walks `Cli::command()` and renders deterministic markdown.
 //!
 //! Lives bin-side because `Cli` and `Msg` are private to the binary crate and a
@@ -22,8 +22,8 @@ const INTRO: &str = "\
 <!-- Generated from the clap command tree — do not edit by hand.
      Regenerate with: UPDATE_CLI_DOCS=1 cargo test docs_cli_md_is_up_to_date -->
 
-driftwm's command-line interface: the root command that starts the compositor,
-and every `driftwm msg` subcommand for controlling a running one. For the raw
+driftline's command-line interface: the root command that starts the compositor,
+and every `driftline msg` subcommand for controlling a running one. For the raw
 JSON wire protocol behind `msg`, see [ipc.md](ipc.md).
 
 ";
@@ -31,83 +31,95 @@ JSON wire protocol behind `msg`, see [ipc.md](ipc.md).
 /// One runnable invocation per command section, keyed by its full path. They
 /// live here rather than in the doc comments so `--help` stays terminal-shaped.
 const EXAMPLES: &[(&str, &[&str])] = &[
-    ("driftwm", &["driftwm --backend winit --config ~/dev.toml"]),
     (
-        "driftwm msg",
-        &["driftwm msg state", "driftwm msg --json focus --id 5"],
+        "driftline",
+        &["driftline --backend winit --config ~/dev.toml"],
     ),
     (
-        "driftwm msg state",
-        &["driftwm msg --json state | jq '.Ok.State.windows'"],
+        "driftline msg",
+        &["driftline msg state", "driftline msg --json focus --id 5"],
     ),
     (
-        "driftwm msg subscribe",
-        &["driftwm msg --json subscribe | jq --unbuffered -r '.State.zoom'"],
+        "driftline msg state",
+        &["driftline msg --json state | jq '.Ok.State.windows'"],
     ),
     (
-        "driftwm msg focus",
-        &["driftwm msg focus firefox", "driftwm msg focus --id 5"],
+        "driftline msg subscribe",
+        &["driftline msg --json subscribe | jq --unbuffered -r '.State.zoom'"],
     ),
     (
-        "driftwm msg move",
-        &["driftwm msg move", "driftwm msg move -400 200 --id 5"],
+        "driftline msg focus",
+        &["driftline msg focus firefox", "driftline msg focus --id 5"],
     ),
     (
-        "driftwm msg resize",
-        &["driftwm msg resize", "driftwm msg resize 800 600 --id 5"],
+        "driftline msg move",
+        &["driftline msg move", "driftline msg move -400 200 --id 5"],
     ),
-    ("driftwm msg close", &["driftwm msg close firefox"]),
-    ("driftwm msg opacity", &["driftwm msg opacity 0.85 --id 5"]),
     (
-        "driftwm msg pin",
-        &["driftwm msg pin", "driftwm msg pin on --id 5"],
-    ),
-    ("driftwm msg suspend", &["driftwm msg suspend firefox"]),
-    ("driftwm msg relaunch", &["driftwm msg relaunch firefox"]),
-    (
-        "driftwm msg camera",
-        &["driftwm msg camera", "driftwm msg camera 500 300"],
-    ),
-    ("driftwm msg zoom", &["driftwm msg zoom 0.5"]),
-    (
-        "driftwm msg bookmark",
+        "driftline msg resize",
         &[
-            "driftwm msg bookmark",
-            "driftwm msg bookmark inbox 500 300",
-            "driftwm msg bookmark inbox --delete",
+            "driftline msg resize",
+            "driftline msg resize 800 600 --id 5",
         ],
     ),
-    ("driftwm msg layout", &["driftwm msg layout --short"]),
-    ("driftwm msg cursor", &["driftwm msg --json cursor"]),
+    ("driftline msg close", &["driftline msg close firefox"]),
     (
-        "driftwm msg action",
+        "driftline msg opacity",
+        &["driftline msg opacity 0.85 --id 5"],
+    ),
+    (
+        "driftline msg pin",
+        &["driftline msg pin", "driftline msg pin on --id 5"],
+    ),
+    ("driftline msg suspend", &["driftline msg suspend firefox"]),
+    (
+        "driftline msg relaunch",
+        &["driftline msg relaunch firefox"],
+    ),
+    (
+        "driftline msg camera",
+        &["driftline msg camera", "driftline msg camera 500 300"],
+    ),
+    ("driftline msg zoom", &["driftline msg zoom 0.5"]),
+    (
+        "driftline msg bookmark",
         &[
-            "driftwm msg action switch-layout next",
-            "driftwm msg action toggle-fullscreen",
+            "driftline msg bookmark",
+            "driftline msg bookmark inbox 500 300",
+            "driftline msg bookmark inbox --delete",
         ],
     ),
+    ("driftline msg layout", &["driftline msg layout --short"]),
+    ("driftline msg cursor", &["driftline msg --json cursor"]),
     (
-        "driftwm msg screenshot",
-        &["driftwm msg screenshot --scale 2 -o ~/canvas.png"],
-    ),
-    (
-        "driftwm msg screenshot window",
-        &["driftwm msg screenshot window -o - | wl-copy"],
-    ),
-    (
-        "driftwm msg screenshot all",
-        &["driftwm msg screenshot all --scale 0.5"],
-    ),
-    (
-        "driftwm msg screenshot region",
+        "driftline msg action",
         &[
-            "driftwm msg screenshot region -1000 -500 2000 1000",
-            "driftwm msg screenshot region \"$(slurp)\" --from-screen",
+            "driftline msg action switch-layout next",
+            "driftline msg action toggle-fullscreen",
         ],
     ),
     (
-        "driftwm msg debug-counters",
-        &["driftwm msg debug-counters"],
+        "driftline msg screenshot",
+        &["driftline msg screenshot --scale 2 -o ~/canvas.png"],
+    ),
+    (
+        "driftline msg screenshot window",
+        &["driftline msg screenshot window -o - | wl-copy"],
+    ),
+    (
+        "driftline msg screenshot all",
+        &["driftline msg screenshot all --scale 0.5"],
+    ),
+    (
+        "driftline msg screenshot region",
+        &[
+            "driftline msg screenshot region -1000 -500 2000 1000",
+            "driftline msg screenshot region \"$(slurp)\" --from-screen",
+        ],
+    ),
+    (
+        "driftline msg debug-counters",
+        &["driftline msg debug-counters"],
     ),
 ];
 
@@ -270,7 +282,7 @@ fn subcommands(cmd: &Command) -> impl Iterator<Item = &Command> {
     cmd.get_subcommands().filter(|s| s.get_name() != "help")
 }
 
-/// `driftwm msg move [OPTIONS] [X] [Y]` — the full path, an options marker, each
+/// `driftline msg move [OPTIONS] [X] [Y]` — the full path, an options marker, each
 /// positional's value token, and a subcommand slot. Globals an ancestor already
 /// listed don't earn the marker, matching where they're documented.
 fn usage_line(cmd: &Command, title: &str, shown_globals: &[String]) -> String {

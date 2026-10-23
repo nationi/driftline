@@ -1,11 +1,11 @@
 # Gigapixel wallpapers
 
-driftwm's canvas is infinite, so the background can be far larger than one
+driftline's canvas is infinite, so the background can be far larger than one
 screen — a gigapixel image becomes the canvas itself, something you pan over and
 zoom out to take in. It has to be a **tiled pyramidal TIFF**, because an ordinary
 PNG/JPG is uploaded as a single GPU texture and maxes out around 8K–16K pixels
 per side. Tiled (cut into small squares) and pyramidal (stored at several
-progressively smaller copies) lets driftwm load only the tiles in view and switch
+progressively smaller copies) lets driftline load only the tiles in view and switch
 to a smaller copy as you zoom out, so it never holds the whole image at full
 resolution.
 
@@ -27,7 +27,7 @@ path = "~/Pictures/output.tif"
 
 `--compression=deflate` is lossless — preferable for a wallpaper you'll zoom
 right into. `--compression=jpeg` is smaller but lossy, and needs `--rgbjpeg`
-alongside it: without that flag libvips stores the tiles as YCbCr, which driftwm
+alongside it: without that flag libvips stores the tiles as YCbCr, which driftline
 can't decode.
 
 ### Alternative: GDAL

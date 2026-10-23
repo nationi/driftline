@@ -20,9 +20,9 @@ use std::time::{Duration, Instant};
 
 use smithay::utils::{Logical, Point, Rectangle, Size};
 
-use driftwm::config::{Action, BTN_LEFT, Config, Direction};
-use driftwm::desktop_entry::DesktopEntryCache;
-use driftwm::stage::ElementId;
+use driftline::config::{Action, BTN_LEFT, Config, Direction};
+use driftline::desktop_entry::DesktopEntryCache;
+use driftline::stage::ElementId;
 
 use smithay::desktop::Window;
 use smithay::reexports::wayland_protocols::xdg::shell::server::xdg_toplevel;

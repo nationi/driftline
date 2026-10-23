@@ -13,7 +13,7 @@ under plain `cargo test` — no display, GPU, or root — and CI runs exactly th
   parse/docs-sync gates, canvas transforms, snap, window-rule matching.
 - **Stage proptest harness** — `src/stage/tests.rs` (`mod harness`): random
   op-histories (map/close/crash/fullscreen/pin/fit/cluster/hotplug/auto-place)
-  drive the real `Stage` alongside a model of `DriftWm` policy, with structural
+  drive the real `Stage` alongside a model of `Driftline` policy, with structural
   invariants checked after every op. This layer found the suspended-pin
   output-unplug bug.
 - **Config robustness proptests** — `tests/config_robustness_test.rs`:
@@ -21,7 +21,7 @@ under plain `cargo test` — no display, GPU, or root — and CI runs exactly th
   panic — the mechanical form of the hot-reload "a bad edit never crashes"
   promise.
 - **In-process conformance fixture** — `src/tests/` (bin-crate unit tests): a
-  real `DriftWm` runs headless (`backend = None`), real wayland-client test
+  real `Driftline` runs headless (`backend = None`), real wayland-client test
   clients connect over socketpairs, and one `Fixture::dispatch()` pumps the
   whole graph deterministically. `verify_stage_invariants` runs on every
   dispatch, so a state leak aborts the test and an in-process deadlock becomes
@@ -47,7 +47,7 @@ and the generated doc must be current.
 **Never touch `Space` window APIs — go through the stage.** `clippy.toml`
 rejects every `Space` element read and write via `disallowed-methods`; the
 stage is the sole window store and `Space` is output-registry only. Applies to
-tests too: drive `DriftWm` methods or the fixture. Details in
+tests too: drive `Driftline` methods or the fixture. Details in
 [caveats.md](caveats.md).
 
 **Proptests run 256 cases in CI; go deeper before merging.** Plain
@@ -64,7 +64,7 @@ outside it carries `#[ignore = "reason"]` and runs via
 the full include-ignored lane. Three exist today: the soak/leak scenario
 (`src/tests/soak.rs`) churns hundreds of windows and asserts counters, file
 descriptors, and RSS all plateau — the fd/RSS assertions are process-wide, so
-prefer running it alone (`cargo test --bin driftwm soak -- --ignored`) when
+prefer running it alone (`cargo test --bin driftline soak -- --ignored`) when
 debugging a failure; the real-client scenario
 (`src/tests/real_clients.rs`) spawns an actual `foot`/`weston-terminal`
 against a private wayland + IPC socket and drives it over the wire,
@@ -79,8 +79,8 @@ do the same. Mark any future non-hermetic or genuinely slow test the same way.
 
 **Fixture tests never touch the real session.** Construct configs with
 `Config::from_toml` + `Fixture::with_config` — never read
-`~/.config/driftwm/config.toml` (that's what `DriftWm::new_with_config` is
-for). Never read or write `$XDG_RUNTIME_DIR/driftwm`; the test pump
+`~/.config/driftline/config.toml` (that's what `Driftline::new_with_config` is
+for). Never read or write `$XDG_RUNTIME_DIR/driftline`; the test pump
 deliberately excludes the state-file writer. Don't set process env vars in
 tests — the harness is multi-threaded.
 

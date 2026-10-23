@@ -49,7 +49,7 @@ tests including ignored GPU cases, all integration targets and the isolated
 soak test. The release build also passed. `.github/workflows/ci.yml` remains
 the source of truth for CI; the local hardware checklist is documented above.
 
-The executable at `~/.local/bin/driftwm` and `/usr/local/bin/driftwm` now
+The executable at `~/.local/bin/driftline` and `/usr/local/bin/driftline` now
 contains the fix and both pass `--check-config`. The active Wayland service
 still holds the earlier 1.0.0 executable in memory; restart the session to
 load the new build, then verify canvas nearest-window navigation and
@@ -96,7 +96,7 @@ Continuous swipe/pinch canvas bindings are suppressed in tiling; threshold
 actions continue through the existing action-mode guard. Regression coverage
 for Alt+right, Alt+Shift+right, Alt+middle, Alt+Shift+middle,
 Alt+Shift+left and Alt+left reorder is in place. The focused regressions pass;
-`cargo test --locked --bin driftwm` passed (1592 passed, 81 ignored),
+`cargo test --locked --bin driftline` passed (1592 passed, 81 ignored),
 `cargo clippy --locked --all-targets -- -D warnings`, `cargo fmt --check` and
 `git diff --check` passed. Manual pointer testing on a live session remains.
 

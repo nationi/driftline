@@ -1,6 +1,6 @@
-use driftwm::config::{Action, Direction};
+use driftline::config::{Action, Direction};
 
-use super::DriftWm;
+use super::Driftline;
 
 #[derive(Debug)]
 pub(crate) enum TilingOperation<'a> {
@@ -91,7 +91,7 @@ impl TilingOperation<'_> {
     }
 }
 
-impl DriftWm {
+impl Driftline {
     pub(crate) fn prepare_tiling_operation(&mut self, operation: TilingOperation<'_>) {
         let restores_canvas = match &operation {
             TilingOperation::Action(Action::SendToOutput(_)) => self

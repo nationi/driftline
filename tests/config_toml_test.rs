@@ -1,4 +1,4 @@
-use driftwm::config::{
+use driftline::config::{
     Action, BTN_RIGHT, BackgroundKind, BindingContext, Config, ContinuousAction,
     GestureConfigEntry, GestureTrigger, Modifiers, MouseAction, ThresholdAction,
 };

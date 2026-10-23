@@ -33,7 +33,7 @@ use smithay::{
     wayland::seat::WaylandFocus,
 };
 
-use crate::state::DriftWm;
+use crate::state::Driftline;
 
 // --- FocusTarget ---
 // Newtype over WlSurface for use as SeatHandler focus types.
@@ -46,7 +46,7 @@ pub struct FocusTarget(pub WlSurface);
 impl FocusTarget {
     /// Whether this surface's client has `tool` bound, and so takes the pen on
     /// tablet-v2 rather than `wl_pointer`.
-    pub fn takes_tool(&self, tool: &TabletToolHandle<DriftWm>) -> bool {
+    pub fn takes_tool(&self, tool: &TabletToolHandle<Driftline>) -> bool {
         self.0
             .client()
             .is_some_and(|client| tool.client_tools(&client).next().is_some())
@@ -82,210 +82,212 @@ impl WaylandFocus for FocusTarget {
 
 // Delegate all KeyboardTarget methods to the inner WlSurface using
 // fully-qualified syntax to avoid clash with WlSurface::enter() protocol method.
-impl KeyboardTarget<DriftWm> for FocusTarget {
+impl KeyboardTarget<Driftline> for FocusTarget {
     fn enter(
         &self,
-        seat: &Seat<DriftWm>,
-        data: &mut DriftWm,
+        seat: &Seat<Driftline>,
+        data: &mut Driftline,
         keys: Vec<KeysymHandle<'_>>,
         serial: Serial,
     ) {
-        <WlSurface as KeyboardTarget<DriftWm>>::enter(&self.0, seat, data, keys, serial);
+        <WlSurface as KeyboardTarget<Driftline>>::enter(&self.0, seat, data, keys, serial);
     }
 
-    fn leave(&self, seat: &Seat<DriftWm>, data: &mut DriftWm, serial: Serial) {
-        <WlSurface as KeyboardTarget<DriftWm>>::leave(&self.0, seat, data, serial);
+    fn leave(&self, seat: &Seat<Driftline>, data: &mut Driftline, serial: Serial) {
+        <WlSurface as KeyboardTarget<Driftline>>::leave(&self.0, seat, data, serial);
     }
 
     fn key(
         &self,
-        seat: &Seat<DriftWm>,
-        data: &mut DriftWm,
+        seat: &Seat<Driftline>,
+        data: &mut Driftline,
         key: KeysymHandle<'_>,
         state: KeyState,
         serial: Serial,
         time: u32,
     ) {
-        <WlSurface as KeyboardTarget<DriftWm>>::key(&self.0, seat, data, key, state, serial, time);
+        <WlSurface as KeyboardTarget<Driftline>>::key(
+            &self.0, seat, data, key, state, serial, time,
+        );
     }
 
     fn modifiers(
         &self,
-        seat: &Seat<DriftWm>,
-        data: &mut DriftWm,
+        seat: &Seat<Driftline>,
+        data: &mut Driftline,
         modifiers: ModifiersState,
         serial: Serial,
     ) {
-        <WlSurface as KeyboardTarget<DriftWm>>::modifiers(&self.0, seat, data, modifiers, serial);
+        <WlSurface as KeyboardTarget<Driftline>>::modifiers(&self.0, seat, data, modifiers, serial);
     }
 }
 
-impl PointerTarget<DriftWm> for FocusTarget {
-    fn enter(&self, seat: &Seat<DriftWm>, data: &mut DriftWm, event: &MotionEvent) {
-        <WlSurface as PointerTarget<DriftWm>>::enter(&self.0, seat, data, event);
+impl PointerTarget<Driftline> for FocusTarget {
+    fn enter(&self, seat: &Seat<Driftline>, data: &mut Driftline, event: &MotionEvent) {
+        <WlSurface as PointerTarget<Driftline>>::enter(&self.0, seat, data, event);
     }
 
-    fn motion(&self, seat: &Seat<DriftWm>, data: &mut DriftWm, event: &MotionEvent) {
-        <WlSurface as PointerTarget<DriftWm>>::motion(&self.0, seat, data, event);
+    fn motion(&self, seat: &Seat<Driftline>, data: &mut Driftline, event: &MotionEvent) {
+        <WlSurface as PointerTarget<Driftline>>::motion(&self.0, seat, data, event);
     }
 
     fn relative_motion(
         &self,
-        seat: &Seat<DriftWm>,
-        data: &mut DriftWm,
+        seat: &Seat<Driftline>,
+        data: &mut Driftline,
         event: &RelativeMotionEvent,
     ) {
-        <WlSurface as PointerTarget<DriftWm>>::relative_motion(&self.0, seat, data, event);
+        <WlSurface as PointerTarget<Driftline>>::relative_motion(&self.0, seat, data, event);
     }
 
-    fn button(&self, seat: &Seat<DriftWm>, data: &mut DriftWm, event: &ButtonEvent) {
-        <WlSurface as PointerTarget<DriftWm>>::button(&self.0, seat, data, event);
+    fn button(&self, seat: &Seat<Driftline>, data: &mut Driftline, event: &ButtonEvent) {
+        <WlSurface as PointerTarget<Driftline>>::button(&self.0, seat, data, event);
     }
 
-    fn axis(&self, seat: &Seat<DriftWm>, data: &mut DriftWm, frame: AxisFrame) {
-        <WlSurface as PointerTarget<DriftWm>>::axis(&self.0, seat, data, frame);
+    fn axis(&self, seat: &Seat<Driftline>, data: &mut Driftline, frame: AxisFrame) {
+        <WlSurface as PointerTarget<Driftline>>::axis(&self.0, seat, data, frame);
     }
 
-    fn frame(&self, seat: &Seat<DriftWm>, data: &mut DriftWm) {
-        <WlSurface as PointerTarget<DriftWm>>::frame(&self.0, seat, data);
+    fn frame(&self, seat: &Seat<Driftline>, data: &mut Driftline) {
+        <WlSurface as PointerTarget<Driftline>>::frame(&self.0, seat, data);
     }
 
     fn gesture_swipe_begin(
         &self,
-        seat: &Seat<DriftWm>,
-        data: &mut DriftWm,
+        seat: &Seat<Driftline>,
+        data: &mut Driftline,
         event: &GestureSwipeBeginEvent,
     ) {
-        <WlSurface as PointerTarget<DriftWm>>::gesture_swipe_begin(&self.0, seat, data, event);
+        <WlSurface as PointerTarget<Driftline>>::gesture_swipe_begin(&self.0, seat, data, event);
     }
 
     fn gesture_swipe_update(
         &self,
-        seat: &Seat<DriftWm>,
-        data: &mut DriftWm,
+        seat: &Seat<Driftline>,
+        data: &mut Driftline,
         event: &GestureSwipeUpdateEvent,
     ) {
-        <WlSurface as PointerTarget<DriftWm>>::gesture_swipe_update(&self.0, seat, data, event);
+        <WlSurface as PointerTarget<Driftline>>::gesture_swipe_update(&self.0, seat, data, event);
     }
 
     fn gesture_swipe_end(
         &self,
-        seat: &Seat<DriftWm>,
-        data: &mut DriftWm,
+        seat: &Seat<Driftline>,
+        data: &mut Driftline,
         event: &GestureSwipeEndEvent,
     ) {
-        <WlSurface as PointerTarget<DriftWm>>::gesture_swipe_end(&self.0, seat, data, event);
+        <WlSurface as PointerTarget<Driftline>>::gesture_swipe_end(&self.0, seat, data, event);
     }
 
     fn gesture_pinch_begin(
         &self,
-        seat: &Seat<DriftWm>,
-        data: &mut DriftWm,
+        seat: &Seat<Driftline>,
+        data: &mut Driftline,
         event: &GesturePinchBeginEvent,
     ) {
-        <WlSurface as PointerTarget<DriftWm>>::gesture_pinch_begin(&self.0, seat, data, event);
+        <WlSurface as PointerTarget<Driftline>>::gesture_pinch_begin(&self.0, seat, data, event);
     }
 
     fn gesture_pinch_update(
         &self,
-        seat: &Seat<DriftWm>,
-        data: &mut DriftWm,
+        seat: &Seat<Driftline>,
+        data: &mut Driftline,
         event: &GesturePinchUpdateEvent,
     ) {
-        <WlSurface as PointerTarget<DriftWm>>::gesture_pinch_update(&self.0, seat, data, event);
+        <WlSurface as PointerTarget<Driftline>>::gesture_pinch_update(&self.0, seat, data, event);
     }
 
     fn gesture_pinch_end(
         &self,
-        seat: &Seat<DriftWm>,
-        data: &mut DriftWm,
+        seat: &Seat<Driftline>,
+        data: &mut Driftline,
         event: &GesturePinchEndEvent,
     ) {
-        <WlSurface as PointerTarget<DriftWm>>::gesture_pinch_end(&self.0, seat, data, event);
+        <WlSurface as PointerTarget<Driftline>>::gesture_pinch_end(&self.0, seat, data, event);
     }
 
     fn gesture_hold_begin(
         &self,
-        seat: &Seat<DriftWm>,
-        data: &mut DriftWm,
+        seat: &Seat<Driftline>,
+        data: &mut Driftline,
         event: &GestureHoldBeginEvent,
     ) {
-        <WlSurface as PointerTarget<DriftWm>>::gesture_hold_begin(&self.0, seat, data, event);
+        <WlSurface as PointerTarget<Driftline>>::gesture_hold_begin(&self.0, seat, data, event);
     }
 
     fn gesture_hold_end(
         &self,
-        seat: &Seat<DriftWm>,
-        data: &mut DriftWm,
+        seat: &Seat<Driftline>,
+        data: &mut Driftline,
         event: &GestureHoldEndEvent,
     ) {
-        <WlSurface as PointerTarget<DriftWm>>::gesture_hold_end(&self.0, seat, data, event);
+        <WlSurface as PointerTarget<Driftline>>::gesture_hold_end(&self.0, seat, data, event);
     }
 
-    fn leave(&self, seat: &Seat<DriftWm>, data: &mut DriftWm, serial: Serial, time: u32) {
-        <WlSurface as PointerTarget<DriftWm>>::leave(&self.0, seat, data, serial, time);
+    fn leave(&self, seat: &Seat<Driftline>, data: &mut Driftline, serial: Serial, time: u32) {
+        <WlSurface as PointerTarget<Driftline>>::leave(&self.0, seat, data, serial, time);
     }
 }
 
-impl TouchTarget<DriftWm> for FocusTarget {
-    fn down(&self, seat: &Seat<DriftWm>, data: &mut DriftWm, event: &TouchDownEvent) {
+impl TouchTarget<Driftline> for FocusTarget {
+    fn down(&self, seat: &Seat<Driftline>, data: &mut Driftline, event: &TouchDownEvent) {
         data.touch_state.frame_owed = true;
-        <WlSurface as TouchTarget<DriftWm>>::down(&self.0, seat, data, event);
+        <WlSurface as TouchTarget<Driftline>>::down(&self.0, seat, data, event);
     }
 
-    fn up(&self, seat: &Seat<DriftWm>, data: &mut DriftWm, event: &TouchUpEvent) {
+    fn up(&self, seat: &Seat<Driftline>, data: &mut Driftline, event: &TouchUpEvent) {
         data.touch_state.frame_owed = true;
-        <WlSurface as TouchTarget<DriftWm>>::up(&self.0, seat, data, event);
+        <WlSurface as TouchTarget<Driftline>>::up(&self.0, seat, data, event);
     }
 
-    fn motion(&self, seat: &Seat<DriftWm>, data: &mut DriftWm, event: &TouchMotionEvent) {
+    fn motion(&self, seat: &Seat<Driftline>, data: &mut Driftline, event: &TouchMotionEvent) {
         data.touch_state.frame_owed = true;
-        <WlSurface as TouchTarget<DriftWm>>::motion(&self.0, seat, data, event);
+        <WlSurface as TouchTarget<Driftline>>::motion(&self.0, seat, data, event);
     }
 
-    fn frame(&self, seat: &Seat<DriftWm>, data: &mut DriftWm, marker: FrameMarker) {
-        <WlSurface as TouchTarget<DriftWm>>::frame(&self.0, seat, data, marker);
+    fn frame(&self, seat: &Seat<Driftline>, data: &mut Driftline, marker: FrameMarker) {
+        <WlSurface as TouchTarget<Driftline>>::frame(&self.0, seat, data, marker);
     }
 
-    fn cancel(&self, seat: &Seat<DriftWm>, data: &mut DriftWm, marker: FrameMarker) {
-        <WlSurface as TouchTarget<DriftWm>>::cancel(&self.0, seat, data, marker);
+    fn cancel(&self, seat: &Seat<Driftline>, data: &mut Driftline, marker: FrameMarker) {
+        <WlSurface as TouchTarget<Driftline>>::cancel(&self.0, seat, data, marker);
     }
 
     fn shape(
         &self,
-        seat: &Seat<DriftWm>,
-        data: &mut DriftWm,
+        seat: &Seat<Driftline>,
+        data: &mut Driftline,
         event: &smithay::input::touch::ShapeEvent,
     ) {
         data.touch_state.frame_owed = true;
-        <WlSurface as TouchTarget<DriftWm>>::shape(&self.0, seat, data, event);
+        <WlSurface as TouchTarget<Driftline>>::shape(&self.0, seat, data, event);
     }
 
     fn orientation(
         &self,
-        seat: &Seat<DriftWm>,
-        data: &mut DriftWm,
+        seat: &Seat<Driftline>,
+        data: &mut Driftline,
         event: &smithay::input::touch::OrientationEvent,
     ) {
         data.touch_state.frame_owed = true;
-        <WlSurface as TouchTarget<DriftWm>>::orientation(&self.0, seat, data, event);
+        <WlSurface as TouchTarget<Driftline>>::orientation(&self.0, seat, data, event);
     }
 
-    fn last_frame(&self, seat: &Seat<DriftWm>, data: &mut DriftWm) -> Option<FrameMarker> {
-        <WlSurface as TouchTarget<DriftWm>>::last_frame(&self.0, seat, data)
+    fn last_frame(&self, seat: &Seat<Driftline>, data: &mut Driftline) -> Option<FrameMarker> {
+        <WlSurface as TouchTarget<Driftline>>::last_frame(&self.0, seat, data)
     }
 }
 
-impl TabletToolTarget<DriftWm> for FocusTarget {
+impl TabletToolTarget<Driftline> for FocusTarget {
     fn proximity_in(
         &self,
-        seat: &Seat<DriftWm>,
-        data: &mut DriftWm,
+        seat: &Seat<Driftline>,
+        data: &mut Driftline,
         tool_descriptor: &TabletToolDescriptor,
         tablet: &Tablet,
         serial: Serial,
     ) {
-        <WlSurface as TabletToolTarget<DriftWm>>::proximity_in(
+        <WlSurface as TabletToolTarget<Driftline>>::proximity_in(
             &self.0,
             seat,
             data,
@@ -297,11 +299,11 @@ impl TabletToolTarget<DriftWm> for FocusTarget {
 
     fn proximity_out(
         &self,
-        seat: &Seat<DriftWm>,
-        data: &mut DriftWm,
+        seat: &Seat<Driftline>,
+        data: &mut Driftline,
         tool_descriptor: &TabletToolDescriptor,
     ) {
-        <WlSurface as TabletToolTarget<DriftWm>>::proximity_out(
+        <WlSurface as TabletToolTarget<Driftline>>::proximity_out(
             &self.0,
             seat,
             data,
@@ -323,32 +325,38 @@ impl TabletToolTarget<DriftWm> for FocusTarget {
 
     fn down(
         &self,
-        seat: &Seat<DriftWm>,
-        data: &mut DriftWm,
+        seat: &Seat<Driftline>,
+        data: &mut Driftline,
         tool_descriptor: &TabletToolDescriptor,
         event: &tablet::tool::DownEvent,
     ) {
-        <WlSurface as TabletToolTarget<DriftWm>>::down(&self.0, seat, data, tool_descriptor, event);
+        <WlSurface as TabletToolTarget<Driftline>>::down(
+            &self.0,
+            seat,
+            data,
+            tool_descriptor,
+            event,
+        );
     }
 
     fn up(
         &self,
-        seat: &Seat<DriftWm>,
-        data: &mut DriftWm,
+        seat: &Seat<Driftline>,
+        data: &mut Driftline,
         tool_descriptor: &TabletToolDescriptor,
         event: &tablet::tool::UpEvent,
     ) {
-        <WlSurface as TabletToolTarget<DriftWm>>::up(&self.0, seat, data, tool_descriptor, event);
+        <WlSurface as TabletToolTarget<Driftline>>::up(&self.0, seat, data, tool_descriptor, event);
     }
 
     fn motion(
         &self,
-        seat: &Seat<DriftWm>,
-        data: &mut DriftWm,
+        seat: &Seat<Driftline>,
+        data: &mut Driftline,
         tool_descriptor: &TabletToolDescriptor,
         event: &tablet::tool::MotionEvent,
     ) {
-        <WlSurface as TabletToolTarget<DriftWm>>::motion(
+        <WlSurface as TabletToolTarget<Driftline>>::motion(
             &self.0,
             seat,
             data,
@@ -359,22 +367,28 @@ impl TabletToolTarget<DriftWm> for FocusTarget {
 
     fn axis(
         &self,
-        seat: &Seat<DriftWm>,
-        data: &mut DriftWm,
+        seat: &Seat<Driftline>,
+        data: &mut Driftline,
         tool_descriptor: &TabletToolDescriptor,
         frame: tablet::tool::AxisFrame,
     ) {
-        <WlSurface as TabletToolTarget<DriftWm>>::axis(&self.0, seat, data, tool_descriptor, frame);
+        <WlSurface as TabletToolTarget<Driftline>>::axis(
+            &self.0,
+            seat,
+            data,
+            tool_descriptor,
+            frame,
+        );
     }
 
     fn button(
         &self,
-        seat: &Seat<DriftWm>,
-        data: &mut DriftWm,
+        seat: &Seat<Driftline>,
+        data: &mut Driftline,
         tool_descriptor: &TabletToolDescriptor,
         event: &tablet::tool::ButtonEvent,
     ) {
-        <WlSurface as TabletToolTarget<DriftWm>>::button(
+        <WlSurface as TabletToolTarget<Driftline>>::button(
             &self.0,
             seat,
             data,
@@ -385,12 +399,18 @@ impl TabletToolTarget<DriftWm> for FocusTarget {
 
     fn frame(
         &self,
-        seat: &Seat<DriftWm>,
-        data: &mut DriftWm,
+        seat: &Seat<Driftline>,
+        data: &mut Driftline,
         tool_descriptor: &TabletToolDescriptor,
         time: u32,
     ) {
-        <WlSurface as TabletToolTarget<DriftWm>>::frame(&self.0, seat, data, tool_descriptor, time);
+        <WlSurface as TabletToolTarget<Driftline>>::frame(
+            &self.0,
+            seat,
+            data,
+            tool_descriptor,
+            time,
+        );
     }
 }
 

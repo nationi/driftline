@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 160" role="img" aria-labelledby="title desc">
+  <title id="title">Driftline</title>
+  <desc id="desc">Driftline infinite-canvas Wayland compositor</desc>
+  <rect width="640" height="160" rx="28" fill="#101820"/>
+  <g fill="none" stroke="#79d4c2" stroke-width="5" opacity=".72">
+    <path d="M34 46h44v44H34zM91 46h44v44H91zM148 46h44v44h-44zM205 46h44v44h-44z"/>
+    <path d="M34 103h44v22H34zM91 103h44v22H91zM148 103h44v22h-44zM205 103h44v22h-44z" opacity=".45"/>
+  </g>
+  <text x="292" y="104" fill="#f2f5f4" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="58" font-weight="650" letter-spacing="1">Driftline</text>
+</svg>

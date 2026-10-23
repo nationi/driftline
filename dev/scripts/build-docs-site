@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Build the driftwm documentation website with mdBook.
+"""Build the driftline documentation website with mdBook.
 
 One-command local build / preview:
 
@@ -38,7 +38,7 @@ DOCS_DIR = REPO_ROOT / "docs"
 README = REPO_ROOT / "README.md"
 STAGE = REPO_ROOT / "target" / "docs-site"
 
-BLOB_BASE = "https://github.com/nationi/driftwm/blob/main/"
+BLOB_BASE = "https://github.com/nationi/driftline/blob/main/"
 
 # Pages that exist as their own site page: links to these stay same-directory.
 SITE_PAGES = {

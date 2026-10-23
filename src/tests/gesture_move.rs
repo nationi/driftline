@@ -5,7 +5,7 @@
 //! (`try_start_gesture_move`, `build_touch_move_grab`, `touch_suspended_hit`)
 //! rather than a hand-installed grab, so the pickers are under test too.
 
-use driftwm::config::Action;
+use driftline::config::Action;
 use smithay::backend::input::TouchSlot;
 use smithay::desktop::Window;
 use smithay::input::pointer::MotionEvent;

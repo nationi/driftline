@@ -8,7 +8,7 @@ FlatButton {
 
     readonly property var actions: [
         { label: "lock", command: ["swaylock", "-f"] },
-        { label: "log out", command: ["driftwm", "msg", "action", "quit"] },
+        { label: "log out", command: ["driftline", "msg", "action", "quit"] },
         { label: "suspend", command: ["systemctl", "suspend"] },
         { label: "reboot", command: ["systemctl", "reboot"] },
         { label: "power off", command: ["systemctl", "poweroff"] },

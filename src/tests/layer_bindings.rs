@@ -4,7 +4,7 @@
 //! bindings stay off, and whatever `anywhere` leaves unbound is the layer's
 //! own click or scroll.
 
-use driftwm::config::{BTN_LEFT, BTN_MIDDLE, BTN_RIGHT};
+use driftline::config::{BTN_LEFT, BTN_MIDDLE, BTN_RIGHT};
 use smithay::utils::{Logical, Point, Size};
 use wayland_protocols_wlr::layer_shell::v1::client::zwlr_layer_shell_v1::Layer;
 use wayland_protocols_wlr::layer_shell::v1::client::zwlr_layer_surface_v1;

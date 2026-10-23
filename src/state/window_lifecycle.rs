@@ -8,17 +8,17 @@
 //! Also the per-surface teardown sweep, shared by the normal and crash
 //! shutdown paths so the two cannot drift apart and leak.
 
-use driftwm::config::AppliedWindowRule;
-use driftwm::window_ext::WindowExt;
+use driftline::config::AppliedWindowRule;
+use driftline::window_ext::WindowExt;
 use smithay::desktop::Window;
 use smithay::reexports::wayland_server::Resource;
 use smithay::reexports::wayland_server::protocol::wl_surface::WlSurface;
 use smithay::utils::{Logical, Point};
 use smithay::wayland::seat::WaylandFocus;
 
-use super::{DriftWm, RevealCause, StageWindow};
+use super::{Driftline, RevealCause, StageWindow};
 
-impl DriftWm {
+impl Driftline {
     /// Push any `below` windows to the bottom of the z-order.
     /// Called after every raise to maintain stacking.
     pub fn enforce_below_windows(&mut self) {

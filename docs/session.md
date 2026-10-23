@@ -13,7 +13,7 @@ set.
 a compositor-drawn stand-in — at its exact canvas position and size, with the
 app's name centered in it.
 
-**A suspended window only exists for an app driftwm can relaunch.**
+**A suspended window only exists for an app driftline can relaunch.**
 `suspend-window` resolves the target's `app_id` against your installed
 `.desktop` entries (exact filename match, then `StartupWMClass`, then a
 case-insensitive filename match); `Terminal=true` entries don't count —
@@ -48,7 +48,7 @@ A suspended window differs from a live window in two ways:
   Two things that sound like they belong here don't. `zoom-to-fit-snapped`
   only moves the camera, so it frames a suspended window's cluster like any
   other. And a suspended window *can* be resized — `grow-window`,
-  `shrink-window` and `driftwm msg resize` write its size directly, with no
+  `shrink-window` and `driftline msg resize` write its size directly, with no
   client to configure, down to a 120px floor — a floor on the visible stand-in,
   which is what a `msg resize` reply describes, so 120x120 leaves one exactly
   that big on screen.
@@ -179,25 +179,26 @@ Bookmarks (named canvas points — see `[navigation.bookmarks]` and the
 registry seeded from config. With this on (the default), the saved registry is
 overlaid on top of the config seeds at launch, so a restored bookmark wins per
 name and config seeds fill the names the save lacks. With it off, the registry
-resets to the config seeds on every launch, so a `set-bookmark` or `driftwm msg
+resets to the config seeds on every launch, so a `set-bookmark` or `driftline msg
 bookmark` edit lasts only for the session. Like the camera flag, it's read at
 launch.
 
 ## The session file
 
-The session lives at `~/.local/state/driftwm/session.json` (respects
-`XDG_STATE_HOME`). Every change that belongs in it — suspending, dismissing,
+The session lives at `~/.local/state/driftline/session.json` (respects
+`XDG_STATE_HOME`). If no Driftline session exists yet, an existing file under
+`~/.local/state/driftwm/session.json` is reused in place. Every change that belongs in it — suspending, dismissing,
 relaunching, moving, resizing, changing focus — queues a write that lands ~1s
 later, so a drag costs one write per second rather than one per frame. Panning
 and zooming queue the same write on a ~5s delay instead, so a long pan across
-the canvas costs a write every five seconds. A file written by an older driftwm
+the canvas costs a write every five seconds. A file written by an older driftline
 is read and converted in place; one from a *newer* version, or that fails to
 parse or can't be read at all, is quarantined next to it as
 `session.json.corrupt.<timestamp>` or `session.json.unreadable.<timestamp>`,
 and startup continues with an empty session.
 
 Each saved window's `position` and `size` describe its stand-in's visual frame,
-the same convention as window rules and `driftwm msg state`.
+the same convention as window rules and `driftline msg state`.
 
 ## Relaunching & matching
 
@@ -233,12 +234,12 @@ stand-in by, in order:
 
 ## Nested sessions
 
-A nested (winit) driftwm doesn't persist a session by default, so it can't
+A nested (winit) driftline doesn't persist a session by default, so it can't
 clobber the session file of the compositor it's running inside. Opt in with
 `--session-file <path>`:
 
 ```bash
-driftwm --backend winit --session-file /tmp/driftwm-nested-session.json
+driftline --backend winit --session-file /tmp/driftline-nested-session.json
 ```
 
 Suspended windows work within the run either way — they're on the canvas the

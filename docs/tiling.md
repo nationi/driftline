@@ -1,9 +1,9 @@
 # Scrolling-column tiling
 
-driftwm 1.1.0 includes an optional scrolling-column layout alongside its
+driftline 1.1.0 includes an optional scrolling-column layout alongside its
 infinite canvas. The canvas remains the default. In tiling mode, each connected
 output has its own horizontal strip of columns; windows in a column are stacked
-vertically. This is a practical workflow integrated with driftwm, not an attempt
+vertically. This is a practical workflow integrated with driftline, not an attempt
 to reproduce every feature of another compositor.
 
 ## Switch modes

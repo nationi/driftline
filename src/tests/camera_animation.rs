@@ -17,7 +17,7 @@ use smithay::input::keyboard::ModifiersState;
 use smithay::reexports::wayland_protocols::xdg::shell::server::xdg_toplevel;
 use smithay::utils::{Logical, Point, SERIAL_COUNTER, Size};
 
-use driftwm::config::{Action, BTN_LEFT, BTN_MIDDLE, Config, Direction};
+use driftline::config::{Action, BTN_LEFT, BTN_MIDDLE, Config, Direction};
 
 use crate::grabs::PanGrab;
 use crate::state::{StageWindow, ZoomAnimationAnchor, output_state};

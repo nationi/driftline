@@ -12,16 +12,16 @@ use smithay::{
     utils::{Logical, Point, SERIAL_COUNTER},
 };
 
-use driftwm::canvas::{self, CanvasPos, canvas_to_screen};
-use driftwm::config::{
+use driftline::canvas::{self, CanvasPos, canvas_to_screen};
+use driftline::config::{
     BindingContext, ContinuousAction, GestureConfigEntry, GestureTrigger, ThresholdAction,
 };
 
-use crate::state::DriftWm;
+use crate::state::Driftline;
 
 use super::GestureState;
 
-impl DriftWm {
+impl Driftline {
     pub fn on_gesture_pinch_begin<I: InputBackend>(&mut self, event: I::GesturePinchBeginEvent) {
         let fingers = event.fingers();
         let time = Event::time_msec(&event);

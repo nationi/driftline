@@ -1,7 +1,7 @@
 //! The state every client-side resize starts from, shared by the four entry
 //! points that can start one: the pointer, the client's own
 //! `xdg_toplevel.resize`, touch, and the trackpad gesture — plus the
-//! non-interactive resizes behind `driftwm msg resize` and the `grow-window` /
+//! non-interactive resizes behind `driftline msg resize` and the `grow-window` /
 //! `shrink-window` steps, which own the whole operation because no grab follows
 //! to finish it.
 
@@ -16,10 +16,10 @@ use smithay::wayland::compositor::with_states;
 use smithay::wayland::seat::WaylandFocus;
 use smithay::wayland::shell::xdg::XdgToplevelSurfaceData;
 
-use super::{DriftWm, StageWindow};
+use super::{Driftline, StageWindow};
 use crate::grabs::{ResizeState, SizeConstraints};
-use driftwm::canvas::Chrome;
-use driftwm::config::Direction;
+use driftline::canvas::Chrome;
+use driftline::config::Direction;
 
 /// A size a non-interactive resize asked a client for, and the committed sizes
 /// that still read as an answer to it.
@@ -93,7 +93,7 @@ pub(super) struct StepStart {
 /// Only ever an "is a configure in flight" test. smithay prunes the entry at the
 /// `ack_configure` request rather than at the commit that applies it, so a false
 /// answer here does *not* mean the client's geometry is current — see
-/// [`DriftWm::requested_element_size`].
+/// [`Driftline::requested_element_size`].
 pub(crate) fn owes_a_configured_size(window: &Window) -> bool {
     let Some(surface) = window.wl_surface() else {
         return false;
@@ -122,7 +122,7 @@ pub(crate) fn resize_constraints(element: &StageWindow, chrome: Chrome) -> SizeC
     }
 }
 
-impl DriftWm {
+impl Driftline {
     /// The size an *absolute* resize measures its delta and its anchor against:
     /// the request still outstanding on this element, else the size its
     /// placement assumes.

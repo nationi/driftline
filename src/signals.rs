@@ -19,7 +19,7 @@ use std::mem::MaybeUninit;
 
 use smithay::reexports::calloop;
 
-use crate::state::DriftWm;
+use crate::state::Driftline;
 
 const BLOCKED: &[libc::c_int] = &[libc::SIGINT, libc::SIGTERM, libc::SIGHUP];
 
@@ -37,7 +37,7 @@ pub fn unblock_all() -> io::Result<()> {
     set_sigmask(&empty_sigset()?)
 }
 
-pub fn listen(handle: &calloop::LoopHandle<'static, DriftWm>) {
+pub fn listen(handle: &calloop::LoopHandle<'static, Driftline>) {
     use calloop::signals::{Signal, Signals};
 
     let signals = Signals::new(&[Signal::SIGINT, Signal::SIGTERM, Signal::SIGHUP])

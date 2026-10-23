@@ -8,9 +8,9 @@
 use smithay::output::Output;
 use smithay::reexports::wayland_server::protocol::wl_surface::WlSurface;
 
-use super::{DriftWm, output_logical_size, output_state};
+use super::{Driftline, output_logical_size, output_state};
 
-impl DriftWm {
+impl Driftline {
     pub fn mark_all_dirty(&mut self) {
         self.redraws_needed.clone_from(&self.active_outputs);
     }
@@ -42,7 +42,7 @@ impl DriftWm {
             // output it marks nothing, rather than falling through to the
             // `mark_all_dirty` path and redrawing every output for it.
             let margin = self.config.decorations.title_bar_height
-                + driftwm::config::DecorationConfig::SHADOW_RADIUS.ceil() as i32;
+                + driftline::config::DecorationConfig::SHADOW_RADIUS.ceil() as i32;
             let mut chrome_bbox = win_bbox;
             chrome_bbox.loc.x -= margin;
             chrome_bbox.loc.y -= margin;
@@ -54,7 +54,7 @@ impl DriftWm {
                     (os.camera.to_i32_round(), os.zoom)
                 };
                 let viewport = output_logical_size(output);
-                let visible = driftwm::canvas::visible_canvas_rect(cam, viewport, zoom);
+                let visible = driftline::canvas::visible_canvas_rect(cam, viewport, zoom);
                 if visible.overlaps(chrome_bbox) {
                     self.redraws_needed.insert(output.clone());
                 }
@@ -82,7 +82,7 @@ impl DriftWm {
                     (os.camera.to_i32_round(), os.zoom)
                 };
                 let viewport = output_logical_size(output);
-                let visible = driftwm::canvas::visible_canvas_rect(cam, viewport, zoom);
+                let visible = driftline::canvas::visible_canvas_rect(cam, viewport, zoom);
                 if visible.overlaps(widget_bbox) {
                     self.redraws_needed.insert(output.clone());
                 }

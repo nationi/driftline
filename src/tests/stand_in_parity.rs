@@ -13,7 +13,7 @@ use smithay::input::pointer::{ButtonEvent, Focus, GrabStartData, MotionEvent};
 use smithay::output::Output;
 use smithay::utils::{Logical, Point, SERIAL_COUNTER, Size};
 
-use driftwm::config::{Action, BTN_LEFT, Direction};
+use driftline::config::{Action, BTN_LEFT, Direction};
 
 use crate::grabs::MoveGrab;
 use crate::state::{ClusterMember, StageWindow, output_state};

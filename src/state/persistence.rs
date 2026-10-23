@@ -9,7 +9,7 @@
 //! ([w, h]), booleans `is_focused`/`is_widget`, and the client `pid` when there
 //! is one. Position/size match the window-rules format in config.toml: both
 //! describe the **visual frame** (content plus SSD title bar and border — see
-//! [`driftwm::canvas::Chrome`]), with position its **center** in the **Y-up**
+//! [`driftline::canvas::Chrome`]), with position its **center** in the **Y-up**
 //! convention.
 //!
 //! `windows=` is canvas-space only. Screen-space windows are reported under
@@ -30,18 +30,18 @@ use smithay::wayland::seat::WaylandFocus;
 use std::collections::HashMap;
 use std::time::Instant;
 
-use driftwm::window_ext::WindowExt;
+use driftline::window_ext::WindowExt;
 
 use crate::ipc::protocol::{
     CanvasLayerInfo, OutputFullscreen, OutputPinned, WindowInfo, WindowMode,
 };
 
-use super::{CameraSeed, DriftWm, StageWindow, output_logical_size, output_state};
+use super::{CameraSeed, Driftline, StageWindow, output_logical_size, output_state};
 
 /// Whether an output's viewport moved far enough to count as motion rather than
 /// float jitter. The thresholds live here, inside the one predicate both change
 /// detectors call — this one for the runtime state file, and the durable session
-/// store's [`DriftWm::session_store_watch_cameras`]. A tighter threshold in
+/// store's [`Driftline::session_store_watch_cameras`]. A tighter threshold in
 /// either would have its file rewritten on an idle desktop at whatever cadence
 /// that caller runs, so neither gets to re-type them.
 ///
@@ -129,7 +129,7 @@ fn window_titles_changed(a: &[WindowInfo], b: &[WindowInfo]) -> bool {
     a.iter().zip(b).any(|(x, y)| x.title != y.title)
 }
 
-impl DriftWm {
+impl Driftline {
     fn window_mode(&self, window: &StageWindow) -> WindowMode {
         let fit = self.stage.is_fit(window);
         let fill = self.stage.is_fill(window);
@@ -174,7 +174,7 @@ impl DriftWm {
             if let Some(s) = window.suspended() {
                 let loc = self.stage.position_of(window).unwrap_or_default();
                 let chrome = self.element_chrome(window);
-                let (rx, ry) = driftwm::canvas::content_to_rule(loc, s.size.get(), chrome);
+                let (rx, ry) = driftline::canvas::content_to_rule(loc, s.size.get(), chrome);
                 let size = chrome.frame_size(s.size.get());
                 windows.push(WindowInfo {
                     id: self
@@ -222,7 +222,7 @@ impl DriftWm {
             // window.geometry().size can flicker for some Chromium-class clients
             // (see fit.rs), causing the occasional spurious write.
             let chrome = self.element_chrome(window);
-            let (rx, ry) = driftwm::canvas::content_to_rule(loc, window.geometry().size, chrome);
+            let (rx, ry) = driftline::canvas::content_to_rule(loc, window.geometry().size, chrome);
             let size = chrome.frame_size(window.geometry().size);
             windows.push(WindowInfo {
                 id: self
@@ -278,7 +278,7 @@ impl DriftWm {
                 let pos = cl.position?;
                 let chrome = self.canvas_layer_chrome(idx);
                 let (rx, ry) =
-                    driftwm::canvas::content_to_rule(pos, cl.surface.bbox().size, chrome);
+                    driftline::canvas::content_to_rule(pos, cl.surface.bbox().size, chrome);
                 let size = chrome.frame_size(cl.surface.bbox().size);
                 Some(CanvasLayerInfo {
                     app_id: cl.namespace.clone(),
@@ -361,13 +361,13 @@ impl DriftWm {
     /// monitor that's gone (and pins get reassigned off dead outputs anyway).
     fn pinned_rule_coords(
         &self,
-        pin: &driftwm::stage::PinnedSite,
+        pin: &driftline::stage::PinnedSite,
         size: Size<i32, Logical>,
-        chrome: driftwm::canvas::Chrome,
+        chrome: driftline::canvas::Chrome,
     ) -> Option<(i32, i32)> {
         let output = self.output_by_name(&pin.output)?;
         let out_size = output_logical_size(&output);
-        Some(driftwm::canvas::screen_top_left_to_rule(
+        Some(driftline::canvas::screen_top_left_to_rule(
             chrome.frame_loc(pin.screen_pos),
             chrome.frame_size(size),
             out_size,
@@ -539,7 +539,7 @@ impl DriftWm {
 
         let z = self.zoom();
         let vp = self.get_viewport_size();
-        let (cx, cy) = driftwm::canvas::viewport_center(self.camera(), z, vp);
+        let (cx, cy) = driftline::canvas::viewport_center(self.camera(), z, vp);
 
         let Some(dir) = state_file_dir() else { return };
         if std::fs::create_dir_all(&dir).is_err() {
@@ -559,7 +559,7 @@ impl DriftWm {
             let home_return = output_state(&output).home_return.clone();
             if let Some(ref ret) = home_return {
                 let sz = ret.zoom;
-                let (sx, sy) = driftwm::canvas::viewport_center(ret.camera, sz, vp);
+                let (sx, sy) = driftline::canvas::viewport_center(ret.camera, sz, vp);
                 content += &format!("saved_x={sx:.0}\nsaved_y={sy:.0}\nsaved_zoom={sz:.3}\n");
             }
         }
@@ -634,7 +634,7 @@ fn per_output_camera_lines(
     zoom: f64,
     logical: Size<i32, Logical>,
 ) -> String {
-    let (cx, cy) = driftwm::canvas::viewport_center(camera, zoom, logical);
+    let (cx, cy) = driftline::canvas::viewport_center(camera, zoom, logical);
     format!(
         "outputs.{name}.camera_x={cx:.1}\noutputs.{name}.camera_y={cy:.1}\noutputs.{name}.zoom={zoom:.3}\n"
     )
@@ -643,6 +643,8 @@ fn per_output_camera_lines(
 fn state_file_dir() -> Option<std::path::PathBuf> {
     std::env::var("XDG_RUNTIME_DIR")
         .ok()
+        // The runtime state path is a compatibility surface used by existing
+        // status bars and Quickshell integrations.
         .map(|d| std::path::PathBuf::from(d).join("driftwm"))
 }
 

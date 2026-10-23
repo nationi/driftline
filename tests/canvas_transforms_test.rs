@@ -1,6 +1,6 @@
 use std::time::Duration;
 
-use driftwm::canvas::{
+use driftline::canvas::{
     CanvasPos, MomentumState, ScreenPos, canvas_to_screen, rule_to_internal, screen_to_canvas,
 };
 use smithay::utils::{Point, Size};

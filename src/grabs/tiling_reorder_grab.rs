@@ -6,20 +6,24 @@ use smithay::{
     utils::{Logical, Point},
 };
 
-use crate::state::DriftWm;
-use driftwm::stage::ElementId;
+use crate::state::Driftline;
+use driftline::stage::ElementId;
 
 /// Holds an Alt+drag on a tiled window and swaps it with the tile under the
 /// pointer when released.
 pub struct TilingReorderGrab {
-    pub start_data: GrabStartData<DriftWm>,
+    pub start_data: GrabStartData<Driftline>,
     source: ElementId,
     output_name: String,
     last_position: Point<f64, Logical>,
 }
 
 impl TilingReorderGrab {
-    pub fn new(start_data: GrabStartData<DriftWm>, source: ElementId, output_name: String) -> Self {
+    pub fn new(
+        start_data: GrabStartData<Driftline>,
+        source: ElementId,
+        output_name: String,
+    ) -> Self {
         let last_position = start_data.location;
         Self {
             start_data,
@@ -30,12 +34,15 @@ impl TilingReorderGrab {
     }
 }
 
-impl PointerGrab<DriftWm> for TilingReorderGrab {
+impl PointerGrab<Driftline> for TilingReorderGrab {
     fn motion(
         &mut self,
-        data: &mut DriftWm,
-        handle: &mut PointerInnerHandle<'_, DriftWm>,
-        _focus: Option<(<DriftWm as SeatHandler>::PointerFocus, Point<f64, Logical>)>,
+        data: &mut Driftline,
+        handle: &mut PointerInnerHandle<'_, Driftline>,
+        _focus: Option<(
+            <Driftline as SeatHandler>::PointerFocus,
+            Point<f64, Logical>,
+        )>,
         event: &MotionEvent,
     ) {
         self.last_position = event.location;
@@ -50,8 +57,8 @@ impl PointerGrab<DriftWm> for TilingReorderGrab {
 
     fn button(
         &mut self,
-        data: &mut DriftWm,
-        handle: &mut PointerInnerHandle<'_, DriftWm>,
+        data: &mut Driftline,
+        handle: &mut PointerInnerHandle<'_, Driftline>,
         event: &ButtonEvent,
     ) {
         handle.button(data, event);
@@ -66,7 +73,7 @@ impl PointerGrab<DriftWm> for TilingReorderGrab {
         }
     }
 
-    fn unset(&mut self, data: &mut DriftWm) {
+    fn unset(&mut self, data: &mut Driftline) {
         data.tiling_drag_visual = None;
         data.mark_all_dirty();
     }

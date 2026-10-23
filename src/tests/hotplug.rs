@@ -6,7 +6,7 @@
 
 use smithay::utils::Point;
 
-use driftwm::config::Action;
+use driftline::config::Action;
 
 use super::{Fixture, adopt_last_configure, config, last_configured, map_window, window_by_app_id};
 

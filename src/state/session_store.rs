@@ -1,5 +1,5 @@
 //! Compositor-side glue for the durable session store (session restore): build
-//! an envelope from live state, write it through the [`driftwm::session`] IO,
+//! an envelope from live state, write it through the [`driftline::session`] IO,
 //! and materialize it back into suspended windows at startup.
 //!
 //! Cadence: every durable change — a create, dismiss, adopt, settled
@@ -8,7 +8,7 @@
 //! a logout SIGTERMs the compositor and its clients together, so client
 //! teardown dispatches in the same event-loop batch that stops the loop and any
 //! rebuild from there serializes a stage that is already draining (see
-//! [`DriftWm::session_store_mark_dirty`]). The costs are a tail of up to
+//! [`Driftline::session_store_mark_dirty`]). The costs are a tail of up to
 //! [`WRITE_DEBOUNCE`] ([`CAMERA_WRITE_DEBOUNCE`] when only the viewport moved),
 //! and no fsync — a power cut can lose the last write, while a crash or SIGKILL
 //! cannot, since the page cache outlives the process.
@@ -29,14 +29,15 @@ use smithay::reexports::calloop::timer::{TimeoutAction, Timer};
 use smithay::utils::{Logical, Point, Rectangle, SERIAL_COUNTER, Size};
 use smithay::wayland::seat::WaylandFocus;
 
-use driftwm::canvas::{Chrome, ScreenPos, content_to_rule, rule_to_internal, screen_to_canvas};
-use driftwm::desktop_entry::AppIdentity;
-use driftwm::session::{self, Origin, SessionEntry, SessionEnvelope, SessionOutput};
-use driftwm::window_ext::WindowExt;
+use driftline::canvas::{Chrome, ScreenPos, content_to_rule, rule_to_internal, screen_to_canvas};
+use driftline::desktop_entry::AppIdentity;
+use driftline::session::{self, Origin, SessionEntry, SessionEnvelope, SessionOutput};
+use driftline::window_ext::WindowExt;
 
 use super::persistence::viewport_moved;
 use super::{
-    AUTO_PLACE_CLUSTER_THRESHOLD, DriftWm, StageWindow, SuspendedId, SuspendedWindow, output_state,
+    AUTO_PLACE_CLUSTER_THRESHOLD, Driftline, StageWindow, SuspendedId, SuspendedWindow,
+    output_state,
 };
 
 /// How long a move/resize coalesces before the durable write lands.
@@ -59,7 +60,7 @@ pub enum CameraSeed {
     Camera(Point<f64, Logical>),
     /// The runtime state file's published viewport centre, Y-up. Resolving it
     /// needs the output's logical size and zoom, so it stays unresolved until
-    /// [`DriftWm::output_connected`].
+    /// [`Driftline::output_connected`].
     Center { x: f64, y: f64 },
 }
 
@@ -69,7 +70,9 @@ impl CameraSeed {
     pub fn resolve(self, zoom: f64, logical: Size<i32, Logical>) -> Point<f64, Logical> {
         match self {
             CameraSeed::Camera(camera) => camera,
-            CameraSeed::Center { x, y } => driftwm::canvas::camera_for_center(x, y, zoom, logical),
+            CameraSeed::Center { x, y } => {
+                driftline::canvas::camera_for_center(x, y, zoom, logical)
+            }
         }
     }
 }
@@ -96,7 +99,7 @@ pub struct SessionStore {
     /// to the next one instead of erasing it.
     pub(crate) restore_focus: Option<SuspendedId>,
     /// Per-output camera/zoom as of the last viewport motion that armed the
-    /// debounce — the baseline [`DriftWm::session_store_watch_cameras`] diffs
+    /// debounce — the baseline [`Driftline::session_store_watch_cameras`] diffs
     /// against. Keyed by output name, and dropped there on the first iteration
     /// that finds the output gone. Bounded by the connected outputs, so unlike
     /// its sibling `state_file_cameras` it is deliberately absent from
@@ -114,7 +117,7 @@ pub struct SessionStore {
     deadline: Option<Instant>,
 }
 
-impl DriftWm {
+impl Driftline {
     /// Read the durable session at startup: stash per-output cameras for
     /// fresh-boot seeding, materialize the eligible entries as suspended
     /// windows (bottom→top), and hold the rest to carry forward.
@@ -276,7 +279,7 @@ impl DriftWm {
     }
 
     /// Cancel a pending debounce and flush now. Test-only on purpose: a
-    /// synchronous rebuild is exactly what [`DriftWm::session_store_mark_dirty`]
+    /// synchronous rebuild is exactly what [`Driftline::session_store_mark_dirty`]
     /// exists to avoid, so gating this keeps production unable to name a
     /// synchronous writer at all. The fixture needs one because the debounce is
     /// a real calloop timer with no injectable clock.
@@ -352,7 +355,7 @@ impl DriftWm {
         let timer = Timer::from_duration(delay);
         self.session_store.timer = self
             .loop_handle
-            .insert_source(timer, |_, _, data: &mut DriftWm| {
+            .insert_source(timer, |_, _, data: &mut Driftline| {
                 data.session_store.timer = None;
                 data.session_store.deadline = None;
                 if data.session_store.dirty {
@@ -388,7 +391,7 @@ impl DriftWm {
     /// the user panned and zoomed but touched no window never persists its
     /// viewport.
     ///
-    /// The runtime state file's [`DriftWm::write_state_file_if_dirty`] carries a
+    /// The runtime state file's [`Driftline::write_state_file_if_dirty`] carries a
     /// second camera-delta detector over the same [`viewport_moved`]. They stay
     /// separate because their seed semantics differ: that one arms on an output
     /// it has never cached, since it wants an initial state-file write for it,
@@ -753,7 +756,7 @@ pub(crate) fn valid_camera_seed(camera: Point<f64, Logical>, zoom: f64) -> bool 
         && camera.x.abs() <= CAMERA_LIMIT
         && camera.y.abs() <= CAMERA_LIMIT
         && zoom.is_finite()
-        && (driftwm::canvas::MIN_ZOOM_FLOOR..=driftwm::canvas::MAX_ZOOM).contains(&zoom)
+        && (driftline::canvas::MIN_ZOOM_FLOOR..=driftline::canvas::MAX_ZOOM).contains(&zoom)
 }
 
 #[cfg(test)]

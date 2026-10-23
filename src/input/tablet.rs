@@ -11,8 +11,8 @@ use smithay::{
 };
 
 use crate::input::touch::{as_libinput_device, is_internal_output, physical_size_matches};
-use crate::state::{DriftWm, output_state};
-use driftwm::canvas::{ScreenPos, screen_to_canvas};
+use crate::state::{Driftline, output_state};
+use driftline::canvas::{ScreenPos, screen_to_canvas};
 
 /// Wrapper to route tablet tip events through the standard pointer button logic.
 pub struct TabletTipButtonEvent<I: InputBackend> {
@@ -60,7 +60,7 @@ fn changed_axes<I: InputBackend>(event: &impl TabletToolEvent<I>) -> tool::AxisF
     }
 }
 
-impl DriftWm {
+impl Driftline {
     pub fn on_device_added<I: InputBackend>(&mut self, device: &I::Device) {
         if device.has_capability(DeviceCapability::TabletTool) {
             let tablet_seat = self.seat.tablet_seat();

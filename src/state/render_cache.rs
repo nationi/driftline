@@ -58,7 +58,7 @@ pub struct RenderCache {
     /// it the capped animation only advances alongside other redraws.
     pub background_tick_armed: bool,
     pub(crate) animated_content:
-        HashMap<(String, driftwm::stage::ElementId), crate::render::AnimatedContentCache>,
+        HashMap<(String, driftline::stage::ElementId), crate::render::AnimatedContentCache>,
     pub shadow_cache: HashMap<DecorationKey, ShadowCacheEntry>,
     pub border_cache: HashMap<DecorationKey, BorderCacheEntry>,
     /// One element per output for the configured background (shader / tile /

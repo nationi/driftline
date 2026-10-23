@@ -7,10 +7,10 @@ use crate::decorations::DecorationHit;
 use crate::grabs::{MoveGrab, ResizeGrab, TouchGestureGrab, edge_from_origin};
 use crate::input::{DecoTarget, PinnedChrome};
 use crate::state::{
-    ClusterMember, DriftWm, FocusTarget, NavZoom, StageWindow, SuspendedWindow, output_state,
+    ClusterMember, Driftline, FocusTarget, NavZoom, StageWindow, SuspendedWindow, output_state,
 };
-use driftwm::canvas::{CanvasPos, ScreenPos, canvas_to_screen, screen_to_canvas};
-use driftwm::window_ext::WindowExt;
+use driftline::canvas::{CanvasPos, ScreenPos, canvas_to_screen, screen_to_canvas};
+use driftline::window_ext::WindowExt;
 use smithay::{
     backend::input::{Event, InputBackend, TouchEvent, TouchSlot},
     desktop::Window,
@@ -37,7 +37,7 @@ use smithay::{
 const HOLDBACK_MS: u64 = 40;
 
 /// A touch event withheld from the app while a higher finger-count tier may
-/// still claim the sequence (see [`DriftWm::hold_touch_event`]).
+/// still claim the sequence (see [`Driftline::hold_touch_event`]).
 pub enum HeldTouchEvent {
     Down {
         slot: TouchSlot,
@@ -127,7 +127,7 @@ pub struct TouchState {
     /// position to the app behind the lock screen.
     pub lock_slots: HashSet<TouchSlot>,
     /// A touch event reached a surface since the last `frame` went out — see
-    /// [`DriftWm::frame_touch_if_owed`].
+    /// [`Driftline::frame_touch_if_owed`].
     pub frame_owed: bool,
 }
 
@@ -147,7 +147,7 @@ impl TouchState {
     }
 }
 
-impl DriftWm {
+impl Driftline {
     /// Output a touch from `device` maps to. Resolved per-device so multiple
     /// touchscreens each drive their own monitor. Resolution order: explicit
     /// config first, then libinput's output tag, then a single-output shortcut,
@@ -215,7 +215,7 @@ impl DriftWm {
         let timer = Timer::from_duration(delay);
         let token = self
             .loop_handle
-            .insert_source(timer, move |_, _, data: &mut DriftWm| {
+            .insert_source(timer, move |_, _, data: &mut Driftline| {
                 data.touch_state.pending_center_timer = None;
                 if window.alive() && data.is_canvas_window(&window) {
                     data.navigate_to_window(&window, NavZoom::RestoreFillElseReset);
@@ -292,7 +292,7 @@ impl DriftWm {
             let timer = Timer::from_duration(Duration::from_millis(HOLDBACK_MS));
             buffer.timer = self
                 .loop_handle
-                .insert_source(timer, |_, _, data: &mut DriftWm| {
+                .insert_source(timer, |_, _, data: &mut Driftline| {
                     data.flush_touch_holdback();
                     TimeoutAction::Drop
                 })
@@ -391,7 +391,7 @@ impl DriftWm {
     pub(crate) fn build_touch_gesture_resize_grab(
         &mut self,
         origin: Point<f64, Logical>,
-        touch_start: TouchGrabStartData<DriftWm>,
+        touch_start: TouchGrabStartData<Driftline>,
         output: Output,
         slots: usize,
         snapped: bool,
@@ -418,7 +418,7 @@ impl DriftWm {
         &mut self,
         element: &StageWindow,
         edges: xdg_toplevel::ResizeEdge,
-        touch_start: TouchGrabStartData<DriftWm>,
+        touch_start: TouchGrabStartData<Driftline>,
         output: Output,
         slots: usize,
         snapped: bool,
@@ -694,7 +694,7 @@ impl DriftWm {
     pub(crate) fn build_touch_pinned_move_grab(
         &self,
         window: &Window,
-        touch_start: TouchGrabStartData<DriftWm>,
+        touch_start: TouchGrabStartData<Driftline>,
         slots: usize,
     ) -> Option<MoveGrab> {
         let site = self.stage.pin_of(window).cloned()?;
@@ -742,7 +742,7 @@ impl DriftWm {
     pub(crate) fn build_touch_move_grab(
         &mut self,
         at: Point<f64, Logical>,
-        touch_start: TouchGrabStartData<DriftWm>,
+        touch_start: TouchGrabStartData<Driftline>,
         output: Output,
         slots: usize,
         cluster: bool,
@@ -758,7 +758,7 @@ impl DriftWm {
     fn build_touch_move_grab_for(
         &mut self,
         element: &StageWindow,
-        touch_start: TouchGrabStartData<DriftWm>,
+        touch_start: TouchGrabStartData<Driftline>,
         output: Output,
         slots: usize,
         cluster: bool,

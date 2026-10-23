@@ -9,7 +9,7 @@
 use std::process::Command;
 use std::time::{Duration, Instant};
 
-use driftwm::window_ext::WindowExt;
+use driftline::window_ext::WindowExt;
 
 use super::Fixture;
 use super::real::{TempDir, ipc_request};

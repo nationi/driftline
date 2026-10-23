@@ -6,9 +6,9 @@
 
 use std::time::{Duration, Instant};
 
-use driftwm::config::{Action, Config};
-use driftwm::desktop_entry::DesktopEntryCache;
-use driftwm::layout::snap::SnapRect;
+use driftline::config::{Action, Config};
+use driftline::desktop_entry::DesktopEntryCache;
+use driftline::layout::snap::SnapRect;
 use smithay::reexports::wayland_server::Resource;
 use smithay::utils::{Point, SERIAL_COUNTER, Size};
 
@@ -600,7 +600,7 @@ fn suspend_on_close_compositor_closes_do_not_convert() {
     }
     // Taskbar (foreign-toplevel) close.
     {
-        use driftwm::protocols::foreign_toplevel::ForeignToplevelHandler;
+        use driftline::protocols::foreign_toplevel::ForeignToplevelHandler;
         let tmp = TempDir::new();
         let mut f = Fixture::with_config(config_with("[session]\nsuspend_on_close = true"));
         f.add_output(1, (1920, 1080));
@@ -992,10 +992,10 @@ fn suspend_clears_fill_state_through_adoption() {
     let output = f.state().active_output().expect("output").name();
     f.state().stage.set_fill(
         &target,
-        driftwm::stage::FillSaved {
+        driftline::stage::FillSaved {
             pre_fill_position: Point::from((10, 10)),
             pre_fill_size: Size::from((100, 100)),
-            viewport_bounds: driftwm::layout::snap::SnapRect {
+            viewport_bounds: driftline::layout::snap::SnapRect {
                 x_low: 0.0,
                 x_high: 1920.0,
                 y_low: 0.0,

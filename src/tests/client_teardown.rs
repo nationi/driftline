@@ -3,7 +3,7 @@
 //! runs the stage invariant check, so a stale entry aborts the test even
 //! without an explicit assert.
 
-use driftwm::config::Config;
+use driftline::config::Config;
 
 use super::Fixture;
 

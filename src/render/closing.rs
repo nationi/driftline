@@ -22,7 +22,7 @@ use smithay::utils::user_data::UserDataMap;
 use smithay::utils::{Logical, Physical, Point, Rectangle, Scale, Size, Transform};
 use smithay::wayland::compositor::{TraversalAction, with_surface_tree_downward};
 
-use driftwm::stage::ElementId;
+use driftline::stage::ElementId;
 
 use crate::state::SuspendedWindow;
 
@@ -1669,12 +1669,12 @@ mod standin_fade_tests {
             suspended: Rc::new(crate::state::SuspendedWindow::new(
                 crate::state::SuspendedId(1),
                 Size::from((400, 300)),
-                driftwm::desktop_entry::AppIdentity {
+                driftline::desktop_entry::AppIdentity {
                     app_id: "a".into(),
                     desktop_id: "a".into(),
                     display_name: "a".into(),
                 },
-                driftwm::session::Origin::Explicit,
+                driftline::session::Origin::Explicit,
                 false,
             )),
             loc: Point::from((0, 0)),

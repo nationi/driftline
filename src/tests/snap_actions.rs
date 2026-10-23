@@ -15,7 +15,7 @@ use super::{
     settle, window_by_app_id, window_position,
 };
 use crate::state::StageWindow;
-use driftwm::config::{Action, Direction};
+use driftline::config::{Action, Direction};
 
 /// Park the viewport at `camera` and zoom 1 with nothing in flight, so a
 /// camera target afterwards is one an action armed.

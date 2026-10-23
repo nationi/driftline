@@ -2,7 +2,7 @@
 //! its first buffer, closing a window hands focus down the MRU chain, and a
 //! launcher layer hands focus back to the window when it tears down.
 
-use driftwm::config::Config;
+use driftline::config::Config;
 use wayland_protocols_wlr::layer_shell::v1::client::{zwlr_layer_shell_v1, zwlr_layer_surface_v1};
 
 use super::{Fixture, keyboard_focus, server_surface, window_by_app_id};
