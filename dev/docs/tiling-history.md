@@ -3186,3 +3186,35 @@ TestWindow communication and update_window(None) do not test Wayland serial/buff
 ordering, nonresponse timeouts, atomic transactions or animated/GPU continuity.
 No push/install/TTY claim. Next A0: initial-size offers versus first-buffer/enrolled
 geometry and remaining parser/scalar/consumer plus reference/differential acceptance.
+
+
+## 2026-10-23 — initial size offers versus enrolled geometry
+
+Added five reference sizing contracts. Empty-workspace helpers separate offer
+calculation from enrollment and assert zero windows before/after new_window_size.
+Width resolution checks omitted rule inheriting global half-width, explicit empty
+suppressing it and fixed override; height has no global default. Three static
+scale cases compare offers and settled clients: 1.25 495×557→495×558, 1.5
+409×461→408×460, 2 303×341→303×342. Initial calculation subtracts configured border
+and floors; enrolled tiles round border physically and use nearest Auto height.
+Visual frames retain independently calculated expectations from prior contracts.
+
+Five offer-bound rows distinguish unspecified width preserving zero from exact
+width constraints; specified widths clamp, min height applies and a nonfixed
+height maximum does not. Client-chosen width 173 stays 173 after enrollment,
+with physical visual frame width 174.4. Explicit fixed height 100 offers/enrolls
+at 100; proportional half-height offers 275 and enrolls at 276. The test enrolls
+a simulated first chosen geometry into real layout; it does not send Wayland
+configure/ack/buffer messages. handlers/xdg_shell and configure_new_window callers
+were source-checked; actual first-buffer/serial acceptance remains a separate gate.
+
+All twenty-nine contracts passed first run, zero failed/ignored, 203 other library
+tests filtered; no expectation changes or runtime fix needed. Exact report/log
+retained after fixture-hash verification. Validation passed: locked pinned library
+run, fixture rustfmt, cargo fmt check, archive/lock/fixture/log hashes, clean
+reference, source index/local links and diff checks. Empty-layout helper refactor
+preserves existing scenarios. Runner/parser/driftwm runtime unchanged; full CI
+not rerun, B4 implementation evidence retained. No push/install/GPU/TTY claim.
+Next A0: rule-derived border/min-max sizing overrides, remaining parser/scalar/
+consumer and reference/differential acceptance. Floating/fullscreen/maximized,
+rule matching and real protocol configure/map are outside this bounded batch.

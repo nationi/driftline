@@ -4,7 +4,7 @@ Status (2026-10-23): integration checkpoint `8c17428`; named controlled B1–B4
 stabilization gates are delivered. A0 source triage now covers all 576 named
 schema fields and 186 action variants, including explicit exclusions and retained
 Unverified integration. Independent parser/merge/error and geometry/operation
-fixtures beyond the first 16 passing parser and twenty-four geometry contracts, argument/consumer
+fixtures beyond the first 16 passing parser and twenty-nine geometry contracts, argument/consumer
 permutations and scope decisions remain open.
 Single-container topology and bounded commit groups are established; reference
 semantics and rendering acceptance remain partial.
@@ -528,9 +528,14 @@ Four further contracts pass six synthetic response orders, width/height refusal
 and recovery, and in-place constraint changes; geometry evidence is twenty-four
 tests. These exercise layout policy, not Wayland serial/buffer or timeout handling.
 
-Next A0: initial-size offers versus first-buffer/enrolled geometry, remaining
-parser/scalar/error/consumer contracts and reference/differential traces, retaining
-independent results and reference provenance. Watcher/UI/client/hardware, keymap/protocol, capture/privacy,
+Five more contracts pass initial size/default resolution, bound policy, client
+width choice and explicit heights, comparing calculated offers with later layout
+enrollment at static fractional scales. Geometry evidence is twenty-nine tests;
+real configure/ack/first-buffer protocol acceptance is not established.
+
+Next A0: rule-derived border/min-max sizing overrides, remaining parser/scalar/
+error/consumer contracts and reference/differential traces, retaining independent
+results and reference provenance. Watcher/UI/client/hardware, keymap/protocol, capture/privacy,
 numerical animation and complete interaction acceptance remain at their respective
 milestone gates. The initial parser batch does not close A0 or feature-expansion
 acceptance. Detailed findings live in the [audit catalog](niri-config-schema-coverage.md)

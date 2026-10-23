@@ -63,24 +63,23 @@ mode. These are documented fallbacks, not reference-compatible behavior.
 
 ## Verified evidence and its limits
 
-Latest A0 geometry evidence: [twenty-four executable layout contracts](niri-geometry-reference-fixtures.md)
-passed against pinned niri's library harness. Prior twenty retain widths, origins,
-scales, fractional operations, constraints, Auto weights and height overflow.
-Four new contracts cover all six response permutations, width refusal/recovery,
-height refusal/recovery and in-place constraint changes. Intermediate raw sizes
-change only on each synthetic response; all response orders reach the same
-400-width /224-100-224-height result. Forced middle width 250 keeps pending width
-400 and accepts it after force removal. Forced height 400 displaces the third
-tile to y=601.6; accepting pending height 182 restores the original stack.
-Changing the enrolled middle client's bounds to min=(500,300), then max=(200,100),
-then clear reflows and restores geometry with unchanged IDs/order/focus, without
-reenrollment. Both 23-test initial and 24-test expanded runs passed unchanged.
+Latest A0 geometry evidence: [twenty-nine executable layout contracts](niri-geometry-reference-fixtures.md)
+passed against pinned niri's library harness. Previous twenty-four retain sizes,
+scales, operations, constraints, weights, synthetic responses and dynamic bounds.
+Five new contracts check default/omitted/empty width resolution, initial offer
+versus enrolled geometry at 1.25/1.5/2, offer constraints, client-chosen width and
+explicit fixed/proportional height. Offer calculation on an empty workspace
+leaves zero enrolled windows. At 1.5 the half-width offer is 409×461, then layout
+requests 408×460: initial sizing uses configured logical border and floors;
+enrolled tiles use physically rounded border and nearest Auto height. Unspecified
+width stays zero unless exact width constraints apply; choosing 173 retains that
+client width. All twenty-nine passed first run without changed expectations.
 Reference/archive/lock/fixture/log hashes and clean checkout retained. No driftwm
-runtime change/full CI rerun; implementation evidence remains B4. Synthetic
-responses/update_window(None) do not test Wayland serials/buffers, stalled-client
-timeouts, atomic transactions or GPU/animation continuity.
-Next: initial-size offers before first buffer versus enrolled geometry, plus
-remaining parser/scalar/consumer and reference/differential acceptance before
+runtime change/full CI rerun; implementation evidence remains B4. These execute
+sizing functions used by initial configure, not actual Wayland configure/ack/
+buffer-first-map, floating/fullscreen/maximized or rule matching acceptance.
+Next: rule-derived border/min-max overrides in initial/enrolled sizing and
+remaining parser/scalar/consumer plus reference/differential acceptance before
 feature expansion.
 
 A0 parser reference evidence: the

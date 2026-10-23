@@ -12,25 +12,7 @@ fn configured_scaled_layout(
     border: f64,
     struts: [f64; 4],
 ) -> Layout<TestWindow> {
-    let mut options = Options::default();
-    options.layout.gaps = gaps;
-    options.layout.border.off = false;
-    options.layout.border.width = border;
-    options.layout.default_column_width = Some(width);
-    options.layout.struts = Struts {
-        left: FloatOrInt(struts[0]),
-        right: FloatOrInt(struts[1]),
-        top: FloatOrInt(struts[2]),
-        bottom: FloatOrInt(struts[3]),
-    };
-    let mut layout = check_ops_with_options(
-        options,
-        [Op::AddScaledOutput {
-            id: 1,
-            scale,
-            layout_config: None,
-        }],
-    );
+    let mut layout = empty_scaled_layout(Some(width), scale, gaps, border, struts);
     layout.add_window(
         TestWindow::new(TestWindowParams::new(1)),
         AddWindowTarget::Auto,
@@ -42,6 +24,34 @@ fn configured_scaled_layout(
     );
     check_ops_on_layout(&mut layout, [Op::Communicate(1)]);
     layout
+}
+
+fn empty_scaled_layout(
+    default_width: Option<PresetSize>,
+    scale: f64,
+    gaps: f64,
+    border: f64,
+    struts: [f64; 4],
+) -> Layout<TestWindow> {
+    let mut options = Options::default();
+    options.layout.gaps = gaps;
+    options.layout.border.off = false;
+    options.layout.border.width = border;
+    options.layout.default_column_width = default_width;
+    options.layout.struts = Struts {
+        left: FloatOrInt(struts[0]),
+        right: FloatOrInt(struts[1]),
+        top: FloatOrInt(struts[2]),
+        bottom: FloatOrInt(struts[3]),
+    };
+    check_ops_with_options(
+        options,
+        [Op::AddScaledOutput {
+            id: 1,
+            scale,
+            layout_config: None,
+        }],
+    )
 }
 
 fn assert_single_size(layout: &Layout<TestWindow>, content: (i32, i32), frame: (f64, f64)) {
@@ -766,4 +776,165 @@ fn mapped_constraint_changes_reflow_and_restore_without_reenrollment() {
             (3, 1, 3, 183, 184.8, 384.),
         ],
     );
+}
+
+fn initial_offer(
+    layout: &Layout<TestWindow>,
+    width: Option<PresetSize>,
+    height: Option<PresetSize>,
+    min: (i32, i32),
+    max: (i32, i32),
+) -> Size<i32, Logical> {
+    assert_eq!(layout.windows().count(), 0);
+    let offer = layout.active_workspace().unwrap().new_window_size(
+        width,
+        height,
+        false,
+        &ResolvedWindowRules::default(),
+        (min.into(), max.into()),
+    );
+    assert_eq!(layout.windows().count(), 0);
+    offer
+}
+
+fn enroll_offered_client(
+    layout: &mut Layout<TestWindow>,
+    chosen: Size<i32, Logical>,
+    width: Option<PresetSize>,
+    height: Option<PresetSize>,
+) {
+    layout.add_window(
+        TestWindow::new(TestWindowParams {
+            bbox: Rectangle::from_size(chosen),
+            ..TestWindowParams::new(1)
+        }),
+        AddWindowTarget::Auto,
+        width,
+        height,
+        false,
+        false,
+        ActivateWindow::default(),
+    );
+    check_ops_on_layout(
+        layout,
+        [
+            Op::Communicate(1),
+            Op::AdvanceAnimations { msec_delta: 10000 },
+        ],
+    );
+}
+
+#[test]
+fn initial_width_resolution_distinguishes_rule_omission_and_explicit_empty() {
+    let layout = empty_scaled_layout(
+        Some(PresetSize::Proportion(0.5)),
+        1.25,
+        3.,
+        1.,
+        [10.1, 9.9, 5.1, 4.9],
+    );
+    let ws = layout.active_workspace().unwrap();
+    assert_eq!(
+        ws.resolve_default_width(None, false),
+        Some(PresetSize::Proportion(0.5))
+    );
+    assert_eq!(ws.resolve_default_width(Some(None), false), None);
+    assert_eq!(
+        ws.resolve_default_width(Some(Some(PresetSize::Fixed(300))), false),
+        Some(PresetSize::Fixed(300))
+    );
+    assert_eq!(ws.resolve_default_height(None, false), None);
+    assert_eq!(
+        ws.resolve_default_height(Some(Some(PresetSize::Fixed(100))), false),
+        Some(PresetSize::Fixed(100))
+    );
+    assert_eq!(layout.windows().count(), 0);
+}
+
+#[test]
+fn initial_offer_and_enrolled_auto_geometry_have_distinct_rounding() {
+    for (scale, offered, actual, frame) in [
+        (1.25, (495, 557), (495, 558), (496.8, 560.)),
+        (1.5, (409, 461), (408, 460), (1232. / 3., 1388. / 3.)),
+        (2., (303, 341), (303, 342), (305., 344.)),
+    ] {
+        let mut layout = empty_scaled_layout(
+            Some(PresetSize::Proportion(0.5)),
+            scale,
+            3.,
+            1.,
+            [10.1, 9.9, 5.1, 4.9],
+        );
+        let width = layout
+            .active_workspace()
+            .unwrap()
+            .resolve_default_width(None, false);
+        let offer = initial_offer(&layout, width, None, (0, 0), (0, 0));
+        assert_eq!(offer, offered.into());
+        enroll_offered_client(&mut layout, offer, width, None);
+        assert_client_sizes(&layout, &[(1, actual)]);
+        let (_, _, ws) = layout
+            .workspaces()
+            .find(|(_, _, ws)| ws.windows().next().is_some())
+            .unwrap();
+        let (_, geometry) = ws.tiles_with_ipc_layouts().next().unwrap();
+        assert_near(geometry.tile_size.0, frame.0);
+        assert_near(geometry.tile_size.1, frame.1);
+    }
+}
+
+#[test]
+fn initial_offer_constraints_preserve_unspecified_width_and_ignore_nonfixed_height_max() {
+    let layout = empty_scaled_layout(None, 1.25, 3., 1., [10.1, 9.9, 5.1, 4.9]);
+    for (width, min, max, expected) in [
+        (None, (300, 100), (0, 0), (0, 557)),
+        (None, (240, 0), (240, 0), (240, 557)),
+        (Some(PresetSize::Fixed(300)), (0, 0), (200, 100), (200, 557)),
+        (Some(PresetSize::Fixed(300)), (500, 600), (0, 0), (500, 600)),
+        (Some(PresetSize::Fixed(300)), (0, 100), (0, 100), (300, 100)),
+    ] {
+        assert_eq!(
+            initial_offer(&layout, width, None, min, max),
+            expected.into()
+        );
+    }
+}
+
+#[test]
+fn unspecified_initial_width_keeps_client_choice_on_enrollment() {
+    let mut layout = empty_scaled_layout(None, 1.25, 3., 1., [10.1, 9.9, 5.1, 4.9]);
+    assert_eq!(
+        initial_offer(&layout, None, None, (0, 0), (0, 0)),
+        (0, 557).into()
+    );
+    enroll_offered_client(&mut layout, (173, 557).into(), None, None);
+    assert_client_sizes(&layout, &[(1, (173, 558))]);
+    let (_, _, ws) = layout
+        .workspaces()
+        .find(|(_, _, ws)| ws.windows().next().is_some())
+        .unwrap();
+    let (_, geometry) = ws.tiles_with_ipc_layouts().next().unwrap();
+    assert_near(geometry.tile_size.0, 174.4);
+    assert_near(geometry.tile_size.1, 560.);
+}
+
+#[test]
+fn explicit_initial_height_presets_keep_offer_and_enrollment_separate() {
+    for (height, offered_height, actual_height, frame_height) in [
+        (PresetSize::Fixed(100), 100, 100, 101.6),
+        (PresetSize::Proportion(0.5), 275, 276, 277.6),
+    ] {
+        let mut layout = empty_scaled_layout(
+            Some(PresetSize::Fixed(300)),
+            1.25,
+            3.,
+            1.,
+            [10.1, 9.9, 5.1, 4.9],
+        );
+        let width = Some(PresetSize::Fixed(300));
+        let offer = initial_offer(&layout, width, Some(height), (0, 0), (0, 0));
+        assert_eq!(offer, (300, offered_height).into());
+        enroll_offered_client(&mut layout, offer, width, Some(height));
+        assert_fractional_stack(&layout, &[(1, 1, 1, actual_height, frame_height, 8.8)]);
+    }
 }

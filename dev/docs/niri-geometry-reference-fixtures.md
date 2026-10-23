@@ -221,10 +221,61 @@ Wayland commit ordering or animated/GPU continuity. The dynamic case changes onl
 the test client's reported constraints and invokes the reference update path;
 it does not patch niri production code or replace the window to simulate a change.
 
+## Initial size calculation and later enrollment
+
+Five further contracts call `Workspace::resolve_default_width`,
+`resolve_default_height` and `new_window_size` on an empty output workspace, then
+(where relevant) enroll a simulated client whose first chosen geometry follows
+the offer. Both before and after calculating the offer there are zero enrolled
+windows. The initial calculation itself does not create a tile. This exercises
+the sizing functions used by `handlers/xdg_shell.rs`/`configure_new_window`, not
+the Wayland protocol exchange or actual first-buffer map handling.
+
+For scrolling, omitted width rule inherits the configured default; an explicit
+empty rule returns no width; explicit fixed 300 overrides the default. Omitted
+height has no global default; a fixed-height rule selects that height.
+
+| Scale | Half-width initial offer (client size) | Client size after enrollment | Settled visual frame |
+| --- | --- | --- | --- |
+| 1.25 | 495×557 | 495×558 | 496.8×560 |
+| 1.5 | 409×461 | 408×460 | (1232/3)×(1388/3) |
+| 2 | 303×341 | 303×342 | 305×344 |
+
+The initial calculation subtracts the configured logical border width (1 per
+side) and floors dimensions. The enrolled tile uses its physically rounded border
+(0.8 at 1.25, 4/3 at 1.5, 1 at 2) and nearest-integer Auto height. At 1.25 the
+initial height budget is 565.5 minus two 3.2 gaps and two 1 borders =557.1, floored
+to 557; enrolled Auto budget is 557.5, rounded to 558. At 1.5 initial width budget
+is 409.383333… while tile content budget is 408.716666…. These are deliberately
+separate expected contracts; the initial offer need not equal later layout size.
+
+At 1.25, initial offer bound cases are independently asserted:
+
+| Width input | Client min | Client max | Initial offer |
+| --- | --- | --- | --- |
+| Unspecified | 300×100 | Unspecified | 0×557 |
+| Unspecified | 240×0 | 240×0 | 240×557 |
+| Fixed 300 | Unspecified | 200×100 | 200×557 |
+| Fixed 300 | 500×600 | Unspecified | 500×600 |
+| Fixed 300 | 0×100 | 0×100 | 300×100 |
+
+Zero width means the client may choose: a nonfixed minimum does not replace it,
+while exact min=max does. Specified widths clamp to bounds. Initial scrolling
+height honors its minimum and exact height constraints, while a nonfixed maximum
+height is ignored. With no width offer, choosing client width 173 produces
+173×558 content and a 174.4×560 frame after enrollment, retaining the client choice.
+
+Explicit height fixed 100 offers and enrolls at 100 content pixels. A proportional
+half-height at 1.25 instead offers 275 and enrolls at 276, with a 277.6 frame.
+The initial half-height budget is 277.95 minus two configured border pixels =
+275.95, floored; enrollment subtracts the rounded 1.6 border extent and rounds.
+Rule matching, parser syntax, floating/fullscreen/maximized initial policy,
+configure serials and real first-buffer acceptance remain outside this batch.
+
 ## Recorded result
 
 The [recorded report](../fixtures/niri-layout/geometry-contract-evidence.json) and
-[log](../fixtures/niri-layout/geometry-contract-evidence.log) show twenty-four passed,
+[log](../fixtures/niri-layout/geometry-contract-evidence.log) show twenty-nine passed,
 zero failed and zero ignored tests; the other 203 library tests were filtered out.
 The reference checkout remained clean. Hashes identify the archived reference,
 lockfile, maintained fixture and run log. A zero-test run is rejected even when

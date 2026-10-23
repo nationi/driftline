@@ -148,9 +148,10 @@ The [pinned parser corpus](niri-parser-reference-fixtures.md) now executes 16
 configuration contracts against actual niri-config with recorded provenance.
 It does not execute or upgrade the 60 source-derived geometry snapshots above.
 The [executable geometry corpus](niri-geometry-reference-fixtures.md) separately
-passed twenty-four actual niri layout contracts with nonzero gaps, borders and struts,
+passed twenty-nine actual niri layout contracts with nonzero gaps, borders and struts,
 including static 1.25×/1.5×/2× frame rounding and fractional consume/expel/height
 reset sequences plus height/width constraints, unequal Auto weights and
-overconstrained height geometry, synthetic responses/refusal and dynamic bounds.
+overconstrained height geometry, synthetic responses/refusal, dynamic bounds and
+initial sizing versus enrolled geometry.
 It does not retroactively upgrade the 60 source-derived snapshots into executed
 reference evidence or establish a driftwm differential match.
