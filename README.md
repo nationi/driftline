@@ -1,9 +1,9 @@
 <h1 align="center"><img alt="driftwm" src="assets/logo.jpg" width="500"></h1>
-<p align="center">A trackpad-first infinite canvas Wayland compositor with experimental scrolling tiling.</p>
+<p align="center">A trackpad-first infinite-canvas Wayland compositor, forked to develop practical multi-monitor scrolling tiling.</p>
 <p align="center">
     <a href="LICENSE"><img alt="License: GPL-3.0-or-later" src="https://img.shields.io/badge/license-GPL--3.0--or--later-blue"></a>
 </p>
-<p align="center"><sub>Fork: <a href="https://github.com/nationi/driftwm/tree/nationi/development">nationi/driftwm · nationi/development</a> · Upstream: <a href="https://github.com/malbiruk/driftwm">malbiruk/driftwm</a></sub></p>
+<p align="center"><sub>This fork: <a href="https://github.com/nationi/driftwm">nationi/driftwm</a> · Based on <a href="https://github.com/malbiruk/driftwm">upstream driftwm</a></sub></p>
 
 https://github.com/user-attachments/assets/155511a6-0a6e-4681-9061-21be1e93e02a
 
@@ -11,12 +11,14 @@ Traditional window managers arrange windows to fit your screen. Stacking composi
 
 `driftwm` is an infinite-canvas compositor: windows live at their native size on an infinite 2D canvas, and your display is a camera viewing it. When two windows come close, they snap together, forming implicit groups that can be moved, resized, and viewed together. Canvas mode has no workspaces; window overlaps happen only on purpose.
 
-This fork also provides [experimental single-output scrolling tiling](docs/tiling.md),
-a focused column mode inspired by niri. The aim is a dependable alternative to
-canvas mode, not full feature parity with another compositor. See
-[current progress](dev/docs/tiling-status.md) and the
-[practical roadmap](dev/docs/scrolling-tiling-roadmap.md). Canvas remains the
-default; tiling requires explicit bindings.
+This fork keeps the infinite canvas as the default and develops an optional,
+experimental [scrolling-column tiling mode](docs/tiling.md). Each connected output
+gets an independent strip of columns, with windows stacked inside each column.
+The design borrows useful ideas from niri, while keeping driftwm’s canvas-first
+identity and avoiding full niri parity. Multi-output entry, transfer and hotplug
+have automated coverage; a full physical multi-monitor workflow is still awaiting
+manual acceptance. See the [current status](dev/docs/tiling-status.md) and
+[focused roadmap](dev/docs/scrolling-tiling-roadmap.md).
 
 Navigation is built around trackpad gestures, but every gesture has a mouse or keyboard equivalent and touchscreens have their own bindings, so it works the same on a laptop and at a desk.
 
@@ -25,49 +27,29 @@ Built on [smithay](https://github.com/Smithay/smithay). Inspired by [vxwm](https
 > [!WARNING]
 > This is experimental software, primarily built with AI.
 
-## Experimental scrolling tiling
+## Scrolling tiling in this fork
 
-Switch between the infinite canvas and a horizontal strip of columns. Each
-column can contain several vertically stacked windows. Current features include:
+The main fork-specific change is an optional scrolling-column layout for every
+connected output. Windows form a horizontal strip; each column can stack several
+windows vertically. Outputs keep independent selection, configure progress and
+camera state. New windows join the output that owns their canvas-space center.
+Sending a tiled window to another output keeps it tiled. When an output is removed,
+its columns move to a surviving output; removing the last output restores canvas
+mode.
 
-- Directional focus, column and window reordering, and moving windows into or
-  out of columns.
-- Column widths cycling through one third, one half and full usable width.
-- Coordinated resize requests with a 300 ms wait limit for delayed clients.
-- Retained window images, blur and animated resize transitions, including
-  transparent content and popup menus that keep their native size.
-- Restoration of saved canvas positions, sizes and view when leaving tiling.
+The implementation includes directional focus, column and tile reordering,
+moving a tile between columns, consuming and splitting stacked windows, width
+presets, client size constraints, canvas geometry/view restoration, and animated
+resize transitions. These behaviors are experimental. Automated coverage handles
+separate layouts, transfer and topology changes, but the ordinary multi-monitor
+workflow still needs a recorded hands-on acceptance on real outputs. Fullscreen,
+pinned-window and general floating-window policies, tiling topology restore,
+workspaces, tabs and layout-native drag/resize are outside the current scope.
 
-Add these entries to your existing `[keybindings]` table in
-`~/.config/driftwm/config.toml`:
-
-```toml
-[keybindings]
-"mod+ctrl+t" = "toggle-tiling"
-"mod+alt+left" = "focus-column left"
-"mod+alt+right" = "focus-column right"
-"mod+alt+up" = "focus-column up"
-"mod+alt+down" = "focus-column down"
-"mod+alt+r" = "cycle-column-width"
-"mod+alt+shift+left" = "move-into-column left"
-"mod+alt+e" = "expel-from-column"
-```
-
-These examples override any existing bindings on the same keys, including
-`Mod+Alt` + arrow for sending windows to another output. Full action descriptions
-and more bindings are in the [tiling guide](docs/tiling.md).
-
-Tiling currently requires **one output**. Connecting another output or performing
-unsupported canvas operations, including free move/resize, fit, pin or fullscreen,
-returns to canvas. Independent tiling layouts on multiple monitors, tabs,
-layout-native drag/resize, tiling workspaces and configurable width presets remain
-unfinished. Session restore saves the canvas fallback, not tiling topology.
-
-Direct TTY testing on NVIDIA has worked well; nested winit sessions still show
-blur artifacts and lag in the current test setup. Use direct udev for visual
-checks. The [local TTY cheat sheet](dev/docs/tty-preview.md) documents this
-checkout's isolated launcher and F-key bindings; that launcher is outside Git
-and is not included in a fresh clone.
+Canvas stays the default. `Mod+Ctrl+T` toggles between canvas and tiling by
+default; navigation shortcuts do not change modes. Mode-aware keybinding
+dispatch keeps canvas and tiling actions exclusive. For current controls,
+configuration examples and detailed behavior, see the [tiling guide](docs/tiling.md).
 
 ## Canvas features
 
@@ -368,9 +350,8 @@ separate TTY and choose your actual DRM connector name:
 ./target/release/driftwm --backend udev --drm-connector HDMI-A-1
 ```
 
-`--drm-connector` limits this run to one connector, allowing the current
-single-output tiling mode on a machine with several monitors. Omit it for normal
-multi-output canvas use. For the locally prepared isolated preview, follow the
+`--drm-connector` limits the run to one connector. Omit it to exercise
+multi-output canvas and tiling behavior. For the locally prepared isolated preview, follow the
 [TTY guide](dev/docs/tty-preview.md).
 
 To install the built binary and session integration:
@@ -525,22 +506,6 @@ and fixtures are optional historical design references, not a parity target.
 See [CONTRIBUTING.md](CONTRIBUTING.md).
 
 TL;DR: open an issue before writing non-trivial code, keep PRs small and focused.
-
-## Upstream merch
-
-The following merchandise and contact details belong to the upstream maintainer.
-
-<p align="left"><img src="assets/tshirt.png" width="400"></p>
-
-XL
-
-100 GEL · 37 USD · 2800 RUB
-
-Ships worldwide from Tbilisi.
-
-Order via [Telegram](https://t.me/fiyefiyefiye), [Instagram](https://instagram.com/flwrs_in_ur_eyes), or email [2601074@gmail.com](mailto:2601074@gmail.com).
-
-Revenue supports driftwm's upstream maintainer.
 
 ## License
 
