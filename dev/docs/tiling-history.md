@@ -3125,3 +3125,32 @@ driftwm runtime changes or full implementation CI rerun; B4 remains implementati
 evidence. No push/install/GPU/TTY claim. Next A0: width bounds and overconstrained
 columns, dynamic constraint/client-response cases and remaining parser/consumer/
 differential acceptance. These examples do not close A0 or prove all constraints.
+
+
+## 2026-10-23 — column width bounds and overconstrained height
+
+Added five reference contracts at scale 1.25, retaining the existing geometry
+fixture. Shared column widths honor middle-window min 500, max 200 and exact
+min=max=240 across every tile. A distinct third-client max 200 conflicting with
+middle min 500 resolves to 500 for the whole column. Cooperative simulated
+clients accept requests, so this asserts the largest-minimum allocation rule,
+not real toolkit behavior when asked to exceed a maximum. Visual frame widths
+are 501.6/201.6/241.6/501.6; heights, y positions, order and focus are retained.
+
+A middle min height 600 exceeds usable 565.5. Requests are 1/600/1, with visual
+frame heights 2.4/601.6/2.4 and y=8.8/14.4/619.2. The last tile lies below the
+output; no visibility/rendering claim follows from its layout position. The
+existing comparison helper now accepts explicit expected content/frame widths;
+old scenarios keep their prior 300/301.6 expectations. Bounded constructors were
+factored to accept independent middle/last constraints; no reference source changed.
+
+All twenty contracts passed first run, zero failed/ignored, 203 unrelated tests
+filtered. No expectation adjustment or runtime fix was needed. The exact report
+and log from that run were copied into maintained evidence after fixture-hash
+verification; no redundant rerun. Validation passed: locked pinned library tests,
+fixture rustfmt, cargo fmt check, source/archive/lock/fixture/log hashes, clean
+reference, deterministic index/local links and diff checks. Runner/parser and
+driftwm runtime remain unchanged; full implementation CI not rerun, B4 evidence
+retained. No push/install/GPU/TTY claim. Next A0: client response order/refusal and
+dynamic constraints, remaining parser/consumer contracts and reference/differential
+acceptance. This bounded allocation corpus does not close A0 or constraint parity.

@@ -63,25 +63,21 @@ mode. These are documented fallbacks, not reference-compatible behavior.
 
 ## Verified evidence and its limits
 
-Latest A0 geometry evidence: [fifteen executable layout contracts](niri-geometry-reference-fixtures.md)
-passed against pinned niri's library harness. Previous eleven retain widths,
-origins, static scales 1/1.25/1.5/2 and fractional consume/expel/height reset.
-Four new contracts cover middle-window min 300, nonfixed max 100 in Auto versus
-explicit request 500, exact min=max=100 and a two-target resize/reset sequence.
-They check order/focus, indices, raw client sizes, visual frames/borders and
-settled coordinates. Auto reserves minimum height but ignores a nonfixed maximum;
-explicit sizing clamps to that maximum and equal min/max fixes Auto height.
-Changing fixed-height targets converts current visual frame sizes into weights;
-rounding differences survive. Fixing window 1 then 2 to 100 gives client heights
-100/223/225 then 138/100/310; reset 2 restores 100/223/225, not equal thirds.
-Initial weighted expectations missed the 184:184.8 ratio and were corrected after
-source review and execution; final run passed all fifteen. Reference/archive/
-lock/fixture/log hashes and clean checkout are retained. No driftwm runtime
-change/full CI rerun; implementation evidence remains B4. These are allocation
-contracts with cooperative simulated clients, not complete constraint parity.
-Next: width bounds and overconstrained columns, followed by dynamic constraint/
-client-response permutations and remaining parser/consumer/differential acceptance
-before feature expansion.
+Latest A0 geometry evidence: [twenty executable layout contracts](niri-geometry-reference-fixtures.md)
+passed against pinned niri's library harness. Previous fifteen retain widths,
+origins, scales, fractional operations, height constraints and unequal Auto weights.
+Five new contracts verify shared column min/max/exact widths, conflicting width
+bounds across two clients and an overconstrained height. Middle min 500 expands
+all widths to 500; max 200 shrinks all to 200; exact 240 fixes all to 240. In the
+cross-client min-500/max-200 conflict, largest minimum wins. Height min 600 yields
+client heights 1/600/1 and settled y=8.8/14.4/619.2, extending below the output.
+Order/focus, indices, raw/visual dimensions, borders and settled x/y are checked.
+All twenty passed first run without expectation changes. Reference/archive/lock/
+fixture/log hashes and clean checkout retained. No driftwm runtime change/full CI
+rerun; implementation evidence remains B4. Cooperative simulated clients assert
+allocation, not refusal handling or offscreen rendering/visibility.
+Next: client-response order/refusal and dynamic-constraint cases, plus remaining
+parser/consumer and reference/differential acceptance before feature expansion.
 
 A0 parser reference evidence: the
 [pinned parser corpus](niri-parser-reference-fixtures.md) ran 16 Rust contract

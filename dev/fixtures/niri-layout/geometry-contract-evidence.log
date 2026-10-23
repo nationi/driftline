@@ -1,24 +1,29 @@
-   Compiling niri-config v26.4.0 (/tmp/driftwm-niri-reference-9lw3jhqm/reference/niri-config)
-   Compiling niri v26.4.0 (/tmp/driftwm-niri-reference-9lw3jhqm/reference)
-    Finished `test` profile [unoptimized + debuginfo] target(s) in 40.03s
+   Compiling niri-config v26.4.0 (/tmp/driftwm-niri-reference-y_volcul/reference/niri-config)
+   Compiling niri v26.4.0 (/tmp/driftwm-niri-reference-y_volcul/reference)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 42.91s
      Running unittests src/lib.rs (/tmp/driftwm-niri-config-target-12de51d/debug/deps/niri-eb4e10e11e1fac69)
 
-running 15 tests
-test layout::tests::driftwm_geometry_contract::double_scale_rounds_auto_height_after_fractional_struts ... ok
+running 20 tests
+test layout::tests::driftwm_geometry_contract::column_maximum_width_shrinks_every_tile ... ok
+test layout::tests::driftwm_geometry_contract::column_minimum_width_expands_every_tile ... ok
 test layout::tests::driftwm_geometry_contract::consume_splits_frame_height_and_preserves_gap ... ok
+test layout::tests::driftwm_geometry_contract::double_scale_rounds_auto_height_after_fractional_struts ... ok
+test layout::tests::driftwm_geometry_contract::conflicting_column_width_constraints_prioritize_largest_minimum ... ok
 test layout::tests::driftwm_geometry_contract::equal_minimum_and_maximum_fix_height_even_in_auto_layout ... ok
+test layout::tests::driftwm_geometry_contract::exact_width_constraint_sizes_every_tile_in_column ... ok
 test layout::tests::driftwm_geometry_contract::explicit_fixed_resize_uses_content_width ... ok
 test layout::tests::driftwm_geometry_contract::expel_moves_last_window_and_reconsume_restores_fractional_stack ... ok
-test layout::tests::driftwm_geometry_contract::fixed_width_is_content_width_with_border_added_outside ... ok
-test layout::tests::driftwm_geometry_contract::half_scale_rounds_half_pixel_gap_and_border_up ... ok
-test layout::tests::driftwm_geometry_contract::half_width_divides_work_area_after_inter_column_gap ... ok
 test layout::tests::driftwm_geometry_contract::fixed_height_and_reset_redistribute_fractional_auto_remainder ... ok
+test layout::tests::driftwm_geometry_contract::fixed_width_is_content_width_with_border_added_outside ... ok
+test layout::tests::driftwm_geometry_contract::half_width_divides_work_area_after_inter_column_gap ... ok
+test layout::tests::driftwm_geometry_contract::half_scale_rounds_half_pixel_gap_and_border_up ... ok
 test layout::tests::driftwm_geometry_contract::minimum_height_reserves_space_before_distributing_auto_remainder ... ok
-test layout::tests::driftwm_geometry_contract::quarter_scale_rounds_gap_border_and_strut_origin_in_physical_pixels ... ok
 test layout::tests::driftwm_geometry_contract::nonfixed_maximum_is_ignored_for_auto_but_clamps_explicit_height ... ok
+test layout::tests::driftwm_geometry_contract::quarter_scale_rounds_gap_border_and_strut_origin_in_physical_pixels ... ok
+test layout::tests::driftwm_geometry_contract::overconstrained_height_keeps_minimum_and_one_pixel_auto_clients ... ok
 test layout::tests::driftwm_geometry_contract::sequential_consume_distributes_fractional_height_remainder ... ok
 test layout::tests::driftwm_geometry_contract::resizing_another_window_preserves_unequal_auto_weights ... ok
 test layout::tests::driftwm_geometry_contract::struts_shift_frame_origin_beyond_outer_gaps ... ok
 
-test result: ok. 15 passed; 0 failed; 0 ignored; 0 measured; 203 filtered out; finished in 0.01s
+test result: ok. 20 passed; 0 failed; 0 ignored; 0 measured; 203 filtered out; finished in 0.01s
 

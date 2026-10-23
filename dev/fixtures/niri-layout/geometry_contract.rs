@@ -212,20 +212,26 @@ fn fractional_three_columns() -> Layout<TestWindow> {
 }
 
 fn fractional_three_columns_with_bounds(min_height: i32, max_height: i32) -> Layout<TestWindow> {
+    fractional_three_columns_with_constraints(
+        TestWindowParams {
+            min_max_size: ((0, min_height).into(), (0, max_height).into()),
+            ..TestWindowParams::new(2)
+        },
+        TestWindowParams::new(3),
+    )
+}
+
+fn fractional_three_columns_with_constraints(
+    middle: TestWindowParams,
+    last: TestWindowParams,
+) -> Layout<TestWindow> {
     let mut layout =
         configured_scaled_layout(PresetSize::Fixed(300), 1.25, 3., 1., [10.1, 9.9, 5.1, 4.9]);
     check_ops_on_layout(
         &mut layout,
         [
-            Op::AddWindow {
-                params: TestWindowParams {
-                    min_max_size: ((0, min_height).into(), (0, max_height).into()),
-                    ..TestWindowParams::new(2)
-                },
-            },
-            Op::AddWindow {
-                params: TestWindowParams::new(3),
-            },
+            Op::AddWindow { params: middle },
+            Op::AddWindow { params: last },
             Op::FocusColumnLeft,
             Op::FocusColumnLeft,
         ],
@@ -237,6 +243,15 @@ fn fractional_three_columns_with_bounds(min_height: i32, max_height: i32) -> Lay
 fn assert_fractional_stack(
     layout: &Layout<TestWindow>,
     expected: &[(usize, usize, usize, i32, f64, f64)],
+) {
+    assert_fractional_stack_with_width(layout, expected, 300, 301.6);
+}
+
+fn assert_fractional_stack_with_width(
+    layout: &Layout<TestWindow>,
+    expected: &[(usize, usize, usize, i32, f64, f64)],
+    content_width: i32,
+    frame_width: f64,
 ) {
     let (_, _, ws) = layout
         .workspaces()
@@ -250,8 +265,8 @@ fn assert_fractional_stack(
     {
         assert_eq!(*tile.window().id(), id);
         assert_eq!(geometry.pos_in_scrolling_layout, Some((column, row)));
-        assert_eq!(geometry.window_size, (300, height));
-        assert_near(geometry.tile_size.0, 301.6);
+        assert_eq!(geometry.window_size, (content_width, height));
+        assert_near(geometry.tile_size.0, frame_width);
         assert_near(geometry.tile_size.1, frame_height);
         assert_near(geometry.window_offset_in_tile.0, 0.8);
         assert_near(geometry.window_offset_in_tile.1, 0.8);
@@ -259,7 +274,7 @@ fn assert_fractional_stack(
             .tiles_with_render_positions()
             .find(|(tile, _, _)| *tile.window().id() == id)
             .unwrap();
-        assert_near(pos.x, 13.6 + (column - 1) as f64 * 304.8);
+        assert_near(pos.x, 13.6 + (column - 1) as f64 * (frame_width + 3.2));
         assert_near(pos.y, y);
     }
 }
@@ -466,6 +481,82 @@ fn resizing_another_window_preserves_unequal_auto_weights() {
             (1, 1, 1, 100, 101.6, 8.8),
             (2, 1, 2, 223, 224.8, 113.6),
             (3, 1, 3, 225, 226.4, 341.6),
+        ],
+    );
+}
+
+fn consume_width_constrained_stack(
+    min_width: i32,
+    max_width: i32,
+    last_max_width: i32,
+) -> Layout<TestWindow> {
+    let mut layout = fractional_three_columns_with_constraints(
+        TestWindowParams {
+            min_max_size: ((min_width, 0).into(), (max_width, 0).into()),
+            ..TestWindowParams::new(2)
+        },
+        TestWindowParams {
+            min_max_size: ((0, 0).into(), (last_max_width, 0).into()),
+            ..TestWindowParams::new(3)
+        },
+    );
+    check_ops_on_layout(&mut layout, [Op::ConsumeWindowIntoColumn]);
+    settle_three_windows(&mut layout);
+    check_ops_on_layout(&mut layout, [Op::ConsumeWindowIntoColumn]);
+    settle_three_windows(&mut layout);
+    layout
+}
+
+fn assert_width_constrained_stack(
+    layout: &Layout<TestWindow>,
+    content_width: i32,
+    frame_width: f64,
+) {
+    assert_fractional_stack_with_width(
+        layout,
+        &[
+            (1, 1, 1, 183, 184.8, 8.8),
+            (2, 1, 2, 182, 184., 196.8),
+            (3, 1, 3, 183, 184.8, 384.),
+        ],
+        content_width,
+        frame_width,
+    );
+}
+
+#[test]
+fn column_minimum_width_expands_every_tile() {
+    let layout = consume_width_constrained_stack(500, 0, 0);
+    assert_width_constrained_stack(&layout, 500, 501.6);
+}
+
+#[test]
+fn column_maximum_width_shrinks_every_tile() {
+    let layout = consume_width_constrained_stack(0, 200, 0);
+    assert_width_constrained_stack(&layout, 200, 201.6);
+}
+
+#[test]
+fn exact_width_constraint_sizes_every_tile_in_column() {
+    let layout = consume_width_constrained_stack(240, 240, 0);
+    assert_width_constrained_stack(&layout, 240, 241.6);
+}
+
+#[test]
+fn conflicting_column_width_constraints_prioritize_largest_minimum() {
+    let layout = consume_width_constrained_stack(500, 0, 200);
+    assert_width_constrained_stack(&layout, 500, 501.6);
+}
+
+#[test]
+fn overconstrained_height_keeps_minimum_and_one_pixel_auto_clients() {
+    let layout = consume_bounded_middle(600, 0);
+    assert_fractional_stack(
+        &layout,
+        &[
+            (1, 1, 1, 1, 2.4, 8.8),
+            (2, 1, 2, 600, 601.6, 14.4),
+            (3, 1, 3, 1, 2.4, 619.2),
         ],
     );
 }

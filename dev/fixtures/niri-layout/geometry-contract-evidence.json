@@ -3,10 +3,10 @@
   "reference_revision": "12de51d6a60baad8896366920278a24f17921f52",
   "reference_archive_sha256": "f77b722df4acb6165d478bb54b76462a2d6fd046855ff17c3ac27c2bc39537c7",
   "reference_lock_sha256": "a3774f2ee8da8ff96a1a7e9c4f795578fb60918724e1a4feb4618375f1809bc6",
-  "fixture_sha256": "b245d6723bff87ad23e3626799ba9a66a38164be0e6e3c344ced771c40b2165d",
+  "fixture_sha256": "0a24933f8f414acbcdcf647868734f5053f5affc70f504152e289cbf17998e83",
   "rustc": "rustc 1.99.1 (58cf8f9c3 2026-10-13)",
   "cargo": "cargo 1.99.1 (5f94df478 2026-08-27)",
-  "utc_started": "2026-10-23T02:45:52.766462+00:00",
+  "utc_started": "2026-10-23T02:50:26.230126+00:00",
   "target": "niri::layout::tests::driftwm_geometry_contract",
   "driftwm_behavior_compared": false,
   "command": [
@@ -27,12 +27,12 @@
   "test_summaries": [
     {
       "result": "ok",
-      "passed": 15,
+      "passed": 20,
       "failed": 0,
       "ignored": 0
     }
   ],
   "reference_clean_after_run": true,
   "runner_exit_code": 0,
-  "log_sha256": "65f854ae88cd7f113499ffa87595c13da03970622c936738529942609c40a48a"
+  "log_sha256": "f9e3fff5ac3dc0a00dde6e5e8d432f1c2fea3d42cabb63c7364b27a9dadd6982"
 }

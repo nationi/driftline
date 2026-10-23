@@ -151,14 +151,44 @@ and the last rounds to 225. On the second resize the remaining frame weights are
 leaving content 138.130975… rounded to 138; the final window rounds to 310.
 Reset replaces only the target's weight with 1, preserving the other Auto weights;
 it does not globally reset all three windows to equal heights. All states also
-check IDs, focus, indices, widths, borders and horizontal positions. Width bounds,
-overconstrained columns, dynamic constraint changes, tabs and client refusal
-remain outside this corpus.
+check IDs, focus, indices, widths, borders and horizontal positions. Dynamic constraint changes, tabs and client refusal remain outside these
+height/weight contracts.
+
+## Column width bounds and overconstrained height
+
+Five further contracts use the same three-window 1.25-scale fixture, initially
+requesting fixed content width 300. Constraints belong to the middle window,
+except the conflict case where window 3 advertises a separate maximum.
+
+| Width constraints | Content width of all three clients | Visual frame width |
+| --- | --- | --- |
+| Middle min 500, no max | 500 | 501.6 |
+| Middle max 200, no min | 200 | 201.6 |
+| Middle min=max=240 | 240 | 241.6 |
+| Middle min 500 and window 3 max 200 | 500 | 501.6 |
+
+The shared column width uses the largest tile minimum and smallest nonzero tile
+maximum; incompatible bounds resolve in favor of the largest minimum. These
+clients accept the resulting requests, including a request exceeding window 3's
+maximum. This is the reference allocation policy, not simulated toolkit refusal.
+All four cases retain client heights 183/182/183 and visual frame heights
+184.8/184/184.8. Frame x=13.6 and y=8.8/196.8/384, order, indices and focus on
+window 1 remain unchanged. Frame widths add two 0.8 borders to content widths
+that already align to physical pixels.
+
+The fifth case sets the middle minimum height to 600, exceeding usable 565.5.
+It preserves that minimum and requests one logical content pixel for each other
+window: client heights 1/600/1. At 1.25 those one-pixel contents visually round
+to 0.8 logical, so visual frame heights are 2.4/601.6/2.4. Their y positions
+are 8.8/14.4/619.2; the final window lies below the physical output. Geometry is
+not shrunk to fit. This contract measures layout coordinates, not rendering or
+visibility/clipping of the offscreen window. Contradictory bounds within a single
+client, dynamic changes, asynchronous response order and width refusal remain open.
 
 ## Recorded result
 
 The [recorded report](../fixtures/niri-layout/geometry-contract-evidence.json) and
-[log](../fixtures/niri-layout/geometry-contract-evidence.log) show fifteen passed,
+[log](../fixtures/niri-layout/geometry-contract-evidence.log) show twenty passed,
 zero failed and zero ignored tests; the other 203 library tests were filtered out.
 The reference checkout remained clean. Hashes identify the archived reference,
 lockfile, maintained fixture and run log. A zero-test run is rejected even when
