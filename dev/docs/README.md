@@ -19,7 +19,6 @@ changes. Niri remains an implementation reference, not a compatibility target.
 
 - [Testing](testing.md): CI gates, fixture rules and generated references.
 - [Caveats](caveats.md): architecture and known protocol/input constraints.
-- [General TODO](todo.md): work outside the tiling roadmap.
 - [Smithay API notes](smithay-api.md): locally verified API behavior.
 - [Profiling](profiling.md) and [cross-distro builds](cross-distro-builds.md).
 - [Reference config grammar](reference-config-format.md): config documentation workflow.

@@ -1,9 +1,8 @@
 # Tiling development status
 
-Updated 2026-10-23. This is the fork's 1.0.0 baseline on
-`nationi/development`; the integration pull request targets `nationi/driftwm`
-`main`. Canvas remains the default. Niri is a design reference, not a parity
-target.
+Updated 2026-10-23. This records the fork's 1.0.0 baseline, now integrated into
+both `main` and `nationi/development` at `f29bf70`. Canvas remains the default.
+Niri is a design reference, not a parity target.
 
 ## Current behavior
 
@@ -23,24 +22,33 @@ target.
 
 ## Scope and known limits
 
-The fork focuses on dependable scrolling columns alongside the infinite canvas.
+The fork focuses on practical scrolling columns alongside the infinite canvas.
 It does not add workspaces, tabs, a general floating-window policy, or layout
 restore across compositor restarts. Fullscreen uses the existing canvas
 transition path, then resumes tiling. Trackpad column snapping and layout-native
 drag resizing are not implemented.
 
 The automated multi-output fixtures cover independent layouts, mapping,
-cross-output transfer, disconnect/reconnect policy and tiling re-entry. A
-recorded physical TTY acceptance of the full multi-monitor workflow remains a
-useful final release check; automated tests do not replace that observation.
+cross-output transfer, disconnect/reconnect policy and tiling re-entry. The
+full hardware checklist is in [the TTY acceptance guide](tty-preview.md). No
+formal run record is kept in this repository, so hardware-specific behavior
+should be confirmed on the target setup.
 
 ## Latest validation
 
-`dev/scripts/ci-local` passed in full: format, locked check, all-target clippy,
-test compilation, 1668 library/compositor tests including ignored GPU cases,
-all integration targets and the isolated soak test. `git diff --check` also
-passes. A recorded physical TTY acceptance remains useful validation for the
-multi-monitor journey; `.github/workflows/ci.yml` is authoritative for CI.
+At the 1.0.0 integration commit, `dev/scripts/ci-local` passed in full: format,
+locked check, all-target clippy, test compilation, 1668 library/compositor
+tests including ignored GPU cases, all integration targets and the isolated
+soak test. The release build also passed. `.github/workflows/ci.yml` remains
+the source of truth for CI; the local hardware checklist is documented above.
+
+## Documentation baseline
+
+The root README describes fork 1.0.0 and clones from `main`. The user tiling
+guide covers behavior and controls; detailed implementation and validation
+history belongs in this status and the roadmap. Machine-specific preview paths
+and the stale general TODO archive were removed. No backup or editor-temporary
+files were present in the tracked tree during this review.
 
 ## Start here
 

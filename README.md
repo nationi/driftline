@@ -11,7 +11,7 @@ Traditional window managers arrange windows to fit your screen. Stacking composi
 
 `driftwm` is an infinite-canvas compositor: windows live at their native size on an infinite 2D canvas, and your display is a camera viewing it. When two windows come close, they snap together, forming implicit groups that can be moved, resized, and viewed together. Canvas mode has no workspaces; window overlaps happen only on purpose.
 
-This fork keeps the infinite canvas as the default and provides an optional
+This fork (version 1.0.0) keeps the infinite canvas as the default and provides an optional
 [scrolling-column tiling mode](docs/tiling.md). Each connected output
 gets an independent strip of columns, with windows stacked inside each column.
 The design borrows useful ideas from niri, while keeping driftwm’s canvas-first
@@ -297,9 +297,9 @@ See [docs/session.md](docs/session.md).
 
 ## Install
 
-To use this fork's tiling changes, build the `nationi/development` branch below.
-The AUR packages and upstream releases refer to the original project and do not
-necessarily include this fork's changes.
+The fork's 1.0.0 source is available from its `main` branch. Packages in the
+Arch User Repository and releases published by upstream refer to the original
+project and do not include this fork's changes unless explicitly stated.
 
 ### Arch Linux (AUR)
 
@@ -344,7 +344,7 @@ sudo pacman -S libdisplay-info libinput seatd mesa libxkbcommon
 Build this fork:
 
 ```bash
-git clone --branch nationi/development https://github.com/nationi/driftwm.git
+git clone --branch main https://github.com/nationi/driftwm.git
 cd driftwm
 cargo build --release --locked
 ```
@@ -506,8 +506,8 @@ supports the `wlr-layer-shell` protocol), just without compositor-specific featu
 
 For work on this fork, start with the [development documentation index](dev/docs/README.md),
 [current tiling status](dev/docs/tiling-status.md) and
-[practical roadmap](dev/docs/scrolling-tiling-roadmap.md). Pinned niri inventories
-and fixtures are optional historical design references, not a parity target.
+[practical roadmap](dev/docs/scrolling-tiling-roadmap.md). Niri is an optional
+implementation reference, not a compatibility target.
 
 See [CONTRIBUTING.md](CONTRIBUTING.md).
 

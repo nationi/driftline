@@ -1,57 +1,40 @@
-# Experimental scrolling tiling
+# Scrolling-column tiling
 
-Scrolling tiling arranges normal windows in a horizontal strip. Each column can
-contain several windows stacked vertically. Each connected output gets its own
-strip when tiling is entered. Connect, disconnect and cross-output transfer
-have automated coverage; acceptance on a physical multi-monitor TTY session is
-still pending. The canvas remains the default. Canvas navigation
-and geometry keybindings are disabled while tiling is active; tiling keybindings
-are disabled on the canvas. `Mod+Ctrl+T` switches between the two modes.
+driftwm 1.0.0 includes an optional scrolling-column layout alongside its
+infinite canvas. The canvas remains the default. In tiling mode, each connected
+output has its own horizontal strip of columns; windows in a column are stacked
+vertically. This is a practical workflow integrated with driftwm, not an attempt
+to reproduce every feature of another compositor.
 
-Outputs share the same canvas. If their viewports overlap when tiling starts,
-windows visible in both are assigned to the focused output's strip. Pan the
-views apart before entering tiling to keep windows on separate output strips.
-New windows join the active output when it shows the window's canvas center. If
-it does not, the output showing that center receives the window; if no output
-shows it, the active output is used. With overlapping views, the active output
-gets the new window.
+## Switch modes
 
-For this checkout’s isolated test session and F1–F12 keys, use the
-[local TTY cheat sheet](../dev/docs/tty-preview.md). The bindings below are
-configuration examples, not that preview’s keys. Development scope and remaining
-work is tracked in [the current status](../dev/docs/tiling-status.md) and
-[practical roadmap](../dev/docs/scrolling-tiling-roadmap.md). The mode aims for a
-useful scrolling-column workflow; it does not aim to reproduce all of niri.
+With the default Super modifier, press `Mod+Ctrl+T` to switch between canvas and
+tiling. Changing modes does not make navigation shortcuts switch modes. Canvas
+navigation and geometry actions are ignored in tiling, and tiling actions are
+ignored on the canvas. General actions such as closing a window remain
+available in both modes.
 
-Tiling bindings are provided by default:
+## Default tiling keys
 
-| Keys | Tiling action |
+| Keys | Action |
 | --- | --- |
-| `Mod+Ctrl+T` | Toggle tiling and canvas |
+| `Mod+Ctrl+T` | Switch between canvas and tiling |
 | `Mod+Arrow` | Focus a column or a window in its stack |
-| `Mod+Shift+Left/Right` | Reorder the focused column |
-| `Mod+Shift+Up/Down` | Reorder the focused window in its column |
-| `Mod+Ctrl+Left/Right` | Move the focused window into a neighboring column |
-| `Mod+Ctrl+Shift+Left/Right` | Consume from the next column / expel its last window |
-| `Mod+Ctrl+E` | Expel the focused window into a new column |
-| `Mod+R` | Cycle column width |
-| `Mod+Shift+R` | Toggle the focused column between half width and wide (full usable width) |
+| `Mod+Shift+Left/Right` | Move the focused column |
+| `Mod+Shift+Up/Down` | Move the focused window within its column |
+| `Mod+Ctrl+Left/Right` | Move the focused window into an adjacent column |
+| `Mod+Ctrl+Shift+Left/Right` | Consume a window from the next column / expel the last window |
+| `Mod+Ctrl+E` | Move the focused window into a new column |
+| `Mod+R` | Cycle the focused column's width |
+| `Mod+Shift+R` | Toggle half-width and full-width column |
+| `Mod+Alt+Arrow` | Send the focused window to an adjacent output |
 
-In tiling, hold `Alt` and drag a window with the left mouse button onto another
-tile on the same monitor to swap their positions. On the canvas, the same
-gesture continues to move windows freely.
+Hold `Alt` and drag a tiled window with the left mouse button onto another
+window on the same output to swap their positions. On the canvas, this gesture
+moves windows freely instead.
 
-The compositor filters these actions against the active mode, so rebinding a
-tiling action does not make it run on the canvas, and rebinding a canvas action
-does not make it run during tiling. General actions such as closing a window
-remain available in both modes. You can override or unbind entries in
-`[keybindings]` as usual. The actions are also available in mouse and gesture
-bindings. These defaults reuse familiar canvas chords; the active mode decides
-which action each chord runs. The same defaults also work with
-`mod_key = "alt"`. Navigation and rearrangement shortcuts never switch modes;
-only `Mod+Ctrl+T` toggles between the canvas and tiling.
-
-To use the same chord for different actions in each mode, add separate tables:
+To assign the same key chord to different actions in each mode, use the
+mode-specific tables:
 
 ```toml
 [keybindings.canvas]
@@ -61,179 +44,68 @@ To use the same chord for different actions in each mode, add separate tables:
 "mod+left" = "focus-column left"
 ```
 
-Entering the mode sets zoom to 1 and arranges eligible windows. Columns start
-at half the usable output width. `Mod+Shift+R` expands the focused column to
-full usable width, effectively taking the space of two default-width columns;
-press it again to return to half width. Width cycling with `Mod+R` selects full
-width, one third, then one half again. Width belongs to the whole column, so
-windows stacked in it expand together. Client size constraints and compositor decorations are
-included. Panels reserve their usual space. A client that delays or refuses a
-resize keeps enough space for its current width and height.
+These tables can also override or mask defaults. See the full
+[configuration reference](config.md#keybindings) for syntax and available
+actions. The modifier follows `mod_key` in the configuration.
 
-New ordinary windows receive their initial column content size in the first
-configure, including client size limits and compositor decorations. They join
-the strip after their first buffer, after the column active at that time. Windows
-waiting for their first buffer do not reserve space or take focus. Their first
-configure order does not determine their eventual column order. Dialogs and explicit size/placement rules
-keep their existing initial sizing policy. If a client chooses another first
-buffer size, that size is saved for its later return to the canvas. If it accepts
-the initial offer, that accepted size becomes the canvas fallback.
+## Columns and windows
 
-New windows create a column after the active column. `move-into-column left`
-or `right` moves the focused window into the neighboring column, immediately
-after its selected window. An empty source column disappears. `expel-from-column`
-splits the focused window into a new column on the right, preserving column
-width and its original canvas rectangle; it does nothing for a single-window
-column. Moving past either end of the strip does nothing.
+Entering tiling sets the view zoom to 1 and arranges eligible windows. Columns
+start at half the output's usable width. `Mod+R` cycles through full, one-third
+and one-half width; `Mod+Shift+R` toggles half and full width. A column's width
+applies to every window stacked in it. Output panels reserve their usual space.
+Client size limits and compositor decorations are included when sizing windows.
 
-`consume-window-into-column` appends the first window from the next column to
-this column, keeping the current selection. `expel-window-from-column` moves the
-last window into a new column on the right, keeping the source column active.
-If that last window was selected, focus moves to the preceding window in the
-source column. These commands do nothing at the end of the strip or in a
-single-window source column, respectively. They follow niri's basic topology
-and selection rules; sizing policies and animations still differ. The shorter
-`move-into-column` and `expel-from-column` commands retain the focused-window
-behavior described above.
+Arrow keys move focus between columns and between windows in a stack. Navigation
+does not wrap at the ends. Reorder columns horizontally or windows vertically
+with the shortcuts above. `Mod+Ctrl+Left/Right` moves the focused window into a
+neighboring column; `Mod+Ctrl+E` gives it a new column. The consume/expel
+shortcuts move the adjacent column's first window into the focused column, or
+split the focused column's last window into its own column. Actions at a layout
+boundary do nothing.
 
-`move-column left/right` reorders the focused column as a whole.
-`move-tiled-window up/down` reorders the focused window within its column.
-Both preserve selection and do nothing at a boundary. Column identity survives
-focus changes and reordering. Changes to columns on the left preserve the
-selected column's horizontal position relative to the camera, including during
-a camera animation; canvas restore positions remain unchanged.
+Closing the last window in a column removes that column. Windows opened during
+tiling join the active output's layout after their first buffer is committed.
+When output viewports overlap, the active output owns a window visible on more
+than one output. Otherwise, a window joins the output showing its canvas-space
+center, with the active output as the fallback.
 
-Windows share column height equally, subject to their content size limits and
-decorations. Space a maximum-limited window cannot use goes to the others. If
-minimum heights cannot fit, the column grows downward without overlapping its
-windows. Focusing an off-screen window reveals it vertically as needed.
+## Multiple outputs
 
-`focus-column left/right` changes columns, remembering the selected window in
-each. `focus-column up/down` changes windows inside a column. Navigation does
-not wrap. Canvas `center-nearest` bindings are unavailable until tiling is
-turned off. Closing a window redistributes height; closing the last window
-removes the column. Closing the selected window chooses the next window or
-column, falling back to the previous one at the end. A newly opened column
-returns focus to its source column when closed, until another column is focused
-or the column is reordered. Repeated focus within the new column preserves this
-return; removing a column to its left cancels it. Returning also restores the
-previous horizontal view target, adjusted to keep a resized column visible.
-The return animates from the current view. Background closure preserves
-keyboard focus. Trackpad panning is horizontal, using existing momentum.
-Column snapping at the end of a gesture is not implemented yet.
+Each output maintains an independent strip, selection and view. Focus and layout
+operations apply to the output under the pointer. `Mod+Alt+Arrow` transfers the
+focused window to the adjacent output while keeping it tiled. A single-window
+column moves as a unit; a window from a stack becomes a new column. The
+destination receives focus.
 
-Toggle again to restore the saved canvas positions, sizes, camera and zoom.
-Windows opened during tiling return to the canvas placement they received when
-opening. While the compositor stays running, re-entering tiling restores each
-window's output, column order, vertical stack, width and selected tile. A window
-closed while in canvas mode is skipped; new windows are added as new columns.
-Saved sessions retain canvas rectangles and the pre-tiling view, but tiling
-topology is not restored after restarting the compositor.
+An output connected while tiling is active gets an empty strip. If one of
+several outputs disconnects, its columns move to a surviving output. Removing
+the last output ends tiling and restores the canvas. When output viewports
+overlap on entry, windows visible in both are assigned to the active output;
+pan the views apart first if you want those windows on different strips.
 
+## Return to the canvas
+
+Switching back restores saved window positions and sizes, as well as each
+output's camera and zoom. Tiling order, stacks, widths, output ownership and
+selection are remembered while the compositor remains running, so entering
+tiling again restores that arrangement. This tiling topology is not saved across
+compositor restarts; saved sessions retain canvas geometry and camera state.
+
+Fullscreen temporarily suspends tiling and restores the previous layout when
+the fullscreen window exits or closes. Fit, fill, pinning, free movement or
+resizing, and zoom changes return to the canvas before applying the action.
 Dialogs, widgets, pinned windows, fitted/filled windows and suspended stand-ins
-are not enrolled. Fullscreen, fit/fill, pinning and free window movement or
-resizing leave tiling before running. Fullscreen temporarily suspends tiling;
-when the fullscreen window exits or closes, the previous tiling layout resumes.
-A zoom change also leaves tiling and restores the saved view. Outputs connected during tiling receive an empty
-strip. When one of several outputs disconnects, its columns move to a surviving
-output; disconnecting the last output exits tiling and restores the canvas.
+do not join columns.
 
-`send-to-output` moves a focused tiled window to the adjacent output while
-keeping it tiled. A single-window column moves intact; a window from a stacked
-column becomes its own column on the destination. The destination takes focus,
-and leaving tiling later restores the window's saved canvas geometry.
+## Current limits
 
-This version does not retain tiling when the last output disconnects,
-drag-to-reorder, per-window detach to the canvas or configurable width presets.
-The fixed presets are one third, one half and full usable width.
+Scrolling tiling is focused on columns and independent per-output layouts. It
+does not include workspaces, tabs, a general floating-window layer, drag-to-
+reorder, per-window detach to the canvas, trackpad column snapping, or
+layout-native drag resizing. Column width presets are fixed. Tiling topology is
+not restored after a compositor restart.
 
-Related size requests now coordinate new buffer commits: an early reply waits
-for the other affected windows, for at most 300 ms. A window may choose a
-different size without holding up the group. Closing a participant or leaving
-tiling releases waiting buffers. Window positions and view adjustments wait
-until the corresponding buffers apply or the deadline expires. Refused sizes
-still reserve enough space for the visible window. Eligible visible windows
-keep a snapshot of their previous image while waiting,
-when capture is available. Background blur keeps updating beneath the saved
-window shape; its shadow remains below the blur. Popup menus are included without
-clipping them to the window. Opening, closing, moving or repainting a popup
-updates its live image without exposing the parent's pending buffer. Menus
-follow the animated window origin but keep their native size during resize;
-opening scale still applies. Opening fades and ordinary
-position animations can continue on the saved picture. When the group releases,
-windows animate from the saved geometry to their new positions and sizes.
-Old and new content blend before window opacity is applied, including
-translucent pixels. Ordinary tiled resize transitions, including windows with
-blur enabled by a window rule, keep border strokes and compositor title bars
-at their native thickness and height while the window changes size. Tiled
-columns keep their configured corners and shadows when filling the work area.
-If another transaction starts during a resolved canvas
-resize, its current geometry and blended image are held until the new buffers
-apply or the deadline expires, then the transition resumes from that picture.
-Ordinary tiled resize recaptures, including window-rule blur, reuse the mixed
-texture directly, avoiding extra filtering of rounded corners at fractional
-output scales. An opening fade can continue through grouped resize releases
-and recaptures: its progress stays intact, and its scale applies around the
-resized frame while old and new client content blend separately. This also
-applies to window-rule blur; the live backdrop continues beneath the saved
-opening picture. Client-requested partial blur regions follow opening, movement
-and resize. Changed client regions blend with the old image during grouped
-resize, and a superseding group retains the partially blended mask. Disabling
-client blur fades its mask out with the old content. Empty client regions do not
-enable whole-window blur by themselves. If a sticky window rule requests blur,
-unset, empty or fully clipped client regions fall back to whole-window frost.
-Normal canvas resize animations keep compositor borders and title bars at their
-native thickness and height, including when entering tiling mid-animation.
-Controlled checks cover odd window sizes, nonzero client geometry offsets and
-popup anchoring at 1x/1.25x/1.5x output scales, including fractional client buffers
-and geometry-offset changes during repeated resize. Scale changes during the
-transition retain and blend the old SSD title raster with the new one, separately
-from body content. Controlled CSD/SSD checks cover 1→1.25, 1.25→1.5 and 1.5→1
-with camera movement and repeated recapture. Additional checks cover fractional
-camera positions and output mode growth/shrink during held resize, with column
-width and content height recomputed from the new available area. Other output
-transitions remain experimental. Controlled GPU checks cover all rotations and
-reflections through held resize and repeated recapture; real hardware modesetting
-and every mode-size transition are not validated by these checks.
-During grouped resize, native compositor title-bar coverage blends separately
-from body pixels, preserving its height and rounded corners. Global blur config
-reloads retain the held image and blend toward the new policy when the client
-responds. Controlled checks also cover leaving tiling and disconnecting during a
-held mixed transition. Controlled two-client checks also cover a ready window
-waiting for a stalled peer: disconnecting that peer releases the ready buffer
-and preserves the surviving window’s focus and output membership. Other lifecycle
-and output changes remain experimental.
-Canvas resizes still held for a client reply can also be captured before a new
-group takes over. A late buffer arriving after the group expires can start a
-bounded resize transition on an otherwise settled window without restarting
-the group or repeating the animation on subsequent repaints. Degraded stale
-resize content retains its live fallback: it is not flattened into a stretched
-full-window snapshot, and starting tiling preserves its existing capped content
-and frame transform. Controlled checks cover capped growth, minification and
-client partial blur, including replies, timeouts and repeated width changes at
-fixed output scales. Fullscreen/pinned transitions retain their
-live fallback.
-If a parent or popup snapshot allocation fails, the group uses live content
-without installing a partial snapshot tree. If only the resize-content bake
-fails, the held image can still be released, but without the old-content
-crossfade. Groups remain bounded and later successful captures restore normal
-retention. Controlled checks cover these paths at 1x/1.25x/1.5x with replies,
-timeouts and leaving tiling; they simulate allocation failure rather than GPU OOM.
-Explicit compositor remapping leaves tiling and preserves the newly requested
-canvas position even if old tiling buffers or the restore-size response arrive
-later. Controlled checks cover remapping held and mixed resize content with a
-popup. Protocol null-buffer unmap removes the window from its column and drops held images,
-while the empty tiling session remains available. To show the same toplevel
-again, the client starts a fresh initial configure handshake with an empty
-commit; its first buffer returns it to the layout. Controlled checks cover held
-and mixed resize, popup cleanup and releasing a ready peer when another window
-unmaps. Controlled two-client checks also cover replacing a held resize group
-with a new width request: queued old buffers are released, pending peers stay
-in the group, and retained content blends into the latest buffers without
-replaying the animation on unchanged commits. Disconnecting the only monitor
-leaves tiling, releases pending buffers and restores canvas mode. Tiling cannot
-start on the virtual placeholder while no monitor is connected; after a monitor
-returns it can be enabled again. Controlled checks cover held/mixed resize and
-reconnecting a same-name output through the shared backend policy; real hardware
-unplug/replug and other lifecycle combinations remain experimental.
-Complete visual atomicity and all animation transitions are not implemented yet.
+For development scope and validation notes, see the
+[tiling status](../dev/docs/tiling-status.md) and
+[roadmap](../dev/docs/scrolling-tiling-roadmap.md).
