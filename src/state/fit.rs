@@ -223,6 +223,7 @@ impl DriftWm {
             saved_size,
             center,
             true,
+            false,
         );
     }
 

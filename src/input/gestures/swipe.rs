@@ -70,7 +70,7 @@ impl DriftWm {
                     GestureConfigEntry::Continuous(
                         action @ (ContinuousAction::MoveWindow
                         | ContinuousAction::MoveSnappedWindows),
-                    ) => {
+                    ) if self.tiling_view.is_none() => {
                         if self.is_fullscreen() {
                             self.exit_fullscreen();
                             pos = pointer.current_location();
@@ -85,7 +85,7 @@ impl DriftWm {
                     GestureConfigEntry::Continuous(
                         action @ (ContinuousAction::ResizeWindow
                         | ContinuousAction::ResizeWindowSnapped),
-                    ) => {
+                    ) if self.tiling_view.is_none() => {
                         if self.is_fullscreen() {
                             self.exit_fullscreen();
                             pos = pointer.current_location();
@@ -114,6 +114,14 @@ impl DriftWm {
             .config
             .gesture_lookup(&mods, &swipe_trigger, context)
             .cloned();
+
+        if self.tiling_view.is_some()
+            && matches!(entry.as_ref(), Some(GestureConfigEntry::Continuous(_)))
+        {
+            self.forward_swipe_begin(fingers, time);
+            self.gesture_state = None;
+            return;
+        }
 
         match entry {
             Some(GestureConfigEntry::Continuous(action)) => {

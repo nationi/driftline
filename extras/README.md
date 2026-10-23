@@ -38,8 +38,8 @@ notifications button, and a power menu. Tiles open their controls on click:
 - **tray** — left click activates an item, right click opens its menu
 - **power** — lock, log out, suspend, reboot, power off
 
-Media controls follow the playing player. Tested with Quickshell 0.2.1 (git
-2026-02-09); run it by hand with `qs -p ~/.config/driftwm/quickshell`.
+Media controls follow the active player. Run the dashboard by hand with
+`qs -p ~/.config/driftwm/quickshell`.
 
 ## Contents
 

@@ -76,6 +76,7 @@ impl DriftWm {
     /// keeps Mod+LMB panning over a border while a plain click still drives the chrome.
     fn modifier_button_binding(
         &self,
+        pos: Point<f64, smithay::utils::Logical>,
         mods: &smithay::input::keyboard::ModifiersState,
         button: u32,
         context: BindingContext,
@@ -85,7 +86,33 @@ impl DriftWm {
             .mouse_button_lookup_ctx(mods, button, context)
             .cloned();
         let has_modifier = binding.is_some() && !config::Modifiers::from_state(mods).is_empty();
+        let binding =
+            binding.filter(|action| self.mouse_action_allowed_in_active_mode(action, pos, context));
         (binding, has_modifier)
+    }
+
+    fn mouse_action_allowed_in_active_mode(
+        &self,
+        action: &MouseAction,
+        pos: Point<f64, smithay::utils::Logical>,
+        context: BindingContext,
+    ) -> bool {
+        if self.tiling_view.is_none() {
+            return true;
+        }
+        match action {
+            MouseAction::MoveWindow if context == BindingContext::OnWindow => self
+                .topmost_client_under(pos)
+                .and_then(|window| self.stage.id_of(&window))
+                .is_some_and(|id| {
+                    self.stage.is_tiled(id)
+                        && self.active_output().is_some_and(|output| {
+                            self.stage.tiling_output_for_window(id) == Some(output.name().as_str())
+                        })
+                }),
+            MouseAction::Action(action) => action.allowed_in_tiling(true),
+            _ => false,
+        }
     }
 
     /// Whether `window`'s `pass_mouse` rule claims this trigger, so the binding
@@ -324,13 +351,21 @@ impl DriftWm {
             if self.is_fullscreen() {
                 // An Overlay layer still renders over the window, and only what
                 // the layer branch below runs applies over it.
+                let fs_context = if self.pointer_over_layer {
+                    BindingContext::Anywhere
+                } else {
+                    BindingContext::OnWindow
+                };
                 let mut fs_lookup = if self.pointer_over_layer {
-                    self.layer_button_binding(&pointer, &mods, button)
+                    self.layer_button_binding(&pointer, pos, &mods, button)
                 } else {
                     self.config
-                        .mouse_button_lookup_ctx(&mods, button, BindingContext::OnWindow)
+                        .mouse_button_lookup_ctx(&mods, button, fs_context)
                         .cloned()
                 };
+                fs_lookup = fs_lookup.filter(|action| {
+                    self.mouse_action_allowed_in_active_mode(action, pos, fs_context)
+                });
                 // A `pass_mouse` claim becomes "no binding", so the `None` arm
                 // below reclaims keyboard focus and forwards to the client. It
                 // needs its own gate here: the `Action(_)` arm falls through
@@ -444,7 +479,7 @@ impl DriftWm {
             // `modifier_binding` gates the chrome paths below.
             let context = self.pointer_context(pos);
             let (mut binding, mut modifier_binding) =
-                self.modifier_button_binding(&mods, button, context);
+                self.modifier_button_binding(pos, &mods, button, context);
 
             // `pass_mouse`: clearing `modifier_binding` too keeps the decoration
             // branch below live, so chrome always stays compositor-owned. Off in
@@ -484,6 +519,10 @@ impl DriftWm {
                                 return;
                             }
                             DecorationHit::TitleBar if !is_widget => {
+                                if self.tiling_view.is_some() {
+                                    self.raise_and_focus(&window, serial);
+                                    return;
+                                }
                                 // Double-click → toggle fit
                                 let now = std::time::Instant::now();
                                 let surface_id = wl_surface.id();
@@ -536,6 +575,9 @@ impl DriftWm {
                             }
                             DecorationHit::ResizeBorder(edge) if !is_widget => {
                                 self.raise_and_focus(&window, serial);
+                                if self.tiling_view.is_some() {
+                                    return;
+                                }
                                 // Edge-drag on the SSD border has no modifier
                                 // context, so it follows the config flag.
                                 let want_cluster = self.config.decoration_resize_snapped;
@@ -726,7 +768,9 @@ impl DriftWm {
                     // click-drag inside the client never slides the canvas. No
                     // defer: content clicks pan immediately (protecting a client's
                     // double-click isn't the compositor's job).
-                    self.arm_click_navigate(window, pos, button, false);
+                    if self.tiling_view.is_none() {
+                        self.arm_click_navigate(window, pos, button, false);
+                    }
                 } else if let Some((focus, _)) = self.canvas_layer_under(pos) {
                     // Widget window but a canvas layer is above it: grant the
                     // layer keyboard focus only if it requests it (on-demand).
@@ -836,6 +880,7 @@ impl DriftWm {
     fn layer_button_binding(
         &self,
         pointer: &smithay::input::pointer::PointerHandle<DriftWm>,
+        pos: Point<f64, smithay::utils::Logical>,
         mods: &smithay::input::keyboard::ModifiersState,
         button: u32,
     ) -> Option<MouseAction> {
@@ -844,6 +889,7 @@ impl DriftWm {
         }
         self.config
             .mouse_button_lookup_ctx(mods, button, BindingContext::Anywhere)
+            .filter(|b| self.mouse_action_allowed_in_active_mode(b, pos, BindingContext::Anywhere))
             .filter(|b| {
                 matches!(
                     b,
@@ -867,7 +913,7 @@ impl DriftWm {
         serial: Serial,
         mods: &smithay::input::keyboard::ModifiersState,
     ) -> bool {
-        match self.layer_button_binding(pointer, mods, button) {
+        match self.layer_button_binding(pointer, pos, mods, button) {
             Some(MouseAction::PanViewport) => {
                 self.start_pan_grab(pointer, pos, button, serial, false);
             }
@@ -908,7 +954,7 @@ impl DriftWm {
         // bindings defer to normal dispatch. A bare binding does NOT beat chrome —
         // the opaque frame acts like a title bar.
         let (binding, modifier_binding) =
-            self.modifier_button_binding(&mods, button, BindingContext::OnWindow);
+            self.modifier_button_binding(pos, &mods, button, BindingContext::OnWindow);
         match binding {
             Some(action @ (MouseAction::MoveWindow | MouseAction::MoveSnappedWindows))
                 if modifier_binding =>
@@ -943,10 +989,15 @@ impl DriftWm {
                 }
                 DecorationHit::TitleBar => {
                     self.focus_and_raise_suspended(id);
-                    self.start_suspended_move(pointer, &s, pos, button, serial, false);
+                    if self.tiling_view.is_none() {
+                        self.start_suspended_move(pointer, &s, pos, button, serial, false);
+                    }
                 }
                 DecorationHit::ResizeBorder(edge) => {
                     self.focus_and_raise_suspended(id);
+                    if self.tiling_view.is_some() {
+                        return true;
+                    }
                     // A border drag has no modifier context, so it follows the
                     // config flag — same as a client's SSD-border resize.
                     let want_cluster = self.config.decoration_resize_snapped;
@@ -1001,7 +1052,7 @@ impl DriftWm {
         // try_suspended_button re-runs this same lookup harmlessly on the
         // fall-through.
         let (_, modifier_binding) =
-            self.modifier_button_binding(&mods, button, BindingContext::OnWindow);
+            self.modifier_button_binding(pos, &mods, button, BindingContext::OnWindow);
         if modifier_binding {
             return false;
         }
@@ -1253,7 +1304,7 @@ impl DriftWm {
 
         // `modifier_binding` gates the pinned chrome path below, as on the canvas path.
         let (mut binding, mut modifier_binding) =
-            self.modifier_button_binding(&mods, button, BindingContext::OnWindow);
+            self.modifier_button_binding(pos, &mods, button, BindingContext::OnWindow);
 
         // `pass_mouse` resolves its subject here rather than reusing the owner
         // lookup below: the chrome arm in between deliberately hits outside the
@@ -1276,10 +1327,15 @@ impl DriftWm {
                 DecorationHit::CloseButton => window.send_close(),
                 DecorationHit::TitleBar if !is_widget => {
                     self.raise_and_focus(&window, serial);
-                    self.start_pinned_move(pointer, &window, pos, button, serial);
+                    if self.tiling_view.is_none() {
+                        self.start_pinned_move(pointer, &window, pos, button, serial);
+                    }
                 }
                 DecorationHit::ResizeBorder(edge) if !is_widget => {
                     self.raise_and_focus(&window, serial);
+                    if self.tiling_view.is_some() {
+                        return true;
+                    }
                     self.start_compositor_resize_with_edge(
                         pointer,
                         &window,
@@ -1626,6 +1682,8 @@ impl DriftWm {
                 .config
                 .mouse_scroll_lookup_ctx(&mods, source, fs_context)
                 .cloned();
+            fs_scroll = fs_scroll
+                .filter(|action| self.mouse_action_allowed_in_active_mode(action, pos, fs_context));
             if fs_scroll.is_some()
                 && !over_layer
                 && self.fullscreen_claims(&mods, config::MouseTrigger::for_axis_source(source))
@@ -1666,7 +1724,8 @@ impl DriftWm {
         let mut action = self
             .config
             .mouse_scroll_lookup_ctx(&mods, source, context)
-            .cloned();
+            .cloned()
+            .filter(|action| self.mouse_action_allowed_in_active_mode(action, pos, context));
 
         // `pass_mouse`: the `recent_pan` override above already resolves
         // OnCanvas, so a claim here can't fire mid-pan.

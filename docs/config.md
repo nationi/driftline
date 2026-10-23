@@ -43,7 +43,7 @@ An edge or corner puts the window's title bar / content edge snap.outer_gap in f
 
 A window too big to fit on an axis with its two gutters centers on that axis rather than hanging off screen; the other axis still places, so a tall window under "top-left" still goes left.
 
-It applies to the centering actions and wherever the camera jumps to a window — center-window, focus-center, center-nearest, Alt-Tab, click-to-navigate, activation, a newly mapped window, the window focus follows when one closes (see auto_navigate_on_close) and `driftwm msg focus`. The centering actions (center-window, focus-center, center-nearest) always park the window there, even one already fully on screen — center-nearest is how you walk a placement through your windows one step at a time. Alt-Tab, click-to-navigate, activation, focus following a close and `msg focus` don't pan at all for a window that is already fully on screen, so they place a window only when the camera has to move rather than holding one against the edge continuously. Fullscreen, pinned and fit windows lock or fill the viewport and ignore it, as does a filled window returning to the view it was filled in.
+It applies to the centering actions and wherever the camera jumps to a window — center-window, focus-center, center-nearest, Alt-Tab, click-to-navigate, activation, a newly mapped window, the window focus follows when one closes (see auto_navigate_on_close) and `driftwm msg focus`. The centering actions (center-window, focus-center, center-nearest) always park the window there, even one already fully on screen — center-nearest (Mod+Arrow by default) is how you walk a placement through your windows one step at a time. Alt-Tab, click-to-navigate, activation, focus following a close and `msg focus` do not pan for an already-visible window, so they only move the camera when needed rather than holding it against an edge. Fullscreen, pinned and fit windows lock or fill the viewport and ignore it, as does a filled window returning to the view it was filled in.
 
 focus-nearest (Mod+Ctrl+Arrow, the 4-finger swipe and Mod+Ctrl+drag by default) walks within the focused window's snap cluster and jumps out of it. A step to a clipped window in the same cluster, or one overlapping the focused window, scrolls it just far enough to show it whole, snap.outer_gap in from the edge it hung past, and centers only on an axis where the window doesn't fit. A step to a clipped window in another cluster, or from no focused window or a pinned one, lands it here, as Alt-Tab does. A window already fully on screen takes focus without a pan either way.
 
@@ -366,13 +366,13 @@ px per grow-window/shrink-window action (both unbound by default; does not affec
 
 Default: `100.0`
 
-px per pan-viewport action (Mod+Arrow by default)
+px per pan-viewport action (unbound by default)
 
 ### `anchors`
 
 Default: `[]`
 
-Anchors: canvas points discoverable by focus-nearest (Mod+Ctrl+Arrow / 4-finger swipe) and center-nearest even when no window is there. Uses Y-up coordinate system. Empty by default.
+Anchors: canvas points discoverable by center-nearest (Mod+Arrow) and focus-nearest (Mod+Ctrl+Arrow / 4-finger swipe), even when no window is there. Uses Y-up coordinate system. Empty by default.
 
 **Example: origin + 4 corners**
 
@@ -831,10 +831,10 @@ Directions: up, down, left, right, up-left, up-right, down-left, down-right
 | `"mod+c"` | `center-window` |  |
 | `"mod+x"` | `focus-center` |  |
 | `"mod+a"` | `home-toggle` |  |
-| `"mod+up"` | `pan-viewport up` |  |
-| `"mod+down"` | `pan-viewport down` |  |
-| `"mod+left"` | `pan-viewport left` |  |
-| `"mod+right"` | `pan-viewport right` |  |
+| `"mod+up"` | `center-nearest up` |  |
+| `"mod+down"` | `center-nearest down` |  |
+| `"mod+left"` | `center-nearest left` |  |
+| `"mod+right"` | `center-nearest right` |  |
 | `"mod+shift+up"` | `move-to-snap up` |  |
 | `"mod+shift+down"` | `move-to-snap down` |  |
 | `"mod+shift+left"` | `move-to-snap left` |  |

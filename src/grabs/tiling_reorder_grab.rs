@@ -39,6 +39,12 @@ impl PointerGrab<DriftWm> for TilingReorderGrab {
         event: &MotionEvent,
     ) {
         self.last_position = event.location;
+        data.tiling_drag_visual = Some((
+            self.source,
+            self.output_name.clone(),
+            event.location - self.start_data.location,
+        ));
+        data.mark_all_dirty();
         handle.motion(data, None, event);
     }
 
@@ -60,7 +66,10 @@ impl PointerGrab<DriftWm> for TilingReorderGrab {
         }
     }
 
-    fn unset(&mut self, _data: &mut DriftWm) {}
+    fn unset(&mut self, data: &mut DriftWm) {
+        data.tiling_drag_visual = None;
+        data.mark_all_dirty();
+    }
 
     crate::grabs::forward_pointer_grab_methods!();
 }

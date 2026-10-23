@@ -154,6 +154,9 @@ output focus, stale rendering or corrupted canvas restore.
 This step is implemented: standard tiling keybindings exist, canvas navigation
 and geometry bindings are ignored while tiling, and tiling actions are ignored
 on the canvas. `toggle-tiling` remains available in either mode. The default
+canvas `Mod+Arrow` action centers the nearest window or anchor; the same chord
+focuses columns in tiling. Camera-driven hover focus is suspended for explicit
+tiling navigation, so `focus_follows_mouse` does not undo the selection. The
 focus bindings avoid collisions with the existing send-window-to-output keys.
 `[keybindings.canvas]` and `[keybindings.tiling]` let users assign different
 actions to the same chord, with per-mode `none` masks and tap bindings. The

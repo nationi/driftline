@@ -11,14 +11,15 @@ Traditional window managers arrange windows to fit your screen. Stacking composi
 
 `driftwm` is an infinite-canvas compositor: windows live at their native size on an infinite 2D canvas, and your display is a camera viewing it. When two windows come close, they snap together, forming implicit groups that can be moved, resized, and viewed together. Canvas mode has no workspaces; window overlaps happen only on purpose.
 
-This fork keeps the infinite canvas as the default and provides an optional
+This fork (version 1.1.0) keeps the infinite canvas as the default and provides an optional
 [scrolling-column tiling mode](docs/tiling.md). Each connected output
 gets an independent strip of columns, with windows stacked inside each column.
 The design borrows useful ideas from niri, while keeping driftwm’s canvas-first
 identity and avoiding full niri parity. Multi-output entry, transfer and hotplug
-have automated coverage; a full physical multi-monitor workflow is still awaiting
-manual acceptance. See the [current status](dev/docs/tiling-status.md) and
-[focused roadmap](dev/docs/scrolling-tiling-roadmap.md).
+have automated coverage. Version 1.1 adds output-local fullscreen in tiling,
+visible Alt-drag reordering, mode-isolated mouse bindings, and clearer arrow-key
+navigation. See the [current status](dev/docs/tiling-status.md) and [focused
+roadmap](dev/docs/scrolling-tiling-roadmap.md).
 
 Navigation is built around trackpad gestures, but every gesture has a mouse or keyboard equivalent and touchscreens have their own bindings, so it works the same on a laptop and at a desk.
 
@@ -66,14 +67,14 @@ https://github.com/user-attachments/assets/97c2ff83-acfa-40ec-ae02-b16ad9a47318
 Infinite 2D canvas with viewport panning, zoom, and scroll momentum. A quick
 flick carries the viewport smoothly until friction stops it.
 
-<details><summary><b>Pan &amp; zoom bindings</b></summary>
+<details><summary><b>Camera &amp; zoom bindings</b></summary>
 
 | Input              | Action            | Context   |
 | ------------------ | ----------------- | --------- |
 | 3-finger swipe     | Pan viewport      | anywhere  |
 | Trackpad scroll    | Pan viewport      | on-canvas |
 | `Mod` + LMB drag   | Pan viewport      | anywhere  |
-| `Mod` + arrow       | Pan viewport      | —         |
+| `Mod` + arrow      | Center nearest window or canvas anchor | — |
 | 2-finger pinch     | Zoom              | on-canvas |
 | 3-finger pinch     | Zoom              | anywhere  |
 | Mouse wheel        | Zoom              | on-canvas |
@@ -97,6 +98,7 @@ spots the camera jumps straight to.
 
 | Input                        | Action                                                                                          |
 | ---------------------------- | ----------------------------------------------------------------------------------------------- |
+| `Mod` + arrow                | Move to and center the nearest window or navigation anchor                                      |
 | `Mod+Ctrl` + arrow           | Focus nearest window in direction; scrolls it just in within a cluster, centers it from another |
 | 4-finger swipe               | Focus nearest window (natural direction)                                                        |
 | `Mod+Ctrl` + LMB drag        | Focus nearest window (natural direction)                                                        |
@@ -297,9 +299,9 @@ See [docs/session.md](docs/session.md).
 
 ## Install
 
-To use this fork's tiling changes, build the `nationi/development` branch below.
-The AUR packages and upstream releases refer to the original project and do not
-necessarily include this fork's changes.
+The fork's 1.1.0 source is available from its `main` branch. Packages in the
+Arch User Repository and releases published by upstream refer to the original
+project and do not include this fork's changes unless explicitly stated.
 
 ### Arch Linux (AUR)
 
@@ -344,7 +346,7 @@ sudo pacman -S libdisplay-info libinput seatd mesa libxkbcommon
 Build this fork:
 
 ```bash
-git clone --branch nationi/development https://github.com/nationi/driftwm.git
+git clone --branch main https://github.com/nationi/driftwm.git
 cd driftwm
 cargo build --release --locked
 ```
@@ -506,8 +508,8 @@ supports the `wlr-layer-shell` protocol), just without compositor-specific featu
 
 For work on this fork, start with the [development documentation index](dev/docs/README.md),
 [current tiling status](dev/docs/tiling-status.md) and
-[practical roadmap](dev/docs/scrolling-tiling-roadmap.md). Pinned niri inventories
-and fixtures are optional historical design references, not a parity target.
+[practical roadmap](dev/docs/scrolling-tiling-roadmap.md). Niri is an optional
+implementation reference, not a compatibility target.
 
 See [CONTRIBUTING.md](CONTRIBUTING.md).
 

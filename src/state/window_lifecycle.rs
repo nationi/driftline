@@ -50,12 +50,33 @@ impl DriftWm {
         pos: Point<i32, Logical>,
         activate: bool,
     ) {
-        let window = window.into();
+        self.map_window_with_tiling_policy(window.into(), pos, activate, false);
+    }
+
+    pub(crate) fn map_window_preserving_tiling(
+        &mut self,
+        window: impl Into<StageWindow>,
+        pos: Point<i32, Logical>,
+        activate: bool,
+    ) {
+        self.map_window_with_tiling_policy(window.into(), pos, activate, true);
+    }
+
+    fn map_window_with_tiling_policy(
+        &mut self,
+        window: StageWindow,
+        pos: Point<i32, Logical>,
+        activate: bool,
+        preserve_tiling: bool,
+    ) {
         let tiled = self
             .stage
             .id_of(&window)
             .is_some_and(|id| self.stage.is_tiled(id));
-        self.prepare_tiling_operation(super::TilingOperation::MapWindow { tiled });
+        self.prepare_tiling_operation(super::TilingOperation::MapWindow {
+            tiled,
+            preserve_tiling: preserve_tiling || self.stage.is_fullscreen(&window),
+        });
         if tiled {
             // Leaving tiling may owe a restore recenter, but this explicit
             // placement supersedes that exit's saved canvas position.

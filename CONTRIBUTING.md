@@ -1,6 +1,6 @@
 # Contributing
 
-Thanks for your interest! driftwm is experimental and primarily an AI-assisted learning project, but PRs and issues are welcome.
+Thanks for your interest in driftwm. Issues and pull requests are welcome.
 
 ## Before you start
 
@@ -16,7 +16,10 @@ Thanks for your interest! driftwm is experimental and primarily an AI-assisted l
 
 When changes bundle multiple concerns, merging becomes all-or-nothing — if I like parts but not others, we lose a round trip asking you to split. Split up front and each piece lands (or doesn't) independently.
 
-**CI must pass** — `cargo fmt --check`, `cargo clippy`, `cargo build`, and `cargo test` run automatically on PRs.
+**CI must pass.** The authoritative checks are listed in
+[`dev/scripts/ci-local`](dev/scripts/ci-local) and run by
+[`.github/workflows/ci.yml`](.github/workflows/ci.yml). Run the relevant stages
+locally before opening a PR.
 
 **Only state belongs in `src/state/mod.rs`** — the `DriftWm` fields, the types they're made of, and the routines that must enumerate every field. A new `impl DriftWm` method goes in the sibling module for the subsystem it serves.
 

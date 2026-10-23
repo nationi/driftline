@@ -114,6 +114,7 @@ impl DriftWm {
         saved_size: Size<i32, Logical>,
         target_center: Point<f64, Logical>,
         refresh_snap_rect: bool,
+        preserve_tiling: bool,
     ) {
         // The size the client is still committing. Neither the exit configure
         // nor the map below touches committed geometry, so every caller reads
@@ -123,7 +124,11 @@ impl DriftWm {
         // the settle early against a stale footprint.
         let pre_exit_size = window.geometry().size;
 
-        self.map_window(window.clone(), map_loc, false);
+        if preserve_tiling {
+            self.map_window_preserving_tiling(window.clone(), map_loc, false);
+        } else {
+            self.map_window(window.clone(), map_loc, false);
+        }
 
         if saved_size == pre_exit_size {
             // The exit configure re-sends the size the client already has, so no

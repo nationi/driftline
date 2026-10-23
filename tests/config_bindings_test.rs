@@ -137,46 +137,46 @@ fn nudge_window_still_binds_explicitly() {
     );
 }
 
-// ── Super+Arrow → PanViewport ───────────────────────────────────────────
+// ── Super+Arrow → CenterNearest ─────────────────────────────────────────
 
 #[test]
-fn super_left_resolves_to_pan_viewport_left() {
+fn super_left_resolves_to_center_nearest_left() {
     let config = Config::default();
     let result = config.lookup(&logo(), Keysym::from(keysyms::KEY_Left));
     assert!(result.is_some(), "Super+Left should be bound");
     assert!(
-        matches!(result.unwrap(), Action::PanViewport(Direction::Left)),
-        "Super+Left should resolve to PanViewport(Left)"
+        matches!(result.unwrap(), Action::CenterNearest(Direction::Left)),
+        "Super+Left should resolve to CenterNearest(Left)"
     );
 }
 
 #[test]
-fn super_right_resolves_to_pan_viewport_right() {
+fn super_right_resolves_to_center_nearest_right() {
     let config = Config::default();
     let result = config.lookup(&logo(), Keysym::from(keysyms::KEY_Right));
     assert!(
-        matches!(result.unwrap(), Action::PanViewport(Direction::Right)),
-        "Super+Right should resolve to PanViewport(Right)"
+        matches!(result.unwrap(), Action::CenterNearest(Direction::Right)),
+        "Super+Right should resolve to CenterNearest(Right)"
     );
 }
 
 #[test]
-fn super_up_resolves_to_pan_viewport_up() {
+fn super_up_resolves_to_center_nearest_up() {
     let config = Config::default();
     let result = config.lookup(&logo(), Keysym::from(keysyms::KEY_Up));
     assert!(
-        matches!(result.unwrap(), Action::PanViewport(Direction::Up)),
-        "Super+Up should resolve to PanViewport(Up)"
+        matches!(result.unwrap(), Action::CenterNearest(Direction::Up)),
+        "Super+Up should resolve to CenterNearest(Up)"
     );
 }
 
 #[test]
-fn super_down_resolves_to_pan_viewport_down() {
+fn super_down_resolves_to_center_nearest_down() {
     let config = Config::default();
     let result = config.lookup(&logo(), Keysym::from(keysyms::KEY_Down));
     assert!(
-        matches!(result.unwrap(), Action::PanViewport(Direction::Down)),
-        "Super+Down should resolve to PanViewport(Down)"
+        matches!(result.unwrap(), Action::CenterNearest(Direction::Down)),
+        "Super+Down should resolve to CenterNearest(Down)"
     );
 }
 
