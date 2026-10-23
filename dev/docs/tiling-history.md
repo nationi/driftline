@@ -3095,3 +3095,33 @@ full implementation CI rerun, push, install, GPU or TTY claim. Next A0: min/max
 constraints and unequal Auto-height weights, remaining parser/consumer contracts
 and reference/differential acceptance. Three-window settled examples do not prove
 all operation histories, client response orders or animated trajectories.
+
+
+## 2026-10-23 — height constraints and unequal Auto weights
+
+Added four reference contracts using the existing 1.25-scale three-window fixture.
+The middle client's min 300 reserves space before distributing remainder, giving
+124/300/124. Nonfixed max 100 is ignored in Auto (183/182/183), but an explicit
+request 500 clamps to 100 (224/100/224). Exact min=max=100 fixes its Auto height
+with the same 224/100/224 result. These cooperative simulated clients establish
+reference layout allocation, not independent toolkit enforcement or protocol parity.
+
+The weighted sequence fixes window 1 to 100, then window 2 to 100, then resets
+window 2. Client heights are 100/223/225 → 138/100/310 → 100/223/225. Each target
+change preserves other visual frame proportions as Auto weights; reset changes
+only the target weight. Initial run passed fourteen and failed the weighted case:
+its expected first state mistakenly treated prior frames 184 and 184.8 as equal.
+Reviewing convert_heights_to_auto and independent weighted arithmetic corrected
+first/final expectations; this was a reference expectation correction, not a
+runtime fix. Remaining first-target content budget is 223.460737…; the second
+resize's first budget is 138.130975…. Visual physical rounding remains separate.
+
+Final maintained run passed fifteen, zero failed/ignored, with 203 unrelated tests
+filtered. Order, focus, indices, raw client dimensions, visual frame dimensions,
+border offsets and x/y coordinates are asserted. Report/log provenance refreshed;
+archive/lock/fixture/log hashes, clean pinned checkout, fixture rustfmt, cargo fmt,
+deterministic source index/local links and diff checks passed. No runner/parser/
+driftwm runtime changes or full implementation CI rerun; B4 remains implementation
+evidence. No push/install/GPU/TTY claim. Next A0: width bounds and overconstrained
+columns, dynamic constraint/client-response cases and remaining parser/consumer/
+differential acceptance. These examples do not close A0 or prove all constraints.

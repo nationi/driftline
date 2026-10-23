@@ -208,13 +208,20 @@ fn settle_three_windows(layout: &mut Layout<TestWindow>) {
 }
 
 fn fractional_three_columns() -> Layout<TestWindow> {
+    fractional_three_columns_with_bounds(0, 0)
+}
+
+fn fractional_three_columns_with_bounds(min_height: i32, max_height: i32) -> Layout<TestWindow> {
     let mut layout =
         configured_scaled_layout(PresetSize::Fixed(300), 1.25, 3., 1., [10.1, 9.9, 5.1, 4.9]);
     check_ops_on_layout(
         &mut layout,
         [
             Op::AddWindow {
-                params: TestWindowParams::new(2),
+                params: TestWindowParams {
+                    min_max_size: ((0, min_height).into(), (0, max_height).into()),
+                    ..TestWindowParams::new(2)
+                },
             },
             Op::AddWindow {
                 params: TestWindowParams::new(3),
@@ -348,6 +355,117 @@ fn fixed_height_and_reset_redistribute_fractional_auto_remainder() {
             (1, 1, 1, 183, 184.8, 8.8),
             (2, 1, 2, 182, 184., 196.8),
             (3, 1, 3, 183, 184.8, 384.),
+        ],
+    );
+}
+
+fn consume_bounded_middle(min_height: i32, max_height: i32) -> Layout<TestWindow> {
+    let mut layout = fractional_three_columns_with_bounds(min_height, max_height);
+    check_ops_on_layout(&mut layout, [Op::ConsumeWindowIntoColumn]);
+    settle_three_windows(&mut layout);
+    check_ops_on_layout(&mut layout, [Op::ConsumeWindowIntoColumn]);
+    settle_three_windows(&mut layout);
+    layout
+}
+
+#[test]
+fn minimum_height_reserves_space_before_distributing_auto_remainder() {
+    let layout = consume_bounded_middle(300, 0);
+    assert_fractional_stack(
+        &layout,
+        &[
+            (1, 1, 1, 124, 125.6, 8.8),
+            (2, 1, 2, 300, 301.6, 137.6),
+            (3, 1, 3, 124, 125.6, 442.4),
+        ],
+    );
+}
+
+#[test]
+fn nonfixed_maximum_is_ignored_for_auto_but_clamps_explicit_height() {
+    let mut layout = consume_bounded_middle(0, 100);
+    assert_fractional_stack(
+        &layout,
+        &[
+            (1, 1, 1, 183, 184.8, 8.8),
+            (2, 1, 2, 182, 184., 196.8),
+            (3, 1, 3, 183, 184.8, 384.),
+        ],
+    );
+    check_ops_on_layout(
+        &mut layout,
+        [Op::SetWindowHeight {
+            id: Some(2),
+            change: SizeChange::SetFixed(500),
+        }],
+    );
+    settle_three_windows(&mut layout);
+    assert_fractional_stack(
+        &layout,
+        &[
+            (1, 1, 1, 224, 225.6, 8.8),
+            (2, 1, 2, 100, 101.6, 237.6),
+            (3, 1, 3, 224, 225.6, 342.4),
+        ],
+    );
+}
+
+#[test]
+fn equal_minimum_and_maximum_fix_height_even_in_auto_layout() {
+    let layout = consume_bounded_middle(100, 100);
+    assert_fractional_stack(
+        &layout,
+        &[
+            (1, 1, 1, 224, 225.6, 8.8),
+            (2, 1, 2, 100, 101.6, 237.6),
+            (3, 1, 3, 224, 225.6, 342.4),
+        ],
+    );
+}
+
+#[test]
+fn resizing_another_window_preserves_unequal_auto_weights() {
+    let mut layout = consume_three_windows();
+    check_ops_on_layout(
+        &mut layout,
+        [Op::SetWindowHeight {
+            id: Some(1),
+            change: SizeChange::SetFixed(100),
+        }],
+    );
+    settle_three_windows(&mut layout);
+    assert_fractional_stack(
+        &layout,
+        &[
+            (1, 1, 1, 100, 101.6, 8.8),
+            (2, 1, 2, 223, 224.8, 113.6),
+            (3, 1, 3, 225, 226.4, 341.6),
+        ],
+    );
+    check_ops_on_layout(
+        &mut layout,
+        [Op::SetWindowHeight {
+            id: Some(2),
+            change: SizeChange::SetFixed(100),
+        }],
+    );
+    settle_three_windows(&mut layout);
+    assert_fractional_stack(
+        &layout,
+        &[
+            (1, 1, 1, 138, 140., 8.8),
+            (2, 1, 2, 100, 101.6, 152.),
+            (3, 1, 3, 310, 312., 256.8),
+        ],
+    );
+    check_ops_on_layout(&mut layout, [Op::ResetWindowHeight { id: Some(2) }]);
+    settle_three_windows(&mut layout);
+    assert_fractional_stack(
+        &layout,
+        &[
+            (1, 1, 1, 100, 101.6, 8.8),
+            (2, 1, 2, 223, 224.8, 113.6),
+            (3, 1, 3, 225, 226.4, 341.6),
         ],
     );
 }

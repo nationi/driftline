@@ -63,24 +63,25 @@ mode. These are documented fallbacks, not reference-compatible behavior.
 
 ## Verified evidence and its limits
 
-Latest A0 geometry evidence: [eleven executable layout contracts](niri-geometry-reference-fixtures.md)
-passed against pinned niri's library harness. The previous eight retain fixed/
-proportional widths, origins, resize/consume and static scale 1/1.25/1.5/2 evidence.
-Three new operation contracts verify sequential consume of three windows,
-last-tile expel/reconsume and middle-window fixed-height/reset at scale 1.25.
-Ordered IDs/column-row indices, client/frame dimensions, settled x/y coordinates
-and unchanged focus are checked. Heights 183/182/183 reflect sequential remaining-
-height allocation; fixing the middle to 100 gives 224/100/224. Expelled window 3
-retains column width 300 and becomes full height; reconsume and reset restore
-the expected stack. Both initial and final expanded runs passed; no production
-fix or expectation adjustment was needed. Reference/archive/lock/fixture/log hashes
-and clean checkout are retained. Width flooring, nearest Auto height and physical
-visual-size rounding remain distinct. No driftwm runtime change/full CI rerun;
-implementation evidence remains B4. This does not establish animated trajectories,
-client constraints/refusal, unequal Auto weights or differential driftwm parity.
-Next: min/max client constraints and unequal Auto-height weights, then additional
-reference/differential geometry and remaining parser/consumer acceptance before
-feature expansion.
+Latest A0 geometry evidence: [fifteen executable layout contracts](niri-geometry-reference-fixtures.md)
+passed against pinned niri's library harness. Previous eleven retain widths,
+origins, static scales 1/1.25/1.5/2 and fractional consume/expel/height reset.
+Four new contracts cover middle-window min 300, nonfixed max 100 in Auto versus
+explicit request 500, exact min=max=100 and a two-target resize/reset sequence.
+They check order/focus, indices, raw client sizes, visual frames/borders and
+settled coordinates. Auto reserves minimum height but ignores a nonfixed maximum;
+explicit sizing clamps to that maximum and equal min/max fixes Auto height.
+Changing fixed-height targets converts current visual frame sizes into weights;
+rounding differences survive. Fixing window 1 then 2 to 100 gives client heights
+100/223/225 then 138/100/310; reset 2 restores 100/223/225, not equal thirds.
+Initial weighted expectations missed the 184:184.8 ratio and were corrected after
+source review and execution; final run passed all fifteen. Reference/archive/
+lock/fixture/log hashes and clean checkout are retained. No driftwm runtime
+change/full CI rerun; implementation evidence remains B4. These are allocation
+contracts with cooperative simulated clients, not complete constraint parity.
+Next: width bounds and overconstrained columns, followed by dynamic constraint/
+client-response permutations and remaining parser/consumer/differential acceptance
+before feature expansion.
 
 A0 parser reference evidence: the
 [pinned parser corpus](niri-parser-reference-fixtures.md) ran 16 Rust contract

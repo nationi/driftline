@@ -25,7 +25,8 @@ Default D-Bus/systemd/screencast features are outside this contract.
 The base output is 1280×720 physical pixels, also logical pixels at scale 1. Struts reserve 40 on each
 horizontal side and 20 on each vertical side, leaving 1200×680. Gaps are 16;
 borders are enabled at width 4. Windows accept requested sizes and have no
-constraints, titlebars or tab indicators. The helper explicitly passes the
+constraints (except in the height-bound cases below), titlebars or tab indicators.
+The helper explicitly passes the
 selected initial width into `Layout::add_window`, as its caller must do. Passing
 `None` preserves the test client's current width; layout enrollment alone does
 not resolve `default-column-width`. This fixture does not test the Wayland
@@ -45,7 +46,7 @@ Expected constants come from these dimensioned examples, rather than a copy of
 niri's implementation formula. Assertions inspect actual client geometry and
 IPC tile dimensions/decoration offsets; the origin assertion uses settled render
 positions. These are reference assertions, not a driftwm differential comparison.
-Scale transitions, broader stacking/consume/expel sequences, client constraints,
+Scale transitions, broader stacking/consume/expel sequences, broader constraints,
 tabs, transactions, view physics and layer-shell exclusive zones remain open.
 
 ## Fractional-scale expectations
@@ -110,13 +111,54 @@ to column 2, leaving window 1 focused in column 1. Windows 1/2 recover heights
 retains content width 300 rather than its original client-chosen 100. Its x
 position is 318.4, after the first frame at x=13.6, frame width 301.6 and gap 3.2.
 Reconsuming restores ordered IDs, indices, dimensions and origins. The middle
-fixed/reset sequence also retains focus. These contracts do not cover unequal
-Auto weights, min/max constraints, asynchronous clients or animated trajectories.
+fixed/reset sequence also retains focus. These three sequence contracts do not
+cover asynchronous clients or animated trajectories.
+
+## Height constraints and Auto weights
+
+Four more contracts retain the same fractional three-window layout. Only the
+middle window advertises height constraints; width remains unconstrained.
+The simulated clients accept requested sizes, so these assert reference layout
+allocation rather than real toolkits' independent constraint enforcement.
+
+| Middle height constraints/action | Client heights | Visual frame heights | Frame y positions |
+| --- | --- | --- | --- |
+| min 300, max unspecified | 124, 300, 124 | 125.6, 301.6, 125.6 | 8.8, 137.6, 442.4 |
+| min unspecified, max 100, Auto | 183, 182, 183 | 184.8, 184, 184.8 | 8.8, 196.8, 384 |
+| same max 100, explicit fixed request 500 | 224, 100, 224 | 225.6, 101.6, 225.6 | 8.8, 237.6, 342.4 |
+| min=max=100, Auto | 224, 100, 224 | 225.6, 101.6, 225.6 | 8.8, 237.6, 342.4 |
+
+The min-300 case reserves a 301.6 frame, leaving 251.1 for two Auto frames;
+content budgets round to 124. Niri deliberately ignores a nonfixed maximum in
+Auto allocation, while explicit sizing clamps to it. An equal min/max constraint
+is treated as a fixed height even without an explicit height operation. This
+bounded contract is not a claim that all max constraints apply to all sizing paths.
+
+The fourth contract starts unconstrained, sets window 1 to 100, then window 2 to
+100, then resets window 2. Each new fixed-height target converts existing visual
+frame heights into Auto weights before replacing that target's height:
+
+| Action | Client heights | Visual frame heights | Frame y positions |
+| --- | --- | --- | --- |
+| Window 1 fixed 100 | 100, 223, 225 | 101.6, 224.8, 226.4 | 8.8, 113.6, 341.6 |
+| Window 2 fixed 100 | 138, 100, 310 | 140, 101.6, 312 | 8.8, 152, 256.8 |
+| Reset window 2 | 100, 223, 225 | 101.6, 224.8, 226.4 | 8.8, 113.6, 341.6 |
+
+The first redistribution retains the previous frame ratio 184:184.8 for windows
+2/3, not equal weights: the first content budget is 223.460737…, rounded to 223,
+and the last rounds to 225. On the second resize the remaining frame weights are
+101.6:226.4. Of the remaining 451.1, window 1 receives budget 139.730975…,
+leaving content 138.130975… rounded to 138; the final window rounds to 310.
+Reset replaces only the target's weight with 1, preserving the other Auto weights;
+it does not globally reset all three windows to equal heights. All states also
+check IDs, focus, indices, widths, borders and horizontal positions. Width bounds,
+overconstrained columns, dynamic constraint changes, tabs and client refusal
+remain outside this corpus.
 
 ## Recorded result
 
 The [recorded report](../fixtures/niri-layout/geometry-contract-evidence.json) and
-[log](../fixtures/niri-layout/geometry-contract-evidence.log) show eleven passed,
+[log](../fixtures/niri-layout/geometry-contract-evidence.log) show fifteen passed,
 zero failed and zero ignored tests; the other 203 library tests were filtered out.
 The reference checkout remained clean. Hashes identify the archived reference,
 lockfile, maintained fixture and run log. A zero-test run is rejected even when
