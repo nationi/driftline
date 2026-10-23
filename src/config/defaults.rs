@@ -49,38 +49,38 @@ pub(super) fn default_bindings(mod_key: ModKey) -> HashMap<KeyCombo, Action> {
         ),
         (
             KeyCombo {
-                modifiers: m.clone(),
-                sym: Keysym::from(keysyms::KEY_e),
+                modifiers: m_shift.clone(),
+                sym: Keysym::from(keysyms::KEY_q),
             },
-            Action::ToggleCursorPan,
+            Action::SuspendWindow,
         ),
         (
             KeyCombo {
                 modifiers: m_shift.clone(),
                 sym: Keysym::from(keysyms::KEY_Up),
             },
-            Action::NudgeWindow(Direction::Up),
+            Action::MoveToSnap(Direction::Up),
         ),
         (
             KeyCombo {
                 modifiers: m_shift.clone(),
                 sym: Keysym::from(keysyms::KEY_Down),
             },
-            Action::NudgeWindow(Direction::Down),
+            Action::MoveToSnap(Direction::Down),
         ),
         (
             KeyCombo {
                 modifiers: m_shift.clone(),
                 sym: Keysym::from(keysyms::KEY_Left),
             },
-            Action::NudgeWindow(Direction::Left),
+            Action::MoveToSnap(Direction::Left),
         ),
         (
             KeyCombo {
                 modifiers: m_shift.clone(),
                 sym: Keysym::from(keysyms::KEY_Right),
             },
-            Action::NudgeWindow(Direction::Right),
+            Action::MoveToSnap(Direction::Right),
         ),
         (
             KeyCombo {
@@ -105,7 +105,7 @@ pub(super) fn default_bindings(mod_key: ModKey) -> HashMap<KeyCombo, Action> {
         ),
         (
             KeyCombo {
-                modifiers: m_ctrl,
+                modifiers: m_ctrl.clone(),
                 sym: Keysym::from(keysyms::KEY_Right),
             },
             Action::PanViewport(Direction::Right),
@@ -147,28 +147,28 @@ pub(super) fn default_bindings(mod_key: ModKey) -> HashMap<KeyCombo, Action> {
         ),
         (
             KeyCombo {
-                modifiers: m_shift.clone(),
+                modifiers: m_ctrl.clone(),
                 sym: Keysym::from(keysyms::KEY_1),
             },
             Action::SetBookmark("1".into()),
         ),
         (
             KeyCombo {
-                modifiers: m_shift.clone(),
+                modifiers: m_ctrl.clone(),
                 sym: Keysym::from(keysyms::KEY_2),
             },
             Action::SetBookmark("2".into()),
         ),
         (
             KeyCombo {
-                modifiers: m_shift.clone(),
+                modifiers: m_ctrl.clone(),
                 sym: Keysym::from(keysyms::KEY_3),
             },
             Action::SetBookmark("3".into()),
         ),
         (
             KeyCombo {
-                modifiers: m_shift.clone(),
+                modifiers: m_ctrl,
                 sym: Keysym::from(keysyms::KEY_4),
             },
             Action::SetBookmark("4".into()),
@@ -192,28 +192,28 @@ pub(super) fn default_bindings(mod_key: ModKey) -> HashMap<KeyCombo, Action> {
                 modifiers: m.clone(),
                 sym: Keysym::from(keysyms::KEY_Up),
             },
-            Action::CenterNearest(Direction::Up),
+            Action::FocusNearest(Direction::Up),
         ),
         (
             KeyCombo {
                 modifiers: m.clone(),
                 sym: Keysym::from(keysyms::KEY_Down),
             },
-            Action::CenterNearest(Direction::Down),
+            Action::FocusNearest(Direction::Down),
         ),
         (
             KeyCombo {
                 modifiers: m.clone(),
                 sym: Keysym::from(keysyms::KEY_Left),
             },
-            Action::CenterNearest(Direction::Left),
+            Action::FocusNearest(Direction::Left),
         ),
         (
             KeyCombo {
                 modifiers: m.clone(),
                 sym: Keysym::from(keysyms::KEY_Right),
             },
-            Action::CenterNearest(Direction::Right),
+            Action::FocusNearest(Direction::Right),
         ),
         (
             KeyCombo {
@@ -253,13 +253,6 @@ pub(super) fn default_bindings(mod_key: ModKey) -> HashMap<KeyCombo, Action> {
         (
             KeyCombo {
                 modifiers: m.clone(),
-                sym: Keysym::from(keysyms::KEY_z),
-            },
-            Action::ZoomReset,
-        ),
-        (
-            KeyCombo {
-                modifiers: m.clone(),
                 sym: Keysym::from(keysyms::KEY_w),
             },
             Action::ZoomToFit,
@@ -283,14 +276,14 @@ pub(super) fn default_bindings(mod_key: ModKey) -> HashMap<KeyCombo, Action> {
                 modifiers: m.clone(),
                 sym: Keysym::from(keysyms::KEY_m),
             },
-            Action::FitWindow,
+            Action::FitWindowSnapped,
         ),
         (
             KeyCombo {
                 modifiers: m_shift.clone(),
                 sym: Keysym::from(keysyms::KEY_m),
             },
-            Action::FitWindowSnapped,
+            Action::FitWindow,
         ),
         (
             KeyCombo {
@@ -627,21 +620,21 @@ pub(super) fn default_mouse_bindings(
                 modifiers: alt_only.clone(),
                 trigger: MouseTrigger::Button(BTN_RIGHT),
             },
-            MouseAction::ResizeWindow,
+            MouseAction::ResizeWindowSnapped,
         ),
         (
             MouseBinding {
                 modifiers: alt_shift.clone(),
                 trigger: MouseTrigger::Button(BTN_RIGHT),
             },
-            MouseAction::ResizeWindowSnapped,
+            MouseAction::ResizeWindow,
         ),
         (
             MouseBinding {
                 modifiers: alt_only.clone(),
                 trigger: MouseTrigger::Button(BTN_MIDDLE),
             },
-            MouseAction::Action(Action::FitWindow),
+            MouseAction::Action(Action::FillWindow),
         ),
         (
             MouseBinding {
@@ -696,7 +689,7 @@ pub(super) fn default_mouse_bindings(
                 modifiers: m_ctrl,
                 trigger: MouseTrigger::Button(BTN_LEFT),
             },
-            MouseAction::CenterNearest,
+            MouseAction::FocusNearest,
         ),
         (
             MouseBinding {
@@ -742,14 +735,14 @@ pub(super) fn default_gesture_bindings(
                 modifiers: alt_only.clone(),
                 trigger: GestureTrigger::Swipe { fingers: 3 },
             },
-            GestureConfigEntry::Continuous(ContinuousAction::ResizeWindow),
+            GestureConfigEntry::Continuous(ContinuousAction::ResizeWindowSnapped),
         ),
         (
             GestureBinding {
                 modifiers: alt_shift.clone(),
                 trigger: GestureTrigger::Swipe { fingers: 3 },
             },
-            GestureConfigEntry::Continuous(ContinuousAction::ResizeWindowSnapped),
+            GestureConfigEntry::Continuous(ContinuousAction::ResizeWindow),
         ),
         (
             GestureBinding {
@@ -763,28 +756,28 @@ pub(super) fn default_gesture_bindings(
                 modifiers: alt_only.clone(),
                 trigger: GestureTrigger::PinchIn { fingers: 2 },
             },
-            GestureConfigEntry::Threshold(ThresholdAction::Fixed(Action::FitWindow)),
+            GestureConfigEntry::Threshold(ThresholdAction::Fixed(Action::FitWindowSnapped)),
         ),
         (
             GestureBinding {
                 modifiers: alt_only.clone(),
                 trigger: GestureTrigger::PinchOut { fingers: 2 },
             },
-            GestureConfigEntry::Threshold(ThresholdAction::Fixed(Action::FitWindow)),
+            GestureConfigEntry::Threshold(ThresholdAction::Fixed(Action::FitWindowSnapped)),
         ),
         (
             GestureBinding {
                 modifiers: alt_shift.clone(),
                 trigger: GestureTrigger::PinchIn { fingers: 2 },
             },
-            GestureConfigEntry::Threshold(ThresholdAction::Fixed(Action::FitWindowSnapped)),
+            GestureConfigEntry::Threshold(ThresholdAction::Fixed(Action::FitWindow)),
         ),
         (
             GestureBinding {
                 modifiers: alt_shift,
                 trigger: GestureTrigger::PinchOut { fingers: 2 },
             },
-            GestureConfigEntry::Threshold(ThresholdAction::Fixed(Action::FitWindowSnapped)),
+            GestureConfigEntry::Threshold(ThresholdAction::Fixed(Action::FitWindow)),
         ),
         (
             GestureBinding {
@@ -832,7 +825,7 @@ pub(super) fn default_gesture_bindings(
                 modifiers: Modifiers::EMPTY,
                 trigger: GestureTrigger::Swipe { fingers: 4 },
             },
-            GestureConfigEntry::Threshold(ThresholdAction::CenterNearest),
+            GestureConfigEntry::Threshold(ThresholdAction::FocusNearest),
         ),
         // Pinch
         (
@@ -883,14 +876,14 @@ pub(super) fn default_gesture_bindings(
                 modifiers: Modifiers::EMPTY,
                 trigger: GestureTrigger::Hold { fingers: 4 },
             },
-            GestureConfigEntry::Threshold(ThresholdAction::Fixed(Action::CenterWindow)),
+            GestureConfigEntry::Threshold(ThresholdAction::Fixed(Action::FocusCenter)),
         ),
         (
             GestureBinding {
                 modifiers: m.clone(),
                 trigger: GestureTrigger::Hold { fingers: 3 },
             },
-            GestureConfigEntry::Threshold(ThresholdAction::Fixed(Action::CenterWindow)),
+            GestureConfigEntry::Threshold(ThresholdAction::Fixed(Action::FocusCenter)),
         ),
         // Mod+swipe = navigate (same as 4-finger swipe)
         (
@@ -898,7 +891,7 @@ pub(super) fn default_gesture_bindings(
                 modifiers: m,
                 trigger: GestureTrigger::Swipe { fingers: 3 },
             },
-            GestureConfigEntry::Threshold(ThresholdAction::CenterNearest),
+            GestureConfigEntry::Threshold(ThresholdAction::FocusNearest),
         ),
     ]);
 
@@ -959,7 +952,7 @@ pub(super) fn default_touch_bindings() -> ContextBindings<GestureTrigger, Gestur
         ),
         (
             GestureTrigger::Swipe { fingers: 4 },
-            GestureConfigEntry::Threshold(ThresholdAction::CenterNearest),
+            GestureConfigEntry::Threshold(ThresholdAction::FocusNearest),
         ),
         (
             GestureTrigger::PinchIn { fingers: 4 },
@@ -974,7 +967,7 @@ pub(super) fn default_touch_bindings() -> ContextBindings<GestureTrigger, Gestur
         // gesture by hitting an unbound tier).
         (
             GestureTrigger::Swipe { fingers: 5 },
-            GestureConfigEntry::Threshold(ThresholdAction::CenterNearest),
+            GestureConfigEntry::Threshold(ThresholdAction::FocusNearest),
         ),
         (
             GestureTrigger::PinchIn { fingers: 5 },

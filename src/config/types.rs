@@ -64,11 +64,14 @@ pub enum Action {
     CloseWindow,
     SuspendWindow,
     NudgeWindow(Direction),
+    MoveToSnap(Direction),
     GrowWindow(Direction),
     ShrinkWindow(Direction),
+    ResizeToSnap(Direction),
     PanViewport(Direction),
     CenterWindow,
     CenterNearest(Direction),
+    FocusNearest(Direction),
     CycleWindows { backward: bool },
     HomeToggle,
     GoToBookmark(String),
@@ -156,8 +159,10 @@ impl Action {
                 | Action::MoveTiledWindow(_)
                 | Action::ZoomOut
                 | Action::NudgeWindow(_)
+                | Action::MoveToSnap(_)
                 | Action::GrowWindow(_)
                 | Action::ShrinkWindow(_)
+                | Action::ResizeToSnap(_)
                 | Action::PanViewport(_)
                 | Action::CycleWindows { .. }
                 | Action::Spawn(_)
@@ -254,7 +259,6 @@ pub enum ModKey {
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
 pub enum WindowPlacement {
     /// Center on the active output's viewport (and trigger navigate-to).
-    #[default]
     Center,
     /// Center on the cursor, clamped to the active output's usable canvas rect.
     /// Skips the auto-navigate so the camera stays where the user pointed.
@@ -262,6 +266,7 @@ pub enum WindowPlacement {
     /// Snap-place adjacent to the focused window's cluster: try focused's
     /// edges (CW from viewport-nearest), then BFS to neighbors. Falls back
     /// to `Center` when no focused window or no valid placement was found.
+    #[default]
     Auto,
 }
 
@@ -376,6 +381,7 @@ pub enum MouseAction {
     PanViewport,
     Zoom,
     CenterNearest,
+    FocusNearest,
     Action(Action),
 }
 
@@ -425,6 +431,7 @@ pub enum ContinuousAction {
 #[derive(Clone, Debug, PartialEq)]
 pub enum ThresholdAction {
     CenterNearest,
+    FocusNearest,
     Fixed(Action),
 }
 
@@ -432,6 +439,7 @@ impl ThresholdAction {
     pub fn ends_fullscreen(&self) -> bool {
         match self {
             ThresholdAction::CenterNearest => true, // fires Action::CenterNearest
+            ThresholdAction::FocusNearest => true,  // fires Action::FocusNearest
             ThresholdAction::Fixed(a) => a.ends_fullscreen(),
         }
     }
@@ -1108,8 +1116,8 @@ pub struct EffectsConfig {
 impl Default for EffectsConfig {
     fn default() -> Self {
         Self {
-            blur_radius: 2,
-            blur_strength: 1.1,
+            blur_radius: 5,
+            blur_strength: 1.5,
             animate_blur_fps: 20,
             animation_speed: 0.5,
             animation_scale: 0.95,
@@ -1164,8 +1172,8 @@ pub struct DecorationConfig {
 impl Default for DecorationConfig {
     fn default() -> Self {
         Self {
-            bg_color: [0x30, 0x30, 0x30, 0xFF],
-            fg_color: [0xFF, 0xFF, 0xFF, 0xFF],
+            bg_color: [0xFF, 0xFF, 0xFF, 0xFF],
+            fg_color: [0x33, 0x33, 0x33, 0xFF],
             corner_radius: 10,
             default_mode: DecorationMode::Client,
             border_width: 0,
@@ -1470,6 +1478,7 @@ mod tests {
         assert!(!Action::CloseWindow.runs_during_fullscreen());
         assert!(!Action::ZoomIn.runs_during_fullscreen());
         assert!(!Action::CenterNearest(Direction::Up).runs_during_fullscreen());
+        assert!(!Action::FocusNearest(Direction::Up).runs_during_fullscreen());
     }
 
     #[test]
@@ -1483,6 +1492,7 @@ mod tests {
     #[test]
     fn threshold_action_ends_fullscreen() {
         assert!(ThresholdAction::CenterNearest.ends_fullscreen());
+        assert!(ThresholdAction::FocusNearest.ends_fullscreen());
         assert!(!ThresholdAction::Fixed(Action::Spawn("foo".into())).ends_fullscreen());
         assert!(ThresholdAction::Fixed(Action::CloseWindow).ends_fullscreen());
     }
