@@ -879,7 +879,7 @@ impl RenderElement<GlesRenderer> for RoundedCornerElement {
         // The input_to_geo math doesn't compensate for non-identity buffer
         // transforms. For rotated/flipped surfaces we'd clip against the
         // wrong edges — fall back to the default tex program so at least
-        // the content is visible. No driftwm-supported client sets this
+        // the content is visible. No driftline-supported client sets this
         // today; if one starts to, extend `compute_uniforms` with a
         // transform-aware UV→geo matrix.
         if self.inner.transform() != Transform::Normal {

@@ -257,7 +257,7 @@ pub struct Config {
     pub output_outline: OutputOutlineSettings,
     pub nav_anchors: Vec<Point<f64, Logical>>,
     /// The bookmark registry seed: named canvas points (Y-up, window-center
-    /// convention) that populate `DriftWm::bookmarks` at startup. This is a
+    /// convention) that populate `Driftline::bookmarks` at startup. This is a
     /// seed only — the live registry is the source of truth once running.
     pub navigation_bookmarks: BTreeMap<String, [f64; 2]>,
     pub backend: BackendConfig,
@@ -483,7 +483,7 @@ impl Config {
         Ok(Self::from_raw_collect(raw))
     }
 
-    /// Load config from `$XDG_CONFIG_HOME/driftwm/config.toml` (or `~/.config/driftwm/config.toml`).
+    /// Load config from `$XDG_CONFIG_HOME/driftline/config.toml` (or `~/.config/driftline/config.toml`).
     /// Missing file → all defaults. Parse failure → error log + all defaults.
     pub fn load() -> Self {
         Self::load_from(&config_path())
@@ -3014,7 +3014,7 @@ mod tests {
             static COUNTER: AtomicUsize = AtomicUsize::new(0);
             let n = COUNTER.fetch_add(1, Ordering::Relaxed);
             let path = std::env::temp_dir().join(format!(
-                "driftwm-config-check-test-{}-{n}",
+                "driftline-config-check-test-{}-{n}",
                 std::process::id()
             ));
             std::fs::create_dir_all(&path).unwrap();

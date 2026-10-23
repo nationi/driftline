@@ -43,8 +43,8 @@ use crate::backend::Backend;
 use crate::backend::cvt;
 use crate::backend::gamma::{GammaProps, set_gamma_for_crtc_legacy};
 use crate::render::OutputRenderElements;
-use crate::state::DriftWm;
-use driftwm::config::OutputMode as ConfigOutputMode;
+use crate::state::Driftline;
+use driftline::config::OutputMode as ConfigOutputMode;
 
 const SUPPORTED_COLOR_FORMATS: &[Fourcc] = &[
     Fourcc::Xrgb8888,
@@ -87,9 +87,9 @@ struct SurfaceData {
 }
 
 /// Opaque handle to udev backend device data. Returned by init_udev,
-/// stored on `DriftWm::udev_device` (single owner). Rc-cloneable so the
+/// stored on `Driftline::udev_device` (single owner). Rc-cloneable so the
 /// render loop and gamma-control handler can each grab an independent
-/// `RefCell` borrow without re-routing through DriftWm.
+/// `RefCell` borrow without re-routing through Driftline.
 #[derive(Clone)]
 pub(crate) struct UdevDevice(Rc<RefCell<DeviceData>>);
 
@@ -159,7 +159,7 @@ impl UdevDevice {
 /// Reads the `UdevDevice` from `data.udev_device` (single owner). Cheap
 /// `Rc` clone so we hold an independent `RefCell` borrow without conflicting
 /// with mutations on `data`.
-pub(crate) fn render_if_needed(data: &mut DriftWm) {
+pub(crate) fn render_if_needed(data: &mut Driftline) {
     // Fast path: nothing needs attention — skip all work when idle
     let any_chunked_pending = data
         .render
@@ -207,7 +207,7 @@ pub(crate) fn render_if_needed(data: &mut DriftWm) {
                 .max(Duration::from_millis(1));
             if data
                 .loop_handle
-                .insert_source(Timer::from_duration(wait), |_, _, data: &mut DriftWm| {
+                .insert_source(Timer::from_duration(wait), |_, _, data: &mut Driftline| {
                     data.render.background_tick_armed = false;
                     render_if_needed(data);
                     TimeoutAction::Drop
@@ -317,7 +317,7 @@ pub(crate) fn render_if_needed(data: &mut DriftWm) {
         }
         // Broadcast mode events for client-initiated changes (already sent
         // inline) plus anything else that drifted; idempotent.
-        driftwm::protocols::output_power::OutputPowerState::refresh(data);
+        driftline::protocols::output_power::OutputPowerState::refresh(data);
     }
 
     // Mark outputs dirty for per-output animations.
@@ -383,7 +383,7 @@ pub(crate) fn render_if_needed(data: &mut DriftWm) {
     if data.output_config_dirty {
         data.output_config_dirty = false;
         let head_state = collect_output_state_from_surfaces(&dev.surfaces, &dev.drm);
-        driftwm::protocols::output_management::notify_changes::<DriftWm>(
+        driftline::protocols::output_management::notify_changes::<Driftline>(
             &mut data.output_management_state,
             head_state,
         );
@@ -407,8 +407,8 @@ pub(crate) fn render_if_needed(data: &mut DriftWm) {
 }
 
 pub fn init_udev(
-    event_loop: &mut EventLoop<'static, DriftWm>,
-    data: &mut DriftWm,
+    event_loop: &mut EventLoop<'static, Driftline>,
+    data: &mut Driftline,
     connector_filter: Option<String>,
 ) -> Result<UdevDevice, Box<dyn std::error::Error>> {
     // 1. Create libseat session
@@ -602,7 +602,7 @@ pub fn init_udev(
         .expect("failed to build dmabuf feedback");
     let dmabuf_global = data
         .dmabuf_state
-        .create_global_with_default_feedback::<DriftWm>(&data.display_handle, &default_feedback);
+        .create_global_with_default_feedback::<Driftline>(&data.display_handle, &default_feedback);
     data.dmabuf_global = Some(dmabuf_global);
 
     // 5. Set up libinput
@@ -727,7 +727,7 @@ pub fn init_udev(
     let device_for_drm = Rc::clone(&device);
     event_loop
         .handle()
-        .insert_source(drm_notifier, move |event, meta, data: &mut DriftWm| {
+        .insert_source(drm_notifier, move |event, meta, data: &mut Driftline| {
             let mut dev = device_for_drm.borrow_mut();
             match event {
                 DrmEvent::VBlank(crtc) => {
@@ -767,9 +767,9 @@ pub fn init_udev(
 
     // 10. Register session notifier (VT switching)
     let device_for_session = Rc::clone(&device);
-    event_loop
-        .handle()
-        .insert_source(session_notifier, move |event, _, data: &mut DriftWm| {
+    event_loop.handle().insert_source(
+        session_notifier,
+        move |event, _, data: &mut Driftline| {
             let mut dev = device_for_session.borrow_mut();
             match event {
                 SessionEvent::PauseSession => {
@@ -812,7 +812,7 @@ pub fn init_udev(
                     // re-request off after idle if still applicable.
                     data.dpms_off_outputs.clear();
                     data.pending_dpms.clear();
-                    driftwm::protocols::output_power::OutputPowerState::refresh(data);
+                    driftline::protocols::output_power::OutputPowerState::refresh(data);
                     let DeviceData { drm, surfaces, .. } = &mut *dev;
                     for (&crtc, surface) in surfaces.iter_mut() {
                         if let Err(e) = surface.compositor.reset_state() {
@@ -843,13 +843,14 @@ pub fn init_udev(
                     }
                 }
             }
-        })?;
+        },
+    )?;
 
     // 11. Register udev backend for hotplug
     let device_for_hotplug = Rc::clone(&device);
     let udev_dispatcher = Dispatcher::new(
         udev_backend,
-        move |event: UdevEvent, _, data: &mut DriftWm| {
+        move |event: UdevEvent, _, data: &mut Driftline| {
             let mut dev = device_for_hotplug.borrow_mut();
             match event {
                 UdevEvent::Changed { device_id } => {
@@ -931,7 +932,7 @@ pub fn init_udev(
                     }
                     // Notify output management clients after hotplug changes
                     let head_state = collect_output_state_from_surfaces(surfaces, drm);
-                    driftwm::protocols::output_management::notify_changes::<DriftWm>(
+                    driftline::protocols::output_management::notify_changes::<Driftline>(
                         &mut data.output_management_state,
                         head_state,
                     );
@@ -956,7 +957,7 @@ pub fn init_udev(
         }
         // 13. Notify output management clients of initial state
         let head_state = collect_output_state_from_surfaces(&dev.surfaces, &dev.drm);
-        driftwm::protocols::output_management::notify_changes::<DriftWm>(
+        driftline::protocols::output_management::notify_changes::<Driftline>(
             &mut data.output_management_state,
             head_state,
         );
@@ -1124,7 +1125,7 @@ fn create_surface(
     connector: &connector::Info,
     crtc: crtc::Handle,
     dh: &smithay::reexports::wayland_server::DisplayHandle,
-    state: &mut DriftWm,
+    state: &mut Driftline,
 ) -> Option<SurfaceData> {
     let connector_name = format!(
         "{}-{}",
@@ -1207,11 +1208,11 @@ fn create_surface(
         .and_then(|c| c.transform)
         .unwrap_or(Transform::Normal);
     // Mode/scale/transform are set here; the layout position and per-output
-    // viewport state are owned by DriftWm::output_connected, called after this
+    // viewport state are owned by Driftline::output_connected, called after this
     // returns.
     output.change_current_state(Some(output_mode), Some(transform), Some(scale), None);
     output.set_preferred(output_mode);
-    let global = output.create_global::<DriftWm>(dh);
+    let global = output.create_global::<Driftline>(dh);
 
     let allocator = GbmAllocator::new(
         gbm.clone(),
@@ -1234,7 +1235,7 @@ fn create_surface(
             // Retry with Modifier::Invalid (implicit) only, which is the most
             // compatible option (lets the driver pick the layout).
             tracing::warn!("DrmCompositor failed ({e:?}), retrying with implicit modifier");
-            let _ = std::fs::write("/tmp/driftwm-drm-error.txt", format!("{e:?}"));
+            let _ = std::fs::write("/tmp/driftline-drm-error.txt", format!("{e:?}"));
 
             let fallback_surface = match drm.create_surface(crtc, mode, &[connector.handle()]) {
                 Ok(s) => s,
@@ -1264,7 +1265,7 @@ fn create_surface(
                 Err(e2) => {
                     tracing::error!("DrmCompositor failed even with implicit modifier: {e2:?}");
                     let _ = std::fs::write(
-                        "/tmp/driftwm-drm-error.txt",
+                        "/tmp/driftline-drm-error.txt",
                         format!("First: {e:?}\nFallback: {e2:?}"),
                     );
                     return None;
@@ -1301,15 +1302,15 @@ fn create_surface(
 /// Callers must send every event referencing this output (`wl_surface.leave`,
 /// foreign-toplevel `output_leave`, …) before calling this — see the ordering
 /// note in `teardown_output`.
-fn remove_output_global(data: &mut DriftWm, global: GlobalId) {
+fn remove_output_global(data: &mut Driftline, global: GlobalId) {
     data.display_handle
-        .disable_global::<DriftWm>(global.clone());
+        .disable_global::<Driftline>(global.clone());
     let dh = data.display_handle.clone();
     let timer = Timer::from_duration(Duration::from_secs(10));
     if let Err(e) = data
         .loop_handle
-        .insert_source(timer, move |_, _, _: &mut DriftWm| {
-            dh.remove_global::<DriftWm>(global.clone());
+        .insert_source(timer, move |_, _, _: &mut Driftline| {
+            dh.remove_global::<Driftline>(global.clone());
             TimeoutAction::Drop
         })
     {
@@ -1320,11 +1321,11 @@ fn remove_output_global(data: &mut DriftWm, global: GlobalId) {
 /// Drop everything bound to a disconnected output.
 ///
 /// The backend-independent policy (client leaves, capture/grab/fullscreen
-/// cleanup, placeholder-vs-drop split) lives in [`DriftWm::output_disconnected`].
+/// cleanup, placeholder-vs-drop split) lives in [`Driftline::output_disconnected`].
 /// Here we own the two udev-side pieces: the `wl_output` global teardown, run
 /// *after* the policy so every client-facing leave is sent while the global is
 /// still valid, and the `active_outputs` removal, symmetric with its insert.
-fn teardown_output(data: &mut DriftWm, surface: SurfaceData, is_last: bool) {
+fn teardown_output(data: &mut Driftline, surface: SurfaceData, is_last: bool) {
     let SurfaceData { output, global, .. } = surface;
 
     data.output_disconnected(&output, is_last);
@@ -1380,7 +1381,7 @@ static UNKNOWN_FENCE_SEEN: Once = Once::new();
 /// Only bounds the wait it can see: when the renderer can't export a fence at
 /// all, smithay falls back to `glFinish` inside `render_frame`, which has
 /// already returned by the time this runs.
-fn wait_for_fence(data: &mut DriftWm, crtc: crtc::Handle, sync: &SyncPoint, output: &Output) {
+fn wait_for_fence(data: &mut Driftline, crtc: crtc::Handle, sync: &SyncPoint, output: &Output) {
     let Some(fence) = sync.get::<EGLFence>() else {
         // A sync point with no fence waits on nothing, but one holding a kind we
         // can't downcast to still has to be awaited: skipping it would tear with
@@ -1447,7 +1448,7 @@ fn report_fence_failure(output: &Output, what: &str, first: bool) {
 
 /// Render a single frame and queue it to the DRM compositor.
 fn render_frame(
-    data: &mut DriftWm,
+    data: &mut Driftline,
     compositor: &mut GbmDrmCompositor,
     output: &Output,
     crtc: crtc::Handle,
@@ -1751,7 +1752,7 @@ fn deliver_presentation(
 /// composites again (the estimated-VBlank timer only supplies the wake-up; its
 /// callback does nothing but drop its own token). Scoped to the awaiting case;
 /// dropped frames are otherwise not retried.
-fn retry_dropped_lock_frame(data: &mut DriftWm, output: &Output) {
+fn retry_dropped_lock_frame(data: &mut Driftline, output: &Output) {
     if data.is_awaiting_lock_frame(output) {
         data.redraws_needed.insert(output.clone());
     }
@@ -1759,7 +1760,7 @@ fn retry_dropped_lock_frame(data: &mut DriftWm, output: &Output) {
 
 /// Wake the VBlank-driven loop at ~one refresh period when queue_frame returned
 /// EmptyFrame, so ongoing animations keep ticking. Idempotent per CRTC.
-fn queue_estimated_vblank_timer(data: &mut DriftWm, output: &Output, crtc: crtc::Handle) {
+fn queue_estimated_vblank_timer(data: &mut Driftline, output: &Output, crtc: crtc::Handle) {
     if data.estimated_vblank_timers.contains_key(&crtc) {
         return;
     }
@@ -1774,7 +1775,7 @@ fn queue_estimated_vblank_timer(data: &mut DriftWm, output: &Output, crtc: crtc:
     let timer = Timer::from_duration(duration);
     match data
         .loop_handle
-        .insert_source(timer, move |_, _, data: &mut DriftWm| {
+        .insert_source(timer, move |_, _, data: &mut Driftline| {
             data.estimated_vblank_timers.remove(&crtc);
             TimeoutAction::Drop
         }) {
@@ -1785,7 +1786,7 @@ fn queue_estimated_vblank_timer(data: &mut DriftWm, output: &Output, crtc: crtc:
     }
 }
 
-use driftwm::protocols::output_management::{ModeInfo, OutputHeadState};
+use driftline::protocols::output_management::{ModeInfo, OutputHeadState};
 
 /// Drain `data.pending_mode_changes`, applying each via `DrmCompositor::use_mode`.
 /// Safe with a page flip in flight: `use_mode` only validates (TEST_ONLY commit)
@@ -1793,7 +1794,7 @@ use driftwm::protocols::output_management::{ModeInfo, OutputHeadState};
 fn apply_pending_mode_changes(
     drm: &DrmDevice,
     surfaces: &mut HashMap<crtc::Handle, SurfaceData>,
-    data: &mut DriftWm,
+    data: &mut Driftline,
 ) {
     use smithay::reexports::drm::control::Device as ControlDevice;
 

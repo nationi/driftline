@@ -25,9 +25,9 @@ use std::sync::atomic::{AtomicBool, Ordering};
 /// the next `get_layer_surface`.
 pub(crate) struct LayerDestroyedMarker(pub AtomicBool);
 
-use crate::state::{CanvasLayer, DriftWm};
+use crate::state::{CanvasLayer, Driftline};
 
-impl WlrLayerShellHandler for DriftWm {
+impl WlrLayerShellHandler for Driftline {
     fn shell_state(&mut self) -> &mut WlrLayerShellState {
         &mut self.layer_shell_state
     }

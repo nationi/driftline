@@ -1,11 +1,11 @@
 //! Suspended-window conformance: the hit contract (§4.3), focus model (§7),
 //! obstacle inflation (§4.1), and snap/cluster exclusion. Construction goes
-//! through the test-only [`DriftWm::insert_suspended_for_test`] hook —
+//! through the test-only [`Driftline::insert_suspended_for_test`] hook —
 //! production never builds a suspended element in this chunk.
 
-use driftwm::canvas::Chrome;
-use driftwm::config::{BTN_LEFT, Config};
-use driftwm::layout::snap::SnapState;
+use driftline::canvas::Chrome;
+use driftline::config::{BTN_LEFT, Config};
+use driftline::layout::snap::SnapState;
 use smithay::input::keyboard::ModifiersState;
 use smithay::utils::{Logical, Point, Rectangle, SERIAL_COUNTER, Size};
 
@@ -342,7 +342,7 @@ fn suspended_body_occludes_gesture_hit_tests_and_focus_center() {
         "a pull over the stand-in sends no enter to the client beneath"
     );
     f.state()
-        .execute_action(&driftwm::config::Action::FocusCenter);
+        .execute_action(&driftline::config::Action::FocusCenter);
     assert!(
         matches!(f.state().window_focus, Some(FocusIntent::Suspended(s)) if s == sid),
         "FocusCenter acted on the stand-in, not the client"
@@ -874,9 +874,10 @@ fn stand_in_body_is_focus_only() {
         let mut f = Fixture::with_config(config_ssd());
         f.add_output(1, (1920, 1080));
         origin_view(&mut f);
-        f.state().desktop_entry_cache = Some(driftwm::desktop_entry::DesktopEntryCache::new(vec![
-            tmp.path().to_path_buf(),
-        ]));
+        f.state().desktop_entry_cache =
+            Some(driftline::desktop_entry::DesktopEntryCache::new(vec![
+                tmp.path().to_path_buf(),
+            ]));
         let sid = f.state().insert_suspended_for_test(
             1,
             Point::from((500, 500)),
@@ -1168,7 +1169,7 @@ fn auto_placement_anchors_a_new_window_against_a_focused_stand_in() {
     let standin_frame = f.state().visual_frame_rect(&standin).unwrap();
     let gap = f.state().config.snap_gap;
     assert!(
-        driftwm::layout::cluster::adjacent_side(&new_frame, &standin_frame, gap).is_some(),
+        driftline::layout::cluster::adjacent_side(&new_frame, &standin_frame, gap).is_some(),
         "the new window docked gap-adjacent to the stand-in"
     );
     let overlaps = new_frame.x_low < standin_frame.x_high
@@ -1248,7 +1249,7 @@ fn center_window_fallback_lands_on_stand_in() {
     f.state().set_window_focus(None, serial);
 
     f.state()
-        .execute_action(&driftwm::config::Action::CenterWindow);
+        .execute_action(&driftline::config::Action::CenterWindow);
     assert!(
         matches!(f.state().window_focus, Some(FocusIntent::Suspended(s)) if s == sid),
         "center-window landed on the stand-in and set the suspended intent"
@@ -1262,7 +1263,7 @@ fn center_window_fallback_lands_on_stand_in() {
 /// rightward swipe lands on the stand-in with the suspended intent set.
 #[test]
 fn center_nearest_reaches_a_stand_in() {
-    use driftwm::config::{Action, Direction};
+    use driftline::config::{Action, Direction};
     let mut f = Fixture::with_config(config_ssd());
     f.add_output(1, (1920, 1080));
     let id = f.add_client();
@@ -1354,7 +1355,7 @@ fn focus_center_centers_a_fully_visible_stand_in() {
     // hit-test's coordinate space is pinned by the zoom being off 1:1.
     f.state().warp_pointer(pt(450.0, 380.0));
     f.state()
-        .execute_action(&driftwm::config::Action::FocusCenter);
+        .execute_action(&driftline::config::Action::FocusCenter);
 
     assert_centers_on(&mut f, sid);
     assert_eq!(
@@ -1396,7 +1397,7 @@ fn center_window_centers_the_focused_stand_in() {
     f.state().focus_and_raise_suspended(sid);
 
     f.state()
-        .execute_action(&driftwm::config::Action::CenterWindow);
+        .execute_action(&driftline::config::Action::CenterWindow);
 
     assert!(
         matches!(f.state().window_focus, Some(FocusIntent::Suspended(s)) if s == sid),
@@ -1412,7 +1413,7 @@ fn center_window_centers_the_focused_stand_in() {
 /// zoom where it is.
 #[test]
 fn center_nearest_centers_a_fully_visible_stand_in() {
-    use driftwm::config::{Action, Direction};
+    use driftline::config::{Action, Direction};
     let mut f = Fixture::with_config(config_ssd());
     f.add_output(1, (1920, 1080));
     origin_view(&mut f);
@@ -1453,7 +1454,7 @@ fn center_nearest_centers_a_fully_visible_stand_in() {
 /// instead of re-selecting it.
 #[test]
 fn center_nearest_steps_past_the_focused_stand_in() {
-    use driftwm::config::{Action, Direction};
+    use driftline::config::{Action, Direction};
     let mut f = Fixture::with_config(config_ssd());
     f.add_output(1, (1920, 1080));
     origin_view(&mut f);
@@ -1713,7 +1714,7 @@ fn stand_in_bridges_a_cluster() {
     );
 
     let rects = f.state().all_windows_with_snap_rects();
-    let cluster = driftwm::layout::cluster::cluster_of(
+    let cluster = driftline::layout::cluster::cluster_of(
         &StageWindow::Client(a.clone()),
         &rects,
         f.state().config.snap_gap,
@@ -2037,7 +2038,8 @@ fn restored_adjacent_stand_ins_form_a_cluster() {
     let b_elem = StageWindow::Suspended(f.state().find_suspended(b).unwrap());
 
     let rects = f.state().all_windows_with_snap_rects();
-    let cluster = driftwm::layout::cluster::cluster_of(&a_elem, &rects, f.state().config.snap_gap);
+    let cluster =
+        driftline::layout::cluster::cluster_of(&a_elem, &rects, f.state().config.snap_gap);
 
     assert_eq!(cluster.len(), 2);
     assert!(cluster.contains(&b_elem), "adjacent stand-ins cluster");

@@ -21,7 +21,7 @@ use smithay::backend::renderer::gles::{
 };
 use smithay::utils::{Buffer, Logical, Point, Rectangle, Size};
 
-use driftwm::config::BackgroundKind;
+use driftline::config::BackgroundKind;
 
 use super::OutputRenderElements;
 use super::elements::TileShaderElement;
@@ -69,7 +69,7 @@ impl CaptureBackground {
     /// Build the background for a capture of `region`. `include` is false for the
     /// `window` target (isolated on transparency) → always `None`.
     pub(crate) fn prepare(
-        state: &mut crate::state::DriftWm,
+        state: &mut crate::state::Driftline,
         renderer: &mut GlesRenderer,
         region: Rectangle<i32, Logical>,
         include: bool,
@@ -217,7 +217,7 @@ impl CaptureBackground {
     }
 }
 
-fn shader_bg(state: &crate::state::DriftWm) -> CaptureBackground {
+fn shader_bg(state: &crate::state::Driftline) -> CaptureBackground {
     match state.render.background_shader.clone() {
         Some(shader) => CaptureBackground::Shader(shader),
         None => CaptureBackground::None,
@@ -225,7 +225,7 @@ fn shader_bg(state: &crate::state::DriftWm) -> CaptureBackground {
 }
 
 fn image_tile_bg(
-    state: &crate::state::DriftWm,
+    state: &crate::state::Driftline,
     renderer: &mut GlesRenderer,
     path: &str,
 ) -> Option<CaptureBackground> {
@@ -245,7 +245,7 @@ fn image_tile_bg(
 }
 
 fn wallpaper_bg(
-    state: &crate::state::DriftWm,
+    state: &crate::state::Driftline,
     renderer: &mut GlesRenderer,
     path: &str,
     region: Rectangle<i32, Logical>,
@@ -266,7 +266,7 @@ fn wallpaper_bg(
 /// region sits on (wallpaper is screen-fixed and fills that output), falling back
 /// to the active output.
 fn wallpaper_dest(
-    state: &crate::state::DriftWm,
+    state: &crate::state::Driftline,
     region: Rectangle<i32, Logical>,
 ) -> Option<Rectangle<i32, Logical>> {
     let center = Point::<i32, Logical>::from((
@@ -302,7 +302,7 @@ fn textured_shader_bg(
 /// canvas extent (so it lands exactly where the live chunked path would, just
 /// lower-res).
 fn tiff_tile_bg(
-    state: &crate::state::DriftWm,
+    state: &crate::state::Driftline,
     renderer: &mut GlesRenderer,
     path: &str,
 ) -> Option<CaptureBackground> {

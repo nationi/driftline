@@ -21,15 +21,15 @@ use crate::decorations::DecorationHit;
 use crate::grabs::{MoveGrab, NavigateGrab, PanGrab, ResizeGrab, TilingReorderGrab};
 use crate::input::{DecoTarget, HitKind, PinnedChrome};
 use crate::state::{
-    CLICK_NAVIGATE_SLOP, ClusterMember, ClusterResizeSnapshot, DriftWm, FocusTarget,
+    CLICK_NAVIGATE_SLOP, ClusterMember, ClusterResizeSnapshot, Driftline, FocusTarget,
     PendingMiddleClick, PickTarget, StageWindow, SuspendedWindow, ZoomAnimationAnchor,
 };
-use driftwm::canvas::{self, CanvasPos, canvas_to_screen};
-use driftwm::config::{self, Action, BindingContext, Direction, MouseAction};
-use driftwm::window_ext::WindowExt;
+use driftline::canvas::{self, CanvasPos, canvas_to_screen};
+use driftline::config::{self, Action, BindingContext, Direction, MouseAction};
+use driftline::window_ext::WindowExt;
 use smithay::reexports::wayland_server::Resource;
 
-impl DriftWm {
+impl Driftline {
     /// Determine the binding context for the current pointer position.
     pub(crate) fn pointer_context(
         &self,
@@ -326,7 +326,7 @@ impl DriftWm {
                 ));
                 if let Ok(token) =
                     self.loop_handle
-                        .insert_source(timer, |_, _, data: &mut DriftWm| {
+                        .insert_source(timer, |_, _, data: &mut Driftline| {
                             data.flush_pending_middle_click();
                             TimeoutAction::Drop
                         })
@@ -830,7 +830,7 @@ impl DriftWm {
     /// would linger with no dismiss-on-click-outside.
     fn maybe_grab_screen_space_click(
         &mut self,
-        pointer: &smithay::input::pointer::PointerHandle<DriftWm>,
+        pointer: &smithay::input::pointer::PointerHandle<Driftline>,
         button: u32,
         serial: smithay::utils::Serial,
     ) {
@@ -852,10 +852,10 @@ impl DriftWm {
         if focus != target {
             return;
         }
-        let screen_loc = driftwm::canvas::screen_space_origin(
+        let screen_loc = driftline::canvas::screen_space_origin(
             adjusted_0,
             CanvasPos(canvas_pos_0),
-            driftwm::canvas::ScreenPos(screen_pos_0),
+            driftline::canvas::ScreenPos(screen_pos_0),
         )
         .0;
         let start_data = GrabStartData {
@@ -879,7 +879,7 @@ impl DriftWm {
     /// would replace it, orphaning the popup.
     fn layer_button_binding(
         &self,
-        pointer: &smithay::input::pointer::PointerHandle<DriftWm>,
+        pointer: &smithay::input::pointer::PointerHandle<Driftline>,
         pos: Point<f64, smithay::utils::Logical>,
         mods: &smithay::input::keyboard::ModifiersState,
         button: u32,
@@ -907,7 +907,7 @@ impl DriftWm {
     /// its release.
     fn try_layer_button(
         &mut self,
-        pointer: &smithay::input::pointer::PointerHandle<DriftWm>,
+        pointer: &smithay::input::pointer::PointerHandle<Driftline>,
         pos: Point<f64, smithay::utils::Logical>,
         button: u32,
         serial: Serial,
@@ -939,7 +939,7 @@ impl DriftWm {
     /// it defers to normal dispatch.
     pub(crate) fn try_suspended_button(
         &mut self,
-        pointer: &smithay::input::pointer::PointerHandle<DriftWm>,
+        pointer: &smithay::input::pointer::PointerHandle<Driftline>,
         pos: Point<f64, smithay::utils::Logical>,
         button: u32,
         serial: smithay::utils::Serial,
@@ -1031,7 +1031,7 @@ impl DriftWm {
     /// above the threshold, and empty canvas falls through to on-canvas bindings.
     pub(crate) fn try_pick_button(
         &mut self,
-        pointer: &smithay::input::pointer::PointerHandle<DriftWm>,
+        pointer: &smithay::input::pointer::PointerHandle<Driftline>,
         pos: Point<f64, smithay::utils::Logical>,
         button: u32,
         serial: smithay::utils::Serial,
@@ -1178,7 +1178,7 @@ impl DriftWm {
     /// avoid latching a grab icon on a move that never started.
     pub(super) fn start_suspended_move(
         &mut self,
-        pointer: &smithay::input::pointer::PointerHandle<DriftWm>,
+        pointer: &smithay::input::pointer::PointerHandle<Driftline>,
         s: &Rc<SuspendedWindow>,
         pos: Point<f64, smithay::utils::Logical>,
         button: u32,
@@ -1220,7 +1220,7 @@ impl DriftWm {
     #[allow(clippy::too_many_arguments)]
     fn start_suspended_resize(
         &mut self,
-        pointer: &smithay::input::pointer::PointerHandle<DriftWm>,
+        pointer: &smithay::input::pointer::PointerHandle<Driftline>,
         s: &Rc<SuspendedWindow>,
         pos: Point<f64, smithay::utils::Logical>,
         button: u32,
@@ -1270,7 +1270,7 @@ impl DriftWm {
             start_screen,
             start_zoom,
             last_clamped_location: pos,
-            snap: driftwm::layout::snap::SnapState::default(),
+            snap: driftline::layout::snap::SnapState::default(),
             constraints: suspended_constraints,
             cluster_resize,
             pinned_initial_screen_pos: None,
@@ -1288,7 +1288,7 @@ impl DriftWm {
     #[allow(clippy::too_many_arguments)]
     fn try_pinned_button(
         &mut self,
-        pointer: &smithay::input::pointer::PointerHandle<DriftWm>,
+        pointer: &smithay::input::pointer::PointerHandle<Driftline>,
         pos: Point<f64, smithay::utils::Logical>,
         button: u32,
         button_state: ButtonState,
@@ -1432,7 +1432,7 @@ impl DriftWm {
     /// focus around the drag can hold that back until the grab is certain.
     pub(crate) fn start_pinned_move(
         &mut self,
-        pointer: &smithay::input::pointer::PointerHandle<DriftWm>,
+        pointer: &smithay::input::pointer::PointerHandle<Driftline>,
         window: &smithay::desktop::Window,
         pos: Point<f64, smithay::utils::Logical>,
         button: u32,
@@ -1471,7 +1471,7 @@ impl DriftWm {
     /// path, but over an empty snapshot that short-circuits to no-op.
     pub(super) fn start_compositor_resize(
         &mut self,
-        pointer: &smithay::input::pointer::PointerHandle<DriftWm>,
+        pointer: &smithay::input::pointer::PointerHandle<Driftline>,
         window: &smithay::desktop::Window,
         pos: Point<f64, smithay::utils::Logical>,
         button: u32,
@@ -1499,7 +1499,7 @@ impl DriftWm {
     #[allow(clippy::too_many_arguments)]
     pub(crate) fn start_compositor_resize_with_edge(
         &mut self,
-        pointer: &smithay::input::pointer::PointerHandle<DriftWm>,
+        pointer: &smithay::input::pointer::PointerHandle<Driftline>,
         window: &smithay::desktop::Window,
         pos: Point<f64, smithay::utils::Logical>,
         button: u32,
@@ -1589,7 +1589,7 @@ impl DriftWm {
             start_screen,
             start_zoom,
             last_clamped_location: pos,
-            snap: driftwm::layout::snap::SnapState::default(),
+            snap: driftline::layout::snap::SnapState::default(),
             constraints,
             cluster_resize,
             pinned_initial_screen_pos,
@@ -1864,7 +1864,7 @@ impl DriftWm {
     /// Start a PanGrab for click-drag viewport panning.
     fn start_pan_grab(
         &mut self,
-        pointer: &smithay::input::pointer::PointerHandle<DriftWm>,
+        pointer: &smithay::input::pointer::PointerHandle<Driftline>,
         canvas_pos: Point<f64, smithay::utils::Logical>,
         button: u32,
         serial: Serial,
@@ -1896,7 +1896,7 @@ impl DriftWm {
 
     fn start_navigate_grab(
         &mut self,
-        pointer: &smithay::input::pointer::PointerHandle<DriftWm>,
+        pointer: &smithay::input::pointer::PointerHandle<Driftline>,
         canvas_pos: Point<f64, smithay::utils::Logical>,
         button: u32,
         serial: Serial,

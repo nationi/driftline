@@ -14,7 +14,7 @@ use super::{
     window_by_app_id, window_position,
 };
 use crate::state::{ClusterResizeSnapshot, StageWindow};
-use driftwm::config::{Action, Direction};
+use driftline::config::{Action, Direction};
 
 fn step(f: &mut Fixture, action: Action) {
     f.state().execute_action(&action);

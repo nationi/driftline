@@ -18,11 +18,11 @@ const INTRO: &str = "\
 <!-- Generated from config.reference.toml — do not edit by hand.
      Regenerate with: UPDATE_CONFIG_DOCS=1 cargo test docs_config_md_is_up_to_date -->
 
-driftwm reads its configuration from `~/.config/driftwm/config.toml` (respecting
-`XDG_CONFIG_HOME`). Every field is optional — anything you omit uses the built-in
+driftline reads its configuration from `~/.config/driftline/config.toml` (respecting
+`XDG_CONFIG_HOME`). Existing `~/.config/driftwm/config.toml` files remain readable. Every field is optional — anything you omit uses the built-in
 default shown below. Copy [`config.reference.toml`](../config.reference.toml) to
 get started, then uncomment and edit only the lines you want to change. Validate a
-config with `driftwm --check-config`.
+config with `driftline --check-config`.
 ";
 
 #[test]

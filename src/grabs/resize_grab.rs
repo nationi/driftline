@@ -18,9 +18,9 @@ use smithay::{
 
 use smithay::input::pointer::CursorImageStatus;
 
-use crate::state::{ClusterMember, ClusterResizeSnapshot, DriftWm, StageWindow, output_state};
-use driftwm::canvas::{self, CanvasPos, Chrome, canvas_to_screen};
-use driftwm::layout::snap::{SnapState, snap_resize_edges};
+use crate::state::{ClusterMember, ClusterResizeSnapshot, Driftline, StageWindow, output_state};
+use driftline::canvas::{self, CanvasPos, Chrome, canvas_to_screen};
+use driftline::layout::snap::{SnapState, snap_resize_edges};
 
 /// Smallest a suspended window's *visible frame* may be resized to — keeps the
 /// chrome usable. Folded into the stand-in arm's `SizeConstraints` min so the
@@ -133,7 +133,7 @@ pub fn locked_ratio_for(window: &Window, initial_window_size: Size<i32, Logical>
     let surface = window.wl_surface()?;
     if initial_window_size.w > 0
         && initial_window_size.h > 0
-        && driftwm::config::applied_rule(&surface).is_some_and(|r| r.preserve_aspect_ratio)
+        && driftline::config::applied_rule(&surface).is_some_and(|r| r.preserve_aspect_ratio)
     {
         Some(initial_window_size.w as f64 / initial_window_size.h as f64)
     } else {
@@ -170,7 +170,7 @@ pub enum ResizeState {
 }
 
 pub struct ResizeGrab {
-    pub start_data: GrabStartData<DriftWm>,
+    pub start_data: GrabStartData<Driftline>,
     /// The resized element as a `Send`-safe handle (a grab must be `Send`, so it
     /// can't hold a `StageWindow`/`Rc`). Re-resolved to a live `StageWindow`
     /// each motion tick; a failed resolve (client died, or a stand-in dismissed
@@ -211,7 +211,7 @@ pub struct ResizeGrab {
     /// Touch grab start data, present only for touch-initiated resizes. Mirrors
     /// `MoveGrab`; `apply_resize` reads `start_data.location` so the
     /// pointer and touch paths share one resize core.
-    pub touch_start: Option<TouchGrabStartData<DriftWm>>,
+    pub touch_start: Option<TouchGrabStartData<Driftline>>,
     /// Fingers down for a touch resize; the grab unsets when this reaches zero,
     /// so a stray finger doesn't leak out of grab routing.
     pub touch_slots: usize,
@@ -253,12 +253,15 @@ pub fn has_right(edges: xdg_toplevel::ResizeEdge) -> bool {
     edges as u32 & 8 != 0
 }
 
-impl PointerGrab<DriftWm> for ResizeGrab {
+impl PointerGrab<Driftline> for ResizeGrab {
     fn motion(
         &mut self,
-        data: &mut DriftWm,
-        handle: &mut PointerInnerHandle<'_, DriftWm>,
-        _focus: Option<(<DriftWm as SeatHandler>::PointerFocus, Point<f64, Logical>)>,
+        data: &mut Driftline,
+        handle: &mut PointerInnerHandle<'_, Driftline>,
+        _focus: Option<(
+            <Driftline as SeatHandler>::PointerFocus,
+            Point<f64, Logical>,
+        )>,
         event: &MotionEvent,
     ) {
         // Resolved before the pinned branch so a dead pinned client stops
@@ -334,8 +337,8 @@ impl PointerGrab<DriftWm> for ResizeGrab {
 
     fn button(
         &mut self,
-        data: &mut DriftWm,
-        handle: &mut PointerInnerHandle<'_, DriftWm>,
+        data: &mut Driftline,
+        handle: &mut PointerInnerHandle<'_, Driftline>,
         event: &ButtonEvent,
     ) {
         handle.button(data, event);
@@ -344,7 +347,7 @@ impl PointerGrab<DriftWm> for ResizeGrab {
         }
     }
 
-    fn unset(&mut self, data: &mut DriftWm) {
+    fn unset(&mut self, data: &mut Driftline) {
         match &self.target {
             // A client resize arms the commit-time reposition via
             // `WaitingForLastCommit`; a stand-in has no client to configure, so
@@ -439,7 +442,7 @@ impl ResizeGrab {
     /// has no client to read them from (see [`MIN_SUSPENDED_SIZE`]).
     #[allow(clippy::too_many_arguments)]
     pub fn new_touch(
-        touch_start: TouchGrabStartData<DriftWm>,
+        touch_start: TouchGrabStartData<Driftline>,
         target: impl Into<ClusterMember>,
         edges: xdg_toplevel::ResizeEdge,
         initial_window_location: Point<i32, Logical>,
@@ -556,7 +559,7 @@ impl ResizeGrab {
     /// passes the element resolved for this tick.
     fn apply_resize(
         &mut self,
-        data: &mut DriftWm,
+        data: &mut Driftline,
         element: &StageWindow,
         location: Point<f64, Logical>,
     ) {
@@ -705,12 +708,12 @@ impl ResizeGrab {
     }
 }
 
-impl TouchGrab<DriftWm> for ResizeGrab {
+impl TouchGrab<Driftline> for ResizeGrab {
     fn down(
         &mut self,
-        data: &mut DriftWm,
-        handle: &mut TouchInnerHandle<'_, DriftWm>,
-        _focus: Option<(<DriftWm as SeatHandler>::TouchFocus, Point<f64, Logical>)>,
+        data: &mut Driftline,
+        handle: &mut TouchInnerHandle<'_, Driftline>,
+        _focus: Option<(<Driftline as SeatHandler>::TouchFocus, Point<f64, Logical>)>,
         event: &DownEvent,
     ) {
         // Extra fingers during a touch resize are ignored — single-window only.
@@ -720,8 +723,8 @@ impl TouchGrab<DriftWm> for ResizeGrab {
 
     fn up(
         &mut self,
-        data: &mut DriftWm,
-        handle: &mut TouchInnerHandle<'_, DriftWm>,
+        data: &mut Driftline,
+        handle: &mut TouchInnerHandle<'_, Driftline>,
         event: &UpEvent,
     ) {
         handle.up(data, event);
@@ -735,9 +738,9 @@ impl TouchGrab<DriftWm> for ResizeGrab {
 
     fn motion(
         &mut self,
-        data: &mut DriftWm,
-        handle: &mut TouchInnerHandle<'_, DriftWm>,
-        _focus: Option<(<DriftWm as SeatHandler>::TouchFocus, Point<f64, Logical>)>,
+        data: &mut Driftline,
+        handle: &mut TouchInnerHandle<'_, Driftline>,
+        _focus: Option<(<Driftline as SeatHandler>::TouchFocus, Point<f64, Logical>)>,
         event: &TouchMotionEvent,
     ) {
         if event.slot != self.touch_start.as_ref().expect("touch resize grab").slot {
@@ -771,19 +774,19 @@ impl TouchGrab<DriftWm> for ResizeGrab {
         handle.motion(data, None, event);
     }
 
-    fn frame(&mut self, data: &mut DriftWm, handle: &mut TouchInnerHandle<'_, DriftWm>) {
+    fn frame(&mut self, data: &mut Driftline, handle: &mut TouchInnerHandle<'_, Driftline>) {
         handle.frame(data);
     }
 
-    fn cancel(&mut self, data: &mut DriftWm, handle: &mut TouchInnerHandle<'_, DriftWm>) {
+    fn cancel(&mut self, data: &mut Driftline, handle: &mut TouchInnerHandle<'_, Driftline>) {
         handle.cancel(data);
         handle.unset_grab(self, data);
     }
 
     fn shape(
         &mut self,
-        data: &mut DriftWm,
-        handle: &mut TouchInnerHandle<'_, DriftWm>,
+        data: &mut Driftline,
+        handle: &mut TouchInnerHandle<'_, Driftline>,
         event: &ShapeEvent,
     ) {
         handle.shape(data, event);
@@ -791,18 +794,18 @@ impl TouchGrab<DriftWm> for ResizeGrab {
 
     fn orientation(
         &mut self,
-        data: &mut DriftWm,
-        handle: &mut TouchInnerHandle<'_, DriftWm>,
+        data: &mut Driftline,
+        handle: &mut TouchInnerHandle<'_, Driftline>,
         event: &OrientationEvent,
     ) {
         handle.orientation(data, event);
     }
 
-    fn start_data(&self) -> &TouchGrabStartData<DriftWm> {
+    fn start_data(&self) -> &TouchGrabStartData<Driftline> {
         self.touch_start.as_ref().expect("touch resize grab")
     }
 
-    fn unset(&mut self, data: &mut DriftWm) {
+    fn unset(&mut self, data: &mut Driftline) {
         // Touch never set the grab cursor (it's hidden during touch), so don't
         // reset `cursor_status` — that field is client-owned and clobbering it
         // would lose the app's shape when the pointer next reappears.

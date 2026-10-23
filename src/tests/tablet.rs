@@ -7,7 +7,7 @@
 //! traffic.
 //!
 //! The per-device output resolver is shared with touch
-//! (`DriftWm::touch_output_for_device`); the fake reports no libinput device,
+//! (`Driftline::touch_output_for_device`); the fake reports no libinput device,
 //! so resolution falls through to the config override or the first output.
 
 use smithay::input::pointer::CursorImageStatus;
@@ -16,7 +16,7 @@ use smithay::utils::{Logical, Point};
 use wayland_protocols::xdg::shell::client::xdg_toplevel::ResizeEdge;
 use wayland_protocols_wlr::layer_shell::v1::client::{zwlr_layer_shell_v1, zwlr_layer_surface_v1};
 
-use driftwm::config::BTN_LEFT;
+use driftline::config::BTN_LEFT;
 
 use crate::state::StageWindow;
 
@@ -123,7 +123,7 @@ fn pen_motion_records_what_it_delivered() {
     let screen = {
         let camera = f.state().camera();
         let zoom = f.state().zoom();
-        driftwm::canvas::canvas_to_screen(driftwm::canvas::CanvasPos(at), camera, zoom).0
+        driftline::canvas::canvas_to_screen(driftline::canvas::CanvasPos(at), camera, zoom).0
     };
     let (focus, origin) = f
         .state()

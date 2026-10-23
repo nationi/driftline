@@ -6,12 +6,12 @@ use smithay::reexports::calloop::generic::Generic;
 use smithay::reexports::calloop::{EventLoop, Interest, Mode, PostAction};
 use smithay::reexports::wayland_server::Display;
 
-use driftwm::config::Config;
+use driftline::config::Config;
 
-use crate::state::{ClientState, DriftWm};
+use crate::state::{ClientState, Driftline};
 
 /// The real compositor wired onto its own calloop loop with no backend. A test
-/// backend is deliberately absent: `DriftWm.backend` stays `None`, so every
+/// backend is deliberately absent: `Driftline.backend` stays `None`, so every
 /// render/IPC path that would touch a GPU or socket short-circuits, and only
 /// pure protocol dispatch (configure, enter/leave, flush) drives the state.
 ///
@@ -20,19 +20,19 @@ use crate::state::{ClientState, DriftWm};
 /// `gl::uninstall` before teardown, so the `None` contract holds everywhere
 /// else.
 pub struct Server {
-    pub event_loop: EventLoop<'static, DriftWm>,
-    pub state: DriftWm,
-    display: Display<DriftWm>,
+    pub event_loop: EventLoop<'static, Driftline>,
+    pub state: Driftline,
+    display: Display<Driftline>,
 }
 
 impl Server {
     pub fn new(config: (Config, Vec<String>)) -> Self {
         let event_loop = EventLoop::try_new().unwrap();
         let handle = event_loop.handle();
-        let mut display = Display::<DriftWm>::new().unwrap();
+        let mut display = Display::<Driftline>::new().unwrap();
         let dh = display.handle();
 
-        let state = DriftWm::new_with_config(dh, handle.clone(), event_loop.get_signal(), config);
+        let state = Driftline::new_with_config(dh, handle.clone(), event_loop.get_signal(), config);
 
         // Wake-only source: a dup of the display's poll fd keeps pending client
         // data visible to the outer fixture loop (which nests this loop by fd),
@@ -40,7 +40,7 @@ impl Server {
         let poll_fd = display.backend().poll_fd().try_clone_to_owned().unwrap();
         let source = Generic::new(poll_fd, Interest::READ, Mode::Level);
         handle
-            .insert_source(source, |_, _, _: &mut DriftWm| Ok(PostAction::Continue))
+            .insert_source(source, |_, _, _: &mut Driftline| Ok(PostAction::Continue))
             .unwrap();
 
         // No listening socket, IPC, xwayland, or render timer — a test drives

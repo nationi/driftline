@@ -10,11 +10,11 @@ use smithay::reexports::wayland_server::protocol::wl_surface::WlSurface;
 use smithay::utils::SERIAL_COUNTER;
 use smithay::wayland::seat::WaylandFocus;
 
-use driftwm::window_ext::WindowExt;
+use driftline::window_ext::WindowExt;
 
-use super::{DriftWm, FocusIntent, FocusTarget, StageWindow, SuspendedId};
+use super::{Driftline, FocusIntent, FocusTarget, StageWindow, SuspendedId};
 
-impl DriftWm {
+impl Driftline {
     /// Innermost modal descendant for focus redirect. Chases modal chains
     /// (e.g. file picker → overwrite confirm); capped at 10 to guard against
     /// circular parents.
@@ -221,7 +221,7 @@ impl DriftWm {
         self.set_keyboard_focus(target, serial);
     }
 
-    /// Release the popup grab driftwm tracks, and the keyboard grab it took;
+    /// Release the popup grab driftline tracks, and the keyboard grab it took;
     /// the pointer ungrab is deferred to an idle because a focus change can
     /// originate inside a PointerGrab's own callback (PanGrab's
     /// click-on-empty-canvas moves focus from its button handler), and
@@ -241,7 +241,7 @@ impl DriftWm {
             // its own — a drag, a new menu — and that one is not ours to end.
             let pointer = data.seat.get_pointer().unwrap();
             let still_the_dead_popup_grab = data.popup_grab.is_none()
-                && pointer.with_grab(|_, grab| grab.is::<PopupPointerGrab<DriftWm>>())
+                && pointer.with_grab(|_, grab| grab.is::<PopupPointerGrab<Driftline>>())
                     == Some(true);
             if still_the_dead_popup_grab {
                 let time = crate::input::monotonic_msec();

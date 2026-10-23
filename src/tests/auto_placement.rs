@@ -4,7 +4,7 @@
 //! origin, so a 1920×1080 output puts the viewport center at canvas (960, 540)
 //! and canvas coordinates read straight off the screen.
 
-use driftwm::layout::cluster::adjacent_side;
+use driftline::layout::cluster::adjacent_side;
 use smithay::desktop::Window;
 use smithay::utils::{Point, SERIAL_COUNTER, Size};
 

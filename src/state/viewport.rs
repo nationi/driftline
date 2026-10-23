@@ -3,13 +3,13 @@ use std::time::Instant;
 use smithay::output::Output;
 use smithay::utils::{Logical, Point, Rectangle, Size};
 
-use driftwm::canvas::Chrome;
-use driftwm::config::FocusPlacement;
-use driftwm::stage::StageElement;
+use driftline::canvas::Chrome;
+use driftline::config::FocusPlacement;
+use driftline::stage::StageElement;
 
-use super::{DriftWm, OutputState, StageWindow, output_logical_size, output_state};
+use super::{Driftline, OutputState, StageWindow, output_logical_size, output_state};
 
-impl DriftWm {
+impl Driftline {
     // Per-output field accessors. Getters fall back to a sensible default
     // when no output exists; setters silently no-op. Hotplug/lid-close races
     // briefly leave the compositor with zero outputs — must not panic then.
@@ -293,7 +293,9 @@ impl DriftWm {
         // The zoom tick steers by the anchor and clears `camera_target`, so
         // while one is armed it alone says where the camera lands.
         let camera = match os.zoom_animation_anchor {
-            Some(anchor) => driftwm::canvas::zoom_anchor_camera(anchor.canvas, anchor.screen, zoom),
+            Some(anchor) => {
+                driftline::canvas::zoom_anchor_camera(anchor.canvas, anchor.screen, zoom)
+            }
             None => os.camera_target.unwrap_or(os.camera),
         };
         (camera, zoom)
@@ -333,7 +335,7 @@ impl DriftWm {
         let Some(loc) = self.stage.position_of(window) else {
             return false;
         };
-        driftwm::canvas::visible_fraction(
+        driftline::canvas::visible_fraction(
             loc,
             StageElement::size(window),
             camera,
@@ -353,7 +355,7 @@ impl DriftWm {
             return false;
         };
         let os = output_state(output);
-        driftwm::canvas::visible_fraction(
+        driftline::canvas::visible_fraction(
             loc,
             StageElement::size(window),
             os.camera,

@@ -19,7 +19,7 @@ use super::{
 use crate::ipc::dispatch;
 use crate::ipc::protocol::{Reply, Request, Response, WindowSelector};
 use crate::state::{ClusterResizeSnapshot, StageWindow, SuspendedId};
-use driftwm::config::{Action, Direction};
+use driftline::config::{Action, Direction};
 
 fn resize(f: &mut Fixture, window: Option<WindowSelector>, to: Option<(i32, i32)>) -> Reply {
     dispatch(Request::Resize { window, to }, f.state())

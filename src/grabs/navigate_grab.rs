@@ -8,9 +8,9 @@ use smithay::{
 };
 
 use crate::input::gestures::direction_from_vector;
-use crate::state::{DriftWm, output_state};
-use driftwm::canvas::{CanvasPos, canvas_to_screen};
-use driftwm::config::{Action, Direction};
+use crate::state::{Driftline, output_state};
+use driftline::canvas::{CanvasPos, canvas_to_screen};
+use driftline::config::{Action, Direction};
 
 /// Squared pixel threshold before a direction is chosen (same as 4-finger swipe).
 const THRESHOLD_SQ: f64 = 16.0 * 16.0;
@@ -19,7 +19,7 @@ const THRESHOLD_SQ: f64 = 16.0 * 16.0;
 /// Uses "natural" direction: drag right → navigate right (negated screen delta,
 /// matching 4-finger swipe convention).
 pub struct NavigateGrab {
-    pub start_data: GrabStartData<DriftWm>,
+    pub start_data: GrabStartData<Driftline>,
     last_screen_pos: Point<f64, Logical>,
     cumulative: Point<f64, Logical>,
     fired: bool,
@@ -32,7 +32,7 @@ pub struct NavigateGrab {
 
 impl NavigateGrab {
     pub fn new(
-        start_data: GrabStartData<DriftWm>,
+        start_data: GrabStartData<Driftline>,
         screen_pos: Point<f64, Logical>,
         output: Output,
         action: fn(Direction) -> Action,
@@ -48,12 +48,15 @@ impl NavigateGrab {
     }
 }
 
-impl PointerGrab<DriftWm> for NavigateGrab {
+impl PointerGrab<Driftline> for NavigateGrab {
     fn motion(
         &mut self,
-        data: &mut DriftWm,
-        handle: &mut PointerInnerHandle<'_, DriftWm>,
-        _focus: Option<(<DriftWm as SeatHandler>::PointerFocus, Point<f64, Logical>)>,
+        data: &mut Driftline,
+        handle: &mut PointerInnerHandle<'_, Driftline>,
+        _focus: Option<(
+            <Driftline as SeatHandler>::PointerFocus,
+            Point<f64, Logical>,
+        )>,
         event: &MotionEvent,
     ) {
         let (camera, zoom) = {
@@ -90,8 +93,8 @@ impl PointerGrab<DriftWm> for NavigateGrab {
 
     fn button(
         &mut self,
-        data: &mut DriftWm,
-        handle: &mut PointerInnerHandle<'_, DriftWm>,
+        data: &mut Driftline,
+        handle: &mut PointerInnerHandle<'_, Driftline>,
         event: &ButtonEvent,
     ) {
         handle.button(data, event);
@@ -100,7 +103,7 @@ impl PointerGrab<DriftWm> for NavigateGrab {
         }
     }
 
-    fn unset(&mut self, _data: &mut DriftWm) {}
+    fn unset(&mut self, _data: &mut Driftline) {}
 
     crate::grabs::forward_pointer_grab_methods!();
 }

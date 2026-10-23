@@ -6,12 +6,12 @@ use smithay::{
     wayland::seat::WaylandFocus,
 };
 
-use super::{DriftWm, StageWindow, output_state};
+use super::{Driftline, StageWindow, output_state};
 use crate::grabs::SizeConstraints;
-use driftwm::canvas::{MAX_ZOOM, ScreenPos, screen_to_canvas};
-use driftwm::config;
-use driftwm::layout::snap::SnapRect;
-use driftwm::stage::FillSaved;
+use driftline::canvas::{MAX_ZOOM, ScreenPos, screen_to_canvas};
+use driftline::config;
+use driftline::layout::snap::SnapRect;
+use driftline::stage::FillSaved;
 
 /// The window's target content size + map location after filling the free space
 /// around it, or `None` when filling is a no-op (already fills the space, or the
@@ -28,7 +28,7 @@ struct FillGeometry {
     viewport_output: String,
 }
 
-impl DriftWm {
+impl Driftline {
     /// `output`'s usable area as a canvas rect, through its own camera and zoom.
     pub(super) fn usable_canvas_bounds(&self, output: &Output) -> SnapRect {
         let usable = self.usable_area_on(output);
@@ -98,7 +98,7 @@ impl DriftWm {
             inflate(constraints.max.h, 2 * bw + bar),
         );
 
-        let filled = driftwm::layout::fill::fill_rect(
+        let filled = driftline::layout::fill::fill_rect(
             current,
             &obstacles,
             bounds,

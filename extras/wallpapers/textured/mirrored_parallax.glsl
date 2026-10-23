@@ -4,7 +4,7 @@
 //
 //     [background]
 //     type = "shader"
-//     path = "~/.config/driftwm/wallpapers/mirrored_parallax.glsl"
+//     path = "~/.config/driftline/wallpapers/mirrored_parallax.glsl"
 //     texture = "~/Pictures/your_image.png"
 //
 // `tex` is the configured image. u_texture_size / u_output_size are the image's
@@ -14,7 +14,7 @@
 
 precision highp float; // Set high precision for floating-point calculations to prevent jittering
 
-// Inputs from driftwm
+// Inputs from Driftline
 varying vec2 v_coords;         // Normalized screen coordinates from the vertex shader (0.0 to 1.0)
 uniform sampler2D tex;         // The background texture image
 

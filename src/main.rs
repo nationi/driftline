@@ -14,7 +14,7 @@ mod tests;
 mod xwayland;
 
 use clap::Parser;
-use state::{ClientState, DriftWm};
+use state::{ClientState, Driftline};
 use std::sync::Arc;
 
 /// A trackpad-first infinite canvas Wayland compositor.
@@ -24,7 +24,7 @@ use std::sync::Arc;
 /// already-running instance over its IPC socket.
 #[derive(Parser)]
 #[command(
-    name = "driftwm",
+    name = "driftline",
     version,
     after_help = concat!("Documentation & source: ", env!("CARGO_PKG_REPOSITORY"))
 )]
@@ -54,7 +54,7 @@ enum Sub {
     /// Send a command to the running compositor over its IPC socket.
     ///
     /// Auto-targets the instance named by `WAYLAND_DISPLAY` (override with
-    /// `DRIFTWM_SOCKET`).
+    /// `DRIFTLINE_SOCKET`, with `DRIFTWM_SOCKET` accepted for compatibility).
     ///
     /// A window command selects its target by `app_id` substring
     /// (case-insensitive) or by `--id <n>`, the stable id `state` prints.
@@ -83,11 +83,11 @@ static GLOBAL: tracy_client::ProfiledAllocator<std::alloc::System> =
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let cli = Cli::parse();
 
-    // `driftwm msg ...` runs as a client and exits — before any backend, event
+    // `driftline msg ...` runs as a client and exits — before any backend, event
     // loop, or signal blocking.
     if let Some(Sub::Msg { json, msg }) = &cli.command {
         if let Err(e) = ipc::client::run(msg, *json) {
-            eprintln!("driftwm msg: {e}");
+            eprintln!("driftline msg: {e}");
             std::process::exit(1);
         }
         return Ok(());
@@ -114,8 +114,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // --config <path>: override config file (useful for nested/test sessions).
     // Set before --check-config so validation targets the requested file.
     if let Some(path) = &cli.config {
-        unsafe { std::env::set_var("DRIFTWM_CONFIG", path) };
-        let resolved = driftwm::config::config_path();
+        unsafe { std::env::set_var("DRIFTLINE_CONFIG", path) };
+        let resolved = driftline::config::config_path();
         // Only directories are rejected outright — `--config <(gen-config)` is
         // a pipe, and read_to_string is happy with it.
         let problem = match std::fs::metadata(&resolved) {
@@ -126,7 +126,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         // A file the user named explicitly has to be there. Falling back to
         // built-in defaults would look like the config was silently ignored.
         if let Some(problem) = problem {
-            eprintln!("driftwm: --config {}: {problem}", resolved.display());
+            eprintln!("driftline: --config {}: {problem}", resolved.display());
             std::process::exit(1);
         }
     }
@@ -134,10 +134,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     if cli.check_config {
         // Printed rather than returned so the TOML parse error keeps its
         // multi-line caret diagram: main's Box<dyn Error> is Debug-formatted.
-        let warnings = match driftwm::config::Config::check_from(&driftwm::config::config_path()) {
+        let warnings = match driftline::config::Config::check_from(&driftline::config::config_path())
+        {
             Ok(warnings) => warnings,
             Err(e) => {
-                eprintln!("driftwm: {e}");
+                eprintln!("driftline: {e}");
                 std::process::exit(1);
             }
         };
@@ -159,16 +160,16 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
     });
 
-    let mut event_loop: smithay::reexports::calloop::EventLoop<DriftWm> =
+    let mut event_loop: smithay::reexports::calloop::EventLoop<Driftline> =
         smithay::reexports::calloop::EventLoop::try_new()?;
 
-    // signalfd path so SIGTERM from systemd / `pkill driftwm` goes through
+    // signalfd path so SIGTERM from systemd / `pkill driftline` goes through
     // the same clean exit as the Quit keybind.
     signals::listen(&event_loop.handle());
 
-    let display = smithay::reexports::wayland_server::Display::<DriftWm>::new()?;
+    let display = smithay::reexports::wayland_server::Display::<Driftline>::new()?;
 
-    let mut data = DriftWm::new(
+    let mut data = Driftline::new(
         display.handle(),
         event_loop.handle(),
         event_loop.get_signal(),
@@ -183,7 +184,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // before backend init so udev's connector scan can seed fresh-boot cameras.
     data.session_store.path = match &cli.session_file {
         Some(path) => Some(path.clone()),
-        None if backend_name == "udev" => driftwm::session::default_session_path(),
+        None if backend_name == "udev" => driftline::session::default_session_path(),
         None => None,
     };
     data.load_session();
@@ -215,7 +216,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     );
     event_loop
         .handle()
-        .insert_source(display_source, |_, display, data: &mut DriftWm| {
+        .insert_source(display_source, |_, display, data: &mut Driftline| {
             // SAFETY: Display is never dropped while the Generic source is alive.
             unsafe { display.get_mut() }.dispatch_clients(data).ok();
             Ok(smithay::reexports::calloop::PostAction::Continue)
@@ -229,11 +230,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     tracing::info!("Listening on WAYLAND_DISPLAY={socket_name}");
     unsafe { std::env::set_var("WAYLAND_DISPLAY", &socket_name) };
     unsafe { std::env::set_var("XDG_SESSION_TYPE", "wayland") };
-    unsafe { std::env::set_var("XDG_CURRENT_DESKTOP", "driftwm") };
+    unsafe { std::env::set_var("XDG_CURRENT_DESKTOP", "Driftline") };
     // Toolkit env vars (MOZ_ENABLE_WAYLAND, QT_QPA_PLATFORM, ...) live in
     // Config::load() with user [env] overrides taking precedence.
     unsafe { std::env::set_var("XDG_SESSION_CLASS", "user") };
-    unsafe { std::env::set_var("XDG_SESSION_DESKTOP", "driftwm") };
+    unsafe { std::env::set_var("XDG_SESSION_DESKTOP", "driftline") };
 
     // Add WAYLAND_DISPLAY to child_env for autostart commands
     data.config
@@ -241,7 +242,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .insert("WAYLAND_DISPLAY".to_string(), socket_name.clone());
 
     // The IPC socket name derives from WAYLAND_DISPLAY, so start it now that the
-    // wayland display is known — this lets `driftwm msg` auto-target this instance.
+    // wayland display is known — this lets `driftline msg` auto-target this instance.
     match crate::ipc::IpcServer::new(&event_loop.handle(), &socket_name) {
         Ok(server) => data.ipc_server = Some(server),
         Err(e) => tracing::warn!("IPC server failed to start: {e}"),
@@ -253,9 +254,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     {
         let session_vars = [
             ("WAYLAND_DISPLAY", socket_name.as_str()),
-            ("XDG_CURRENT_DESKTOP", "driftwm"),
+            ("XDG_CURRENT_DESKTOP", "Driftline"),
             ("XDG_SESSION_TYPE", "wayland"),
-            ("XDG_SESSION_DESKTOP", "driftwm"),
+            ("XDG_SESSION_DESKTOP", "driftline"),
         ];
         let names = session_vars
             .iter()
@@ -290,7 +291,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     event_loop
         .handle()
-        .insert_source(listening_socket, |stream, _, data: &mut DriftWm| {
+        .insert_source(listening_socket, |stream, _, data: &mut Driftline| {
             tracing::info!("New client connected");
             if let Err(e) = data
                 .display_handle
@@ -308,7 +309,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         use smithay::reexports::calloop::{Interest, Mode, PostAction, generic::Generic};
         use std::os::fd::AsFd;
 
-        let config_path = driftwm::config::config_path();
+        let config_path = driftline::config::config_path();
         data.config_file_mtime = std::fs::metadata(&config_path)
             .and_then(|m| m.modified())
             .ok();
@@ -337,7 +338,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                             let source = Generic::new(watch_fd, Interest::READ, Mode::Level);
                             let registered = event_loop.handle().insert_source(
                                 source,
-                                move |_, _, data: &mut DriftWm| {
+                                move |_, _, data: &mut Driftline| {
                                     let mut buffer = [0u8; 1024];
                                     let touched = match inotify.read_events(&mut buffer) {
                                         Ok(events) => events
@@ -391,7 +392,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // throttle` gate never fires.
     event_loop.handle().insert_source(
         smithay::reexports::calloop::timer::Timer::from_duration(std::time::Duration::from_secs(1)),
-        |_, _, data: &mut DriftWm| {
+        |_, _, data: &mut Driftline| {
             crate::render::send_frame_callbacks_fallback(data);
             smithay::reexports::calloop::timer::TimeoutAction::ToDuration(
                 std::time::Duration::from_secs(1),
@@ -414,7 +415,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             smithay::reexports::calloop::timer::Timer::from_duration(
                 std::time::Duration::from_millis(100),
             ),
-            move |_, _, data: &mut DriftWm| {
+            move |_, _, data: &mut Driftline| {
                 for cmd in &autostart {
                     tracing::info!("Autostart: {cmd}");
                     state::spawn_command(cmd, &data.config.child_env);
@@ -445,7 +446,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Deliberately no durable session write here: by this point the batch that
     // stopped the loop has already dispatched whatever client disconnects came
     // with it, so a rebuild would serialize a drained stage over a good file
-    // (see `DriftWm::session_store_mark_dirty`).
+    // (see `Driftline::session_store_mark_dirty`).
     state::remove_state_file();
 
     run_result?;

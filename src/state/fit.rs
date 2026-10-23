@@ -5,10 +5,10 @@ use smithay::{
     wayland::seat::WaylandFocus,
 };
 
-use super::{DriftWm, PendingView, StageWindow, ZoomAnimationAnchor, output_state};
-use driftwm::config;
-use driftwm::stage::{ElementId, FitPush};
-use driftwm::window_ext::WindowExt;
+use super::{Driftline, PendingView, StageWindow, ZoomAnimationAnchor, output_state};
+use driftline::config;
+use driftline::stage::{ElementId, FitPush};
+use driftline::window_ext::WindowExt;
 
 /// Build a `SnapRect` from a hypothetical canvas position, size, SSD
 /// bar, and border width — used by `fit_window_snapped` /
@@ -26,9 +26,9 @@ pub(super) fn snap_rect_at(
     size: Size<i32, Logical>,
     bar: i32,
     border_width: i32,
-) -> driftwm::layout::snap::SnapRect {
+) -> driftline::layout::snap::SnapRect {
     let bw = border_width as f64;
-    driftwm::layout::snap::SnapRect {
+    driftline::layout::snap::SnapRect {
         x_low: loc.x as f64 - bw,
         x_high: loc.x as f64 + size.w as f64 + bw,
         y_low: loc.y as f64 - bar as f64 - bw,
@@ -52,7 +52,7 @@ struct FitGeometry {
     anchor_canvas: Point<f64, Logical>,
 }
 
-impl DriftWm {
+impl Driftline {
     fn compute_fit_geometry(&self, window: &Window) -> FitGeometry {
         let usable = self.get_usable_area();
         let chrome = self.element_chrome(window);
@@ -245,8 +245,8 @@ impl DriftWm {
     fn snap_rects_with_primary(
         &self,
         primary: &StageWindow,
-        rect: driftwm::layout::snap::SnapRect,
-    ) -> Vec<(StageWindow, driftwm::layout::snap::SnapRect)> {
+        rect: driftline::layout::snap::SnapRect,
+    ) -> Vec<(StageWindow, driftline::layout::snap::SnapRect)> {
         let mut rects = self.all_windows_with_snap_rects();
         // A primary with no rect of its own (widget, pinned, unmapped) stays
         // absent, which is what degrades its cluster to `{self}`.
@@ -268,8 +268,8 @@ impl DriftWm {
     fn shift_cluster_around_primary(
         &mut self,
         primary: &Window,
-        old_rect: driftwm::layout::snap::SnapRect,
-        new_rect: driftwm::layout::snap::SnapRect,
+        old_rect: driftline::layout::snap::SnapRect,
+        new_rect: driftline::layout::snap::SnapRect,
     ) {
         use smithay::reexports::wayland_protocols::xdg::shell::server::xdg_toplevel;
 
@@ -408,8 +408,8 @@ impl DriftWm {
     fn shift_fit_cluster(
         &mut self,
         window: &Window,
-        from: driftwm::layout::snap::SnapRect,
-        to: driftwm::layout::snap::SnapRect,
+        from: driftline::layout::snap::SnapRect,
+        to: driftline::layout::snap::SnapRect,
         waits_for: Option<ElementId>,
     ) {
         let primary = StageWindow::Client(window.clone());
@@ -419,7 +419,7 @@ impl DriftWm {
         #[allow(clippy::mutable_key_type)]
         let cluster_members: Vec<StageWindow> = {
             let rects = self.snap_rects_with_primary(&primary, from);
-            driftwm::layout::cluster::cluster_of(&primary, &rects, self.config.snap_gap)
+            driftline::layout::cluster::cluster_of(&primary, &rects, self.config.snap_gap)
                 .into_iter()
                 .filter(|w| w != window)
                 .collect()

@@ -217,15 +217,15 @@ use smithay::wayland::shell::wlr_layer::Layer as WlrLayer;
 
 use crate::decorations::DecorationKey;
 use crate::state::StageWindow;
-use driftwm::canvas;
-use driftwm::window_ext::WindowExt;
+use driftline::canvas;
+use driftline::window_ext::WindowExt;
 
 /// Render elements for a locked session: the lock surface, with the cursor
 /// over it. A lock client's `wl_pointer.set_cursor` arrives as a
 /// `CursorImageStatus` we composite ourselves, exactly as for any other
 /// client — nothing draws a cursor here but us.
 fn compose_lock_frame(
-    state: &crate::state::DriftWm,
+    state: &crate::state::Driftline,
     renderer: &mut GlesRenderer,
     output: &Output,
     cursor_elements: Vec<OutputRenderElements>,
@@ -360,7 +360,7 @@ fn push_plain_elements(
 /// regardless of kind (see the render-loc note below), which is what lets a
 /// `window` capture cover pinned and fullscreen windows too.
 pub(crate) fn compose_capture_elements(
-    state: &mut crate::state::DriftWm,
+    state: &mut crate::state::Driftline,
     renderer: &mut GlesRenderer,
     camera: Point<f64, Logical>,
     dpi_scale: f64,
@@ -436,7 +436,7 @@ pub(crate) fn compose_capture_elements(
         };
         let is_fullscreen = state.stage.is_fullscreen(window);
 
-        let applied = driftwm::config::applied_rule(&wl_surface);
+        let applied = driftline::config::applied_rule(&wl_surface);
         let is_widget = applied.as_ref().is_some_and(|r| r.widget);
         let is_focused = focused_window.as_ref() == Some(window);
         // An isolated window is captured as itself, not as the unfocused window
@@ -444,7 +444,7 @@ pub(crate) fn compose_capture_elements(
         let opacity = if isolate.is_some() {
             applied.as_ref().and_then(|r| r.opacity).unwrap_or(1.0)
         } else {
-            driftwm::config::effective_opacity(
+            driftline::config::effective_opacity(
                 applied.as_ref(),
                 &state.config.decorations,
                 is_focused,
@@ -452,7 +452,7 @@ pub(crate) fn compose_capture_elements(
             )
         };
 
-        let effective_mode = driftwm::config::effective_decoration_mode(
+        let effective_mode = driftline::config::effective_decoration_mode(
             applied.as_ref().and_then(|r| r.decoration.as_ref()),
             &state.config.decorations.default_mode,
         );
@@ -460,17 +460,17 @@ pub(crate) fn compose_capture_elements(
             ssd_bar: state
                 .decorations
                 .contains_key(&DecorationKey::Surface(wl_surface.id())),
-            border_width: driftwm::config::effective_border_width(
+            border_width: driftline::config::effective_border_width(
                 applied.as_ref(),
                 effective_mode,
                 &state.config.decorations,
             ),
-            corner_radius: driftwm::config::effective_corner_radius(
+            corner_radius: driftline::config::effective_corner_radius(
                 applied.as_ref(),
                 effective_mode,
                 &state.config.decorations,
             ),
-            shadow: driftwm::config::effective_shadow_enabled(
+            shadow: driftline::config::effective_shadow_enabled(
                 applied.as_ref(),
                 effective_mode,
                 &state.config.decorations,
@@ -483,18 +483,18 @@ pub(crate) fn compose_capture_elements(
         let effective_corner_radius = chrome.corner_radius;
         let effective_shadow = chrome.shadow;
         let border_color = if is_focused {
-            driftwm::config::effective_border_color_focused(
+            driftline::config::effective_border_color_focused(
                 applied.as_ref(),
                 &state.config.decorations,
             )
         } else {
-            driftwm::config::effective_border_color(applied.as_ref(), &state.config.decorations)
+            driftline::config::effective_border_color(applied.as_ref(), &state.config.decorations)
         };
 
         let mut bbox = window.bbox_with_popups();
         bbox.loc += loc - geom_loc;
         if has_ssd {
-            let r = driftwm::config::DecorationConfig::SHADOW_RADIUS.ceil() as i32;
+            let r = driftline::config::DecorationConfig::SHADOW_RADIUS.ceil() as i32;
             let bar = state.config.decorations.title_bar_height;
             bbox.loc.x -= r;
             bbox.loc.y -= bar + r;
@@ -700,7 +700,7 @@ pub(crate) fn compose_capture_elements(
         } else if let Some(ref shader) = state.render.corner_clip_shader {
             let geo = window.geometry();
             let radius = effective_corner_radius as f32;
-            let bare = matches!(effective_mode, driftwm::config::DecorationMode::None);
+            let bare = matches!(effective_mode, driftline::config::DecorationMode::None);
 
             if !bare && !is_fullscreen {
                 let geometry = Rectangle::new(
@@ -796,7 +796,7 @@ pub(crate) fn compose_capture_elements(
 /// Assemble all render elements for a frame. Caller provides cursor elements
 /// (built before taking the renderer).
 pub fn compose_frame(
-    state: &mut crate::state::DriftWm,
+    state: &mut crate::state::Driftline,
     renderer: &mut GlesRenderer,
     output: &Output,
     cursor_elements: Vec<OutputRenderElements>,
@@ -941,7 +941,7 @@ pub fn compose_frame(
                 };
                 let bar = state.config.decorations.title_bar_height;
                 let bw = state.default_border_width();
-                let pad = driftwm::config::DecorationConfig::SHADOW_RADIUS.ceil() as i32 + bw;
+                let pad = driftline::config::DecorationConfig::SHADOW_RADIUS.ceil() as i32 + bw;
                 let size = s.size.get();
                 let bbox = Rectangle::new(
                     Point::<i32, Logical>::from((loc.x - pad, loc.y - bar - pad)),
@@ -1117,7 +1117,7 @@ pub fn compose_frame(
         let chrome_alpha = state.chrome_alpha_of(element_id, window);
         let is_fullscreen = chrome_alpha <= 0.0;
 
-        let applied = driftwm::config::applied_rule(&wl_surface);
+        let applied = driftline::config::applied_rule(&wl_surface);
         let is_widget = applied.as_ref().is_some_and(|r| r.widget);
         // Live pin membership — `window_render_transform` below decides the
         // canvas/screen frame from the same source, and the animation reference
@@ -1130,7 +1130,7 @@ pub fn compose_frame(
         let shows_pinned = state.pinned_picture_of(element_id, window);
         let bucket_pinned = state.draws_pinned_on(element_id, window, output_fullscreen);
         let is_focused = focused_window.as_ref() == Some(window);
-        let effective_mode = driftwm::config::effective_decoration_mode(
+        let effective_mode = driftline::config::effective_decoration_mode(
             applied.as_ref().and_then(|r| r.decoration.as_ref()),
             &state.config.decorations.default_mode,
         );
@@ -1138,17 +1138,17 @@ pub fn compose_frame(
             ssd_bar: state
                 .decorations
                 .contains_key(&DecorationKey::Surface(wl_surface.id())),
-            border_width: driftwm::config::effective_border_width(
+            border_width: driftline::config::effective_border_width(
                 applied.as_ref(),
                 effective_mode,
                 &state.config.decorations,
             ),
-            corner_radius: driftwm::config::effective_corner_radius(
+            corner_radius: driftline::config::effective_corner_radius(
                 applied.as_ref(),
                 effective_mode,
                 &state.config.decorations,
             ),
-            shadow: driftwm::config::effective_shadow_enabled(
+            shadow: driftline::config::effective_shadow_enabled(
                 applied.as_ref(),
                 effective_mode,
                 &state.config.decorations,
@@ -1162,18 +1162,18 @@ pub fn compose_frame(
         let has_ssd = frame_chrome.ssd_bar;
         let effective_bw = frame_chrome.border_width;
         let border_color = if is_focused {
-            driftwm::config::effective_border_color_focused(
+            driftline::config::effective_border_color_focused(
                 applied.as_ref(),
                 &state.config.decorations,
             )
         } else {
-            driftwm::config::effective_border_color(applied.as_ref(), &state.config.decorations)
+            driftline::config::effective_border_color(applied.as_ref(), &state.config.decorations)
         };
 
         let mut bbox = window.bbox_with_popups();
         bbox.loc += loc - geom_loc;
         if has_ssd {
-            let r = driftwm::config::DecorationConfig::SHADOW_RADIUS.ceil() as i32;
+            let r = driftline::config::DecorationConfig::SHADOW_RADIUS.ceil() as i32;
             let bar = state.config.decorations.title_bar_height;
             bbox.loc.x -= r;
             bbox.loc.y -= bar + r;
@@ -1345,12 +1345,12 @@ pub fn compose_frame(
         // A frozen exit still wears the fullscreen picture over a culled canvas,
         // and an entry ramp is already fullscreen on the stage — neither may dim.
         let fullscreen_exempt = is_fullscreen || state.stage.is_fullscreen(window);
-        let window_blur = driftwm::config::effective_blur(
+        let window_blur = driftline::config::effective_blur(
             applied.as_ref(),
             &state.config.decorations,
             fullscreen_exempt,
         );
-        let opacity = driftwm::config::effective_opacity(
+        let opacity = driftline::config::effective_opacity(
             applied.as_ref(),
             &state.config.decorations,
             is_focused,
@@ -1783,11 +1783,11 @@ pub fn compose_frame(
             // `decoration = "none"` hard-vetoes compositor chrome: the client
             // surface is passed through untouched (no clip, no border, no
             // shadow). Use `minimal` for titlebar-less chrome opt-ins.
-            let effective = driftwm::config::effective_decoration_mode(
+            let effective = driftline::config::effective_decoration_mode(
                 applied.as_ref().and_then(|r| r.decoration.as_ref()),
                 &state.config.decorations.default_mode,
             );
-            let bare = matches!(effective, driftwm::config::DecorationMode::None);
+            let bare = matches!(effective, driftline::config::DecorationMode::None);
 
             if !bare && !is_fullscreen {
                 // Clip pixels outside the geometry rect even when radius=0,
@@ -2391,7 +2391,7 @@ fn outline_buffer(
 
 /// Thin outlines showing where other monitors' viewports sit on the canvas.
 fn build_output_outline_elements(
-    state: &mut crate::state::DriftWm,
+    state: &mut crate::state::Driftline,
     renderer: &mut GlesRenderer,
     output: &Output,
     camera: Point<f64, Logical>,

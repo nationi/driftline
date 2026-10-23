@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use driftwm::protocols::output_management::{ModeInfo, OutputHeadState, notify_changes};
+use driftline::protocols::output_management::{ModeInfo, OutputHeadState, notify_changes};
 use smithay::utils::Transform;
 use wayland_client::protocol::wl_registry;
 use wayland_client::{Connection, Dispatch, EventQueue, QueueHandle};
@@ -12,7 +12,7 @@ use wayland_protocols_wlr::output_management::v1::client::{
 
 use super::Fixture;
 use super::client::ClientId;
-use crate::state::DriftWm;
+use crate::state::Driftline;
 
 #[derive(Default)]
 struct Observer {
@@ -138,7 +138,7 @@ fn snapshot(current: usize, extra_mode: bool) -> HashMap<String, OutputHeadState
 }
 
 fn update(f: &mut Fixture, state: HashMap<String, OutputHeadState>) {
-    notify_changes::<DriftWm>(&mut f.state().output_management_state, state);
+    notify_changes::<Driftline>(&mut f.state().output_management_state, state);
 }
 
 fn pump(f: &mut Fixture, id: ClientId, queue: &mut EventQueue<Observer>, observer: &mut Observer) {

@@ -5,10 +5,10 @@ use smithay::{
     wayland::seat::WaylandFocus,
 };
 
-use crate::state::{DriftWm, HomeReturn, NavZoom, RevealPan, StageWindow};
-use driftwm::canvas::{self};
-use driftwm::config::{Action, Direction, LayoutSwitch, Modifiers, SendEvents, TrackpadState};
-use driftwm::window_ext::WindowExt;
+use crate::state::{Driftline, HomeReturn, NavZoom, RevealPan, StageWindow};
+use driftline::canvas::{self};
+use driftline::config::{Action, Direction, LayoutSwitch, Modifiers, SendEvents, TrackpadState};
+use driftline::window_ext::WindowExt;
 
 /// Use the focused window as the cone-search origin only when it's fully
 /// inside the viewport (or, too big for that, shown as fully as it fits). Any
@@ -25,7 +25,7 @@ enum NavTarget {
     Anchor(Point<f64, Logical>),
 }
 
-impl DriftWm {
+impl Driftline {
     /// The cone search shared by `center-nearest` and `focus-nearest`: the
     /// nearest canvas element or `navigation.anchors` point in `dir`, searched
     /// from the focused element when in view, else the viewport center — both
@@ -531,7 +531,7 @@ impl DriftWm {
                     // StageWindow's Hash/Eq are pointer identity — stable despite
                     // interior mutability. Same allow as cluster_snapshot.rs.
                     #[allow(clippy::mutable_key_type)]
-                    let cluster = driftwm::layout::cluster::cluster_of(
+                    let cluster = driftline::layout::cluster::cluster_of(
                         &focused,
                         &rects,
                         self.config.snap_gap,

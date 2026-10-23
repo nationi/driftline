@@ -5,8 +5,8 @@ use smithay::desktop::Window;
 use smithay::output::Output;
 use smithay::utils::{Logical, Point, Rectangle, SERIAL_COUNTER, Size};
 
-use driftwm::canvas::{CanvasPos, ScreenPos, canvas_to_screen, screen_to_canvas};
-use driftwm::stage::ElementId;
+use driftline::canvas::{CanvasPos, ScreenPos, canvas_to_screen, screen_to_canvas};
+use driftline::stage::ElementId;
 
 use crate::ipc::dispatch;
 use crate::ipc::protocol::{Reply, Request, Response, WindowSelector};

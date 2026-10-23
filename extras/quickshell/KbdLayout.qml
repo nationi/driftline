@@ -2,15 +2,15 @@ import QtQuick
 import Quickshell
 import Quickshell.Io
 
-// Watching driftwm's state file for the layout's short code beats polling
-// `driftwm msg layout`.
+// Watching Driftline's state file for the layout's short code beats polling
+// `driftline msg layout`.
 Tile {
     id: root
 
     label: "kbd"
     value: "—"
     clickable: true
-    onClicked: Quickshell.execDetached(["driftwm", "msg", "action", "switch-layout next"])
+    onClicked: Quickshell.execDetached(["driftline", "msg", "action", "switch-layout next"])
 
     FileView {
         path: `${Quickshell.env("XDG_RUNTIME_DIR")}/driftwm/state`

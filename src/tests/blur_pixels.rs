@@ -642,7 +642,7 @@ fn check_tiling_frost_capture(
     moving_capture: bool,
 ) {
     use super::{last_configured, map_window_shm, window_by_app_id};
-    use driftwm::config::Action;
+    use driftline::config::Action;
     use smithay::reexports::wayland_server::Resource;
     use smithay::wayland::compositor::{
         Barrier, add_blocker, add_pre_commit_hook, remove_pre_commit_hook,
@@ -782,7 +782,7 @@ fn check_tiling_frost_capture(
     let before_bounds = frost_bounds(&before);
     if moving_capture {
         f.state()
-            .execute_action(&Action::MoveIntoColumn(driftwm::config::Direction::Left));
+            .execute_action(&Action::MoveIntoColumn(driftline::config::Direction::Left));
     } else {
         f.state().execute_action(&Action::ToggleTiling);
     }
@@ -792,7 +792,7 @@ fn check_tiling_frost_capture(
     let surface = wb.wl_surface().unwrap().into_owned();
     let barrier = Barrier::new(false);
     let blocker = barrier.clone();
-    let hook = add_pre_commit_hook::<crate::state::DriftWm, _>(&surface, move |_, _, s| {
+    let hook = add_pre_commit_hook::<crate::state::Driftline, _>(&surface, move |_, _, s| {
         add_blocker(s, blocker.clone());
     });
     for (client, surface, size) in [(first, &a, size_a), (second, &b, size_b)] {
@@ -956,7 +956,7 @@ fn check_tiling_frost_capture(
         TilingFrostAnimation::RepeatResize | TilingFrostAnimation::RepeatSsdResize
     ) {
         f.state()
-            .execute_action(&Action::FocusColumn(driftwm::config::Direction::Left));
+            .execute_action(&Action::FocusColumn(driftline::config::Direction::Left));
         f.state()
             .tick_window_animations(std::time::Duration::from_millis(16));
         let mut current = live_frame(&mut f, &output);
@@ -1224,7 +1224,7 @@ fn tiling_captures_frost_during_an_active_open_or_fade() {
 fn repeated_tiling_resize_preserves_frost_and_chrome() {
     let _gl = gl::lock();
     let (ready, loaded) = std::sync::mpsc::sync_channel(1);
-    driftwm::text::warm_fonts(move || {
+    driftline::text::warm_fonts(move || {
         let _ = ready.send(());
     });
     loaded
@@ -1252,7 +1252,7 @@ enum ClientBlurMotion {
 fn client_blur_regions_follow_motion_opening_and_grouped_capture() {
     let _gl = gl::lock();
     let (ready, loaded) = std::sync::mpsc::sync_channel(1);
-    driftwm::text::warm_fonts(move || {
+    driftline::text::warm_fonts(move || {
         let _ = ready.send(());
     });
     loaded
@@ -1318,7 +1318,7 @@ fn global_blur_reload_preserves_held_masks_and_blends_release() {
 fn global_blur_reload_cancellation_releases_mixed_native_masks() {
     let _gl = gl::lock();
     let (ready, loaded) = std::sync::mpsc::sync_channel(1);
-    driftwm::text::warm_fonts(move || {
+    driftline::text::warm_fonts(move || {
         let _ = ready.send(());
     });
     loaded
@@ -1366,7 +1366,7 @@ fn check_client_blur_motion(
     );
     let whole_body = matches!(scenario, ClientBlurScenario::WholeBodyRule);
     use super::{last_configured, map_window_shm, window_by_app_id};
-    use driftwm::config::Action;
+    use driftline::config::Action;
     let Some(renderer) = gl::surfaceless_renderer("client blur motion") else {
         return;
     };
@@ -1854,7 +1854,7 @@ fn check_client_blur_motion(
 
 fn client_blur_mask_samples(
     f: &mut Fixture,
-    id: driftwm::stage::ElementId,
+    id: driftline::stage::ElementId,
     ssd: bool,
     scale: f64,
 ) -> [u8; 5] {
@@ -1927,7 +1927,7 @@ fn client_blur_mask_samples(
 fn degraded_client_blur_follows_capped_and_minified_live_content() {
     let _gl = gl::lock();
     let (ready, loaded) = std::sync::mpsc::sync_channel(1);
-    driftwm::text::warm_fonts(move || {
+    driftline::text::warm_fonts(move || {
         let _ = ready.send(());
     });
     loaded
@@ -1946,7 +1946,7 @@ fn degraded_client_blur_follows_capped_and_minified_live_content() {
 
 fn check_degraded_client_blur(scale: f64, ssd: bool, shrinking: bool, reply: bool) {
     use super::{last_configured, map_window_shm, tick_until_settled, window_by_app_id};
-    use driftwm::config::Action;
+    use driftline::config::Action;
     use std::time::{Duration, Instant};
     let Some(renderer) = gl::surfaceless_renderer("degraded client blur") else {
         return;

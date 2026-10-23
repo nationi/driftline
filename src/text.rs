@@ -61,7 +61,7 @@ pub fn warm_fonts(on_loaded: impl FnOnce() + Send + 'static) {
     }
 
     let spawned = std::thread::Builder::new()
-        .name("driftwm-font-warm".into())
+        .name("driftline-font-warm".into())
         .spawn(|| {
             let _ = FONT_SYSTEM.set(Mutex::new(FontSystem::new()));
             let callbacks = std::mem::take(&mut *PENDING_ON_LOADED.lock().unwrap());

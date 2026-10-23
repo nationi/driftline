@@ -12,8 +12,8 @@
 use smithay::utils::Point;
 use wayland_protocols_wlr::layer_shell::v1::client::zwlr_layer_surface_v1;
 
-use driftwm::canvas::{ScreenPos, screen_to_canvas};
-use driftwm::config::BTN_LEFT;
+use driftline::canvas::{ScreenPos, screen_to_canvas};
+use driftline::config::BTN_LEFT;
 
 use crate::state::StageWindow;
 

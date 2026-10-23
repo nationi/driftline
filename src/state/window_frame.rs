@@ -12,12 +12,12 @@ use smithay::reexports::wayland_server::protocol::wl_surface::WlSurface;
 use smithay::utils::{Logical, Point, Size};
 use smithay::wayland::seat::WaylandFocus;
 
-use driftwm::canvas::Chrome;
-use driftwm::window_ext::WindowExt;
+use driftline::canvas::Chrome;
+use driftline::window_ext::WindowExt;
 
-use super::{DriftWm, StageWindow};
+use super::{Driftline, StageWindow};
 
-impl DriftWm {
+impl Driftline {
     pub fn window_ssd_bar<W: WaylandFocus + WindowExt>(&self, window: &W) -> i32 {
         // Every stand-in draws the same textless bar (a CSD-origin one shrinks
         // its body under it), so a suspended element always carries the bar
@@ -39,14 +39,16 @@ impl DriftWm {
     /// width, matching what a relaunched client would get before its rule
     /// re-applies.
     pub fn default_border_width(&self) -> i32 {
-        let mode =
-            driftwm::config::effective_decoration_mode(None, &self.config.decorations.default_mode);
-        driftwm::config::effective_border_width(None, mode, &self.config.decorations)
+        let mode = driftline::config::effective_decoration_mode(
+            None,
+            &self.config.decorations.default_mode,
+        );
+        driftline::config::effective_border_width(None, mode, &self.config.decorations)
     }
 
     /// The chrome an element wears. Every user-facing size and position is
     /// expressed against this frame, not the content rect the compositor stores —
-    /// see [`driftwm::canvas::Chrome`].
+    /// see [`driftline::canvas::Chrome`].
     ///
     /// The bar's authority is the decorations map rather than the decoration mode
     /// a rule or a negotiation *implies*, because a client that calls `set_mode`
@@ -99,10 +101,10 @@ impl DriftWm {
     pub(crate) fn mapping_chrome(
         &self,
         surface: &WlSurface,
-        effective: &driftwm::config::DecorationMode,
+        effective: &driftline::config::DecorationMode,
     ) -> Chrome {
         Chrome {
-            bar: if matches!(effective, driftwm::config::DecorationMode::Server) {
+            bar: if matches!(effective, driftline::config::DecorationMode::Server) {
                 self.config.decorations.title_bar_height
             } else {
                 0
@@ -134,12 +136,12 @@ impl DriftWm {
     /// `[decorations] border_width`. Returns 0 when the effective decoration
     /// mode is `None` (hard veto — per-window overrides ignored).
     pub fn window_border_width(&self, surface: &WlSurface) -> i32 {
-        let applied = driftwm::config::applied_rule(surface);
-        let mode = driftwm::config::effective_decoration_mode(
+        let applied = driftline::config::applied_rule(surface);
+        let mode = driftline::config::effective_decoration_mode(
             applied.as_ref().and_then(|r| r.decoration.as_ref()),
             &self.config.decorations.default_mode,
         );
-        driftwm::config::effective_border_width(applied.as_ref(), mode, &self.config.decorations)
+        driftline::config::effective_border_width(applied.as_ref(), mode, &self.config.decorations)
     }
 
     /// Visual center accounting for SSD title bar above content. Sized from

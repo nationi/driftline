@@ -1,4 +1,4 @@
-use driftwm::config::{
+use driftline::config::{
     Action, BTN_LEFT, BTN_RIGHT, BackgroundKind, BindingContext, Config, ContinuousAction,
     Direction, GestureConfigEntry, LayoutSwitch, ModKey, MouseAction, MouseTrigger,
     ThresholdAction, parse_action, parse_direction, parse_gesture_binding,
@@ -141,7 +141,7 @@ fn parse_action_suspend_window() {
 // a mouse button wraps it, and a gesture treats it as a threshold action.
 #[test]
 fn suspend_window_maps_on_mouse_and_gesture_paths() {
-    use driftwm::config::GestureTrigger;
+    use driftline::config::GestureTrigger;
     assert!(matches!(
         parse_mouse_action("suspend-window").unwrap(),
         MouseAction::Action(Action::SuspendWindow)
@@ -178,7 +178,7 @@ fn parse_action_grow_and_shrink_window() {
 /// do work rather than leaving a bare "unknown action".
 #[test]
 fn resize_window_on_a_keybinding_points_at_the_step_actions() {
-    use driftwm::config::GestureTrigger;
+    use driftline::config::GestureTrigger;
     for name in ["resize-window", "resize-window-snapped"] {
         let err = parse_action(name).expect_err("a drag action must not bind to a key");
         assert!(err.contains("grow-window"), "got {err}");
@@ -508,28 +508,28 @@ fn default_mouse_bindings_context_fallback_to_anywhere() {
 
 #[test]
 fn parse_gesture_trigger_3_finger_swipe() {
-    use driftwm::config::GestureTrigger;
+    use driftline::config::GestureTrigger;
     let trigger = parse_gesture_trigger("3-finger-swipe").unwrap();
     assert_eq!(trigger, GestureTrigger::Swipe { fingers: 3 });
 }
 
 #[test]
 fn parse_gesture_trigger_4_finger_pinch_in() {
-    use driftwm::config::GestureTrigger;
+    use driftline::config::GestureTrigger;
     let trigger = parse_gesture_trigger("4-finger-pinch-in").unwrap();
     assert_eq!(trigger, GestureTrigger::PinchIn { fingers: 4 });
 }
 
 #[test]
 fn parse_gesture_trigger_3_finger_doubletap_swipe() {
-    use driftwm::config::GestureTrigger;
+    use driftline::config::GestureTrigger;
     let trigger = parse_gesture_trigger("3-finger-doubletap-swipe").unwrap();
     assert_eq!(trigger, GestureTrigger::DoubletapSwipe { fingers: 3 });
 }
 
 #[test]
 fn parse_gesture_trigger_4_finger_hold() {
-    use driftwm::config::GestureTrigger;
+    use driftline::config::GestureTrigger;
     let trigger = parse_gesture_trigger("4-finger-hold").unwrap();
     assert_eq!(trigger, GestureTrigger::Hold { fingers: 4 });
 }
@@ -544,7 +544,7 @@ fn parse_gesture_trigger_invalid_finger_count() {
 
 #[test]
 fn parse_gesture_binding_with_modifier() {
-    use driftwm::config::GestureTrigger;
+    use driftline::config::GestureTrigger;
     let binding = parse_gesture_binding("mod+3-finger-swipe", ModKey::Super).unwrap();
     assert!(binding.modifiers.logo);
     assert_eq!(binding.trigger, GestureTrigger::Swipe { fingers: 3 });
@@ -552,9 +552,9 @@ fn parse_gesture_binding_with_modifier() {
 
 #[test]
 fn parse_gesture_binding_without_modifier() {
-    use driftwm::config::GestureTrigger;
+    use driftline::config::GestureTrigger;
     let binding = parse_gesture_binding("4-finger-pinch-out", ModKey::Super).unwrap();
-    assert_eq!(binding.modifiers, driftwm::config::Modifiers::EMPTY);
+    assert_eq!(binding.modifiers, driftline::config::Modifiers::EMPTY);
     assert_eq!(binding.trigger, GestureTrigger::PinchOut { fingers: 4 });
 }
 
@@ -562,7 +562,7 @@ fn parse_gesture_binding_without_modifier() {
 
 #[test]
 fn gesture_swipe_continuous_action_is_valid() {
-    use driftwm::config::GestureTrigger;
+    use driftline::config::GestureTrigger;
     let trigger = GestureTrigger::Swipe { fingers: 3 };
     let entry = parse_gesture_config_entry(&trigger, "pan-viewport").unwrap();
     assert!(matches!(
@@ -573,7 +573,7 @@ fn gesture_swipe_continuous_action_is_valid() {
 
 #[test]
 fn gesture_swipe_threshold_action_is_valid() {
-    use driftwm::config::GestureTrigger;
+    use driftline::config::GestureTrigger;
     let trigger = GestureTrigger::Swipe { fingers: 4 };
     let entry = parse_gesture_config_entry(&trigger, "center-nearest").unwrap();
     assert!(matches!(
@@ -584,7 +584,7 @@ fn gesture_swipe_threshold_action_is_valid() {
 
 #[test]
 fn gesture_pinch_continuous_is_valid() {
-    use driftwm::config::GestureTrigger;
+    use driftline::config::GestureTrigger;
     let trigger = GestureTrigger::Pinch { fingers: 3 };
     let entry = parse_gesture_config_entry(&trigger, "zoom").unwrap();
     assert!(matches!(
@@ -595,7 +595,7 @@ fn gesture_pinch_continuous_is_valid() {
 
 #[test]
 fn gesture_pinch_threshold_is_error() {
-    use driftwm::config::GestureTrigger;
+    use driftline::config::GestureTrigger;
     let trigger = GestureTrigger::Pinch { fingers: 3 };
     let result = parse_gesture_config_entry(&trigger, "zoom-to-fit");
     assert!(
@@ -610,7 +610,7 @@ fn gesture_pinch_threshold_is_error() {
 
 #[test]
 fn gesture_pinch_in_threshold_is_valid() {
-    use driftwm::config::GestureTrigger;
+    use driftline::config::GestureTrigger;
     let trigger = GestureTrigger::PinchIn { fingers: 4 };
     let entry = parse_gesture_config_entry(&trigger, "zoom-to-fit").unwrap();
     assert!(matches!(
@@ -621,7 +621,7 @@ fn gesture_pinch_in_threshold_is_valid() {
 
 #[test]
 fn gesture_pinch_in_continuous_is_error() {
-    use driftwm::config::GestureTrigger;
+    use driftline::config::GestureTrigger;
     let trigger = GestureTrigger::PinchIn { fingers: 4 };
     let result = parse_gesture_config_entry(&trigger, "zoom");
     assert!(
@@ -632,7 +632,7 @@ fn gesture_pinch_in_continuous_is_error() {
 
 #[test]
 fn gesture_swipe_up_continuous_is_error() {
-    use driftwm::config::GestureTrigger;
+    use driftline::config::GestureTrigger;
     let trigger = GestureTrigger::SwipeUp { fingers: 4 };
     let result = parse_gesture_config_entry(&trigger, "pan-viewport");
     assert!(
@@ -643,7 +643,7 @@ fn gesture_swipe_up_continuous_is_error() {
 
 #[test]
 fn gesture_swipe_up_threshold_is_valid() {
-    use driftwm::config::GestureTrigger;
+    use driftline::config::GestureTrigger;
     let trigger = GestureTrigger::SwipeUp { fingers: 4 };
     let entry = parse_gesture_config_entry(&trigger, "exec notify-send hi").unwrap();
     assert!(matches!(
@@ -654,7 +654,7 @@ fn gesture_swipe_up_threshold_is_valid() {
 
 #[test]
 fn gesture_hold_continuous_is_error() {
-    use driftwm::config::GestureTrigger;
+    use driftline::config::GestureTrigger;
     let trigger = GestureTrigger::Hold { fingers: 4 };
     let result = parse_gesture_config_entry(&trigger, "zoom");
     assert!(
@@ -665,7 +665,7 @@ fn gesture_hold_continuous_is_error() {
 
 #[test]
 fn gesture_hold_threshold_is_valid() {
-    use driftwm::config::GestureTrigger;
+    use driftline::config::GestureTrigger;
     let trigger = GestureTrigger::Hold { fingers: 4 };
     let entry = parse_gesture_config_entry(&trigger, "center-window").unwrap();
     assert!(matches!(
@@ -687,7 +687,7 @@ fn gesture_binding_invalid_modifier_is_error() {
 
 #[test]
 fn gesture_zoom_on_swipe_is_error() {
-    use driftwm::config::GestureTrigger;
+    use driftline::config::GestureTrigger;
     let trigger = GestureTrigger::Swipe { fingers: 3 };
     let result = parse_gesture_config_entry(&trigger, "zoom");
     assert!(result.is_err(), "zoom on swipe trigger should be rejected");
@@ -701,7 +701,7 @@ fn gesture_zoom_on_swipe_is_error() {
 /// `center-nearest` does, so both parsers accept it on the same triggers.
 #[test]
 fn bare_focus_nearest_parses_wherever_bare_center_nearest_does() {
-    use driftwm::config::{GestureTrigger, parse_touch_config_entry};
+    use driftline::config::{GestureTrigger, parse_touch_config_entry};
     type Parse = fn(&GestureTrigger, &str) -> Result<GestureConfigEntry, String>;
     let fingers = 4;
     let triggers = [
@@ -756,7 +756,7 @@ fn bare_focus_nearest_parses_wherever_bare_center_nearest_does() {
 
 #[test]
 fn gesture_center_nearest_on_hold_is_error() {
-    use driftwm::config::GestureTrigger;
+    use driftline::config::GestureTrigger;
     let trigger = GestureTrigger::Hold { fingers: 4 };
     let result = parse_gesture_config_entry(&trigger, "center-nearest");
     assert!(result.is_err(), "center-nearest on hold should be rejected");
@@ -764,7 +764,7 @@ fn gesture_center_nearest_on_hold_is_error() {
 
 #[test]
 fn gesture_center_nearest_on_pinch_in_is_error() {
-    use driftwm::config::GestureTrigger;
+    use driftline::config::GestureTrigger;
     let trigger = GestureTrigger::PinchIn { fingers: 4 };
     let result = parse_gesture_config_entry(&trigger, "center-nearest");
     assert!(
@@ -775,7 +775,7 @@ fn gesture_center_nearest_on_pinch_in_is_error() {
 
 #[test]
 fn gesture_doubletap_swipe_move_is_valid() {
-    use driftwm::config::GestureTrigger;
+    use driftline::config::GestureTrigger;
     let trigger = GestureTrigger::DoubletapSwipe { fingers: 3 };
     let entry = parse_gesture_config_entry(&trigger, "move-window").unwrap();
     assert!(matches!(
@@ -786,7 +786,7 @@ fn gesture_doubletap_swipe_move_is_valid() {
 
 #[test]
 fn gesture_doubletap_swipe_pan_is_error() {
-    use driftwm::config::GestureTrigger;
+    use driftline::config::GestureTrigger;
     let trigger = GestureTrigger::DoubletapSwipe { fingers: 3 };
     let result = parse_gesture_config_entry(&trigger, "pan-viewport");
     assert!(
@@ -804,7 +804,7 @@ fn gesture_doubletap_swipe_pan_is_error() {
 
 #[test]
 fn gesture_doubletap_swipe_resize_snapped_is_valid() {
-    use driftwm::config::GestureTrigger;
+    use driftline::config::GestureTrigger;
     let trigger = GestureTrigger::DoubletapSwipe { fingers: 3 };
     let entry = parse_gesture_config_entry(&trigger, "resize-window-snapped").unwrap();
     assert!(matches!(
@@ -815,7 +815,7 @@ fn gesture_doubletap_swipe_resize_snapped_is_valid() {
 
 #[test]
 fn gesture_alt_shift_3_finger_swipe_defaults_to_resize_window() {
-    use driftwm::config::GestureTrigger;
+    use driftline::config::GestureTrigger;
     let config = Config::default();
     let alt_shift = mods(true, false, true, false);
     let result = config.gesture_lookup(

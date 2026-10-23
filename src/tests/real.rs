@@ -16,7 +16,7 @@ use smithay::reexports::wayland_server::ListeningSocket;
 
 use super::fixture::Fixture;
 use crate::ipc::protocol::{Reply, Request};
-use crate::state::{ClientState, DriftWm};
+use crate::state::{ClientState, Driftline};
 
 impl Fixture {
     /// Add a real wayland listening socket to the server loop. Binds inside
@@ -31,7 +31,7 @@ impl Fixture {
         let source = Generic::new(socket, Interest::READ, Mode::Level);
         let handle = self.state().loop_handle.clone();
         handle
-            .insert_source(source, |_, socket, state: &mut DriftWm| {
+            .insert_source(source, |_, socket, state: &mut Driftline| {
                 while let Some(stream) = socket.accept()? {
                     if let Err(e) = state
                         .display_handle
@@ -48,7 +48,7 @@ impl Fixture {
 
     /// Start the IPC server on a socket inside `dir` (a private temp dir, so the
     /// live `$XDG_RUNTIME_DIR/driftwm/` is never written). Stored on the
-    /// `DriftWm` so its `Drop` unlinks the socket. Returns the socket path for
+    /// `Driftline` so its `Drop` unlinks the socket. Returns the socket path for
     /// the test to connect to.
     pub fn start_ipc(&mut self, dir: &Path) -> PathBuf {
         let path = dir.join("ipc.sock");
@@ -70,7 +70,7 @@ impl Fixture {
     pub fn wait_until(
         &mut self,
         timeout: Duration,
-        mut predicate: impl FnMut(&mut DriftWm) -> bool,
+        mut predicate: impl FnMut(&mut Driftline) -> bool,
     ) {
         let deadline = Instant::now() + timeout;
         loop {
@@ -138,7 +138,7 @@ impl TempDir {
     pub fn new() -> Self {
         static COUNTER: AtomicU64 = AtomicU64::new(0);
         let n = COUNTER.fetch_add(1, Ordering::Relaxed);
-        let path = std::env::temp_dir().join(format!("driftwm-test-{}-{n}", std::process::id()));
+        let path = std::env::temp_dir().join(format!("driftline-test-{}-{n}", std::process::id()));
         std::fs::create_dir_all(&path).expect("create temp dir");
         Self { path }
     }

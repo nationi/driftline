@@ -6,13 +6,13 @@ use smithay::{
     utils::SERIAL_COUNTER,
 };
 
-use driftwm::config::{BindingContext, GestureConfigEntry, GestureTrigger, ThresholdAction};
+use driftline::config::{BindingContext, GestureConfigEntry, GestureTrigger, ThresholdAction};
 
-use crate::state::DriftWm;
+use crate::state::Driftline;
 
 use super::GestureState;
 
-impl DriftWm {
+impl Driftline {
     pub fn on_gesture_hold_begin<I: InputBackend>(&mut self, event: I::GestureHoldBeginEvent) {
         let fingers = event.fingers();
         let time = Event::time_msec(&event);

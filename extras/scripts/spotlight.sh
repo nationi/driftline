@@ -2,10 +2,10 @@
 # Spotlight: unified search over open windows, suspended windows + installed apps.
 # Open windows first, suspended stand-ins after (ᶻ prefix), apps last.
 # Selection focuses a window, relaunches a stand-in, or launches an app.
-# Windows come from `driftwm msg state` (one IPC roundtrip; also the only way
+# Windows come from `driftline msg state` (one IPC roundtrip; also the only way
 # to see suspended stand-ins — they aren't foreign toplevels). The .desktop
 # scan is one awk pass, cached until an applications dir changes.
-# Requires: driftwm, fuzzel, jq
+# Requires: driftline, fuzzel, jq
 
 XDG_DATA_DIRS="${XDG_DATA_DIRS:-/usr/local/share:/usr/share}"
 # Reuse fuzzel's own usage cache so mod+d (drun) and spotlight share ranking.
@@ -17,7 +17,7 @@ touch "$FUZZEL_CACHE"
 # NoDisplay/Hidden/no-Exec entries stay in the table with listable=0 — they
 # don't belong in the app list but often carry the StartupWMClass that names
 # a window. `.dirs` alongside records which dirs the table was built from.
-APPS_CACHE="${XDG_CACHE_HOME:-$HOME/.cache}/driftwm-spotlight-apps.tsv"
+APPS_CACHE="${XDG_CACHE_HOME:-$HOME/.cache}/driftline-spotlight-apps.tsv"
 
 # ~/.local first so it wins the first-seen dedup below.
 app_dirs=$(printf '%s' "$HOME/.local/share:$XDG_DATA_DIRS" | tr ':' '\n' | sed 's|$|/applications|')
@@ -85,7 +85,7 @@ if [ "$rebuild" = 1 ]; then
 fi
 
 # --- Windows (canvas windows focused-first, then fullscreen/pinned, suspended last) ---
-driftwm msg state --json 2>/dev/null \
+driftline msg state --json 2>/dev/null \
     | jq -r '
         .Ok.State as $s |
         ( [$s.windows[] | select((.is_widget or .suspended) | not)]
@@ -155,12 +155,12 @@ kind=$(printf '%s' "$match" | cut -f1)
 
 if [ "$kind" = "w" ]; then
     sel_id=$(printf '%s' "$match" | cut -f2)
-    driftwm msg focus --id "$sel_id"
+    driftline msg focus --id "$sel_id"
 elif [ "$kind" = "s" ]; then
     sel_id=$(printf '%s' "$match" | cut -f2)
     # Pan to the stand-in first so the relaunch adopts in view.
-    driftwm msg focus --id "$sel_id"
-    driftwm msg relaunch --id "$sel_id"
+    driftline msg focus --id "$sel_id"
+    driftline msg relaunch --id "$sel_id"
 else
     sel_did=$(printf '%s' "$match" | cut -f2)
     exec_line=$(printf '%s' "$match" | cut -f3-)

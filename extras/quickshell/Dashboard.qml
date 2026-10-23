@@ -3,7 +3,7 @@ import QtQuick.Layouts
 import Quickshell
 import Quickshell.Wayland
 
-// driftwm's `drift-dashboard` window rule pins this to the canvas origin, so
+// Driftline's `drift-dashboard` window rule pins this to the canvas origin, so
 // it carries no anchors. OnDemand keyboard focus lets a popover's text field
 // (the wifi password) take typing.
 PanelWindow {

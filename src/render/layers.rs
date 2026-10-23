@@ -37,8 +37,8 @@ use super::elements::{OutputRenderElements, painted_rect};
 #[allow(clippy::too_many_arguments)]
 fn push_layer_chrome(
     target: &mut Vec<OutputRenderElements>,
-    state: &mut crate::state::DriftWm,
-    applied: Option<&driftwm::config::AppliedWindowRule>,
+    state: &mut crate::state::Driftline,
+    applied: Option<&driftline::config::AppliedWindowRule>,
     surface_id: ObjectId,
     surface_elements: Vec<WaylandSurfaceRenderElement<GlesRenderer>>,
     popup_elements: Vec<WaylandSurfaceRenderElement<GlesRenderer>>,
@@ -186,7 +186,7 @@ fn collect_layer_popup_elements(
 /// multi-instance layer-shells (e.g. two waybar bars at different positions) pick
 /// up only their own rule's chrome.
 pub(super) fn build_canvas_layer_elements(
-    state: &mut crate::state::DriftWm,
+    state: &mut crate::state::Driftline,
     renderer: &mut GlesRenderer,
     output_scale: f64,
     camera: Point<f64, Logical>,
@@ -279,7 +279,7 @@ pub(super) fn build_canvas_layer_elements(
 /// elements (border / shadow) are pushed *after* the blur request snapshot so
 /// the blur insertion point stays at the surface boundary.
 pub(super) fn build_layer_elements(
-    state: &mut crate::state::DriftWm,
+    state: &mut crate::state::Driftline,
     output: &Output,
     renderer: &mut GlesRenderer,
     layer: WlrLayer,

@@ -1,5 +1,5 @@
-use crate::DriftWm;
-use driftwm::canvas::{CanvasPos, ScreenPos, canvas_to_screen, screen_space_focus_loc};
+use crate::Driftline;
+use driftline::canvas::{CanvasPos, ScreenPos, canvas_to_screen, screen_space_focus_loc};
 use smithay::{
     input::pointer::{ButtonEvent, GrabStartData, MotionEvent, PointerGrab, PointerInnerHandle},
     utils::{Logical, Point},
@@ -10,17 +10,17 @@ use smithay::{
 /// sees screen-space coords at any zoom, where the default click grab would
 /// freeze the offset captured at press.
 pub struct ScreenSpaceClickGrab {
-    pub start_data: GrabStartData<DriftWm>,
+    pub start_data: GrabStartData<Driftline>,
     pub screen_loc: Point<f64, Logical>,
 }
 
-impl PointerGrab<DriftWm> for ScreenSpaceClickGrab {
+impl PointerGrab<Driftline> for ScreenSpaceClickGrab {
     fn motion(
         &mut self,
-        data: &mut DriftWm,
-        handle: &mut PointerInnerHandle<'_, DriftWm>,
+        data: &mut Driftline,
+        handle: &mut PointerInnerHandle<'_, Driftline>,
         _focus: Option<(
-            <DriftWm as smithay::input::SeatHandler>::PointerFocus,
+            <Driftline as smithay::input::SeatHandler>::PointerFocus,
             Point<f64, Logical>,
         )>,
         event: &MotionEvent,
@@ -43,8 +43,8 @@ impl PointerGrab<DriftWm> for ScreenSpaceClickGrab {
 
     fn button(
         &mut self,
-        data: &mut DriftWm,
-        handle: &mut PointerInnerHandle<'_, DriftWm>,
+        data: &mut Driftline,
+        handle: &mut PointerInnerHandle<'_, Driftline>,
         event: &ButtonEvent,
     ) {
         handle.button(data, event);
@@ -53,7 +53,7 @@ impl PointerGrab<DriftWm> for ScreenSpaceClickGrab {
         }
     }
 
-    fn unset(&mut self, _data: &mut DriftWm) {}
+    fn unset(&mut self, _data: &mut Driftline) {}
 
     forward_pointer_grab_methods!();
 }

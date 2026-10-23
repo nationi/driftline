@@ -7,7 +7,8 @@
 //! state and materializes it back into suspended windows lives in the bin crate
 //! (`state/session_store.rs`).
 //!
-//! Path: `$XDG_STATE_HOME/driftwm/session.json` (`~/.local/state/driftwm/`).
+//! Path: `$XDG_STATE_HOME/driftline/session.json` (`~/.local/state/driftline/`).
+//! Existing state under the former driftwm directory is read in place.
 //! Distinct from the runtime tmpfs state file, which is wiped on logout.
 
 use std::path::{Path, PathBuf};
@@ -101,14 +102,25 @@ impl SessionEnvelope {
     }
 }
 
-/// `$XDG_STATE_HOME/driftwm/session.json`, falling back to
-/// `$HOME/.local/state/driftwm/session.json`. `None` when neither is set.
+/// `$XDG_STATE_HOME/driftline/session.json`, falling back to
+/// `$HOME/.local/state/driftline/session.json`. Existing legacy state remains
+/// in use until a new Driftline session file exists.
 pub fn default_session_path() -> Option<PathBuf> {
     let state_home = std::env::var_os("XDG_STATE_HOME")
         .map(PathBuf::from)
         .filter(|p| p.is_absolute())
         .or_else(|| std::env::var_os("HOME").map(|h| PathBuf::from(h).join(".local/state")))?;
-    Some(state_home.join("driftwm").join("session.json"))
+    Some(default_session_path_in(&state_home))
+}
+
+fn default_session_path_in(state_home: &Path) -> PathBuf {
+    let current = state_home.join("driftline/session.json");
+    let legacy = state_home.join("driftwm/session.json");
+    if current.exists() || !legacy.exists() {
+        current
+    } else {
+        legacy
+    }
 }
 
 /// Read and parse the session file. An unparseable file (or a version outside
@@ -214,7 +226,7 @@ mod tests {
             static COUNTER: AtomicUsize = AtomicUsize::new(0);
             let n = COUNTER.fetch_add(1, Ordering::Relaxed);
             let path = std::env::temp_dir()
-                .join(format!("driftwm-session-test-{}-{n}", std::process::id()));
+                .join(format!("driftline-session-test-{}-{n}", std::process::id()));
             std::fs::create_dir_all(&path).unwrap();
             Self { path }
         }
@@ -224,6 +236,24 @@ mod tests {
         fn drop(&mut self) {
             let _ = std::fs::remove_dir_all(&self.path);
         }
+    }
+
+    #[test]
+    fn session_path_uses_driftline_for_a_fresh_state_home() {
+        let tmp = TempDir::new();
+        assert_eq!(
+            default_session_path_in(&tmp.path),
+            tmp.path.join("driftline/session.json")
+        );
+    }
+
+    #[test]
+    fn existing_legacy_session_remains_the_active_store() {
+        let tmp = TempDir::new();
+        let legacy = tmp.path.join("driftwm/session.json");
+        std::fs::create_dir_all(legacy.parent().unwrap()).unwrap();
+        std::fs::write(&legacy, "preserve").unwrap();
+        assert_eq!(default_session_path_in(&tmp.path), legacy);
     }
 
     fn entry(id: u64, origin: Origin) -> SessionEntry {

@@ -13,9 +13,9 @@ use smithay::{
     utils::{Logical, Point},
 };
 
-use crate::state::{ClusterMember, DriftWm, StageWindow, output_logical_size, output_state};
-use driftwm::canvas::{CanvasPos, ScreenPos, canvas_to_screen, screen_to_canvas};
-use driftwm::layout::snap::SnapState;
+use crate::state::{ClusterMember, Driftline, StageWindow, output_logical_size, output_state};
+use driftline::canvas::{CanvasPos, ScreenPos, canvas_to_screen, screen_to_canvas};
+use driftline::layout::snap::SnapState;
 
 /// Convert a drag snapshot's `StageWindow` members into the `Send`-safe handles
 /// a grab holds across ticks.
@@ -38,11 +38,11 @@ enum Edge {
 }
 
 pub struct MoveGrab {
-    pub start_data: GrabStartData<DriftWm>,
+    pub start_data: GrabStartData<Driftline>,
     /// Touch grab start data, present only for touch-initiated moves. The
     /// shared move logic reads `start_canvas` instead of either start_data, so
     /// pointer and touch follow the same path.
-    touch_start: Option<TouchGrabStartData<DriftWm>>,
+    touch_start: Option<TouchGrabStartData<Driftline>>,
     /// Fingers currently down for a touch move. Seeded at creation (1 for a
     /// titlebar drag, the live finger count for a double-tap-drag handoff); the
     /// grab unsets only when this reaches zero, so extra fingers don't leak.
@@ -84,7 +84,7 @@ pub struct MoveGrab {
 
 impl MoveGrab {
     pub fn new(
-        start_data: GrabStartData<DriftWm>,
+        start_data: GrabStartData<Driftline>,
         target: impl Into<ClusterMember>,
         initial_window_location: Point<i32, Logical>,
         output: Output,
@@ -112,7 +112,7 @@ impl MoveGrab {
     /// single-window move. No screen-pinned path; reuses the same snap/map core
     /// as the pointer move.
     pub fn new_touch(
-        touch_start: TouchGrabStartData<DriftWm>,
+        touch_start: TouchGrabStartData<Driftline>,
         target: impl Into<ClusterMember>,
         initial_window_location: Point<i32, Logical>,
         output: Output,
@@ -141,7 +141,7 @@ impl MoveGrab {
 
     /// Touch move grab for a screen-pinned window (see [`Self::new_pinned`]).
     pub fn new_pinned_touch(
-        touch_start: TouchGrabStartData<DriftWm>,
+        touch_start: TouchGrabStartData<Driftline>,
         target: impl Into<ClusterMember>,
         output: Output,
         grab_offset: Point<f64, Logical>,
@@ -170,7 +170,7 @@ impl MoveGrab {
     /// Move grab for a screen-pinned window. `grab_offset` is the screen-space
     /// offset from the cursor to the window's top-left at grab start.
     pub fn new_pinned(
-        start_data: GrabStartData<DriftWm>,
+        start_data: GrabStartData<Driftline>,
         target: impl Into<ClusterMember>,
         output: Output,
         grab_offset: Point<f64, Logical>,
@@ -324,12 +324,15 @@ impl MoveGrab {
     }
 }
 
-impl PointerGrab<DriftWm> for MoveGrab {
+impl PointerGrab<Driftline> for MoveGrab {
     fn motion(
         &mut self,
-        data: &mut DriftWm,
-        handle: &mut PointerInnerHandle<'_, DriftWm>,
-        _focus: Option<(<DriftWm as SeatHandler>::PointerFocus, Point<f64, Logical>)>,
+        data: &mut Driftline,
+        handle: &mut PointerInnerHandle<'_, Driftline>,
+        _focus: Option<(
+            <Driftline as SeatHandler>::PointerFocus,
+            Point<f64, Logical>,
+        )>,
         event: &MotionEvent,
     ) {
         // A fullscreen output renders only its fullscreen window — everything
@@ -429,8 +432,8 @@ impl PointerGrab<DriftWm> for MoveGrab {
 
     fn button(
         &mut self,
-        data: &mut DriftWm,
-        handle: &mut PointerInnerHandle<'_, DriftWm>,
+        data: &mut Driftline,
+        handle: &mut PointerInnerHandle<'_, Driftline>,
         event: &ButtonEvent,
     ) {
         handle.button(data, event);
@@ -450,7 +453,7 @@ impl PointerGrab<DriftWm> for MoveGrab {
         }
     }
 
-    fn unset(&mut self, data: &mut DriftWm) {
+    fn unset(&mut self, data: &mut Driftline) {
         data.clear_edge_pan(&self.output);
         // Both arms armed `interactive_move` at grab install (guarding relaunch
         // adoption and animation starts); balance it here.
@@ -480,7 +483,7 @@ impl MoveGrab {
     /// client-only, so `element` here is always a `Client`.
     fn apply_pinned_move(
         &mut self,
-        data: &mut DriftWm,
+        data: &mut Driftline,
         element: &StageWindow,
         location: Point<f64, Logical>,
         grab_offset: Point<f64, Logical>,
@@ -511,7 +514,7 @@ impl MoveGrab {
         if data.stage.is_pinned(element) {
             data.stage.set_pin(
                 element,
-                driftwm::stage::PinnedSite {
+                driftline::stage::PinnedSite {
                     output: output.name(),
                     screen_pos: new_screen_pos,
                 },
@@ -529,7 +532,7 @@ impl MoveGrab {
 
     /// Live `(StageWindow, offset)` pairs for the cluster members that still
     /// resolve — members closed mid-drag drop out.
-    fn resolved_members(&self, data: &DriftWm) -> Vec<(StageWindow, Point<i32, Logical>)> {
+    fn resolved_members(&self, data: &Driftline) -> Vec<(StageWindow, Point<i32, Logical>)> {
         self.cluster_members
             .iter()
             .filter_map(|(m, off)| m.resolve(&data.stage).map(|sw| (sw, *off)))
@@ -542,7 +545,7 @@ impl MoveGrab {
     /// resolved for this tick.
     fn apply_move(
         &mut self,
-        data: &mut DriftWm,
+        data: &mut Driftline,
         element: &StageWindow,
         location: Point<f64, Logical>,
     ) {
@@ -589,7 +592,7 @@ impl MoveGrab {
     }
 
     /// Update edge auto-pan velocity from the cursor/finger screen position.
-    fn update_edge_pan(&mut self, data: &mut DriftWm, location: Point<f64, Logical>) {
+    fn update_edge_pan(&mut self, data: &mut Driftline, location: Point<f64, Logical>) {
         let (camera, zoom) = {
             let os = output_state(&self.output);
             (os.camera, os.zoom)
@@ -630,12 +633,12 @@ impl MoveGrab {
     }
 }
 
-impl TouchGrab<DriftWm> for MoveGrab {
+impl TouchGrab<Driftline> for MoveGrab {
     fn down(
         &mut self,
-        data: &mut DriftWm,
-        handle: &mut TouchInnerHandle<'_, DriftWm>,
-        _focus: Option<(<DriftWm as SeatHandler>::TouchFocus, Point<f64, Logical>)>,
+        data: &mut Driftline,
+        handle: &mut TouchInnerHandle<'_, Driftline>,
+        _focus: Option<(<Driftline as SeatHandler>::TouchFocus, Point<f64, Logical>)>,
         event: &DownEvent,
     ) {
         // Extra fingers during a touch move are ignored — no cluster on touch.
@@ -645,8 +648,8 @@ impl TouchGrab<DriftWm> for MoveGrab {
 
     fn up(
         &mut self,
-        data: &mut DriftWm,
-        handle: &mut TouchInnerHandle<'_, DriftWm>,
+        data: &mut Driftline,
+        handle: &mut TouchInnerHandle<'_, Driftline>,
         event: &UpEvent,
     ) {
         handle.up(data, event);
@@ -672,9 +675,9 @@ impl TouchGrab<DriftWm> for MoveGrab {
 
     fn motion(
         &mut self,
-        data: &mut DriftWm,
-        handle: &mut TouchInnerHandle<'_, DriftWm>,
-        _focus: Option<(<DriftWm as SeatHandler>::TouchFocus, Point<f64, Logical>)>,
+        data: &mut Driftline,
+        handle: &mut TouchInnerHandle<'_, Driftline>,
+        _focus: Option<(<Driftline as SeatHandler>::TouchFocus, Point<f64, Logical>)>,
         event: &TouchMotionEvent,
     ) {
         if event.slot != self.touch_start.as_ref().expect("touch move grab").slot {
@@ -718,11 +721,11 @@ impl TouchGrab<DriftWm> for MoveGrab {
                 });
     }
 
-    fn frame(&mut self, data: &mut DriftWm, handle: &mut TouchInnerHandle<'_, DriftWm>) {
+    fn frame(&mut self, data: &mut Driftline, handle: &mut TouchInnerHandle<'_, Driftline>) {
         handle.frame(data);
     }
 
-    fn cancel(&mut self, data: &mut DriftWm, handle: &mut TouchInnerHandle<'_, DriftWm>) {
+    fn cancel(&mut self, data: &mut Driftline, handle: &mut TouchInnerHandle<'_, Driftline>) {
         data.clear_edge_pan(&self.output);
         handle.cancel(data);
         handle.unset_grab(self, data);
@@ -730,8 +733,8 @@ impl TouchGrab<DriftWm> for MoveGrab {
 
     fn shape(
         &mut self,
-        data: &mut DriftWm,
-        handle: &mut TouchInnerHandle<'_, DriftWm>,
+        data: &mut Driftline,
+        handle: &mut TouchInnerHandle<'_, Driftline>,
         event: &ShapeEvent,
     ) {
         handle.shape(data, event);
@@ -739,18 +742,18 @@ impl TouchGrab<DriftWm> for MoveGrab {
 
     fn orientation(
         &mut self,
-        data: &mut DriftWm,
-        handle: &mut TouchInnerHandle<'_, DriftWm>,
+        data: &mut Driftline,
+        handle: &mut TouchInnerHandle<'_, Driftline>,
         event: &OrientationEvent,
     ) {
         handle.orientation(data, event);
     }
 
-    fn start_data(&self) -> &TouchGrabStartData<DriftWm> {
+    fn start_data(&self) -> &TouchGrabStartData<Driftline> {
         self.touch_start.as_ref().expect("touch move grab")
     }
 
-    fn unset(&mut self, data: &mut DriftWm) {
+    fn unset(&mut self, data: &mut Driftline) {
         data.clear_edge_pan(&self.output);
         data.touch_state.edge_pan = None;
         data.disarm_interactive_move(&self.target);

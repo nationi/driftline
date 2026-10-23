@@ -1,6 +1,6 @@
 # Contributing
 
-Thanks for your interest in driftwm. Issues and pull requests are welcome.
+Thanks for your interest in driftline. Issues and pull requests are welcome.
 
 ## Before you start
 
@@ -21,7 +21,7 @@ When changes bundle multiple concerns, merging becomes all-or-nothing — if I l
 [`.github/workflows/ci.yml`](.github/workflows/ci.yml). Run the relevant stages
 locally before opening a PR.
 
-**Only state belongs in `src/state/mod.rs`** — the `DriftWm` fields, the types they're made of, and the routines that must enumerate every field. A new `impl DriftWm` method goes in the sibling module for the subsystem it serves.
+**Only state belongs in `src/state/mod.rs`** — the `Driftline` fields, the types they're made of, and the routines that must enumerate every field. A new `impl Driftline` method goes in the sibling module for the subsystem it serves.
 
 ## Blaming through reformats
 
@@ -37,7 +37,7 @@ Include:
 
 - What you expected vs what happened
 - Steps to reproduce
-- Distro, GPU, nested vs TTY, driftwm version
+- Distro, GPU, nested vs TTY, driftline version
 - `RUST_LOG=debug` logs if relevant
 
 ## Contributing without GitHub

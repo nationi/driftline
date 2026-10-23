@@ -5,7 +5,7 @@
 //! config and never crashes the compositor (see `src/state/reload.rs`). proptest
 //! turns any panic in the parser into a test failure with a minimized input.
 
-use driftwm::config::Config;
+use driftline::config::Config;
 use proptest::prelude::*;
 
 /// Wrap a raw body as a TOML basic string, escaping `\` and `"` so whatever the

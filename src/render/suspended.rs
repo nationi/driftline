@@ -15,7 +15,7 @@ use smithay::backend::renderer::element::memory::{
 use smithay::backend::renderer::gles::{GlesPixelProgram, GlesRenderer};
 use smithay::utils::{Logical, Physical, Point, Rectangle, Scale, Size, Transform};
 
-use driftwm::config::DecorationConfig;
+use driftline::config::DecorationConfig;
 
 use crate::decorations::{DecorationKey, WindowDecoration};
 use crate::render::elements::OutputRenderElements;
@@ -54,7 +54,7 @@ pub(crate) fn ensure_label(
     let font_px = (config.font_size as f32 * PT_TO_PX * scale as f32).max(1.0);
     let avail = (body.w - 2 * LABEL_SIDE_PAD).max(1) * scale;
     let (fitted, text_w) =
-        driftwm::text::fit_text(&text, &config.font, font_px, config.font_weight, avail);
+        driftline::text::fit_text(&text, &config.font, font_px, config.font_weight, avail);
 
     let mut chrome = s.chrome.borrow_mut();
     if fitted.is_empty() || text_w <= 0 {
@@ -67,7 +67,7 @@ pub(crate) fn ensure_label(
     let buf_w = text_w;
     let buf_h = (font_px * 1.5).ceil() as i32;
     let mut pixels = vec![0u8; (buf_w * buf_h * 4) as usize];
-    driftwm::text::rasterize_into(
+    driftline::text::rasterize_into(
         &mut pixels,
         buf_w,
         buf_h,
@@ -188,7 +188,7 @@ pub(super) fn push_suspended_element(
         size,
         decoration_scale,
         launching,
-        driftwm::text::fonts_ready(),
+        driftline::text::fonts_ready(),
         config,
     );
     {
@@ -250,9 +250,9 @@ pub(super) fn push_suspended_element(
         }
     }
 
-    let mode = driftwm::config::effective_decoration_mode(None, &config.default_mode);
-    let border_width = driftwm::config::effective_border_width(None, mode, config);
-    let corner_radius = driftwm::config::effective_corner_radius(None, mode, config);
+    let mode = driftline::config::effective_decoration_mode(None, &config.default_mode);
+    let border_width = driftline::config::effective_border_width(None, mode, config);
+    let corner_radius = driftline::config::effective_corner_radius(None, mode, config);
 
     // Title bar via the reused windowless rasterizer. Rendered textless (the
     // centered label already names the app); the close button and its hover
@@ -301,9 +301,9 @@ pub(super) fn push_suspended_element(
 
     // Border + shadow around title bar + body, keyed by the suspended id.
     let border_color = if focused {
-        driftwm::config::effective_border_color_focused(None, config)
+        driftline::config::effective_border_color_focused(None, config)
     } else {
-        driftwm::config::effective_border_color(None, config)
+        driftline::config::effective_border_color(None, config)
     };
 
     if border_width > 0
@@ -330,7 +330,7 @@ pub(super) fn push_suspended_element(
         );
     }
 
-    if driftwm::config::effective_shadow_enabled(None, mode, config)
+    if driftline::config::effective_shadow_enabled(None, mode, config)
         && let Some(shader) = shadow_shader
     {
         let bw = border_width as f64;

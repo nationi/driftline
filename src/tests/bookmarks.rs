@@ -5,8 +5,8 @@
 
 use std::collections::BTreeMap;
 
-use driftwm::config::{Action, Direction, parse_action};
-use driftwm::session::{self, SessionEnvelope};
+use driftline::config::{Action, Direction, parse_action};
+use driftline::session::{self, SessionEnvelope};
 use smithay::utils::{Logical, Point};
 
 use super::real::TempDir;
@@ -233,7 +233,7 @@ fn move_to_bookmark_places_the_focused_window_center() {
         .execute_action(&Action::MoveToBookmark("b".into()));
 
     let loc = f.state().stage.position_of(&window).unwrap();
-    let (x, y) = driftwm::canvas::internal_to_rule(loc, window.geometry().size);
+    let (x, y) = driftline::canvas::internal_to_rule(loc, window.geometry().size);
     assert_eq!((x, y), (300, -200));
 }
 
@@ -278,7 +278,7 @@ fn move_to_bookmark_on_fullscreen_centers_the_windowed_size() {
         .execute_action(&Action::MoveToBookmark("fs".into()));
 
     let loc = f.state().stage.position_of(&window).unwrap();
-    let expected = driftwm::canvas::rule_to_internal(300, -200, Size::from((400, 300)));
+    let expected = driftline::canvas::rule_to_internal(300, -200, Size::from((400, 300)));
     assert_eq!(
         loc, expected,
         "centered on the fullscreen buffer, not the windowed size"

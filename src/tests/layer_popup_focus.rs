@@ -4,7 +4,7 @@
 //! the two used to read a popup click as "elsewhere", dropping the on-demand
 //! focus and tearing the popup's grab down under it.
 
-use driftwm::config::{BTN_LEFT, BTN_RIGHT};
+use driftline::config::{BTN_LEFT, BTN_RIGHT};
 use smithay::utils::Point;
 use wayland_protocols_wlr::layer_shell::v1::client::{zwlr_layer_shell_v1, zwlr_layer_surface_v1};
 

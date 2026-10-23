@@ -2,7 +2,7 @@
 
 ## Project
 
-driftwm — a trackpad-first infinite canvas Wayland compositor written in Rust. Windows float on an unbounded 2D plane navigated via trackpad gestures (pan, zoom, pinch). The canvas remains the default; this fork also provides practical scrolling-column tiling. Built on [smithay](https://github.com/Smithay/smithay).
+driftline — a trackpad-first infinite canvas Wayland compositor written in Rust. Windows float on an unbounded 2D plane navigated via trackpad gestures (pan, zoom, pinch). The canvas remains the default; this fork also provides practical scrolling-column tiling. Built on [smithay](https://github.com/Smithay/smithay).
 
 Actively developed and released — a public, multi-contributor project, so match existing conventions carefully. Guidelines live next to the code, read them before working:
 
@@ -14,7 +14,7 @@ Actively developed and released — a public, multi-contributor project, so matc
 ## Active development: practical scrolling tiling
 
 The objective is dependable scrolling-column tiling across multiple outputs,
-alongside driftwm's infinite canvas. Each output should own an independent
+alongside driftline's infinite canvas. Each output should own an independent
 layout. Niri is an inspiration and a source of useful design references, not a
 parity target. Keep the canvas as the default. Do not add workspaces, tabs,
 floating-window policy or broad niri configuration merely to match niri;
@@ -37,7 +37,7 @@ The roadmap alone does not authorize pushing, publishing or messaging others.
 ## Conventions
 
 - Documentation splits by audience: user-facing docs (shaders, window rules, IPC, gigapixel wallpapers) live in `docs/`; internal dev/architecture notes and profiling tooling live in `dev/docs/` and `dev/scripts/`. `README.md` stays at the repo root.
-- Config path: `~/.config/driftwm/config.toml` (respects `XDG_CONFIG_HOME`). `config.reference.toml` is the canonical option reference; `docs/config.md` is generated from it — never hand-edit (see `dev/docs/testing.md`).
+- Config path: `~/.config/driftline/config.toml` (respects `XDG_CONFIG_HOME`). `config.reference.toml` is the canonical option reference; `docs/config.md` is generated from it — never hand-edit (see `dev/docs/testing.md`).
 
 ## Code Style
 
@@ -73,7 +73,7 @@ cargo check --locked                                    # Cargo.lock in sync
 cargo clippy --all-targets -- -D warnings
 cargo test --no-run
 cargo test -- --include-ignored --skip soak
-cargo test --bin driftwm -- --include-ignored --test-threads=1 soak
+cargo test --bin driftline -- --include-ignored --test-threads=1 soak
 ```
 
 `dev/scripts/ci-local` runs exactly those, in that order, so you don't have to
@@ -83,7 +83,7 @@ keep them in your head — `dev/scripts/ci-local clippy` runs a single stage
 Two ways a local run drifts from CI, worth knowing however you invoke it:
 
 - **CI lints `--all-targets`.** Plain `cargo clippy`, and `cargo clippy --bin
-  driftwm`, do not compile `#[cfg(test)]` code — so a lint inside `src/tests/`
+  driftline`, do not compile `#[cfg(test)]` code — so a lint inside `src/tests/`
   passes locally and fails CI. Clippy checks without linking, so `--all-targets`
   costs little.
 - **CI runs `--include-ignored`.** A plain `cargo test` skips ignored tests,
@@ -108,13 +108,13 @@ The compositor uses a **camera/viewport** model: the screen is a viewport onto a
 The crate splits into a **lib** (pure, testable logic: `canvas`, `config`, `layout`, `stage`, `protocols`, `text`, `window_ext`) and a **bin** (everything holding compositor state: `state/`, `backend/`, `render/`, `handlers/`, `input/`, `grabs/`, `ipc/`, plus the in-process test fixture under `src/tests/`). Orientation points, stable ones only — explore the tree for current detail:
 
 - `stage/` — the smithay-free source of truth for windows: list, z-order, positions, focus history, fullscreen/pin/fit membership. Everything window-related routes through it.
-- `state/` — the `DriftWm` struct and compositor policy (navigation, fullscreen, fit, persistence, config hot-reload).
+- `state/` — the `Driftline` struct and compositor policy (navigation, fullscreen, fit, persistence, config hot-reload).
 - `canvas.rs` + `layout/` — coordinate math, snapping, clustering, auto-placement.
 - `backend/` — winit (nested) and udev/DRM (bare metal); render loops live with their backends.
 - `render/` — frame composition, shaders (`shaders/` for GLSL), capture/screenshot paths.
 - `handlers/` + `protocols/` — Wayland protocol implementations and delegates.
 - `input/` + `grabs/` — keyboard/pointer/gesture/touch dispatch and compositor-side grabs.
-- `ipc/` — the `driftwm msg` Unix-socket server/client (user docs: `docs/ipc.md`).
+- `ipc/` — the `driftline msg` Unix-socket server/client (user docs: `docs/ipc.md`).
 
 ## Key Design Decisions
 
@@ -122,7 +122,7 @@ The crate splits into a **lib** (pure, testable logic: `canvas`, `config`, `layo
 - **Gesture-driven**: configurable gesture and mouse bindings with context-awareness (on-window/on-canvas/anywhere); unbound gestures forward to apps.
 - **Canvas background**: scrolls with the viewport (not fixed to screen); default is a GLSL dot-grid shader, static shaders are cached and only re-render on viewport changes.
 - **Widgets**: layer-shell surfaces or xdg-toplevel windows placed at canvas positions via window rules. Canvas layers bypass the layer map and render at fixed canvas coordinates.
-- **External tools**: launcher, lock screen, and on-screen screenshots are external programs (bemenu-run, swaylock, grim) — not built into the compositor. Exception: the built-in *canvas/DPI* screenshot (`driftwm msg screenshot`) captures off-screen canvas regions at arbitrary resolution, which grim structurally can't do.
+- **External tools**: launcher, lock screen, and on-screen screenshots are external programs (bemenu-run, swaylock, grim) — not built into the compositor. Exception: the built-in *canvas/DPI* screenshot (`driftline msg screenshot`) captures off-screen canvas regions at arbitrary resolution, which grim structurally can't do.
 
 ## Reference Codebases
 

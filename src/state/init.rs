@@ -1,7 +1,7 @@
 //! Compositor state constructor. Wires every smithay protocol state,
 //! creates the seat, and initializes all runtime bookkeeping fields.
 
-use driftwm::protocols::virtual_keyboard::VirtualKeyboardManagerState;
+use driftline::protocols::virtual_keyboard::VirtualKeyboardManagerState;
 use smithay::{
     desktop::{PopupManager, Space},
     input::{
@@ -50,20 +50,21 @@ use std::collections::{BTreeMap, HashMap, HashSet};
 use std::time::Instant;
 
 use super::{
-    CursorState, DriftWm, ErrorSource, RenderCache, SessionLock, TapTracker, client_is_unrestricted,
+    CursorState, Driftline, ErrorSource, RenderCache, SessionLock, TapTracker,
+    client_is_unrestricted,
 };
 
-impl DriftWm {
+impl Driftline {
     pub fn new(
         dh: DisplayHandle,
-        loop_handle: LoopHandle<'static, DriftWm>,
+        loop_handle: LoopHandle<'static, Driftline>,
         loop_signal: LoopSignal,
     ) -> Self {
         Self::new_with_config(
             dh,
             loop_handle,
             loop_signal,
-            driftwm::config::Config::load_collect(),
+            driftline::config::Config::load_collect(),
         )
     }
 
@@ -72,9 +73,9 @@ impl DriftWm {
     /// parsed config so a live session's real config file never touches a test.
     pub fn new_with_config(
         dh: DisplayHandle,
-        loop_handle: LoopHandle<'static, DriftWm>,
+        loop_handle: LoopHandle<'static, Driftline>,
         loop_signal: LoopSignal,
-        config: (driftwm::config::Config, Vec<String>),
+        config: (driftline::config::Config, Vec<String>),
     ) -> Self {
         // Scan system fonts off-thread so the first SSD title bar doesn't block
         // the event loop on a cold ~1s `FontSystem::new()`. The scan pings the
@@ -83,11 +84,11 @@ impl DriftWm {
         // until some unrelated frame.
         let (font_ping, font_ping_source) = make_ping().expect("create font-ready ping");
         loop_handle
-            .insert_source(font_ping_source, |_, _, data: &mut DriftWm| {
+            .insert_source(font_ping_source, |_, _, data: &mut Driftline| {
                 data.mark_all_dirty();
             })
             .expect("insert font-ready ping source");
-        driftwm::text::warm_fonts(move || font_ping.ping());
+        driftline::text::warm_fonts(move || font_ping.ping());
 
         let compositor_state = CompositorState::new_v6::<Self>(&dh);
         let xdg_shell_state = XdgShellState::new_with_capabilities::<Self>(
@@ -144,7 +145,7 @@ impl DriftWm {
         let layer_shell_state =
             WlrLayerShellState::new_with_filter::<Self, _>(&dh, client_is_unrestricted);
         let foreign_toplevel_state =
-            driftwm::protocols::foreign_toplevel::ForeignToplevelManagerState::new::<Self, _>(
+            driftline::protocols::foreign_toplevel::ForeignToplevelManagerState::new::<Self, _>(
                 &dh,
                 client_is_unrestricted,
             );
@@ -152,14 +153,15 @@ impl DriftWm {
             smithay::wayland::foreign_toplevel_list::ForeignToplevelListState::new_with_filter::<
                 Self,
             >(&dh, client_is_unrestricted);
-        let ext_workspace_state = driftwm::protocols::ext_workspace::ExtWorkspaceManagerState::new::<
+        let ext_workspace_state =
+            driftline::protocols::ext_workspace::ExtWorkspaceManagerState::new::<Self, _>(
+                &dh,
+                client_is_unrestricted,
+            );
+        let screencopy_state = driftline::protocols::screencopy::ScreencopyManagerState::new::<
             Self,
             _,
         >(&dh, client_is_unrestricted);
-        let screencopy_state = driftwm::protocols::screencopy::ScreencopyManagerState::new::<Self, _>(
-            &dh,
-            client_is_unrestricted,
-        );
         let image_capture_source_state =
             smithay::wayland::image_capture_source::ImageCaptureSourceState::new();
         let output_capture_source_state =
@@ -173,16 +175,16 @@ impl DriftWm {
                 _,
             >(&dh, client_is_unrestricted);
         let image_copy_capture_state =
-            driftwm::protocols::image_copy_capture::ImageCopyCaptureState::new::<Self, _>(
+            driftline::protocols::image_copy_capture::ImageCopyCaptureState::new::<Self, _>(
                 &dh,
                 client_is_unrestricted,
             );
         let output_management_state =
-            driftwm::protocols::output_management::OutputManagementState::new::<Self, _>(
+            driftline::protocols::output_management::OutputManagementState::new::<Self, _>(
                 &dh,
                 client_is_unrestricted,
             );
-        let output_power_state = driftwm::protocols::output_power::OutputPowerState::new::<Self, _>(
+        let output_power_state = driftline::protocols::output_power::OutputPowerState::new::<Self, _>(
             &dh,
             client_is_unrestricted,
         );
@@ -190,7 +192,7 @@ impl DriftWm {
             SessionLockManagerState::new::<Self, _>(&dh, client_is_unrestricted);
         let tablet_state = smithay::wayland::tablet_manager::TabletManagerState::new::<Self>(&dh);
         let gamma_control_manager_state =
-            driftwm::protocols::gamma_control::GammaControlManagerState::new::<Self, _>(
+            driftline::protocols::gamma_control::GammaControlManagerState::new::<Self, _>(
                 &dh,
                 client_is_unrestricted,
             );
@@ -240,7 +242,7 @@ impl DriftWm {
                 // Pin the stored config to the keymap we actually loaded, so
                 // index-by-group readers (`layout --short`) can't report a
                 // rejected code the keymap never compiled.
-                config.keyboard_layout = driftwm::config::KeyboardLayout {
+                config.keyboard_layout = driftline::config::KeyboardLayout {
                     layout: "us".into(),
                     variant: String::new(),
                     options: String::new(),
@@ -273,7 +275,7 @@ impl DriftWm {
             display_handle: dh,
             loop_handle,
             loop_signal,
-            stage: driftwm::stage::Stage::new(),
+            stage: driftline::stage::Stage::new(),
             tiling_view: super::tiling::TilingViews::default(),
             tiling_drag_visual: None,
             tiling_topology: None,

@@ -10,13 +10,13 @@
 
 use std::time::{Duration, Instant};
 
-use driftwm::config::{Action, Config};
-use driftwm::desktop_entry::DesktopEntryCache;
+use driftline::config::{Action, Config};
+use driftline::desktop_entry::DesktopEntryCache;
 use smithay::reexports::wayland_protocols::xdg::shell::server::xdg_toplevel;
 use smithay::utils::{Point, Size};
 use wayland_client::protocol::wl_surface::WlSurface as ClientSurface;
 
-use driftwm::window_ext::WindowExt;
+use driftline::window_ext::WindowExt;
 
 use crate::state::{ClusterResizeSnapshot, NavZoom, StageWindow, SuspendedId};
 
@@ -357,7 +357,8 @@ fn adopt_seeds_the_stable_rect_when_the_client_settles() {
     );
     let nb_elem = StageWindow::Client(neighbor.clone());
     let rects = f.state().all_windows_with_snap_rects();
-    let before = driftwm::layout::cluster::cluster_of(&nb_elem, &rects, f.state().config.snap_gap);
+    let before =
+        driftline::layout::cluster::cluster_of(&nb_elem, &rects, f.state().config.snap_gap);
     assert!(
         before.contains(&susp),
         "neighbor clustered with the stand-in"
@@ -405,7 +406,7 @@ fn adopt_seeds_the_stable_rect_when_the_client_settles() {
     );
 
     let rects = f.state().all_windows_with_snap_rects();
-    let after = driftwm::layout::cluster::cluster_of(&nb_elem, &rects, f.state().config.snap_gap);
+    let after = driftline::layout::cluster::cluster_of(&nb_elem, &rects, f.state().config.snap_gap);
     assert!(
         after.contains(&StageWindow::Client(adopted)),
         "the adopted live window stayed in the cluster"
@@ -2502,7 +2503,7 @@ fn a_hidden_adopt_is_no_cluster_citizen_until_it_is_revealed() {
 
     let clustered = |f: &mut Fixture, w: &StageWindow| {
         let rects = f.state().all_windows_with_snap_rects();
-        driftwm::layout::cluster::cluster_of(&nb_elem, &rects, f.state().config.snap_gap)
+        driftline::layout::cluster::cluster_of(&nb_elem, &rects, f.state().config.snap_gap)
             .contains(w)
     };
     assert!(

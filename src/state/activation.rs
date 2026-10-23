@@ -6,9 +6,9 @@
 //! early splits that batch — hence the `set_activated_exclusive` /
 //! `activate_riding_batch` pair over one shared implementation.
 
-use super::{DriftWm, StageWindow};
+use super::{Driftline, StageWindow};
 
-impl DriftWm {
+impl Driftline {
     /// Replicates `Space`'s activate semantics: xdg Activated set on `target`,
     /// cleared on every other window, and delivered on the wire for any window
     /// whose hint actually changed — so a focus change (click, raise) that

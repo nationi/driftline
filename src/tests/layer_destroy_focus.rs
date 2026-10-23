@@ -5,7 +5,7 @@
 //! surface under the pointer. The per-iteration pull re-picks regardless of
 //! whether it delivers, and the tests pin the press to the correct grab.
 
-use driftwm::config::BTN_LEFT;
+use driftline::config::BTN_LEFT;
 use wayland_protocols_wlr::layer_shell::v1::client::{zwlr_layer_shell_v1, zwlr_layer_surface_v1};
 
 use super::input_backend::{pointer_to_screen, press, release};

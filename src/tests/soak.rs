@@ -7,7 +7,7 @@
 //! `#[ignore]`d out of the default lane: the fd/RSS plateaus are read from
 //! `/proc/self`, so a neighbouring test holding a socket open lands inside the
 //! measurement. Run it with the process to itself:
-//! `cargo test --bin driftwm -- --include-ignored --test-threads=1 soak`.
+//! `cargo test --bin driftline -- --include-ignored --test-threads=1 soak`.
 
 use std::collections::BTreeMap;
 
@@ -97,13 +97,13 @@ fn run_cycle(f: &mut Fixture, tag: usize, settle_target: &BTreeMap<String, usize
     let serial = smithay::utils::SERIAL_COUNTER.next_serial();
     f.state().raise_and_focus(&window, serial);
     f.state()
-        .execute_action(&driftwm::config::Action::TogglePinToScreen);
+        .execute_action(&driftline::config::Action::TogglePinToScreen);
     f.double_roundtrip(id);
     assert_eq!(f.counters()["stage_pinned"], 1);
     let serial = smithay::utils::SERIAL_COUNTER.next_serial();
     f.state().raise_and_focus(&window, serial);
     f.state()
-        .execute_action(&driftwm::config::Action::TogglePinToScreen);
+        .execute_action(&driftline::config::Action::TogglePinToScreen);
     f.double_roundtrip(id);
     assert_eq!(f.counters()["stage_pinned"], 0);
 
@@ -147,7 +147,7 @@ fn soak_cycles_hold_no_state() {
             counter_base,
             "compositor state above baseline after soak cycle {cycle} — a \
              window/surface-keyed collection leaked (see \
-             DriftWm::debug_counters)"
+             Driftline::debug_counters)"
         );
     }
 

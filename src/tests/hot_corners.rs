@@ -1,5 +1,5 @@
 //! Per-output hot corners (`[outputs.hot_corners]`), dispatched directly
-//! through `DriftWm::check_hot_corners` with an output and an output-local
+//! through `Driftline::check_hot_corners` with an output and an output-local
 //! screen position — exactly like the pointer-motion call sites do, minus the
 //! motion-event plumbing. Covers config lookup (exact/wildcard/no-merge), the
 //! square activation zone, the per-output entry latch (including its single
@@ -10,7 +10,7 @@
 use smithay::output::Output;
 use smithay::utils::{Logical, Point};
 
-use driftwm::config::BTN_LEFT;
+use driftline::config::BTN_LEFT;
 
 use super::{Fixture, client::ClientId, config, map_window};
 

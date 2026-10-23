@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use smithay::backend::input::TouchSlot;
 use smithay::utils::{Logical, Point};
 
-use driftwm::config::{
+use driftline::config::{
     Action, BindingContext, Config, ContinuousAction, GestureConfigEntry, GestureTrigger,
     ThresholdAction, TouchThresholds,
 };
@@ -476,8 +476,8 @@ impl TouchRecognizer {
 
     /// The threshold action for a fired swipe: a per-direction override for the
     /// four cardinals if bound, else the base swipe binding.
-    fn swipe_threshold_for(&self, dir: driftwm::config::Direction) -> Option<ThresholdAction> {
-        use driftwm::config::Direction;
+    fn swipe_threshold_for(&self, dir: driftline::config::Direction) -> Option<ThresholdAction> {
+        use driftline::config::Direction;
         let cardinal = match dir {
             Direction::Up => Some(0),
             Direction::Down => Some(1),
@@ -990,7 +990,7 @@ impl TouchRecognizer {
     }
 
     /// Test-only stand-in for the calloop holdback deadline. Production flushes
-    /// via `flush_touch_holdback`; its timer closure holds only `&mut DriftWm`
+    /// via `flush_touch_holdback`; its timer closure holds only `&mut Driftline`
     /// and can't reach this grab without the reentry the design forbids, so the
     /// recognizer keeps no deadline state and just says to deliver the buffer.
     #[cfg(test)]

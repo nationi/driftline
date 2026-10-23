@@ -1,4 +1,4 @@
-//! `driftwm msg focus <window>` focuses and raises the window, and pans to it
+//! `driftline msg focus <window>` focuses and raises the window, and pans to it
 //! only when it is not already fully on screen. "On screen" is judged where
 //! the view lands, not at the frame a flight still under way happens to be
 //! in, for a live client and for a stand-in alike.

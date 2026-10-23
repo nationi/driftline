@@ -6,7 +6,7 @@
 //! window's frame covers the output's usable area — in one pure function is what
 //! stops them drifting.
 
-use driftwm::canvas::Coverage;
+use driftline::canvas::Coverage;
 
 /// The chrome the compositor draws around one window.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -53,7 +53,7 @@ impl DrawnChrome {
 #[cfg(test)]
 mod tests {
     use super::DrawnChrome;
-    use driftwm::canvas::Coverage;
+    use driftline::canvas::Coverage;
 
     fn configured() -> DrawnChrome {
         DrawnChrome {

@@ -7,7 +7,7 @@
 //! centers. `center-nearest` itself parks unconditionally — it is the
 //! walk-through for a non-center `focus_placement`.
 
-use driftwm::config::{Action, BTN_LEFT, Direction};
+use driftline::config::{Action, BTN_LEFT, Direction};
 use smithay::desktop::Window;
 use smithay::utils::{Logical, Point, SERIAL_COUNTER, Size};
 

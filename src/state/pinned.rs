@@ -11,9 +11,9 @@ use smithay::output::Output;
 use smithay::utils::{Logical, Point, Rectangle, Size};
 
 use super::window_animation::{AnimSpace, ContentPolicy, GeometryRole};
-use super::{DriftWm, StageWindow, output_logical_size, output_state};
+use super::{Driftline, StageWindow, output_logical_size, output_state};
 
-impl DriftWm {
+impl Driftline {
     /// Pin `window` at the on-screen rect it is drawn at right now, on the
     /// output showing it. No-op when it is already pinned; `Err` when there is
     /// no output to pin to.
@@ -49,8 +49,8 @@ impl DriftWm {
             let os = output_state(&output);
             (os.camera, os.zoom)
         };
-        let screen = driftwm::canvas::canvas_to_screen(
-            driftwm::canvas::CanvasPos(loc.to_f64()),
+        let screen = driftline::canvas::canvas_to_screen(
+            driftline::canvas::CanvasPos(loc.to_f64()),
             camera,
             zoom,
         )
@@ -60,7 +60,7 @@ impl DriftWm {
         self.stage.drop_from_focus_history(window);
         self.stage.set_pin(
             window,
-            driftwm::stage::PinnedSite {
+            driftline::stage::PinnedSite {
                 output: output.name(),
                 screen_pos,
             },
@@ -112,8 +112,8 @@ impl DriftWm {
                 let os = output_state(&output);
                 (os.camera, os.zoom)
             };
-            let canvas = driftwm::canvas::screen_to_canvas(
-                driftwm::canvas::ScreenPos(site.screen_pos.to_f64()),
+            let canvas = driftline::canvas::screen_to_canvas(
+                driftline::canvas::ScreenPos(site.screen_pos.to_f64()),
                 camera,
                 zoom,
             )
@@ -159,7 +159,7 @@ impl DriftWm {
         if !self.stage.has_pinned() {
             return;
         }
-        let pinned: Vec<(StageWindow, driftwm::stage::PinnedSite)> = self
+        let pinned: Vec<(StageWindow, driftline::stage::PinnedSite)> = self
             .stage
             .pinned_windows()
             .map(|(w, site)| (w.clone(), site.clone()))
@@ -172,8 +172,8 @@ impl DriftWm {
                 let os = output_state(&output);
                 (os.camera, os.zoom)
             };
-            let canvas = driftwm::canvas::screen_to_canvas(
-                driftwm::canvas::ScreenPos(site.screen_pos.to_f64()),
+            let canvas = driftline::canvas::screen_to_canvas(
+                driftline::canvas::ScreenPos(site.screen_pos.to_f64()),
                 camera,
                 zoom,
             )
@@ -214,7 +214,7 @@ impl DriftWm {
     pub fn reassign_orphaned_pinned(&mut self, to: &Output) {
         let live: Vec<String> = self.space.outputs().map(|o| o.name()).collect();
         let to_size = output_logical_size(to);
-        let orphans: Vec<(StageWindow, driftwm::stage::PinnedSite)> = self
+        let orphans: Vec<(StageWindow, driftline::stage::PinnedSite)> = self
             .stage
             .pinned_windows()
             .filter(|(_, site)| !live.contains(&site.output))
@@ -280,7 +280,7 @@ pub(crate) fn clamp_pin_frame(
     screen_pos: Point<i32, Logical>,
     content_size: Size<i32, Logical>,
     output_size: Size<i32, Logical>,
-    chrome: driftwm::canvas::Chrome,
+    chrome: driftline::canvas::Chrome,
 ) -> Point<i32, Logical> {
     let frame_size = chrome.frame_size(content_size);
     let frame = chrome.frame_loc(screen_pos);

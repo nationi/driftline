@@ -15,13 +15,13 @@ use smithay::{
     utils::{Logical, Point, SERIAL_COUNTER, Size},
 };
 
-use driftwm::canvas::{self, CanvasPos, ScreenPos, canvas_to_screen, screen_to_canvas};
-use driftwm::config::ContinuousAction;
+use driftline::canvas::{self, CanvasPos, ScreenPos, canvas_to_screen, screen_to_canvas};
+use driftline::config::ContinuousAction;
 
-use driftwm::window_ext::WindowExt;
+use driftline::window_ext::WindowExt;
 
 use crate::input::touch::HeldTouchEvent;
-use crate::state::{DriftWm, FocusTarget, StageWindow, output_state};
+use crate::state::{Driftline, FocusTarget, StageWindow, output_state};
 
 use super::touch_recognizer::{Decision, TapOutcome, TouchInput, TouchKind, TouchRecognizer};
 
@@ -122,7 +122,7 @@ struct SlotDown {
 /// the first touch-down; tracks all slots and unsets itself when the last finger
 /// lifts. Parallel to `PanGrab`.
 pub struct TouchGestureGrab {
-    start_data: TouchGrabStartData<DriftWm>,
+    start_data: TouchGrabStartData<Driftline>,
     output: Output,
     /// Keyed by slot; the recognizer owns geometry (screen positions), so this
     /// holds only the per-slot [`SlotDown`] state for app forwarding and the
@@ -133,7 +133,7 @@ pub struct TouchGestureGrab {
 
 impl TouchGestureGrab {
     pub fn new(
-        start_data: TouchGrabStartData<DriftWm>,
+        start_data: TouchGrabStartData<Driftline>,
         output: Output,
         device_mm: Option<(f64, f64)>,
     ) -> Self {
@@ -157,8 +157,8 @@ impl TouchGestureGrab {
     fn start_window_grab(
         &mut self,
         action: ContinuousAction,
-        data: &mut DriftWm,
-        handle: &mut TouchInnerHandle<'_, DriftWm>,
+        data: &mut Driftline,
+        handle: &mut TouchInnerHandle<'_, Driftline>,
         event: &MotionEvent,
     ) -> bool {
         match action {
@@ -177,8 +177,8 @@ impl TouchGestureGrab {
     /// (the hold variant). Returns false (and keeps panning) if there's no window.
     fn try_start_move(
         &mut self,
-        data: &mut DriftWm,
-        handle: &mut TouchInnerHandle<'_, DriftWm>,
+        data: &mut Driftline,
+        handle: &mut TouchInnerHandle<'_, Driftline>,
         event: &MotionEvent,
         cluster: bool,
     ) -> bool {
@@ -233,8 +233,8 @@ impl TouchGestureGrab {
     /// resizable under the landing point.
     fn try_start_resize(
         &mut self,
-        data: &mut DriftWm,
-        handle: &mut TouchInnerHandle<'_, DriftWm>,
+        data: &mut Driftline,
+        handle: &mut TouchInnerHandle<'_, Driftline>,
         event: &MotionEvent,
         snapped: bool,
     ) -> bool {
@@ -302,7 +302,11 @@ impl TouchGestureGrab {
     /// Deliver the withheld events in order through the inner handle — inside
     /// grab dispatch the public `TouchHandle` would re-enter the grab and
     /// panic, and the inner handle forwards without re-processing.
-    fn flush_holdback_inner(&self, data: &mut DriftWm, handle: &mut TouchInnerHandle<'_, DriftWm>) {
+    fn flush_holdback_inner(
+        &self,
+        data: &mut Driftline,
+        handle: &mut TouchInnerHandle<'_, Driftline>,
+    ) {
         let Some(buffer) = data.touch_state.holdback.take() else {
             return;
         };
@@ -361,7 +365,7 @@ impl TouchGestureGrab {
     /// Apply the recognizer's continuous-pan decision: scale the raw screen
     /// centroid delta by `touch_speed` and the live zoom (inverted, like the
     /// trackpad swipe), then drive the camera.
-    fn apply_pan(&self, data: &mut DriftWm, delta: Point<f64, Logical>, time: u32) {
+    fn apply_pan(&self, data: &mut Driftline, delta: Point<f64, Logical>, time: u32) {
         let zoom = output_state(&self.output).zoom;
         let pan = Point::from((
             -delta.x * data.config.touch_speed / zoom,
@@ -373,7 +377,7 @@ impl TouchGestureGrab {
     /// Apply the recognizer's zoom decision: turn the spread ratio into a new zoom
     /// via `zoom_touch_speed`, clamp it, and re-anchor the camera at the screen
     /// anchor so the point under the fingers stays put.
-    fn apply_zoom(&self, data: &mut DriftWm, scale: f64, anchor: Point<f64, Logical>) {
+    fn apply_zoom(&self, data: &mut Driftline, scale: f64, anchor: Point<f64, Logical>) {
         // Fullscreen locks the camera and zoom (see `set_camera_on`); a pinch
         // that started before the fullscreen just goes inert.
         if data.is_output_fullscreen(&self.output) {
@@ -400,7 +404,7 @@ impl TouchGestureGrab {
     /// last 3-finger tap, then fire (or defer) the resolved action.
     fn apply_tap(
         &self,
-        data: &mut DriftWm,
+        data: &mut Driftline,
         focus_at: Point<f64, Logical>,
         set_last_tap: Option<u32>,
         outcome: TapOutcome,
@@ -440,12 +444,12 @@ impl TouchGestureGrab {
     }
 }
 
-impl TouchGrab<DriftWm> for TouchGestureGrab {
+impl TouchGrab<Driftline> for TouchGestureGrab {
     fn down(
         &mut self,
-        data: &mut DriftWm,
-        handle: &mut TouchInnerHandle<'_, DriftWm>,
-        focus: Option<(<DriftWm as SeatHandler>::TouchFocus, Point<f64, Logical>)>,
+        data: &mut Driftline,
+        handle: &mut TouchInnerHandle<'_, Driftline>,
+        focus: Option<(<Driftline as SeatHandler>::TouchFocus, Point<f64, Logical>)>,
         event: &DownEvent,
     ) {
         if data.touch_state.replaying_holdback {
@@ -544,8 +548,8 @@ impl TouchGrab<DriftWm> for TouchGestureGrab {
 
     fn up(
         &mut self,
-        data: &mut DriftWm,
-        handle: &mut TouchInnerHandle<'_, DriftWm>,
+        data: &mut Driftline,
+        handle: &mut TouchInnerHandle<'_, Driftline>,
         event: &UpEvent,
     ) {
         if data.touch_state.replaying_holdback {
@@ -590,9 +594,9 @@ impl TouchGrab<DriftWm> for TouchGestureGrab {
 
     fn motion(
         &mut self,
-        data: &mut DriftWm,
-        handle: &mut TouchInnerHandle<'_, DriftWm>,
-        _focus: Option<(<DriftWm as SeatHandler>::TouchFocus, Point<f64, Logical>)>,
+        data: &mut Driftline,
+        handle: &mut TouchInnerHandle<'_, Driftline>,
+        _focus: Option<(<Driftline as SeatHandler>::TouchFocus, Point<f64, Logical>)>,
         event: &MotionEvent,
     ) {
         if data.touch_state.replaying_holdback {
@@ -653,19 +657,19 @@ impl TouchGrab<DriftWm> for TouchGestureGrab {
         }
     }
 
-    fn frame(&mut self, data: &mut DriftWm, handle: &mut TouchInnerHandle<'_, DriftWm>) {
+    fn frame(&mut self, data: &mut Driftline, handle: &mut TouchInnerHandle<'_, Driftline>) {
         handle.frame(data);
     }
 
-    fn cancel(&mut self, data: &mut DriftWm, handle: &mut TouchInnerHandle<'_, DriftWm>) {
+    fn cancel(&mut self, data: &mut Driftline, handle: &mut TouchInnerHandle<'_, Driftline>) {
         handle.cancel(data);
         handle.unset_grab(self, data);
     }
 
     fn shape(
         &mut self,
-        data: &mut DriftWm,
-        handle: &mut TouchInnerHandle<'_, DriftWm>,
+        data: &mut Driftline,
+        handle: &mut TouchInnerHandle<'_, Driftline>,
         event: &ShapeEvent,
     ) {
         handle.shape(data, event);
@@ -673,18 +677,18 @@ impl TouchGrab<DriftWm> for TouchGestureGrab {
 
     fn orientation(
         &mut self,
-        data: &mut DriftWm,
-        handle: &mut TouchInnerHandle<'_, DriftWm>,
+        data: &mut Driftline,
+        handle: &mut TouchInnerHandle<'_, Driftline>,
         event: &OrientationEvent,
     ) {
         handle.orientation(data, event);
     }
 
-    fn start_data(&self) -> &TouchGrabStartData<DriftWm> {
+    fn start_data(&self) -> &TouchGrabStartData<Driftline> {
         &self.start_data
     }
 
-    fn unset(&mut self, data: &mut DriftWm) {
+    fn unset(&mut self, data: &mut Driftline) {
         // Normally the buffer is already flushed (lift) or discarded (claim)
         // by now; this catches a grab torn down mid-hold, e.g. on a dead
         // start-data surface, so a stale timer can't replay into the next

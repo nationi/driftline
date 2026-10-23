@@ -55,13 +55,13 @@ At least one criterion is required. All specified criteria must match.
 ### Finding a window's identifiers
 
 ```sh
-driftwm msg state   # camera, zoom, and the window inventory
+driftline msg state   # camera, zoom, and the window inventory
 ```
 
 To get the app ids and titles of all current non-widget windows:
 
 ```sh
-driftwm msg --json state | \
+driftline msg --json state | \
 jq '.Ok.State.windows[] | select(.is_widget == false and .suspended != true) | {app_id, title}'
 ```
 
@@ -89,13 +89,13 @@ pass_keys = true
 ## Coordinates and sizes
 
 `position` and `size` describe a window's **visual frame**: the app's content
-plus the title bar and border driftwm draws around it, if it draws any.
+plus the title bar and border driftline draws around it, if it draws any.
 `position` is that frame's center, with **Y pointing up**.
 
 This is what makes a layout portable. `size = [800, 600]` gives you an 800x600
 window on screen whether it is server-decorated, client-decorated, or bare, and
 two windows placed 800 apart sit flush against each other either way. The same
-numbers come back out of `driftwm msg state` and the
+numbers come back out of `driftline msg state` and the
 [state file](ipc.md#state-file), so a rule and a running window always describe
 the same rectangle.
 
@@ -145,7 +145,7 @@ app_id  = "mpv"
 opacity = 0.85
 ```
 
-It holds across the fullscreen transitions too, and `driftwm msg opacity` changes
+It holds across the fullscreen transitions too, and `driftline msg opacity` changes
 it live on a window that is already fullscreen. The trade: while a translucent
 window is fullscreen, that output loses direct scan-out, because the compositor
 has to compose the canvas under it every frame. Leave games opaque.
@@ -154,7 +154,7 @@ A rule `opacity` is a **pin**: the window draws at that one value whether it is
 focused or not, and it opts the window out of the global `opacity` /
 `opacity_focused` defaults in [`[decorations]`](config.md#decorations). That
 includes `opacity = 1.0` — how a screen-pinned PiP window stays fully opaque
-while everything else dims. `driftwm msg opacity <value>` pins the window the
+while everything else dims. `driftline msg opacity <value>` pins the window the
 same way.
 
 ### Screen-pinned windows
@@ -181,7 +181,7 @@ decoration       = "none"
   visible — a title bar never goes off the top edge.
 - **Off the canvas.** Pinned windows are excluded from navigation, alt-tab,
   snapping, fit/center actions, and canvas screenshots
-  (`driftwm msg screenshot`). They remain focusable and closable; SSD windows
+  (`driftline msg screenshot`). They remain focusable and closable; SSD windows
   show a small dot in the title bar.
 - **Fullscreen round-trips.** A fullscreen request (or `Mod+F`) temporarily
   unpins the window to fill the screen; exiting fullscreen re-pins it in place.
@@ -191,13 +191,13 @@ decoration       = "none"
 
 To find the numbers for a rule, pin the window live with `toggle-pin-to-screen`
 (`Mod+T`), drag and resize it into place, then copy `position`/`size` from its
-entry in the per-output `pinned` section of `driftwm msg state` — those are
+entry in the per-output `pinned` section of `driftline msg state` — those are
 already output-relative rule coordinates.
 
 ### Output selection
 
 On a multi-monitor setup, `output` names a monitor by its output name (e.g.
-`"DP-1"` — find names under `outputs.*` in `driftwm msg state`). It governs two
+`"DP-1"` — find names under `outputs.*` in `driftline msg state`). It governs two
 placements:
 
 ```toml
@@ -309,7 +309,7 @@ decoration = "none"
 ```
 
 A widget ignores drags, gestures and nudges, so `position` is where it stays —
-but `driftwm msg move <X> <Y> --id <ID>` still repositions one at runtime, which
+but `driftline msg move <X> <Y> --id <ID>` still repositions one at runtime, which
 is how external desktop-icon clients scatter icons across the canvas. That move
 lasts only for the session.
 
@@ -317,7 +317,7 @@ lasts only for the session.
 
 To pin arbitrary images to canvas spots — hand-drawn shortcut sheets, logos,
 region labels — render a transparent PNG/SVG as a borderless window with
-[`extras/scripts/driftwm-decal`](../extras/scripts/driftwm-decal) (deps:
+[`extras/scripts/driftline-decal`](../extras/scripts/driftline-decal) (deps:
 python-gobject + gtk4), then pin each one with a `widget` rule. The transparent
 parts show the dot grid (or your shader wallpaper) through; decals sit below
 normal windows and stay off alt-tab. Each invocation is one decal window,
@@ -325,8 +325,8 @@ matched by `--title`:
 
 ```toml
 autostart = [
-    "driftwm-decal ~/decals/shortcuts.svg --title shortcuts",
-    "driftwm-decal ~/decals/logo.png      --title logo",
+    "driftline-decal ~/decals/shortcuts.svg --title shortcuts",
+    "driftline-decal ~/decals/logo.png      --title logo",
 ]
 
 [[window_rules]]
@@ -430,7 +430,7 @@ decoration            = "none"
 ```
 
 This applies to interactive resizes only — a mouse-border drag, a resize
-gesture, a touch resize. The `size` rule, fit/fullscreen, `driftwm msg resize`,
+gesture, a touch resize. The `size` rule, fit/fullscreen, `driftline msg resize`,
 the `grow-window` / `shrink-window` bindings, and client-driven sizes are left
 alone.
 
@@ -488,5 +488,5 @@ criterion is consulted there (see
 Enable debug logging to see which rules matched a window at map time:
 
 ```sh
-RUST_LOG=debug driftwm 2>&1 | grep -i "window rule\|app_id"
+RUST_LOG=debug driftline 2>&1 | grep -i "window rule\|app_id"
 ```

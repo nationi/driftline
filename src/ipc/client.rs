@@ -1,4 +1,4 @@
-//! The `driftwm msg` client: connect to the running compositor's IPC socket,
+//! The `driftline msg` client: connect to the running compositor's IPC socket,
 //! send one request, print the reply. Runs in the same binary but never starts
 //! a compositor.
 
@@ -10,7 +10,7 @@ use super::protocol::{
     Event, Reply, Request, Response, ScreenshotTarget, StateInfo, WindowSelector, socket_path,
 };
 
-/// `driftwm msg <...>` subcommands. Variants with optional positionals read when
+/// `driftline msg <...>` subcommands. Variants with optional positionals read when
 /// omitted and write when given.
 #[derive(clap::Subcommand, Debug)]
 pub enum Msg {
@@ -244,7 +244,7 @@ pub enum Msg {
         /// Pixels per canvas unit — higher captures more detail than the screen shows, independent of zoom.
         #[arg(long, default_value_t = 1.0, global = true)]
         scale: f64,
-        /// Output PNG path, or `-` for stdout (default: `./driftwm-screenshot-<time>.png`).
+        /// Output PNG path, or `-` for stdout (default: `./driftline-screenshot-<time>.png`).
         #[arg(short, long, global = true)]
         output: Option<String>,
     },
@@ -260,7 +260,7 @@ pub enum Msg {
     DebugCounters,
 }
 
-/// What `driftwm msg screenshot` captures.
+/// What `driftline msg screenshot` captures.
 #[derive(clap::Subcommand, Debug)]
 pub enum ShotTarget {
     /// The focused window, or one by `app_id` substring or `--id`.
@@ -304,17 +304,20 @@ pub fn run(msg: &Msg, json: bool) -> Result<(), Box<dyn std::error::Error>> {
     // the JSON socket), which we then relay to stdout and delete.
     let stdout_capture = matches!(msg, Msg::Screenshot { output: Some(o), .. } if o == "-");
 
-    // A client launched inside a driftwm session inherits its WAYLAND_DISPLAY, so
-    // the derived path targets that instance. DRIFTWM_SOCKET is an explicit
+    // A client launched inside a Driftline session inherits its WAYLAND_DISPLAY, so
+    // the derived path targets that instance. The old DRIFTWM_SOCKET name remains
+    // accepted for existing session wrappers and user scripts.
+    // DRIFTLINE_SOCKET is an explicit
     // override (the server never reads it, so there's no nested-bind footgun).
-    let path = match std::env::var_os("DRIFTWM_SOCKET") {
-        Some(p) => PathBuf::from(p),
-        None => {
-            let display = std::env::var("WAYLAND_DISPLAY")
-                .map_err(|_| "WAYLAND_DISPLAY is not set — are you in a driftwm session?")?;
-            socket_path(&display)
-        }
-    };
+    let path =
+        match std::env::var_os("DRIFTLINE_SOCKET").or_else(|| std::env::var_os("DRIFTWM_SOCKET")) {
+            Some(p) => PathBuf::from(p),
+            None => {
+                let display = std::env::var("WAYLAND_DISPLAY")
+                    .map_err(|_| "WAYLAND_DISPLAY is not set — are you in a Driftline session?")?;
+                socket_path(&display)
+            }
+        };
 
     let mut stream = UnixStream::connect(&path)
         .map_err(|e| format!("cannot connect to {}: {e}", path.display()))?;
@@ -522,11 +525,11 @@ fn resolve_output_path(output: &Option<String>) -> Result<String, String> {
     let raw = match output.as_deref() {
         // `-` → a temp file the client streams to stdout, then deletes.
         Some("-") => std::env::temp_dir().join(format!(
-            "driftwm-screenshot-{}-{secs}.png",
+            "driftline-screenshot-{}-{secs}.png",
             std::process::id()
         )),
         Some(p) => PathBuf::from(p),
-        None => PathBuf::from(format!("driftwm-screenshot-{secs}.png")),
+        None => PathBuf::from(format!("driftline-screenshot-{secs}.png")),
     };
     let abs = if raw.is_absolute() {
         raw

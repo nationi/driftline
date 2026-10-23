@@ -6,11 +6,11 @@ use std::collections::HashSet;
 
 use smithay::utils::{Logical, Point};
 
-use super::{DriftWm, NavZoom, StageWindow};
-use driftwm::config::Direction;
-use driftwm::layout::snap::{self, SnapRect, StopQuery};
+use super::{Driftline, NavZoom, StageWindow};
+use driftline::config::Direction;
+use driftline::layout::snap::{self, SnapRect, StopQuery};
 
-impl DriftWm {
+impl Driftline {
     /// Move the focused canvas element along `dir` to the nearest stop past
     /// where it sits, and bring the camera along if that leaves the viewport.
     /// Nothing that way is a no-op.

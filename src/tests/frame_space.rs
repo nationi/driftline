@@ -1,5 +1,5 @@
 //! User-facing coordinate boundaries speak the *visual frame* (content plus
-//! SSD title bar and border — see [`driftwm::canvas::Chrome`]), not the
+//! SSD title bar and border — see [`driftline::canvas::Chrome`]), not the
 //! content rect the compositor stores internally. Every scenario here uses a
 //! server-decorated and/or bordered config: on the CSD/borderless default the
 //! frame and the content coincide, so a config without either carries no
@@ -11,7 +11,7 @@ use wayland_protocols_wlr::layer_shell::v1::client::{zwlr_layer_shell_v1, zwlr_l
 use crate::ipc::dispatch;
 use crate::ipc::protocol::{Reply, Request, Response, WindowSelector};
 use crate::state::{NavZoom, StageWindow};
-use driftwm::config::Action;
+use driftline::config::Action;
 
 use super::{Fixture, config, map_window, settle, window_by_app_id};
 

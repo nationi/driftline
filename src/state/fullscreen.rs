@@ -6,11 +6,11 @@ use smithay::{
 };
 
 use super::window_animation::{AnimSpace, ContentPolicy, GeometryRole};
-use super::{DriftWm, FocusTarget, StageWindow};
+use super::{Driftline, FocusTarget, StageWindow};
 use crate::input::constraint::{deactivate_constraint, find_constraint};
-use driftwm::window_ext::WindowExt;
+use driftline::window_ext::WindowExt;
 
-impl DriftWm {
+impl Driftline {
     pub fn is_fullscreen(&self) -> bool {
         self.active_output()
             .is_some_and(|o| self.is_output_fullscreen(&o))
@@ -43,7 +43,7 @@ impl DriftWm {
             return Some(current);
         }
 
-        driftwm::config::applied_rule(surface)
+        driftline::config::applied_rule(surface)
             .and_then(|r| r.output)
             .and_then(|name| self.space.outputs().find(|o| o.name() == name).cloned())
             .or(client_output)
@@ -68,7 +68,7 @@ impl DriftWm {
         if window
             .wl_surface()
             .as_ref()
-            .and_then(|s| driftwm::config::applied_rule(s))
+            .and_then(|s| driftline::config::applied_rule(s))
             .is_some_and(|r| r.widget)
         {
             return;

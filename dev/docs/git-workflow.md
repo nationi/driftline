@@ -2,16 +2,16 @@
 
 ## Branches and remotes
 
-- `origin` is `https://github.com/nationi/driftwm.git` — the writable fork.
+- `origin` is `https://github.com/nationi/driftline.git` — the writable fork.
 - `upstream` is `https://github.com/malbiruk/driftwm.git` — the reference source.
 - `main` is the fork's consolidated branch, not an untouched upstream mirror.
 - `nationi/development` is the persistent development branch. Do not delete it
   when merging its pull requests. Both local branches track their `origin` peers.
 
 Compare the fork's branches at
-[main…development](https://github.com/nationi/driftwm/compare/main...nationi/development).
+[main…development](https://github.com/nationi/driftline/compare/main...nationi/development).
 Compare upstream with the consolidated fork at
-[upstream…fork](https://github.com/malbiruk/driftwm/compare/main...nationi:driftwm:main).
+[upstream…fork](https://github.com/malbiruk/driftwm/compare/main...nationi:driftline:main).
 Being ahead of upstream is expected for a feature fork; it is not a reason to
 reset or force-push the branch.
 

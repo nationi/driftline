@@ -15,7 +15,7 @@
 //! the compositor measures it from — the path that used to deadlock by
 //! re-locking the surface's user-data mutex.
 
-use driftwm::canvas::{CanvasPos, canvas_to_screen};
+use driftline::canvas::{CanvasPos, canvas_to_screen};
 use smithay::utils::{Logical, Point};
 use wayland_client::protocol::wl_surface::WlSurface;
 use wayland_protocols::wp::pointer_constraints::zv1::client::zwp_confined_pointer_v1::ZwpConfinedPointerV1;
@@ -1075,13 +1075,13 @@ fn a_held_click_over_a_detached_subsurface_keeps_the_lock() {
     f.double_roundtrip(id);
 
     let mouse = FakeDevice::mouse();
-    press(&mut f, &mouse, driftwm::config::BTN_LEFT);
+    press(&mut f, &mouse, driftline::config::BTN_LEFT);
     f.double_roundtrip(id);
     role.destroy();
     f.client(id).window(&surface).commit();
     f.double_roundtrip(id);
     let during_click = f.client(id).state.constraint_events.clone();
-    release(&mut f, &mouse, driftwm::config::BTN_LEFT);
+    release(&mut f, &mouse, driftline::config::BTN_LEFT);
     f.double_roundtrip(id);
 
     assert_eq!(
@@ -1179,7 +1179,7 @@ fn a_click_racing_the_session_lock_does_not_keep_the_game_lock() {
         "the session must lock before the press, or this scenario tests nothing"
     );
     let mouse = FakeDevice::mouse();
-    press(&mut f, &mouse, driftwm::config::BTN_LEFT);
+    press(&mut f, &mouse, driftline::config::BTN_LEFT);
     f.double_roundtrip(game_id);
 
     let cursor = f.state().seat.get_pointer().unwrap().current_location();
@@ -1197,7 +1197,7 @@ fn a_click_racing_the_session_lock_does_not_keep_the_game_lock() {
         cursor,
         "the game's hint must not move the lock screen's cursor"
     );
-    release(&mut f, &mouse, driftwm::config::BTN_LEFT);
+    release(&mut f, &mouse, driftline::config::BTN_LEFT);
 }
 
 /// Relative motion under a lock skips the blanket redraw mark, since the

@@ -1206,7 +1206,7 @@ fn mask_region_complement(
 /// crop the window region, run Kawase blur passes, and insert the result.
 #[allow(clippy::too_many_arguments)]
 pub(crate) fn process_blur_requests(
-    state: &mut crate::state::DriftWm,
+    state: &mut crate::state::Driftline,
     renderer: &mut GlesRenderer,
     output: &Output,
     output_scale: f64,

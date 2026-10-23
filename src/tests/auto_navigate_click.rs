@@ -7,7 +7,7 @@
 //! a deferred fire (assert the timer), and `fire` performs the final gated pan
 //! (assert `camera_target`).
 
-use driftwm::config::{BTN_LEFT, BTN_RIGHT, Config};
+use driftline::config::{BTN_LEFT, BTN_RIGHT, Config};
 use smithay::utils::{Point, SERIAL_COUNTER};
 
 use super::{Fixture, map_window, window_by_app_id};

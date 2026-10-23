@@ -1,13 +1,13 @@
 # Multi-output TTY acceptance
 
 Use this checklist for a hands-on check of scrolling tiling on real outputs. It
-does not depend on a machine-specific launcher or config. Run driftwm from a
+does not depend on a machine-specific launcher or config. Run driftline from a
 separate TTY with a test config and session file so the normal desktop state is
 left alone. Build the current checkout first:
 
 ```bash
 cargo build --release --locked
-./target/release/driftwm --backend udev --config /path/to/test-config.toml --session-file /path/to/test-session.json
+./target/release/driftline --backend udev --config /path/to/test-config.toml --session-file /path/to/test-session.json
 ```
 
 Omit `--drm-connector` to include every connected output. Use the actual

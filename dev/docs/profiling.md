@@ -1,6 +1,6 @@
-# Profiling driftwm
+# Profiling driftline
 
-driftwm is instrumented with [Tracy](https://github.com/wolfpld/tracy) behind
+driftline is instrumented with [Tracy](https://github.com/wolfpld/tracy) behind
 the `profile-with-tracy` cargo feature. The feature compiles out completely
 when off — no runtime or binary cost in normal builds — so the instrumentation
 stays in the tree permanently.

@@ -15,7 +15,7 @@ use std::collections::{HashMap, HashSet};
 
 use crate::decorations::{DecorationKey, WindowDecoration};
 
-use super::{DriftWm, StageWindow, SuspendedId};
+use super::{Driftline, StageWindow, SuspendedId};
 
 /// A cluster member a grab holds across motion ticks. `PointerGrab`/`TouchGrab`
 /// require `Send`, but `StageWindow` wraps a non-`Send` `Rc`, so a grab can't
@@ -40,7 +40,7 @@ impl ClusterMember {
     /// The `Client` arm checks *liveness* (`IsAlive`); the `Suspended` arm checks
     /// *stage presence* — two different notions, so this can't be collapsed into
     /// one uniform check.
-    pub fn resolve(&self, stage: &driftwm::stage::Stage<StageWindow>) -> Option<StageWindow> {
+    pub fn resolve(&self, stage: &driftline::stage::Stage<StageWindow>) -> Option<StageWindow> {
         match self {
             Self::Client(w) => {
                 smithay::utils::IsAlive::alive(w).then(|| StageWindow::Client(w.clone()))
@@ -76,9 +76,9 @@ impl From<SuspendedId> for ClusterMember {
 pub struct ClusterResizeMember {
     pub window: ClusterMember,
     pub initial_pos: Point<i32, Logical>,
-    pub initial_rect: driftwm::layout::snap::SnapRect,
-    pub axis_x: Option<driftwm::layout::cluster::Side>,
-    pub axis_y: Option<driftwm::layout::cluster::Side>,
+    pub initial_rect: driftline::layout::snap::SnapRect,
+    pub axis_x: Option<driftline::layout::cluster::Side>,
+    pub axis_y: Option<driftline::layout::cluster::Side>,
 }
 
 impl ClusterResizeMember {
@@ -106,7 +106,7 @@ pub struct ClusterResizeSnapshot {
     /// O(1) dedup mirror of `bonds`.
     bonds_set: HashSet<(usize, usize)>,
     /// Primary's rect frozen at grab start, for primary-push encroachment.
-    pub primary_rect: driftwm::layout::snap::SnapRect,
+    pub primary_rect: driftline::layout::snap::SnapRect,
     /// Active resize edges as raw bitmask (top=1, bottom=2, left=4, right=8).
     /// Combined with `primary_rect` + current deltas, reconstructs the
     /// primary's current rect each frame.
@@ -120,7 +120,7 @@ impl ClusterResizeSnapshot {
             members: Vec::new(),
             bonds: Vec::new(),
             bonds_set: HashSet::new(),
-            primary_rect: driftwm::layout::snap::SnapRect {
+            primary_rect: driftline::layout::snap::SnapRect {
                 x_low: 0.0,
                 x_high: 0.0,
                 y_low: 0.0,
@@ -134,7 +134,10 @@ impl ClusterResizeSnapshot {
     /// exclude set for the active resize. Rebuilt per tick since a grab can't
     /// hold `StageWindow`s.
     #[allow(clippy::mutable_key_type)]
-    pub fn exclude_set(&self, stage: &driftwm::stage::Stage<StageWindow>) -> HashSet<StageWindow> {
+    pub fn exclude_set(
+        &self,
+        stage: &driftline::stage::Stage<StageWindow>,
+    ) -> HashSet<StageWindow> {
         self.members
             .iter()
             .filter(|m| m.is_shifted())
@@ -145,7 +148,7 @@ impl ClusterResizeSnapshot {
     /// Compute shifts, reposition every affected cluster member, and re-map
     /// the primary to the top of the z-order so it stays on top of its own
     /// cluster. Writes go through the stage (the map_window contract, inlined
-    /// here because the grab owns this snapshot, not `DriftWm`).
+    /// here because the grab owns this snapshot, not `Driftline`).
     ///
     /// Returns the members whose *live* position actually changed this call
     /// (compared before each re-map, excluding the primary's z-raise re-map) —
@@ -155,7 +158,7 @@ impl ClusterResizeSnapshot {
     #[allow(clippy::too_many_arguments)]
     pub fn apply_member_shifts(
         &mut self,
-        stage: &mut driftwm::stage::Stage<crate::state::StageWindow>,
+        stage: &mut driftline::stage::Stage<crate::state::StageWindow>,
         primary: &StageWindow,
         initial_size: Size<i32, Logical>,
         new_w: i32,
@@ -200,16 +203,16 @@ impl ClusterResizeSnapshot {
     /// than ghost-push at their frozen rect.
     pub fn compute_shifts(
         &mut self,
-        stage: &driftwm::stage::Stage<StageWindow>,
+        stage: &driftline::stage::Stage<StageWindow>,
         width_delta: i32,
         height_delta: i32,
         gap: f64,
     ) -> HashMap<usize, (i32, i32)> {
-        use driftwm::layout::cluster::{ResizeClassification, resolve_cluster_shifts};
+        use driftline::layout::cluster::{ResizeClassification, resolve_cluster_shifts};
 
         // Dead windows get a degenerate rect that can't overlap in cascade,
         // preventing ghost-rect collisions from mid-drag unmaps.
-        const DEAD_RECT: driftwm::layout::snap::SnapRect = driftwm::layout::snap::SnapRect {
+        const DEAD_RECT: driftline::layout::snap::SnapRect = driftline::layout::snap::SnapRect {
             x_low: f64::MAX / 2.0,
             x_high: f64::MAX / 2.0,
             y_low: f64::MAX / 2.0,
@@ -269,7 +272,7 @@ impl ClusterResizeSnapshot {
 /// `snap_targets` exclude set from them each tick.
 pub type ClusterDragSnapshot = Vec<(StageWindow, Point<i32, Logical>)>;
 
-impl DriftWm {
+impl Driftline {
     /// Snap target rects for all windows except `primary` and
     /// `cluster_excludes` (latter used during multi-window cluster drags to
     /// stop members snapping against each other). Widgets, pinned, and
@@ -279,7 +282,7 @@ impl DriftWm {
         &self,
         primary: &StageWindow,
         cluster_excludes: &HashSet<StageWindow>,
-    ) -> (Vec<driftwm::layout::snap::SnapRect>, i32, i32) {
+    ) -> (Vec<driftline::layout::snap::SnapRect>, i32, i32) {
         let self_bar = self.window_ssd_bar(primary);
         let self_bw = self.element_border_width(primary);
 
@@ -310,10 +313,10 @@ impl DriftWm {
         primary: &StageWindow,
         zoom: f64,
         natural: Point<f64, Logical>,
-        snap: &mut driftwm::layout::snap::SnapState,
+        snap: &mut driftline::layout::snap::SnapState,
         excludes: &HashSet<StageWindow>,
     ) -> Point<f64, Logical> {
-        use driftwm::layout::snap::{SnapParams, update_axis};
+        use driftline::layout::snap::{SnapParams, update_axis};
 
         let effective_distance = self.config.snap_distance / zoom;
         let effective_break = self.config.snap_break_force / zoom;
@@ -375,7 +378,7 @@ impl DriftWm {
     #[allow(clippy::mutable_key_type)]
     pub fn all_windows_with_snap_rects(
         &self,
-    ) -> Vec<(StageWindow, driftwm::layout::snap::SnapRect)> {
+    ) -> Vec<(StageWindow, driftline::layout::snap::SnapRect)> {
         self.stage
             .windows()
             .filter_map(|w| self.snap_rect_for(w).map(|rect| (w.clone(), rect)))
@@ -390,7 +393,7 @@ impl DriftWm {
     /// on top of it. A suspended stand-in's rect mirrors its live window's:
     /// body rect + `window_ssd_bar` strip + the global-default border, so other
     /// windows snap to it exactly as they would to the window it replaced.
-    pub fn snap_rect_for(&self, w: &StageWindow) -> Option<driftwm::layout::snap::SnapRect> {
+    pub fn snap_rect_for(&self, w: &StageWindow) -> Option<driftline::layout::snap::SnapRect> {
         if self.is_pinned(w) || self.is_window_fullscreen(w) {
             return None;
         }
@@ -422,7 +425,7 @@ impl DriftWm {
     /// on the canvas — the *navigation* rect. Delegates to
     /// [`Self::snap_rect_for`] (stand-ins are snap targets too); kept as a
     /// named alias so navigation / IPC callsites read by intent.
-    pub fn visual_frame_rect(&self, w: &StageWindow) -> Option<driftwm::layout::snap::SnapRect> {
+    pub fn visual_frame_rect(&self, w: &StageWindow) -> Option<driftline::layout::snap::SnapRect> {
         self.snap_rect_for(w)
     }
 
@@ -482,7 +485,8 @@ impl DriftWm {
         primary_pos: Point<i32, Logical>,
     ) -> ClusterDragSnapshot {
         let rects = self.all_windows_with_snap_rects();
-        let component = driftwm::layout::cluster::cluster_of(window, &rects, self.config.snap_gap);
+        let component =
+            driftline::layout::cluster::cluster_of(window, &rects, self.config.snap_gap);
 
         let mut members = Vec::new();
         for m in component {
@@ -530,11 +534,11 @@ impl DriftWm {
         &self,
         window: &StageWindow,
         edges: xdg_toplevel::ResizeEdge,
-        rects: &[(StageWindow, driftwm::layout::snap::SnapRect)],
+        rects: &[(StageWindow, driftline::layout::snap::SnapRect)],
     ) -> ClusterResizeSnapshot {
         use crate::grabs::{has_bottom, has_left, has_right, has_top};
-        use driftwm::layout::cluster::{Side, adjacent_side, cluster_of};
-        use driftwm::layout::snap::SnapRect;
+        use driftline::layout::cluster::{Side, adjacent_side, cluster_of};
+        use driftline::layout::snap::SnapRect;
 
         let gap = self.config.snap_gap;
         let full = cluster_of(window, rects, gap);
@@ -669,13 +673,13 @@ impl DriftWm {
 /// so snap/cluster math operates on the visible footprint. `None` for
 /// widgets / unmapped / surfaceless.
 fn window_snap_rect(
-    stage: &driftwm::stage::Stage<crate::state::StageWindow>,
+    stage: &driftline::stage::Stage<crate::state::StageWindow>,
     decorations: &HashMap<DecorationKey, WindowDecoration>,
-    decoration_config: &driftwm::config::DecorationConfig,
+    decoration_config: &driftline::config::DecorationConfig,
     w: &Window,
-) -> Option<(WlSurface, driftwm::layout::snap::SnapRect)> {
+) -> Option<(WlSurface, driftline::layout::snap::SnapRect)> {
     let surface = w.wl_surface()?.into_owned();
-    let applied = driftwm::config::applied_rule(&surface);
+    let applied = driftline::config::applied_rule(&surface);
     if applied.as_ref().is_some_and(|r| r.widget) {
         return None;
     }
@@ -686,11 +690,11 @@ fn window_snap_rect(
     } else {
         0
     };
-    let mode = driftwm::config::effective_decoration_mode(
+    let mode = driftline::config::effective_decoration_mode(
         applied.as_ref().and_then(|r| r.decoration.as_ref()),
         &decoration_config.default_mode,
     );
-    let bw = driftwm::config::effective_border_width(applied.as_ref(), mode, decoration_config);
+    let bw = driftline::config::effective_border_width(applied.as_ref(), mode, decoration_config);
     Some((surface, super::fit::snap_rect_at(loc, size, bar, bw)))
 }
 
@@ -698,11 +702,11 @@ fn window_snap_rect(
 mod tests {
     use std::rc::Rc;
 
-    use driftwm::desktop_entry::AppIdentity;
-    use driftwm::layout::cluster::Side;
-    use driftwm::layout::snap::SnapRect;
-    use driftwm::session::Origin;
-    use driftwm::stage::Stage;
+    use driftline::desktop_entry::AppIdentity;
+    use driftline::layout::cluster::Side;
+    use driftline::layout::snap::SnapRect;
+    use driftline::session::Origin;
+    use driftline::stage::Stage;
     use smithay::utils::{Point, Size};
 
     use super::{ClusterMember, ClusterResizeMember, ClusterResizeSnapshot};

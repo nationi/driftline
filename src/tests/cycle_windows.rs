@@ -8,7 +8,7 @@
 //! so a real held modifier can't be driven. `held_cycle_step` runs the arm's
 //! step without its modifier-gated commit to stand in.
 
-use driftwm::config::Action;
+use driftline::config::Action;
 use smithay::desktop::Window;
 use smithay::utils::{Point, SERIAL_COUNTER};
 

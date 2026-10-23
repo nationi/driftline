@@ -587,7 +587,7 @@ fn check_pending_tiling_capture(
     moving_before_capture: Option<i32>,
 ) {
     use super::{last_configured, window_by_app_id};
-    use driftwm::config::Action;
+    use driftline::config::Action;
     use smithay::reexports::wayland_server::Resource;
     use smithay::wayland::compositor::{
         Barrier, add_blocker, add_pre_commit_hook, remove_pre_commit_hook,
@@ -775,7 +775,7 @@ fn check_pending_tiling_capture(
     }
     if moving_before_capture.is_some() {
         f.state()
-            .execute_action(&Action::MoveIntoColumn(driftwm::config::Direction::Left));
+            .execute_action(&Action::MoveIntoColumn(driftline::config::Direction::Left));
     } else {
         f.state().execute_action(&Action::ToggleTiling);
     }
@@ -812,7 +812,7 @@ fn check_pending_tiling_capture(
     let surface = wb.wl_surface().unwrap().into_owned();
     let barrier = Barrier::new(false);
     let blocker = barrier.clone();
-    let hook = add_pre_commit_hook::<crate::state::DriftWm, _>(&surface, move |_, _, s| {
+    let hook = add_pre_commit_hook::<crate::state::Driftline, _>(&surface, move |_, _, s| {
         add_blocker(s, blocker.clone());
     });
     for (client, surface, size) in [(first, &a, target_a), (second, &b, target_b)] {
@@ -1541,7 +1541,7 @@ fn multi_output_tiling_snapshots_render_on_their_own_output() {
     let first_before = tiling_live_frame(&mut f, &first_output);
     let second_before = tiling_live_frame(&mut f, &second_output);
     f.state()
-        .execute_action(&driftwm::config::Action::ToggleTiling);
+        .execute_action(&driftline::config::Action::ToggleTiling);
     assert_eq!(f.state().tiling_snapshot_count(), 2);
 
     assert_eq!(
@@ -1933,7 +1933,7 @@ fn late_tiling_buffers_animate_without_reopening_the_expired_group() {
 fn tiling_release_preserves_the_complete_ssd_frame() {
     let _gl = gl::lock();
     let (ready, loaded) = std::sync::mpsc::sync_channel(1);
-    driftwm::text::warm_fonts(move || {
+    driftline::text::warm_fonts(move || {
         let _ = ready.send(());
     });
     loaded
@@ -1970,7 +1970,7 @@ fn tiling_release_preserves_the_complete_csd_frame() {
 fn tiling_resize_release_preserves_an_inherited_opening_picture() {
     let _gl = gl::lock();
     let (ready, loaded) = std::sync::mpsc::sync_channel(1);
-    driftwm::text::warm_fonts(move || {
+    driftline::text::warm_fonts(move || {
         let _ = ready.send(());
     });
     loaded
@@ -1987,7 +1987,7 @@ fn tiling_resize_release_preserves_an_inherited_opening_picture() {
 
 fn check_opening_resize_release(scale: f64, ssd: bool, opening_scale: f64, blur: bool) {
     use super::{last_configured, map_window_shm, window_by_app_id};
-    use driftwm::config::Action;
+    use driftline::config::Action;
     let Some(renderer) = gl::surfaceless_renderer("opening resize") else {
         return;
     };
@@ -2174,7 +2174,7 @@ fn check_opening_resize_release(scale: f64, ssd: bool, opening_scale: f64, blur:
 fn tiling_resize_release_preserves_frost_during_inherited_opening() {
     let _gl = gl::lock();
     let (ready, loaded) = std::sync::mpsc::sync_channel(1);
-    driftwm::text::warm_fonts(move || {
+    driftline::text::warm_fonts(move || {
         let _ = ready.send(());
     });
     loaded
@@ -2194,7 +2194,7 @@ fn tiling_resize_release_preserves_frost_during_inherited_opening() {
 fn tiling_captures_odd_offset_geometry_during_framed_canvas_resize() {
     let _gl = gl::lock();
     let (ready, loaded) = std::sync::mpsc::sync_channel(1);
-    driftwm::text::warm_fonts(move || {
+    driftline::text::warm_fonts(move || {
         let _ = ready.send(());
     });
     loaded
@@ -2214,7 +2214,7 @@ fn tiling_captures_odd_offset_geometry_during_framed_canvas_resize() {
 fn tiling_recapture_handles_fractional_buffers_and_changed_geometry_offsets() {
     let _gl = gl::lock();
     let (ready, loaded) = std::sync::mpsc::sync_channel(1);
-    driftwm::text::warm_fonts(move || {
+    driftline::text::warm_fonts(move || {
         let _ = ready.send(());
     });
     loaded
@@ -2232,7 +2232,7 @@ fn tiling_recapture_handles_fractional_buffers_and_changed_geometry_offsets() {
 fn check_odd_offset_resize_capture(scale: f64, ssd: bool, growing: bool, fractional: bool) {
     use super::{last_configured, tick_until_settled, window_by_app_id};
     use crate::state::window_animation::{AnimSpace, ContentPolicy, GeometryRole};
-    use driftwm::config::Action;
+    use driftline::config::Action;
     use smithay::utils::Rectangle;
 
     let Some(renderer) = gl::surfaceless_renderer("odd offset canvas resize") else {
@@ -2481,7 +2481,7 @@ fn check_odd_offset_resize_capture(scale: f64, ssd: bool, growing: bool, fractio
 fn degraded_canvas_resize_keeps_capped_live_content_when_tiling_starts() {
     let _gl = gl::lock();
     let (ready, loaded) = std::sync::mpsc::sync_channel(1);
-    driftwm::text::warm_fonts(move || {
+    driftline::text::warm_fonts(move || {
         let _ = ready.send(());
     });
     loaded
@@ -2501,7 +2501,7 @@ fn degraded_canvas_resize_keeps_capped_live_content_when_tiling_starts() {
 fn degraded_canvas_resize_preserves_minified_content_when_tiling_starts() {
     let _gl = gl::lock();
     let (ready, loaded) = std::sync::mpsc::sync_channel(1);
-    driftwm::text::warm_fonts(move || {
+    driftline::text::warm_fonts(move || {
         let _ = ready.send(());
     });
     loaded
@@ -2518,7 +2518,7 @@ fn degraded_canvas_resize_preserves_minified_content_when_tiling_starts() {
 
 fn check_degraded_canvas_resize(scale: f64, ssd: bool, reply: bool, shrinking: bool) {
     use super::{last_configured, tick_until_settled, window_by_app_id};
-    use driftwm::config::Action;
+    use driftline::config::Action;
     use std::time::{Duration, Instant};
 
     let Some(renderer) = gl::surfaceless_renderer("degraded canvas resize") else {
@@ -2655,7 +2655,7 @@ fn check_degraded_canvas_resize(scale: f64, ssd: bool, reply: bool, shrinking: b
 fn held_tiling_images_survive_output_scale_and_camera_changes() {
     let _gl = gl::lock();
     let (ready, loaded) = std::sync::mpsc::sync_channel(1);
-    driftwm::text::warm_fonts(move || {
+    driftline::text::warm_fonts(move || {
         let _ = ready.send(());
     });
     loaded
@@ -2675,7 +2675,7 @@ fn held_tiling_images_survive_output_scale_and_camera_changes() {
 fn held_tiling_images_release_after_fractional_physical_camera_motion() {
     let _gl = gl::lock();
     let (ready, loaded) = std::sync::mpsc::sync_channel(1);
-    driftwm::text::warm_fonts(move || {
+    driftline::text::warm_fonts(move || {
         let _ = ready.send(());
     });
     loaded
@@ -2701,7 +2701,7 @@ fn held_tiling_images_release_after_fractional_physical_camera_motion() {
 fn held_tiling_images_survive_output_mode_height_changes() {
     let _gl = gl::lock();
     let (ready, loaded) = std::sync::mpsc::sync_channel(1);
-    driftwm::text::warm_fonts(move || {
+    driftline::text::warm_fonts(move || {
         let _ = ready.send(());
     });
     loaded
@@ -2727,7 +2727,7 @@ fn held_tiling_images_survive_output_mode_height_changes() {
 fn held_tiling_images_survive_mode_width_changes_and_shrink() {
     let _gl = gl::lock();
     let (ready, loaded) = std::sync::mpsc::sync_channel(1);
-    driftwm::text::warm_fonts(move || {
+    driftline::text::warm_fonts(move || {
         let _ = ready.send(());
     });
     loaded
@@ -2764,7 +2764,7 @@ fn held_tiling_images_survive_rotated_and_reflected_output_rendering() {
     use smithay::utils::Transform;
     let _gl = gl::lock();
     let (ready, loaded) = std::sync::mpsc::sync_channel(1);
-    driftwm::text::warm_fonts(move || {
+    driftline::text::warm_fonts(move || {
         let _ = ready.send(());
     });
     loaded
@@ -2797,7 +2797,7 @@ fn held_tiling_images_survive_rotated_and_reflected_output_rendering() {
 
 fn check_tiling_view_change(from: f64, to: f64, ssd: bool, mixed: bool, change: TilingViewChange) {
     use super::{last_configured, tick_until_settled, window_by_app_id};
-    use driftwm::config::Action;
+    use driftline::config::Action;
     let Some(renderer) = gl::surfaceless_renderer("held output view change") else {
         return;
     };
@@ -3174,7 +3174,7 @@ enum CaptureFailureOutcome {
 fn failed_tiling_capture_allocations_use_bounded_fallback_and_recover() {
     let _gl = gl::lock();
     let (ready, loaded) = std::sync::mpsc::sync_channel(1);
-    driftwm::text::warm_fonts(move || {
+    driftline::text::warm_fonts(move || {
         let _ = ready.send(());
     });
     loaded
@@ -3209,7 +3209,7 @@ fn check_failed_tiling_capture(
 ) {
     use super::{last_configured, tick_until_settled, window_by_app_id};
     use crate::render::capture_fault::CaptureAllocationFailure;
-    use driftwm::config::Action;
+    use driftline::config::Action;
     use std::time::{Duration, Instant};
     let Some(renderer) = gl::surfaceless_renderer("tiling allocation failure") else {
         return;
@@ -3372,7 +3372,7 @@ fn remapping_a_held_or_mixed_tiling_window_clears_retention_and_keeps_placement(
 
 fn check_remapped_tiling_capture(scale: f64, ssd: bool, mixed: bool) {
     use super::{last_configured, tick_until_settled, window_by_app_id, window_position};
-    use driftwm::config::Action;
+    use driftline::config::Action;
     let Some(renderer) = gl::surfaceless_renderer("remap tiling capture") else {
         return;
     };
@@ -3512,7 +3512,7 @@ fn disconnecting_an_output_keeps_the_survivor_tiling_snapshot() {
     );
     tick_until_settled(&mut f);
     f.state()
-        .execute_action(&driftwm::config::Action::ToggleTiling);
+        .execute_action(&driftline::config::Action::ToggleTiling);
 
     let survivor_held = tiling_live_frame(&mut f, &survivor);
     let _removed_held = tiling_live_frame(&mut f, &removed);
@@ -3545,14 +3545,14 @@ fn disconnecting_an_output_keeps_the_survivor_tiling_snapshot() {
     let settled = tiling_live_frame(&mut f, &survivor);
     assert!(settled.as_chunks::<4>().0.contains(&[0, 255, 0, 255]));
     f.state()
-        .execute_action(&driftwm::config::Action::ToggleTiling);
+        .execute_action(&driftline::config::Action::ToggleTiling);
     f.state().render.remove_output(&survivor.name());
     gl::uninstall(&mut f);
 }
 
 fn check_disconnected_tiling_peer(scale: f64, ssd: bool, mixed: bool) {
     use super::{last_configured, tick_until_settled, window_by_app_id};
-    use driftwm::config::{Action, Direction};
+    use driftline::config::{Action, Direction};
     let Some(renderer) = gl::surfaceless_renderer("disconnect tiling peer") else {
         return;
     };
@@ -3688,7 +3688,7 @@ fn protocol_remap_during_held_or_mixed_tiling_resize_reenrolls_cleanly() {
 
 fn check_protocol_tiling_remap(scale: f64, ssd: bool, mixed: bool) {
     use super::{last_configured, tick_until_settled, window_by_app_id};
-    use driftwm::config::Action;
+    use driftline::config::Action;
     let Some(renderer) = gl::surfaceless_renderer("protocol tiling remap") else {
         return;
     };
@@ -3828,7 +3828,7 @@ fn superseding_held_or_mixed_tiling_groups_preserves_ready_and_pending_peers() {
 
 fn check_superseded_tiling_peers(scale: f64, ssd: bool, mixed: bool) {
     use super::{last_configured, tick_until_settled, window_by_app_id};
-    use driftwm::config::{Action, Direction};
+    use driftline::config::{Action, Direction};
     let Some(renderer) = gl::surfaceless_renderer("supersede tiling peers") else {
         return;
     };
@@ -4018,7 +4018,7 @@ fn removing_the_only_output_cancels_held_or_mixed_tiling_and_recovers() {
 
 fn check_removed_tiling_output(scale: f64, ssd: bool, mixed: bool) {
     use super::{last_configured, tick_until_settled, window_by_app_id};
-    use driftwm::config::{Action, Direction};
+    use driftline::config::{Action, Direction};
     let Some(renderer) = gl::surfaceless_renderer("remove tiling output") else {
         return;
     };

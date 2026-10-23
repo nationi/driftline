@@ -12,8 +12,8 @@ use smithay::utils::{Logical, Point, Rectangle, SERIAL_COUNTER, Size};
 use smithay::wayland::seat::WaylandFocus;
 
 use crate::decorations::DecorationKey;
-use crate::state::{DriftWm, NavZoom, RevealPan, StageWindow, SuspendedId};
-use driftwm::window_ext::WindowExt;
+use crate::state::{Driftline, NavZoom, RevealPan, StageWindow, SuspendedId};
+use driftline::window_ext::WindowExt;
 
 pub mod client;
 pub mod protocol;
@@ -36,7 +36,7 @@ pub struct IpcServer {
 
 impl IpcServer {
     pub fn new(
-        event_loop: &LoopHandle<'static, DriftWm>,
+        event_loop: &LoopHandle<'static, Driftline>,
         wayland_display: &str,
     ) -> Result<Self, Box<dyn std::error::Error>> {
         Self::new_at(event_loop, socket_path(wayland_display))
@@ -46,7 +46,7 @@ impl IpcServer {
     /// `WAYLAND_DISPLAY`-derived one. Tests point this at a private temp dir so
     /// they never touch the live session's socket directory.
     pub fn new_at(
-        event_loop: &LoopHandle<'static, DriftWm>,
+        event_loop: &LoopHandle<'static, Driftline>,
         socket_path: PathBuf,
     ) -> Result<Self, Box<dyn std::error::Error>> {
         std::fs::remove_file(&socket_path).ok();
@@ -90,7 +90,7 @@ impl Drop for IpcServer {
 
 /// Register an accepted connection as its own calloop source. The closure owns a
 /// per-connection read buffer so partial commands survive across event-loop ticks.
-fn accept_client(state: &mut DriftWm, stream: UnixStream) {
+fn accept_client(state: &mut Driftline, stream: UnixStream) {
     if let Err(e) = stream.set_nonblocking(true) {
         tracing::warn!("IPC: failed to set client nonblocking: {e}");
         return;
@@ -113,7 +113,7 @@ fn accept_client(state: &mut DriftWm, stream: UnixStream) {
 fn serve_connection(
     mut stream: &UnixStream,
     buffer: &mut Vec<u8>,
-    state: &mut DriftWm,
+    state: &mut Driftline,
 ) -> PostAction {
     let mut chunk = [0u8; 1024];
     loop {
@@ -157,7 +157,7 @@ fn serve_connection(
 /// serving fd is still open: once calloop closes it, the fd number can be
 /// reused by a new connection, and a stale registry entry keyed on it would
 /// swallow that connection's own `Subscribe`.
-fn disconnect(stream: &UnixStream, state: &mut DriftWm) -> PostAction {
+fn disconnect(stream: &UnixStream, state: &mut Driftline) -> PostAction {
     let fd = stream.as_raw_fd();
     state.ipc_subscribers.retain(|s| s.fd != fd);
     PostAction::Remove
@@ -165,7 +165,7 @@ fn disconnect(stream: &UnixStream, state: &mut DriftWm) -> PostAction {
 
 /// Blocking-flush any pushed-event bytes still pending on this connection's
 /// subscription (the client is mid-request, so it's reading).
-fn flush_pending_events(stream: &UnixStream, state: &mut DriftWm) -> std::io::Result<()> {
+fn flush_pending_events(stream: &UnixStream, state: &mut Driftline) -> std::io::Result<()> {
     let fd = stream.as_raw_fd();
     let Some(sub) = state.ipc_subscribers.iter_mut().find(|s| s.fd == fd) else {
         return Ok(());
@@ -181,7 +181,7 @@ fn flush_pending_events(stream: &UnixStream, state: &mut DriftWm) -> std::io::Re
     Ok(())
 }
 
-pub(crate) fn dispatch(request: Request, state: &mut DriftWm) -> Reply {
+pub(crate) fn dispatch(request: Request, state: &mut Driftline) -> Reply {
     // The animated setters (Camera/Zoom) only stash a target — they don't
     // self-schedule a frame — so every state-changing command needs the kick.
     // Pure queries don't, and shouldn't force a redraw.
@@ -238,7 +238,7 @@ fn is_mutating(request: &Request) -> bool {
     )
 }
 
-fn cmd_camera(arg: Option<(f64, f64)>, state: &mut DriftWm) -> Reply {
+fn cmd_camera(arg: Option<(f64, f64)>, state: &mut Driftline) -> Reply {
     match arg {
         None => {
             let (x, y) = camera_center(state);
@@ -273,7 +273,7 @@ fn cmd_camera(arg: Option<(f64, f64)>, state: &mut DriftWm) -> Reply {
     }
 }
 
-fn cmd_zoom(arg: Option<f64>, state: &mut DriftWm) -> Reply {
+fn cmd_zoom(arg: Option<f64>, state: &mut Driftline) -> Reply {
     match arg {
         None => Ok(Response::Zoom(state.zoom())),
         Some(zoom) => {
@@ -286,7 +286,7 @@ fn cmd_zoom(arg: Option<f64>, state: &mut DriftWm) -> Reply {
                 state.exit_fullscreen();
             }
             // Same bounds as keyboard/gesture zoom; reply reports what was applied.
-            let clamped = zoom.clamp(state.min_zoom(), driftwm::canvas::MAX_ZOOM);
+            let clamped = zoom.clamp(state.min_zoom(), driftline::canvas::MAX_ZOOM);
             // Anchor on the viewport center (like keyboard zoom) so the center
             // stays put — otherwise zoom drifts the camera off the `camera` point.
             state.zoom_to_anchored(clamped);
@@ -295,7 +295,7 @@ fn cmd_zoom(arg: Option<f64>, state: &mut DriftWm) -> Reply {
     }
 }
 
-fn cmd_cursor(state: &mut DriftWm) -> Reply {
+fn cmd_cursor(state: &mut Driftline) -> Reply {
     let pointer = state.seat.get_pointer().ok_or("no pointer")?;
     let output = state.active_output().ok_or("no output")?;
     // The pointer is in canvas space on the active output, which follows it —
@@ -309,7 +309,7 @@ fn cmd_cursor(state: &mut DriftWm) -> Reply {
     let screen = if state.session_lock.is_locked() {
         location
     } else {
-        driftwm::canvas::canvas_to_screen(driftwm::canvas::CanvasPos(location), camera, zoom).0
+        driftline::canvas::canvas_to_screen(driftline::canvas::CanvasPos(location), camera, zoom).0
     };
     Ok(Response::Cursor {
         x: origin.x as f64 + screen.x,
@@ -318,7 +318,7 @@ fn cmd_cursor(state: &mut DriftWm) -> Reply {
     })
 }
 
-fn cmd_layout(short: bool, state: &mut DriftWm) -> Reply {
+fn cmd_layout(short: bool, state: &mut Driftline) -> Reply {
     if !short {
         return Ok(Response::Layout(state.active_layout.clone()));
     }
@@ -331,7 +331,7 @@ fn cmd_layout(short: bool, state: &mut DriftWm) -> Reply {
 /// The stored config always matches the loaded keymap (init pins it on the
 /// invalid-config fallback, reload swaps both together), so the index resolves;
 /// the display-name fallback only guards a malformed token (e.g. a trailing comma).
-pub(crate) fn active_layout_short(state: &mut DriftWm) -> String {
+pub(crate) fn active_layout_short(state: &mut Driftline) -> String {
     let Some(keyboard) = state.seat.get_keyboard() else {
         return state.active_layout.clone();
     };
@@ -352,13 +352,13 @@ fn layout_code(layout_list: &str, index: usize) -> Option<String> {
         .map(str::to_owned)
 }
 
-fn cmd_state(state: &mut DriftWm) -> Response {
+fn cmd_state(state: &mut Driftline) -> Response {
     Response::State(Box::new(state_info(state)))
 }
 
 /// Build the full state snapshot shared by the `state` reply and subscription
 /// events, so the two representations can't drift.
-pub(crate) fn state_info(state: &mut DriftWm) -> StateInfo {
+pub(crate) fn state_info(state: &mut Driftline) -> StateInfo {
     let windows = state.window_inventory();
     let (fullscreen, pinned) = state.screen_space_inventory();
     let (layers, canvas_layers) = state.layer_inventory();
@@ -379,7 +379,7 @@ pub(crate) fn state_info(state: &mut DriftWm) -> StateInfo {
             let logical = crate::state::output_logical_size(output);
             OutputInfo {
                 name: output.name(),
-                camera: driftwm::canvas::viewport_center(cam, z, logical),
+                camera: driftline::canvas::viewport_center(cam, z, logical),
                 zoom: z,
                 size: [logical.w, logical.h],
                 active: active.as_ref() == Some(output),
@@ -411,7 +411,7 @@ pub(crate) fn state_info(state: &mut DriftWm) -> StateInfo {
 /// matching is a case-insensitive substring search that skips widgets; id
 /// lookup is exact and reaches widgets too.
 fn window_by_selector(
-    state: &DriftWm,
+    state: &Driftline,
     selector: Option<&WindowSelector>,
 ) -> Result<smithay::desktop::Window, String> {
     match selector {
@@ -420,7 +420,7 @@ fn window_by_selector(
             .ok_or_else(|| "no focused window".to_string()),
         Some(WindowSelector::Id(n)) => state
             .stage
-            .window_by_id(driftwm::stage::ElementId(*n))
+            .window_by_id(driftline::stage::ElementId(*n))
             .and_then(|w| w.client())
             .cloned()
             .ok_or_else(|| format!("no window with id {n}")),
@@ -446,14 +446,14 @@ fn window_by_selector(
 /// the stage `ElementId` (the IPC handle, stable across suspend/relaunch);
 /// AppId is a case-insensitive substring match on the original app_id.
 fn suspended_by_selector(
-    state: &DriftWm,
+    state: &Driftline,
     selector: Option<&WindowSelector>,
 ) -> Option<SuspendedId> {
     match selector {
         None => state.gated_suspended_focus(),
         Some(WindowSelector::Id(n)) => state
             .stage
-            .window_by_id(driftwm::stage::ElementId(*n))
+            .window_by_id(driftline::stage::ElementId(*n))
             .and_then(|w| w.suspended())
             .map(|s| s.id),
         Some(WindowSelector::AppId(s)) => {
@@ -470,7 +470,7 @@ fn suspended_by_selector(
 
 /// IPC handle + app_id for a suspended window (its stage `ElementId`), for the
 /// `Focused` reply.
-fn suspended_focused_info(state: &DriftWm, id: SuspendedId) -> Option<protocol::FocusedWindow> {
+fn suspended_focused_info(state: &Driftline, id: SuspendedId) -> Option<protocol::FocusedWindow> {
     let element = state
         .stage
         .windows()
@@ -481,7 +481,7 @@ fn suspended_focused_info(state: &DriftWm, id: SuspendedId) -> Option<protocol::
     })
 }
 
-fn cmd_focus(arg: Option<WindowSelector>, state: &mut DriftWm) -> Reply {
+fn cmd_focus(arg: Option<WindowSelector>, state: &mut Driftline) -> Reply {
     let Some(selector) = arg else {
         // Report the focused window, preferring a live client and falling back
         // to a focused suspended stand-in.
@@ -530,7 +530,7 @@ fn cmd_focus(arg: Option<WindowSelector>, state: &mut DriftWm) -> Reply {
 }
 
 fn focused_window_info(
-    state: &DriftWm,
+    state: &Driftline,
     window: &smithay::desktop::Window,
 ) -> protocol::FocusedWindow {
     protocol::FocusedWindow {
@@ -545,8 +545,8 @@ fn focused_window_info(
 
 /// Reuses the config-file parser so the IPC `action` command stays in lockstep
 /// with keybindable actions.
-fn cmd_action(spec: &str, state: &mut DriftWm) -> Reply {
-    let action = driftwm::config::parse_action(spec)?;
+fn cmd_action(spec: &str, state: &mut Driftline) -> Reply {
+    let action = driftline::config::parse_action(spec)?;
     state.execute_action(&action);
     Ok(Response::Ok)
 }
@@ -558,7 +558,7 @@ fn cmd_bookmark(
     name: Option<String>,
     to: Option<(f64, f64)>,
     delete: bool,
-    state: &mut DriftWm,
+    state: &mut Driftline,
 ) -> Reply {
     if delete {
         let name = name.ok_or_else(|| "bookmark delete requires a name".to_string())?;
@@ -599,7 +599,7 @@ fn cmd_bookmark(
 /// matching nothing live falls back to a stand-in. The order decides which
 /// target an ambiguous `AppId` hits, so every window verb shares this.
 fn element_by_selector(
-    state: &DriftWm,
+    state: &Driftline,
     selector: Option<&WindowSelector>,
 ) -> Result<StageWindow, String> {
     match window_by_selector(state, selector) {
@@ -616,22 +616,26 @@ fn element_by_selector(
     }
 }
 
-fn cmd_move(window: Option<WindowSelector>, to: Option<(i32, i32)>, state: &mut DriftWm) -> Reply {
+fn cmd_move(
+    window: Option<WindowSelector>,
+    to: Option<(i32, i32)>,
+    state: &mut Driftline,
+) -> Reply {
     let window = match element_by_selector(state, window.as_ref())? {
         StageWindow::Client(window) => window,
         // No client to reconfigure: read or set the stand-in's canvas position
         // in place, without the re-raise `map_window` would carry.
         element @ StageWindow::Suspended(_) => {
-            let size = driftwm::stage::StageElement::size(&element);
+            let size = driftline::stage::StageElement::size(&element);
             let chrome = state.element_chrome(&element);
             return match to {
                 None => {
                     let loc = state.stage.position_of(&element).unwrap_or_default();
-                    let (x, y) = driftwm::canvas::content_to_rule(loc, size, chrome);
+                    let (x, y) = driftline::canvas::content_to_rule(loc, size, chrome);
                     Ok(Response::Position { x, y })
                 }
                 Some((x, y)) => {
-                    let loc = driftwm::canvas::rule_to_content(x, y, size, chrome);
+                    let loc = driftline::canvas::rule_to_content(x, y, size, chrome);
                     state.stage.set_position(&element, loc);
                     // A stand-in's canvas position is durable — coalesce the
                     // write like a pointer/touch drag does.
@@ -650,7 +654,7 @@ fn cmd_move(window: Option<WindowSelector>, to: Option<(i32, i32)>, state: &mut 
             // The read arm answers before the canvas guard below, so it is the one
             // `move` path a fullscreen window — which wears no chrome — reaches.
             let chrome = state.reported_chrome(&window);
-            let (x, y) = driftwm::canvas::content_to_rule(loc, size, chrome);
+            let (x, y) = driftline::canvas::content_to_rule(loc, size, chrome);
             Ok(Response::Position { x, y })
         }
         Some((x, y)) => {
@@ -690,7 +694,7 @@ fn cmd_move(window: Option<WindowSelector>, to: Option<(i32, i32)>, state: &mut 
 fn cmd_resize(
     window: Option<WindowSelector>,
     to: Option<(i32, i32)>,
-    state: &mut DriftWm,
+    state: &mut Driftline,
 ) -> Reply {
     let element = element_by_selector(state, window.as_ref())?;
 
@@ -701,7 +705,7 @@ fn cmd_resize(
     let Some((width, height)) = to else {
         // Committed size, matching what `msg state` and the state file report,
         // so the two can't disagree mid-settle.
-        let size = chrome.frame_size(driftwm::stage::StageElement::size(&element));
+        let size = chrome.frame_size(driftline::stage::StageElement::size(&element));
         return Ok(Response::Size {
             width: size.w,
             height: size.h,
@@ -768,7 +772,7 @@ fn cmd_resize(
 /// Runtime per-window opacity. A set writes a pin into the stored
 /// `AppliedWindowRule`, and applies to anything the compositor renders, so no
 /// widget/pinned/fullscreen guard.
-fn cmd_opacity(window: Option<WindowSelector>, value: Option<f64>, state: &mut DriftWm) -> Reply {
+fn cmd_opacity(window: Option<WindowSelector>, value: Option<f64>, state: &mut Driftline) -> Reply {
     let window = window_by_selector(state, window.as_ref())?;
     let surface = window
         .wl_surface()
@@ -787,11 +791,11 @@ fn cmd_opacity(window: Option<WindowSelector>, value: Option<f64>, state: &mut D
             }
             smithay::wayland::compositor::with_states(&surface, |states| {
                 states.data_map.insert_if_missing_threadsafe(|| {
-                    std::sync::Mutex::new(driftwm::config::AppliedWindowRule::default())
+                    std::sync::Mutex::new(driftline::config::AppliedWindowRule::default())
                 });
                 states
                     .data_map
-                    .get::<std::sync::Mutex<driftwm::config::AppliedWindowRule>>()
+                    .get::<std::sync::Mutex<driftline::config::AppliedWindowRule>>()
                     .unwrap()
                     .lock()
                     .unwrap()
@@ -803,7 +807,7 @@ fn cmd_opacity(window: Option<WindowSelector>, value: Option<f64>, state: &mut D
 }
 
 /// Screen-pinning as a bool: the scriptable form of `toggle-pin-to-screen`.
-fn cmd_pin(window: Option<WindowSelector>, value: Option<bool>, state: &mut DriftWm) -> Reply {
+fn cmd_pin(window: Option<WindowSelector>, value: Option<bool>, state: &mut Driftline) -> Reply {
     let window = match element_by_selector(state, window.as_ref())? {
         StageWindow::Client(window) => window,
         StageWindow::Suspended(_) => return Err("stand-ins can't be pinned".to_string()),
@@ -841,7 +845,7 @@ fn cmd_pin(window: Option<WindowSelector>, value: Option<bool>, state: &mut Drif
     Ok(Response::Pin(value))
 }
 
-fn cmd_close(sel: Option<WindowSelector>, state: &mut DriftWm) -> Reply {
+fn cmd_close(sel: Option<WindowSelector>, state: &mut Driftline) -> Reply {
     match window_by_selector(state, sel.as_ref()) {
         Ok(window) => {
             // An explicit `msg close` is a real close — it must not convert
@@ -866,7 +870,7 @@ fn cmd_close(sel: Option<WindowSelector>, state: &mut DriftWm) -> Reply {
 /// isn't already focused, then run it through the `suspend-window` action
 /// path — the same one a keybinding hits, so fullscreen/pin handling and mark
 /// bookkeeping stay in one place.
-fn cmd_suspend(sel: Option<WindowSelector>, state: &mut DriftWm) -> Reply {
+fn cmd_suspend(sel: Option<WindowSelector>, state: &mut Driftline) -> Reply {
     let window = match window_by_selector(state, sel.as_ref()) {
         Ok(window) => window,
         Err(e) => {
@@ -904,7 +908,7 @@ fn cmd_suspend(sel: Option<WindowSelector>, state: &mut DriftWm) -> Reply {
 }
 
 /// Relaunch a suspended window by selector (the focused stand-in when `None`).
-fn cmd_relaunch(sel: Option<WindowSelector>, state: &mut DriftWm) -> Reply {
+fn cmd_relaunch(sel: Option<WindowSelector>, state: &mut Driftline) -> Reply {
     let id = suspended_by_selector(state, sel.as_ref())
         .ok_or_else(|| "no suspended window matching selector".to_string())?;
     // Captured before the call, so a failed relaunch can name the app in the error.
@@ -923,7 +927,12 @@ fn cmd_relaunch(sel: Option<WindowSelector>, state: &mut DriftWm) -> Reply {
 ///
 /// The renderer lives on the backend, so we take it out of `state` to split the
 /// borrow (as the render loop does) and put it back on every path.
-fn cmd_screenshot(target: &ScreenshotTarget, scale: f64, path: &str, state: &mut DriftWm) -> Reply {
+fn cmd_screenshot(
+    target: &ScreenshotTarget,
+    scale: f64,
+    path: &str,
+    state: &mut Driftline,
+) -> Reply {
     if !std::path::Path::new(path).is_absolute() {
         return Err("screenshot path must be absolute".to_string());
     }
@@ -963,7 +972,7 @@ fn cmd_screenshot(target: &ScreenshotTarget, scale: f64, path: &str, state: &mut
 /// scene targets, which render every window).
 pub(crate) fn resolve_screenshot_region(
     target: &ScreenshotTarget,
-    state: &DriftWm,
+    state: &Driftline,
 ) -> Result<(Rectangle<i32, Logical>, Option<crate::state::StageWindow>), String> {
     use crate::state::StageWindow;
     match target {
@@ -1065,7 +1074,7 @@ pub(crate) fn resolve_screenshot_region(
                 Ok((Rectangle::new(loc, size), None))
             } else {
                 let size = Size::<i32, Logical>::from((w, h));
-                let loc = driftwm::canvas::rule_to_internal(x, y, size);
+                let loc = driftline::canvas::rule_to_internal(x, y, size);
                 Ok((Rectangle::new(loc, size), None))
             }
         }
@@ -1076,7 +1085,7 @@ pub(crate) fn resolve_screenshot_region(
 /// (above), border, and shadow radius — must match what `compose_capture_elements`
 /// draws. `None` if the window has no location or zero size.
 fn window_visual_rect(
-    state: &DriftWm,
+    state: &Driftline,
     window: &smithay::desktop::Window,
 ) -> Option<Rectangle<i32, Logical>> {
     let loc = state.stage.position_of(window)?;
@@ -1091,18 +1100,18 @@ fn window_visual_rect(
         && state
             .decorations
             .contains_key(&DecorationKey::Surface(wl_surface.id()));
-    let applied = driftwm::config::applied_rule(&wl_surface);
-    let mode = driftwm::config::effective_decoration_mode(
+    let applied = driftline::config::applied_rule(&wl_surface);
+    let mode = driftline::config::effective_decoration_mode(
         applied.as_ref().and_then(|r| r.decoration.as_ref()),
         &state.config.decorations.default_mode,
     );
     let bw = if is_fullscreen {
         0
     } else {
-        driftwm::config::effective_border_width(applied.as_ref(), mode, &state.config.decorations)
+        driftline::config::effective_border_width(applied.as_ref(), mode, &state.config.decorations)
     };
     let shadow = !is_fullscreen
-        && driftwm::config::effective_shadow_enabled(
+        && driftline::config::effective_shadow_enabled(
             applied.as_ref(),
             mode,
             &state.config.decorations,
@@ -1113,7 +1122,7 @@ fn window_visual_rect(
         0
     };
     let pad = if shadow {
-        driftwm::config::DecorationConfig::SHADOW_RADIUS.ceil() as i32
+        driftline::config::DecorationConfig::SHADOW_RADIUS.ceil() as i32
     } else {
         0
     };
@@ -1126,7 +1135,7 @@ fn window_visual_rect(
 
 /// A `SnapRect` (f64 canvas bounds) as an integer `Rectangle`, for framing a
 /// suspended stand-in in a screenshot region.
-fn snap_rect_to_rect(r: driftwm::layout::snap::SnapRect) -> Rectangle<i32, Logical> {
+fn snap_rect_to_rect(r: driftline::layout::snap::SnapRect) -> Rectangle<i32, Logical> {
     let x = r.x_low.floor() as i32;
     let y = r.y_low.floor() as i32;
     // Anchor and extent round outward independently so fractional bounds stay
@@ -1179,7 +1188,7 @@ pub struct Subscriber {
 /// future pushes. A repeat on an already-subscribed connection just re-sends the
 /// snapshot (deduped by the serving stream's fd). A failed `try_clone` replies
 /// `Err` and registers nothing.
-fn subscribe(stream: &UnixStream, state: &mut DriftWm) -> std::io::Result<()> {
+fn subscribe(stream: &UnixStream, state: &mut Driftline) -> std::io::Result<()> {
     // Clone the write half before acking, so a clone failure surfaces as an
     // error reply rather than a silently half-registered subscriber.
     let clone = match stream.try_clone() {
@@ -1208,7 +1217,7 @@ fn subscribe(stream: &UnixStream, state: &mut DriftWm) -> std::io::Result<()> {
 /// connection is gone. Writes never block: a subscriber still draining a
 /// previous event gets this one queued (superseding any older queued event)
 /// and converges once its socket drains.
-pub(crate) fn broadcast_state_event(state: &mut DriftWm) {
+pub(crate) fn broadcast_state_event(state: &mut Driftline) {
     if state.ipc_subscribers.is_empty() {
         return;
     }
@@ -1245,7 +1254,7 @@ pub(crate) fn broadcast_state_event(state: &mut DriftWm) {
 /// Retry buffered event writes for subscribers whose socket was full, so a
 /// stalled-then-recovered subscriber converges even when no new change fires a
 /// broadcast. Called per rendered frame while any subscriber exists.
-pub(crate) fn flush_subscriber_outboxes(state: &mut DriftWm) {
+pub(crate) fn flush_subscriber_outboxes(state: &mut Driftline) {
     if state
         .ipc_subscribers
         .iter()
@@ -1295,8 +1304,8 @@ fn try_drain(mut stream: &UnixStream, pending: &mut Vec<u8>) -> bool {
 
 /// The viewport center, Y-up — same representation as the state file, so `camera`,
 /// `state`, and the state file all agree.
-fn camera_center(state: &DriftWm) -> (f64, f64) {
-    driftwm::canvas::viewport_center(state.camera(), state.zoom(), state.get_viewport_size())
+fn camera_center(state: &Driftline) -> (f64, f64) {
+    driftline::canvas::viewport_center(state.camera(), state.zoom(), state.get_viewport_size())
 }
 
 #[cfg(test)]

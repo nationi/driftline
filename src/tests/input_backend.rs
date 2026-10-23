@@ -1,5 +1,5 @@
 //! A synthetic [`InputBackend`] so scenarios can drive input through the real
-//! [`DriftWm::process_input_event`](crate::state::DriftWm::process_input_event)
+//! [`Driftline::process_input_event`](crate::state::Driftline::process_input_event)
 //! rather than the sub-handlers it dispatches to. Every sub-handler is generic
 //! over the backend, so reaching one from a test needs an `InputBackend` impl
 //! either way; entering at the top costs nothing extra and lets what runs ahead
@@ -14,7 +14,7 @@ use std::hash::{Hash, Hasher};
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicU32, Ordering};
 
-use driftwm::canvas::{CanvasPos, canvas_to_screen};
+use driftline::canvas::{CanvasPos, canvas_to_screen};
 use smithay::backend::input::{
     AbsolutePositionEvent, Axis, AxisRelativeDirection, AxisSource, ButtonState, Device,
     DeviceCapability, Event, GestureBeginEvent, GestureEndEvent, GestureSwipeBeginEvent,
@@ -327,7 +327,7 @@ impl TouchUpEvent<FakeInput> for FakeTouchUpEvent {}
 /// A hardware-level touch cancel — libinput sends one when it loses track of
 /// the whole sequence. `on_touch_cancel` ignores the event entirely (it only
 /// exists to run
-/// [`DriftWm::cancel_touch_sequence`](crate::state::DriftWm::cancel_touch_sequence)),
+/// [`Driftline::cancel_touch_sequence`](crate::state::Driftline::cancel_touch_sequence)),
 /// so the slot carried here is never read.
 pub struct FakeTouchCancelEvent {
     device: FakeDevice,
@@ -648,7 +648,7 @@ fn assert_on_viewport(f: &mut Fixture, screen: Point<f64, Logical>) {
 /// `canvas`, given the active output's camera and zoom.
 ///
 /// Touch resolves its output from the *device* instead
-/// (`DriftWm::touch_output_for_device`), so with more than one output this can
+/// (`Driftline::touch_output_for_device`), so with more than one output this can
 /// answer for the wrong viewport; every scenario so far has one, where the two
 /// agree. This is also the inverse of the mapping under test, so it can only
 /// aim a scenario, never confirm the mapping — `input_dispatch` has a scenario

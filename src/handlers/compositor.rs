@@ -5,8 +5,8 @@ use crate::decorations::DecorationKey;
 use crate::grabs::{ResizeState, has_left, has_top};
 use crate::handlers::LockRoleMarker;
 use crate::handlers::layer_shell::LayerDestroyedMarker;
-use crate::state::{ClientState, DriftWm, FocusTarget, NavZoom, PendingRecenter, StageWindow};
-use driftwm::window_ext::WindowExt;
+use crate::state::{ClientState, Driftline, FocusTarget, NavZoom, PendingRecenter, StageWindow};
+use driftline::window_ext::WindowExt;
 use smithay::backend::renderer::utils::RendererSurfaceStateUserData;
 use smithay::desktop::layer_map_for_output;
 use smithay::utils::{Point, Rectangle, SERIAL_COUNTER};
@@ -31,7 +31,7 @@ use smithay::{
     },
 };
 
-impl CompositorHandler for DriftWm {
+impl CompositorHandler for Driftline {
     fn compositor_state(&mut self) -> &mut CompositorState {
         &mut self.compositor_state
     }
@@ -85,7 +85,7 @@ impl CompositorHandler for DriftWm {
         // Neutralise those commits: full anchors satisfy size validation, and
         // dropping the buffer satisfies the ack-before-attach check — which
         // is what killed clients that re-arm an OSD.
-        add_pre_commit_hook::<DriftWm, _>(surface, |_state, _dh, surface| {
+        add_pre_commit_hook::<Driftline, _>(surface, |_state, _dh, surface| {
             with_states(surface, |states| {
                 if states
                     .data_map
@@ -146,7 +146,7 @@ impl CompositorHandler for DriftWm {
         // the null-buffer commit and wipes app_id / title / geometry), so a
         // client that unmaps before destroying still converts under
         // `suspend_on_close`.
-        add_pre_commit_hook::<DriftWm, _>(surface, |state, _dh, surface| {
+        add_pre_commit_hook::<Driftline, _>(surface, |state, _dh, surface| {
             state.capture_unmap_snapshot(surface);
             // Clone the still-imported textures on buffer removal so the close
             // animation can flatten them after teardown (renderer-gated).
@@ -158,14 +158,14 @@ impl CompositorHandler for DriftWm {
             state.stash_resize_content(surface);
         });
 
-        add_pre_commit_hook::<DriftWm, _>(surface, |state, _dh, surface| {
+        add_pre_commit_hook::<Driftline, _>(surface, |state, _dh, surface| {
             state.tiling_pre_commit(surface);
         });
 
         // DMA-BUF readiness blocker. Must inspect the *pending* buffer here
         // (not in commit()) so the blocker delays the commit it belongs to —
         // by commit() time pending has already merged into current.
-        add_pre_commit_hook::<DriftWm, _>(surface, |state, _dh, surface| {
+        add_pre_commit_hook::<Driftline, _>(surface, |state, _dh, surface| {
             let maybe_dmabuf = with_states(surface, |surface_data| {
                 surface_data
                     .cached_state
@@ -187,7 +187,7 @@ impl CompositorHandler for DriftWm {
             };
             let inserted = state
                 .loop_handle
-                .insert_source(source, move |_, _, data: &mut DriftWm| {
+                .insert_source(source, move |_, _, data: &mut Driftline| {
                     if let Some(client_state) = client.get_data::<ClientState>() {
                         let dh = data.display_handle.clone();
                         client_state.compositor_state.blocker_cleared(data, &dh);
@@ -234,17 +234,17 @@ impl CompositorHandler for DriftWm {
                 // states in hand instead.
                 let applied = states
                     .data_map
-                    .get::<std::sync::Mutex<driftwm::config::AppliedWindowRule>>()
+                    .get::<std::sync::Mutex<driftline::config::AppliedWindowRule>>()
                     .and_then(|m| m.lock().ok())
                     .map(|guard| guard.clone());
-                let mode = driftwm::config::effective_decoration_mode(
+                let mode = driftline::config::effective_decoration_mode(
                     applied.as_ref().and_then(|r| r.decoration.as_ref()),
                     &self.config.decorations.default_mode,
                 );
-                if matches!(mode, driftwm::config::DecorationMode::None) {
+                if matches!(mode, driftline::config::DecorationMode::None) {
                     return;
                 }
-                let corner_radius = driftwm::config::effective_corner_radius(
+                let corner_radius = driftline::config::effective_corner_radius(
                     applied.as_ref(),
                     mode,
                     &self.config.decorations,
@@ -279,7 +279,7 @@ impl CompositorHandler for DriftWm {
         }
 
         // Without this, bbox_from_surface_tree returns 0x0.
-        smithay::backend::renderer::utils::on_commit_buffer_handler::<DriftWm>(surface);
+        smithay::backend::renderer::utils::on_commit_buffer_handler::<Driftline>(surface);
         if self.handle_tiling_unmap(surface) {
             // A remapping toplevel must start a new configure handshake on
             // its next empty commit, rather than place its reset geometry.
@@ -460,7 +460,7 @@ impl CompositorHandler for DriftWm {
                     let already_applied = with_states(&root, |states| {
                         states
                             .data_map
-                            .get::<std::sync::Mutex<driftwm::config::AppliedWindowRule>>()
+                            .get::<std::sync::Mutex<driftline::config::AppliedWindowRule>>()
                             .is_some()
                     });
 
@@ -472,7 +472,7 @@ impl CompositorHandler for DriftWm {
                             });
                             *states
                                 .data_map
-                                .get::<std::sync::Mutex<driftwm::config::AppliedWindowRule>>()
+                                .get::<std::sync::Mutex<driftline::config::AppliedWindowRule>>()
                                 .unwrap()
                                 .lock()
                                 .unwrap() = stored;
@@ -505,8 +505,8 @@ impl CompositorHandler for DriftWm {
                         match negotiated {
                             None => default.clone(),
                             Some(w) if w == default_wire => default.clone(),
-                            Some(Mode::ServerSide) => driftwm::config::DecorationMode::Server,
-                            Some(Mode::ClientSide) => driftwm::config::DecorationMode::Client,
+                            Some(Mode::ServerSide) => driftline::config::DecorationMode::Server,
+                            Some(Mode::ClientSide) => driftline::config::DecorationMode::Client,
                             _ => default.clone(),
                         }
                     } else {
@@ -585,7 +585,7 @@ impl CompositorHandler for DriftWm {
                         // frame, so that is what gets clamped — clamping the
                         // content instead pushes an SSD title bar off the top.
                         let chrome = self.mapping_chrome(&root, &effective);
-                        let frame_top_left = driftwm::canvas::rule_to_screen_top_left(
+                        let frame_top_left = driftline::canvas::rule_to_screen_top_left(
                             rx,
                             ry,
                             chrome.frame_size(geo.size),
@@ -604,8 +604,8 @@ impl CompositorHandler for DriftWm {
                             let os = crate::state::output_state(&output);
                             (os.camera, os.zoom)
                         };
-                        let canvas = driftwm::canvas::screen_to_canvas(
-                            driftwm::canvas::ScreenPos(screen_pos.to_f64()),
+                        let canvas = driftline::canvas::screen_to_canvas(
+                            driftline::canvas::ScreenPos(screen_pos.to_f64()),
                             camera,
                             zoom,
                         )
@@ -619,7 +619,7 @@ impl CompositorHandler for DriftWm {
                         }
                         self.stage.set_pin(
                             &window,
-                            driftwm::stage::PinnedSite {
+                            driftline::stage::PinnedSite {
                                 output: output.name(),
                                 screen_pos,
                             },
@@ -632,7 +632,7 @@ impl CompositorHandler for DriftWm {
                         let pos = if let Some(ref applied) = applied
                             && let Some((x, y)) = applied.position
                         {
-                            let p = driftwm::canvas::rule_to_content(x, y, geo.size, chrome);
+                            let p = driftline::canvas::rule_to_content(x, y, geo.size, chrome);
                             (p.x, p.y)
                         } else if let Some(parent_surface) = window.parent_surface()
                             && let Some(parent_win) = self.window_for_surface(&parent_surface)
@@ -653,7 +653,7 @@ impl CompositorHandler for DriftWm {
                             let cursor_pos = if bg_pos.is_none()
                                 && matches!(
                                     self.config.window_placement,
-                                    driftwm::config::WindowPlacement::Cursor
+                                    driftline::config::WindowPlacement::Cursor
                                 ) {
                                 self.cursor_placement_pos(geo.size, chrome)
                             } else {
@@ -664,7 +664,7 @@ impl CompositorHandler for DriftWm {
                                 && cursor_pos.is_none()
                                 && matches!(
                                     self.config.window_placement,
-                                    driftwm::config::WindowPlacement::Auto
+                                    driftline::config::WindowPlacement::Auto
                                 ) {
                                 self.auto_placement_pos(&window, geo.size, chrome)
                             } else {
@@ -751,7 +751,7 @@ impl CompositorHandler for DriftWm {
                         // Tiled tells GTK et al. to drop their own shadow /
                         // rounded corners since we draw uniform chrome.
                         let skip_tiled = applied.as_ref().is_some_and(|a| a.widget)
-                            || matches!(effective, driftwm::config::DecorationMode::None);
+                            || matches!(effective, driftline::config::DecorationMode::None);
                         if skip_tiled {
                             crate::handlers::unset_tiled_states(toplevel);
                         } else {
@@ -777,7 +777,7 @@ impl CompositorHandler for DriftWm {
                             self.record_initial_tiling_configure(&window, serial, size);
                         }
                     }
-                    if effective != driftwm::config::DecorationMode::Client {
+                    if effective != driftline::config::DecorationMode::Client {
                         self.pending_ssd.insert(root.id());
                     }
 
@@ -805,7 +805,7 @@ impl CompositorHandler for DriftWm {
                         // otherwise camera target drifts by bar/2.
                         // Minimal gets shadow + corner clip in the render path;
                         // None gets nothing; Client never has a widget.
-                        if effective == driftwm::config::DecorationMode::Server
+                        if effective == driftline::config::DecorationMode::Server
                             && !self
                                 .decorations
                                 .contains_key(&DecorationKey::Surface(root.id()))
@@ -941,7 +941,7 @@ impl CompositorHandler for DriftWm {
 /// configured yet, so the client can start rendering.
 fn ensure_initial_configure(
     surface: &smithay::reexports::wayland_server::protocol::wl_surface::WlSurface,
-    state: &DriftWm,
+    state: &Driftline,
 ) {
     if let Some(window) = state
         .stage
@@ -978,7 +978,7 @@ fn ensure_initial_configure(
 /// into this on an ordinary unlock.
 ///
 /// There is no destroy seam to mark, so the orphan is recognised from state
-/// shape: for a role driftwm configured, `pending_configures` empty *and*
+/// shape: for a role driftline configured, `pending_configures` empty *and*
 /// `last_acked` unset is reachable only through `destroyed` — live-and-unacked
 /// still holds the configure we sent, live-and-acked holds the ack.
 ///
@@ -1063,7 +1063,7 @@ fn neutralise_orphaned_lock_commit(states: &smithay::wayland::compositor::Surfac
     }
 }
 
-impl DriftWm {
+impl Driftline {
     /// Returns true if the surface belonged to a canvas layer.
     fn handle_canvas_layer_commit(
         &mut self,
@@ -1091,7 +1091,7 @@ impl DriftWm {
                 let (rx, ry) = self.canvas_layers[idx].rule_position;
                 let chrome = self.canvas_layer_chrome(idx);
                 self.canvas_layers[idx].position =
-                    Some(driftwm::canvas::rule_to_content(rx, ry, geo.size, chrome));
+                    Some(driftline::canvas::rule_to_content(rx, ry, geo.size, chrome));
             }
         }
 
@@ -1257,7 +1257,7 @@ impl DriftWm {
                 }
                 self.stage.set_pin(
                     window,
-                    driftwm::stage::PinnedSite {
+                    driftline::stage::PinnedSite {
                         output: site.output.clone(),
                         screen_pos: new_sp,
                     },
@@ -1270,8 +1270,8 @@ impl DriftWm {
                         let os = crate::state::output_state(&output);
                         (os.camera, os.zoom)
                     };
-                    let canvas = driftwm::canvas::screen_to_canvas(
-                        driftwm::canvas::ScreenPos(new_sp.to_f64()),
+                    let canvas = driftline::canvas::screen_to_canvas(
+                        driftline::canvas::ScreenPos(new_sp.to_f64()),
                         camera,
                         zoom,
                     )
@@ -1456,7 +1456,7 @@ impl DriftWm {
         // Every snap-rect citizen — live windows and suspended stand-ins alike —
         // counts as a neighbor; `snap_rect_for` drops widgets / pinned /
         // fullscreen.
-        let others: Vec<(StageWindow, driftwm::layout::snap::SnapRect)> = self
+        let others: Vec<(StageWindow, driftline::layout::snap::SnapRect)> = self
             .stage
             .windows()
             .filter_map(|w| {
@@ -1472,7 +1472,7 @@ impl DriftWm {
         // edge-adjacent. The first such neighbor also anchors re-placement.
         let anchor = others
             .iter()
-            .find(|(_, r)| driftwm::layout::cluster::adjacent_side(&stable, r, gap).is_some())
+            .find(|(_, r)| driftline::layout::cluster::adjacent_side(&stable, r, gap).is_some())
             .map(|(w, _)| w.clone());
         let Some(anchor) = anchor else {
             return;
@@ -1509,11 +1509,11 @@ impl DriftWm {
     }
 }
 
-impl BufferHandler for DriftWm {
+impl BufferHandler for Driftline {
     fn buffer_destroyed(&mut self, _buffer: &WlBuffer) {}
 }
 
-impl ShmHandler for DriftWm {
+impl ShmHandler for Driftline {
     fn shm_state(&self) -> &ShmState {
         &self.shm_state
     }

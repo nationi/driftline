@@ -3,11 +3,11 @@
 <!-- Generated from config.reference.toml — do not edit by hand.
      Regenerate with: UPDATE_CONFIG_DOCS=1 cargo test docs_config_md_is_up_to_date -->
 
-driftwm reads its configuration from `~/.config/driftwm/config.toml` (respecting
-`XDG_CONFIG_HOME`). Every field is optional — anything you omit uses the built-in
+driftline reads its configuration from `~/.config/driftline/config.toml` (respecting
+`XDG_CONFIG_HOME`). Existing `~/.config/driftwm/config.toml` files remain readable. Every field is optional — anything you omit uses the built-in
 default shown below. Copy [`config.reference.toml`](../config.reference.toml) to
 get started, then uncomment and edit only the lines you want to change. Validate a
-config with `driftwm --check-config`.
+config with `driftline --check-config`.
 
 ## General
 
@@ -43,7 +43,7 @@ An edge or corner puts the window's title bar / content edge snap.outer_gap in f
 
 A window too big to fit on an axis with its two gutters centers on that axis rather than hanging off screen; the other axis still places, so a tall window under "top-left" still goes left.
 
-It applies to the centering actions and wherever the camera jumps to a window — center-window, focus-center, center-nearest, Alt-Tab, click-to-navigate, activation, a newly mapped window, the window focus follows when one closes (see auto_navigate_on_close) and `driftwm msg focus`. The centering actions (center-window, focus-center, center-nearest) always park the window there, even one already fully on screen — center-nearest (Mod+Arrow by default) is how you walk a placement through your windows one step at a time. Alt-Tab, click-to-navigate, activation, focus following a close and `msg focus` do not pan for an already-visible window, so they only move the camera when needed rather than holding it against an edge. Fullscreen, pinned and fit windows lock or fill the viewport and ignore it, as does a filled window returning to the view it was filled in.
+It applies to the centering actions and wherever the camera jumps to a window — center-window, focus-center, center-nearest, Alt-Tab, click-to-navigate, activation, a newly mapped window, the window focus follows when one closes (see auto_navigate_on_close) and `driftline msg focus`. The centering actions (center-window, focus-center, center-nearest) always park the window there, even one already fully on screen — center-nearest (Mod+Arrow by default) is how you walk a placement through your windows one step at a time. Alt-Tab, click-to-navigate, activation, focus following a close and `msg focus` do not pan for an already-visible window, so they only move the camera when needed rather than holding it against an edge. Fullscreen, pinned and fit windows lock or fill the viewport and ignore it, as does a filled window returning to the view it was filled in.
 
 focus-nearest (Mod+Ctrl+Arrow, the 4-finger swipe and Mod+Ctrl+drag by default) walks within the focused window's snap cluster and jumps out of it. A step to a clipped window in the same cluster, or one overlapping the focused window, scrolls it just far enough to show it whole, snap.outer_gap in from the edge it hung past, and centers only on an axis where the window doesn't fit. A step to a clipped window in another cluster, or from no focused window or a pinned one, lands it here, as Alt-Tab does. A window already fully on screen takes focus without a pan either way.
 
@@ -57,7 +57,7 @@ Default: `[]`
 
 Commands to run at startup (after WAYLAND_DISPLAY is set). Each entry is passed to sh -c, so full shell syntax works (pipes, &&, env vars).
 
-Running driftwm as a systemd session (via driftwm-session / a display manager) also launches XDG autostart entries (~/.config/autostart, /etc/xdg/autostart), in addition to the autostart list above. To skip one, copy its .desktop file into ~/.config/autostart and add Hidden=true. To skip them all, mask the generator that turns them into services. That needs root and turns XDG autostart off for every user and every desktop on the machine:
+Running driftline as a systemd session (via driftline-session / a display manager) also launches XDG autostart entries (~/.config/autostart, /etc/xdg/autostart), in addition to the autostart list above. To skip one, copy its .desktop file into ~/.config/autostart and add Hidden=true. To skip them all, mask the generator that turns them into services. That needs root and turns XDG autostart off for every user and every desktop on the machine:
 
 ```text
 sudo mkdir -p /etc/systemd/user-generators
@@ -75,7 +75,7 @@ autostart = ["waybar", "swaync"]
 
 ## `[session]`
 
-Persist your canvas across restarts. Suspended windows are always saved to ~/.local/state/driftwm/session.json; these flags control the rest.
+Persist your canvas across restarts. Suspended windows are always saved to ~/.local/state/driftline/session.json; these flags control the rest.
 
 ### `suspend_on_close`
 
@@ -382,7 +382,7 @@ anchors = [[0, 0], [-1750, 1750], [1750, 1750], [1750, -1750], [-1750, -1750]]
 
 ## `[navigation.bookmarks]`
 
-Named canvas points for the go-to-bookmark / set-bookmark / move-to-bookmark actions and `driftwm msg bookmark`. Uses Y-up coordinates (same convention as window rules). This table only SEEDS the runtime registry at startup — set-bookmark and the IPC verb update it live. An explicitly empty table (just the header, no keys) disables the default seeds. Runtime edits persist across restarts only with the [session] restore_bookmarks flag. A bookmark stores a canvas position, not a zoom level.
+Named canvas points for the go-to-bookmark / set-bookmark / move-to-bookmark actions and `driftline msg bookmark`. Uses Y-up coordinates (same convention as window rules). This table only SEEDS the runtime registry at startup — set-bookmark and the IPC verb update it live. An explicitly empty table (just the header, no keys) disables the default seeds. Runtime edits persist across restarts only with the [session] restore_bookmarks flag. A bookmark stores a canvas position, not a zoom level.
 
 | Name | Position |
 | --- | --- |
@@ -591,7 +591,7 @@ Decoration mode for windows without a rule:
 - `"minimal"` — SSD: no titlebar; shadow, corners, and border still apply via [decorations] + per-window rules
 - `"none"` — bare client surface: compositor adds zero chrome; per-window border/corner/shadow rules are ignored
 
-"server" (driftwm titlebar) is available per-window via [[window_rules]], not as a global default: many toolkits (GTK, Electron) ignore xdg-decoration and draw CSD anyway, giving a double titlebar.
+"server" (driftline titlebar) is available per-window via [[window_rules]], not as a global default: many toolkits (GTK, Electron) ignore xdg-decoration and draw CSD anyway, giving a double titlebar.
 
 ### `border_width`
 
@@ -617,7 +617,7 @@ focused border. Same default as above — set this to a different color to get a
 
 Default: `1.0`
 
-Focus-dependent opacity for windows that carry no `opacity` of their own. A window rule `opacity` or `driftwm msg opacity` pins a window at one value in both focus states and opts it out of these defaults. Fullscreen windows and widgets stay opaque unless pinned. With an animated [background], any translucent window forces a full recomposite each frame — under a global dim, that is every unfocused window.
+Focus-dependent opacity for windows that carry no `opacity` of their own. A window rule `opacity` or `driftline msg opacity` pins a window at one value in both focus states and opts it out of these defaults. Fullscreen windows and widgets stay opaque unless pinned. With an animated [background], any translucent window forces a full recomposite each frame — under a global dim, that is every unfocused window.
 
 unfocused windows
 
@@ -684,7 +684,7 @@ Five types: "default" (built-in dot-grid — the default), "shader", "tile", "wa
 
 ```toml
 type = "shader"  # procedural GLSL (scrolls with canvas)
-path = "/usr/local/share/driftwm/wallpapers/animated/fast_smoke.glsl"
+path = "/usr/local/share/driftline/wallpapers/animated/fast_smoke.glsl"
 
 type = "tile"  # image tiled across the canvas
 path = "~/Pictures/Wallpapers/tile.png"
@@ -703,7 +703,7 @@ A "shader" can also sample an image via `texture` (bound to the shader's `tex` s
 
 ```toml
 type = "shader"
-path = "/usr/local/share/driftwm/wallpapers/textured/ripple.glsl"
+path = "/usr/local/share/driftline/wallpapers/textured/ripple.glsl"
 texture = "~/Pictures/Wallpapers/photo.jpg"
 ```
 
@@ -880,7 +880,7 @@ Directions: up, down, left, right, up-left, up-right, down-left, down-right
 **Example: built-in window capture (isolated window + shadow) to clipboard**
 
 ```toml
-"ctrl+Print" = "spawn driftwm msg screenshot window -o - | wl-copy"
+"ctrl+Print" = "spawn driftline msg screenshot window -o - | wl-copy"
 ```
 
 **Example: center-nearest — parks the target on the focus_placement point even when it is already on screen**
@@ -1196,7 +1196,7 @@ Continuous and threshold actions: the same sets and rules as under [gestures].
 
 Default: `true`
 
-X11 support via xwayland-satellite. driftwm spawns satellite eagerly at startup, exports DISPLAY=:N, and X11 apps connect transparently. If the binary isn't found, X11 support is disabled with a warning; everything else still runs.
+X11 support via xwayland-satellite. driftline spawns satellite eagerly at startup, exports DISPLAY=:N, and X11 apps connect transparently. If the binary isn't found, X11 support is disabled with a warning; everything else still runs.
 
 spawn xwayland-satellite at startup
 
@@ -1212,7 +1212,7 @@ path to xwayland-satellite binary ($PATH lookup works)
 
 Default: `false`
 
-Hardware stability quirks. All default to false (opt-in). Enable these if you experience flickering, crashes, or rendering issues. Particularly useful on NVIDIA GPUs with proprietary drivers. Note: These flags must be set before launching driftwm. Changing them requires a restart. For additional NVIDIA-specific settings, set these environment variables in your session wrapper script or shell profile before starting driftwm:
+Hardware stability quirks. All default to false (opt-in). Enable these if you experience flickering, crashes, or rendering issues. Particularly useful on NVIDIA GPUs with proprietary drivers. Note: These flags must be set before launching driftline. Changing them requires a restart. For additional NVIDIA-specific settings, set these environment variables in your session wrapper script or shell profile before starting driftline:
 
 ```text
 export SMITHAY_USE_LEGACY=1          # Use legacy DRM API instead of atomic modesetting
@@ -1264,7 +1264,7 @@ Default: `0.5`
 
 ## Outputs
 
-Per-output configuration — the monitor's hardware setup, plus the handful of behaviors that are worth varying between a widescreen and a portrait panel. Each [[outputs]] entry matches by connector name. Find connector names with wlr-randr or check driftwm logs at startup. Outputs without a matching entry default to scale 1.0. On the winit backend only `position` and `focus_placement` apply — mode, scale and transform belong to the host window.
+Per-output configuration — the monitor's hardware setup, plus the handful of behaviors that are worth varying between a widescreen and a portrait panel. Each [[outputs]] entry matches by connector name. Find connector names with wlr-randr or check driftline logs at startup. Outputs without a matching entry default to scale 1.0. On the winit backend only `position` and `focus_placement` apply — mode, scale and transform belong to the host window.
 
 `name = "*"` is a wildcard entry: it applies to any connected output that has no exact-name entry (exact entries always win). A fixed `position` makes no sense on the wildcard — it's ignored (falls back to "auto").
 
@@ -1323,17 +1323,17 @@ Supported fields:
 - `app_id` — match: Wayland app_id. X11 apps proxied via xwayland-satellite arrive with app_id set from WM_CLASS instance (typically lowercase). At least one of app_id/title is required; all specified criteria must match.
 - `title` — match: window title.
 - `position` — [x, y] coordinates (visual-frame center, Y-up). Canvas coords, or output-relative (origin = output center) when pinned_to_screen.
-- `size` — [width, height] initial dimensions of the visual frame — the app's content plus any title bar and border driftwm draws, so the same numbers give the same on-screen rectangle whatever the decoration mode (one-shot; user/app can resize afterwards, so pair with widget = true to lock it)
+- `size` — [width, height] initial dimensions of the visual frame — the app's content plus any title bar and border driftline draws, so the same numbers give the same on-screen rectangle whatever the decoration mode (one-shot; user/app can resize afterwards, so pair with widget = true to lock it)
 - `fullscreen` — true: force this window to open in fullscreen mode
 - `focus_on_open` — false: map the window without focusing it or moving the camera to it. Omit to keep the default focus-on-map behavior. Pairs well with pinned_to_screen for unobtrusive overlays; the window still takes focus later through normal interaction (hover or click). (default: true)
-- `widget` — true: immovable by hand (no drag, gesture or nudge) though `driftwm msg move` still repositions it, below normal windows, excluded from navigation and alt-tab (default: false)
+- `widget` — true: immovable by hand (no drag, gesture or nudge) though `driftline msg move` still repositions it, below normal windows, excluded from navigation and alt-tab (default: false)
 - `pinned_to_screen` — true: lock the window to the output's screen space — ignores pan/zoom, floats above normal windows (PiP, toolbars). `position` becomes output-relative; movable unless widget = true. Toggle live with `toggle-pin-to-screen` (Mod+T). (default: false)
 - `suspend_on_close` — override [session].suspend_on_close for matched windows (true / false). Escape hatch for terminals and scratchpads that should always really close (or always suspend). (default: inherit)
 - `restore_windows` — override [session].restore_windows for matched windows (true / false). false keeps an app out of the session save, so it doesn't come back as a suspended window on the next launch; true restores one app while the section key stays off. Key the rule on app_id, since a rule matching on title alone governs saving only. Independent of suspend_on_close, which governs closes: set both false for an app that should never leave a stand-in behind. A window you suspended explicitly still comes back. (default: inherit)
 - `preserve_aspect_ratio` — true: keep the window's aspect ratio during interactive resizes; the ratio is taken at the start of each resize. (default: false)
 - `decoration` — overrides [decorations] default_mode for matched windows. Omit to inherit default_mode. Values:
   - "client":  CSD — client's own titlebar
-  - "server":  SSD — driftwm's titlebar
+  - "server":  SSD — driftline's titlebar
   - "minimal": SSD — no titlebar, just shadow + corners + border (this is the mode for chrome-on-borderless widgets; border_width / corner_radius / shadow rules apply)
   - "none":    bare client surface — compositor adds zero chrome, and per-window border_width / corner_radius / shadow rules are ignored. Use "minimal" if you want chrome without a titlebar.
 - `blur` — true: blur background behind this window (default: false). Real GPU/VRAM cost, but it tracks the window's size on screen, so zooming out makes a blurred window cheaper, not dearer. Once several blurred windows cover most of the viewport between them the compositor switches to one shared full-screen blur they all sample, so a screenful of frost doesn't multiply the work. Results are cached, and recomputed when the view moves or the content behind the window changes.
@@ -1344,7 +1344,7 @@ Supported fields:
 - `corner_radius` — per-window corner radius override (px). Affects content clip, border shape, and shadow. Ignored for decoration = "none".
 - `shadow` — per-window shadow toggle. Overrides [decorations] shadow. Ignored for decoration = "none".
 - `output` — output name (e.g. "DP-1") for this window's fullscreen and initial screen-pin placement. Fullscreen: the rule wins; otherwise the output the client requested; otherwise the active output. pinned_to_screen: the rule; otherwise the
-  - active output — with `position` resolved against it; dragging or send-to-output reassigns it afterward. Find names under `outputs.*` in `driftwm msg state`. (default: unset)
+  - active output — with `position` resolved against it; dragging or send-to-output reassigns it afterward. Find names under `outputs.*` in `driftline msg state`. (default: unset)
 - `pass_keys` — controls which compositor keybindings are forwarded to the app:
   - pass_keys = true — forward ALL keys (game-friendly)
   - pass_keys = ["mod+q", "ctrl+q"] — forward ONLY these combos; all other compositor shortcuts stay active
@@ -1366,7 +1366,7 @@ Pattern syntax (applies to all match fields):
 To find a window's identifiers, run while the window is open:
 
 ```text
-`driftwm msg state`
+`driftline msg state`
 ```
 
 Layer-shell surfaces (panels, notifications, bars like waybar): matched by their namespace against `app_id`. `decoration` is ignored — layers have no decoration mode. Chrome (border_width, corner_radius, shadow) is field-by-field opt-in on the rule and does NOT inherit from [decorations]. Without explicit values on the rule, a layer surface has no border, no shadow, and no corner clip.

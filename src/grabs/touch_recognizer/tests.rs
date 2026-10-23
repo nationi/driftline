@@ -4,7 +4,7 @@ use proptest::prelude::*;
 use smithay::backend::input::TouchSlot;
 use smithay::utils::{Logical, Point};
 
-use driftwm::config::{Action, ContextBindings, ContinuousAction, Direction};
+use driftline::config::{Action, ContextBindings, ContinuousAction, Direction};
 
 use super::{Config, Decision, TapOutcome, TouchInput, TouchKind, TouchRecognizer};
 

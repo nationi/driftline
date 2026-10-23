@@ -6,7 +6,7 @@ use smithay::backend::renderer::gles::{
 use smithay::output::Output;
 use smithay::utils::{Logical, Physical, Point, Rectangle, Size};
 
-use driftwm::config::BackgroundKind;
+use driftline::config::BackgroundKind;
 
 use super::elements::{OutputRenderElements, TileShaderElement};
 use super::shaders::{
@@ -173,7 +173,7 @@ impl BackgroundElement {
 /// callers can't re-check `background_animation_due` afterwards because the
 /// stamp below has already consumed the tick.
 pub fn update_background_element(
-    state: &mut crate::state::DriftWm,
+    state: &mut crate::state::Driftline,
     output: &Output,
     cur_camera: Point<f64, Logical>,
     cur_zoom: f64,
@@ -227,7 +227,7 @@ pub fn update_background_element(
 /// Called at startup and on config reload (lazy re-init).
 /// On failure, falls back to `DEFAULT_SHADER` — never leaves background uninitialized.
 pub fn init_background(
-    state: &mut crate::state::DriftWm,
+    state: &mut crate::state::Driftline,
     renderer: &mut GlesRenderer,
     initial_size: Size<i32, Logical>,
     output_name: &str,
@@ -295,7 +295,7 @@ pub fn init_background(
 /// `type = "none"`: cache a [`BgKind::None`] sentinel so the lazy re-init stops
 /// re-firing. Reset shader-mode flags so a prior animated bg stops forcing
 /// per-frame redraws.
-fn init_none_bg(state: &mut crate::state::DriftWm, output_name: &str) {
+fn init_none_bg(state: &mut crate::state::Driftline, output_name: &str) {
     state.render.background_is_animated = false;
     state.render.background_uses_camera = false;
     state.render.background_uses_zoom = false;
@@ -314,7 +314,7 @@ fn is_tiff_path(path: &str) -> bool {
 }
 
 fn tile_chunks_or_shader_fallback(
-    state: &mut crate::state::DriftWm,
+    state: &mut crate::state::Driftline,
     renderer: &mut GlesRenderer,
     initial_size: Size<i32, Logical>,
     output_name: &str,
@@ -333,7 +333,7 @@ fn tile_chunks_or_shader_fallback(
 /// Tiles load lazily — first ~5-10 frames after init/reload render blank
 /// until the budget fills the visible set (no coarser-LOD fallback cold).
 fn init_tile_chunks_bg(
-    state: &mut crate::state::DriftWm,
+    state: &mut crate::state::Driftline,
     renderer: &mut GlesRenderer,
     path: &str,
     output_name: &str,
@@ -398,7 +398,7 @@ enum ShaderBakeOutcome {
 /// `cache_shader` dispatch for a `Shader` background. Failed and ineligible
 /// both fall through to `init_shader_bg` so the screen is never blank.
 fn shader_chunks_or_live(
-    state: &mut crate::state::DriftWm,
+    state: &mut crate::state::Driftline,
     renderer: &mut GlesRenderer,
     initial_size: Size<i32, Logical>,
     output_name: &str,
@@ -415,7 +415,7 @@ fn shader_chunks_or_live(
 }
 
 fn try_init_shader_chunks(
-    state: &mut crate::state::DriftWm,
+    state: &mut crate::state::Driftline,
     renderer: &mut GlesRenderer,
     output_name: &str,
     path: &str,
@@ -490,7 +490,7 @@ fn try_init_shader_chunks(
 /// report the image error (the image is what the user asked for). Always
 /// returns a verdict (the image is loaded fresh per call, never cached).
 fn texture_or_shader_fallback(
-    state: &mut crate::state::DriftWm,
+    state: &mut crate::state::Driftline,
     renderer: &mut GlesRenderer,
     initial_size: Size<i32, Logical>,
     output_name: &str,
@@ -515,7 +515,7 @@ enum TextureBgMode {
 /// `Ok` on success. On failure the caller falls back to shader mode; the error
 /// string is surfaced on the error bar.
 fn try_init_texture_bg(
-    state: &mut crate::state::DriftWm,
+    state: &mut crate::state::Driftline,
     renderer: &mut GlesRenderer,
     initial_size: Size<i32, Logical>,
     output_name: &str,
@@ -602,7 +602,7 @@ fn try_init_texture_bg(
 /// back to the dot grid — not the user's source, which samples an unbound `tex`
 /// and would just draw black.
 fn textured_shader_or_fallback(
-    state: &mut crate::state::DriftWm,
+    state: &mut crate::state::Driftline,
     renderer: &mut GlesRenderer,
     initial_size: Size<i32, Logical>,
     output_name: &str,
@@ -621,7 +621,7 @@ fn textured_shader_or_fallback(
 /// Compiled per output (no shared program slot), so it always returns a fresh
 /// verdict — never the cache-hit `None` (see the top of [`init_background`]).
 fn try_init_textured_shader_bg(
-    state: &mut crate::state::DriftWm,
+    state: &mut crate::state::Driftline,
     renderer: &mut GlesRenderer,
     initial_size: Size<i32, Logical>,
     output_name: &str,
@@ -714,7 +714,7 @@ fn load_image_to_texture(
 /// stands); otherwise `Ok`/`Err` for a user shader that read+compiled or
 /// failed. The built-in default shader always yields `Ok`.
 fn init_shader_bg(
-    state: &mut crate::state::DriftWm,
+    state: &mut crate::state::Driftline,
     renderer: &mut GlesRenderer,
     initial_size: Size<i32, Logical>,
     output_name: &str,
@@ -732,10 +732,10 @@ fn init_shader_bg(
                 Err(e) => {
                     tracing::error!("Failed to read shader {path}: {e}, using default");
                     err = Some(format!("background shader '{path}': {e}"));
-                    driftwm::config::DEFAULT_SHADER.to_string()
+                    driftline::config::DEFAULT_SHADER.to_string()
                 }
             },
-            _ => driftwm::config::DEFAULT_SHADER.to_string(),
+            _ => driftline::config::DEFAULT_SHADER.to_string(),
         };
 
         let compiled = match renderer.compile_custom_pixel_shader(&shader_source, BG_UNIFORMS) {
@@ -744,7 +744,7 @@ fn init_shader_bg(
                 tracing::error!("Failed to compile shader: {e}, using default");
                 err.get_or_insert_with(|| format!("background shader: compile error: {e}"));
                 renderer
-                    .compile_custom_pixel_shader(driftwm::config::DEFAULT_SHADER, BG_UNIFORMS)
+                    .compile_custom_pixel_shader(driftline::config::DEFAULT_SHADER, BG_UNIFORMS)
                     .expect("Default shader must compile")
             }
         };
@@ -790,7 +790,7 @@ fn init_shader_bg(
 /// silently compiling a tex-sampling shader with no texture bound. Otherwise
 /// take the normal cached/live shader path.
 fn shader_no_texture_dispatch(
-    state: &mut crate::state::DriftWm,
+    state: &mut crate::state::Driftline,
     renderer: &mut GlesRenderer,
     initial_size: Size<i32, Logical>,
     output_name: &str,
@@ -818,7 +818,7 @@ fn shader_no_texture_dispatch(
 /// fallback when a `texture` shader can't be honored. Mirrors the cross-output
 /// shader caching in [`init_shader_bg`].
 fn init_default_shader_bg(
-    state: &mut crate::state::DriftWm,
+    state: &mut crate::state::Driftline,
     renderer: &mut GlesRenderer,
     initial_size: Size<i32, Logical>,
     output_name: &str,
@@ -826,7 +826,7 @@ fn init_default_shader_bg(
     let shader = if let Some(ref cached) = state.render.background_shader {
         cached.clone()
     } else {
-        let src = driftwm::config::DEFAULT_SHADER;
+        let src = driftline::config::DEFAULT_SHADER;
         let compiled = renderer
             .compile_custom_pixel_shader(src, BG_UNIFORMS)
             .expect("Default shader must compile");

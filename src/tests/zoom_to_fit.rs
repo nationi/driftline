@@ -3,7 +3,7 @@
 //! or a navigation — disarms that return and keeps the zoomed-out zoom
 //! instead of restoring the saved one.
 
-use driftwm::config::{Action, Direction};
+use driftline::config::{Action, Direction};
 use smithay::utils::{Logical, Point};
 
 use crate::state::StageWindow;

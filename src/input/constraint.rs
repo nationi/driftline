@@ -16,7 +16,7 @@ use smithay::reexports::wayland_server::protocol::wl_surface::WlSurface;
 use smithay::wayland::compositor::RegionAttributes;
 use smithay::wayland::pointer_constraints::{PointerConstraint, with_pointer_constraint};
 
-use crate::state::DriftWm;
+use crate::state::Driftline;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum ConstraintKind {
@@ -35,7 +35,7 @@ pub(crate) struct ConstraintSnapshot {
 /// `None` when the surface carries no constraint for this pointer.
 pub(crate) fn constraint_snapshot(
     surface: &WlSurface,
-    pointer: &PointerHandle<DriftWm>,
+    pointer: &PointerHandle<Driftline>,
 ) -> Option<ConstraintSnapshot> {
     #[allow(clippy::disallowed_methods)] // the sanctioned closure: it only copies fields out
     let snapshot = with_pointer_constraint(surface, pointer, |constraint| {
@@ -56,7 +56,7 @@ pub(crate) fn constraint_snapshot(
 /// the surface holding the constraint and the snapshot.
 pub(crate) fn find_constraint(
     surface: &WlSurface,
-    pointer: &PointerHandle<DriftWm>,
+    pointer: &PointerHandle<Driftline>,
 ) -> Option<(WlSurface, ConstraintSnapshot)> {
     let mut current = surface.clone();
     loop {
@@ -69,7 +69,7 @@ pub(crate) fn find_constraint(
 }
 
 /// No-op without a constraint; smithay's `activate` is idempotent.
-pub(crate) fn activate_constraint(surface: &WlSurface, pointer: &PointerHandle<DriftWm>) {
+pub(crate) fn activate_constraint(surface: &WlSurface, pointer: &PointerHandle<Driftline>) {
     #[allow(clippy::disallowed_methods)] // the sanctioned closure: it only flips the flag
     with_pointer_constraint(surface, pointer, |constraint| {
         if let Some(constraint) = constraint {
@@ -83,9 +83,9 @@ pub(crate) fn activate_constraint(surface: &WlSurface, pointer: &PointerHandle<D
 /// inside the closure, so that handler stays at its empty default: anything it
 /// did would run under the surface's lock.
 pub(crate) fn deactivate_constraint(
-    state: &mut DriftWm,
+    state: &mut Driftline,
     surface: &WlSurface,
-    pointer: &PointerHandle<DriftWm>,
+    pointer: &PointerHandle<Driftline>,
 ) {
     #[allow(clippy::disallowed_methods)] // the sanctioned closure: it only flips the flag
     with_pointer_constraint(surface, pointer, |constraint| {

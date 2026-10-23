@@ -1,4 +1,4 @@
-//! `ext-workspace-v1` (staging): exports driftwm bookmarks to bars and shells
+//! `ext-workspace-v1` (staging): exports driftline bookmarks to bars and shells
 //! through the workspace metaphor. One group represents the whole canvas; each
 //! bookmark is a workspace named after it. The single `active` state bit tracks
 //! the focused viewport's nearest visible bookmark.

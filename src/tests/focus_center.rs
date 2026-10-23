@@ -3,7 +3,7 @@
 //! `center-window` does; over a pin it focuses the pin and leaves the camera,
 //! which has no canvas position to travel to for it.
 
-use driftwm::config::Action;
+use driftline::config::Action;
 use smithay::utils::{Logical, Point, SERIAL_COUNTER};
 
 use crate::state::StageWindow;

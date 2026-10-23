@@ -8,8 +8,8 @@
 //! half: a navigation that focused the window it pans to keeps that focus
 //! until the user moves the camera.
 
-use driftwm::config::{Action, Direction};
-use driftwm::stage::PinnedSite;
+use driftline::config::{Action, Direction};
+use driftline::stage::PinnedSite;
 use smithay::desktop::Window;
 use smithay::utils::{Logical, Point, Rectangle, SERIAL_COUNTER, Size};
 use smithay::wayland::compositor::get_parent;

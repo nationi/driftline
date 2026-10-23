@@ -94,7 +94,7 @@ pub fn rule_to_internal(x: i32, y: i32, size: Size<i32, Logical>) -> Point<i32, 
 /// strip above it, and a border outside all four sides (outside the bar, too).
 ///
 /// Every user-facing size and position — window-rule `size`/`position`, the
-/// state file, `driftwm msg move`/`resize`, the durable session file — describes
+/// state file, `driftline msg move`/`resize`, the durable session file — describes
 /// the **visual frame**, content plus this chrome, so a script can lay windows
 /// out without knowing which of them are server-decorated. Compositor state
 /// stays content-space (`stage.position_of` is the content top-left,
@@ -238,7 +238,7 @@ pub fn rule_to_screen_top_left(
 /// Inverse of [`rule_to_screen_top_left`]: a screen-pinned window's top-left
 /// screen position back to window-rule coords (window center, output-center
 /// origin, Y-up) — the numbers a `pinned_to_screen` rule's `position` takes, so
-/// `driftwm msg state` values paste straight into a rule.
+/// `driftline msg state` values paste straight into a rule.
 #[inline]
 pub fn screen_top_left_to_rule(
     screen_pos: Point<i32, Logical>,

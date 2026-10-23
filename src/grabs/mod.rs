@@ -1,14 +1,14 @@
 /// Generates the 13 forwarding methods that every PointerGrab impl needs
 /// but never customizes. Each grab only provides custom `motion()` and `button()`.
-/// Assumes `self.start_data: GrabStartData<DriftWm>`.
+/// Assumes `self.start_data: GrabStartData<Driftline>`.
 macro_rules! forward_pointer_grab_methods {
     () => {
         fn relative_motion(
             &mut self,
-            data: &mut crate::state::DriftWm,
-            handle: &mut smithay::input::pointer::PointerInnerHandle<'_, crate::state::DriftWm>,
+            data: &mut crate::state::Driftline,
+            handle: &mut smithay::input::pointer::PointerInnerHandle<'_, crate::state::Driftline>,
             focus: Option<(
-                <crate::state::DriftWm as smithay::input::SeatHandler>::PointerFocus,
+                <crate::state::Driftline as smithay::input::SeatHandler>::PointerFocus,
                 smithay::utils::Point<f64, smithay::utils::Logical>,
             )>,
             event: &smithay::input::pointer::RelativeMotionEvent,
@@ -18,8 +18,8 @@ macro_rules! forward_pointer_grab_methods {
 
         fn axis(
             &mut self,
-            data: &mut crate::state::DriftWm,
-            handle: &mut smithay::input::pointer::PointerInnerHandle<'_, crate::state::DriftWm>,
+            data: &mut crate::state::Driftline,
+            handle: &mut smithay::input::pointer::PointerInnerHandle<'_, crate::state::Driftline>,
             details: smithay::input::pointer::AxisFrame,
         ) {
             handle.axis(data, details);
@@ -27,16 +27,16 @@ macro_rules! forward_pointer_grab_methods {
 
         fn frame(
             &mut self,
-            data: &mut crate::state::DriftWm,
-            handle: &mut smithay::input::pointer::PointerInnerHandle<'_, crate::state::DriftWm>,
+            data: &mut crate::state::Driftline,
+            handle: &mut smithay::input::pointer::PointerInnerHandle<'_, crate::state::Driftline>,
         ) {
             handle.frame(data);
         }
 
         fn gesture_swipe_begin(
             &mut self,
-            data: &mut crate::state::DriftWm,
-            handle: &mut smithay::input::pointer::PointerInnerHandle<'_, crate::state::DriftWm>,
+            data: &mut crate::state::Driftline,
+            handle: &mut smithay::input::pointer::PointerInnerHandle<'_, crate::state::Driftline>,
             event: &smithay::input::pointer::GestureSwipeBeginEvent,
         ) {
             handle.gesture_swipe_begin(data, event);
@@ -44,8 +44,8 @@ macro_rules! forward_pointer_grab_methods {
 
         fn gesture_swipe_update(
             &mut self,
-            data: &mut crate::state::DriftWm,
-            handle: &mut smithay::input::pointer::PointerInnerHandle<'_, crate::state::DriftWm>,
+            data: &mut crate::state::Driftline,
+            handle: &mut smithay::input::pointer::PointerInnerHandle<'_, crate::state::Driftline>,
             event: &smithay::input::pointer::GestureSwipeUpdateEvent,
         ) {
             handle.gesture_swipe_update(data, event);
@@ -53,8 +53,8 @@ macro_rules! forward_pointer_grab_methods {
 
         fn gesture_swipe_end(
             &mut self,
-            data: &mut crate::state::DriftWm,
-            handle: &mut smithay::input::pointer::PointerInnerHandle<'_, crate::state::DriftWm>,
+            data: &mut crate::state::Driftline,
+            handle: &mut smithay::input::pointer::PointerInnerHandle<'_, crate::state::Driftline>,
             event: &smithay::input::pointer::GestureSwipeEndEvent,
         ) {
             handle.gesture_swipe_end(data, event);
@@ -62,8 +62,8 @@ macro_rules! forward_pointer_grab_methods {
 
         fn gesture_pinch_begin(
             &mut self,
-            data: &mut crate::state::DriftWm,
-            handle: &mut smithay::input::pointer::PointerInnerHandle<'_, crate::state::DriftWm>,
+            data: &mut crate::state::Driftline,
+            handle: &mut smithay::input::pointer::PointerInnerHandle<'_, crate::state::Driftline>,
             event: &smithay::input::pointer::GesturePinchBeginEvent,
         ) {
             handle.gesture_pinch_begin(data, event);
@@ -71,8 +71,8 @@ macro_rules! forward_pointer_grab_methods {
 
         fn gesture_pinch_update(
             &mut self,
-            data: &mut crate::state::DriftWm,
-            handle: &mut smithay::input::pointer::PointerInnerHandle<'_, crate::state::DriftWm>,
+            data: &mut crate::state::Driftline,
+            handle: &mut smithay::input::pointer::PointerInnerHandle<'_, crate::state::Driftline>,
             event: &smithay::input::pointer::GesturePinchUpdateEvent,
         ) {
             handle.gesture_pinch_update(data, event);
@@ -80,8 +80,8 @@ macro_rules! forward_pointer_grab_methods {
 
         fn gesture_pinch_end(
             &mut self,
-            data: &mut crate::state::DriftWm,
-            handle: &mut smithay::input::pointer::PointerInnerHandle<'_, crate::state::DriftWm>,
+            data: &mut crate::state::Driftline,
+            handle: &mut smithay::input::pointer::PointerInnerHandle<'_, crate::state::Driftline>,
             event: &smithay::input::pointer::GesturePinchEndEvent,
         ) {
             handle.gesture_pinch_end(data, event);
@@ -89,8 +89,8 @@ macro_rules! forward_pointer_grab_methods {
 
         fn gesture_hold_begin(
             &mut self,
-            data: &mut crate::state::DriftWm,
-            handle: &mut smithay::input::pointer::PointerInnerHandle<'_, crate::state::DriftWm>,
+            data: &mut crate::state::Driftline,
+            handle: &mut smithay::input::pointer::PointerInnerHandle<'_, crate::state::Driftline>,
             event: &smithay::input::pointer::GestureHoldBeginEvent,
         ) {
             handle.gesture_hold_begin(data, event);
@@ -98,14 +98,14 @@ macro_rules! forward_pointer_grab_methods {
 
         fn gesture_hold_end(
             &mut self,
-            data: &mut crate::state::DriftWm,
-            handle: &mut smithay::input::pointer::PointerInnerHandle<'_, crate::state::DriftWm>,
+            data: &mut crate::state::Driftline,
+            handle: &mut smithay::input::pointer::PointerInnerHandle<'_, crate::state::Driftline>,
             event: &smithay::input::pointer::GestureHoldEndEvent,
         ) {
             handle.gesture_hold_end(data, event);
         }
 
-        fn start_data(&self) -> &smithay::input::pointer::GrabStartData<crate::state::DriftWm> {
+        fn start_data(&self) -> &smithay::input::pointer::GrabStartData<crate::state::Driftline> {
             &self.start_data
         }
     };
@@ -123,7 +123,7 @@ pub(crate) use forward_pointer_grab_methods;
 /// geometry to actually change costs one frame of the drag and the entry
 /// fighting each other, which beats popping a plain focus click's open fade.
 pub(crate) fn drag_map_window(
-    data: &mut crate::state::DriftWm,
+    data: &mut crate::state::Driftline,
     element: crate::state::StageWindow,
     pos: smithay::utils::Point<i32, smithay::utils::Logical>,
 ) {

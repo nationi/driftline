@@ -1,5 +1,5 @@
 [book]
-title = "driftwm"
+title = "Driftline"
 description = "A trackpad-first infinite canvas Wayland compositor."
 authors = ["malbiruk", "nationi"]
 language = "en"
@@ -9,4 +9,4 @@ src = "src"
 default-theme = "light"
 preferred-dark-theme = "coal"
 additional-css = ["custom.css"]
-git-repository-url = "https://github.com/nationi/driftwm"
+git-repository-url = "https://github.com/nationi/driftline"
