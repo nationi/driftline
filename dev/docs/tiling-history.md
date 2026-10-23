@@ -3154,3 +3154,35 @@ driftwm runtime remain unchanged; full implementation CI not rerun, B4 evidence
 retained. No push/install/GPU/TTY claim. Next A0: client response order/refusal and
 dynamic constraints, remaining parser/consumer contracts and reference/differential
 acceptance. This bounded allocation corpus does not close A0 or constraint parity.
+
+
+## 2026-10-23 — synthetic client responses and changing constraints
+
+Added four reference contracts at scale 1.25. One loops all six response orders
+for three windows after a width-400/middle-height-100 request. Before responses
+raw geometry remains unchanged; after each explicit communicate only that client
+updates. All permutations settle to width 400 and heights 224/100/224 with exact
+order/focus/indices and visual dimensions/coordinates. Two forced-size contracts
+cover refusal and later acceptance: middle width 250 leaves pending width 400
+and frame widths 401.6/252/401.6; middle height 400 leaves pending height 182 and
+moves the last tile to y=601.6. Clearing each forced size accepts the retained
+request and restores the expected settled layout without a new resize action.
+
+The fourth changes the enrolled middle client's min/max in its uniquely owned
+fixture data, calls Layout::update_window(None) and communicates responses. Min
+(500,300) yields widths 500/heights 124-300-124; max (200,100) yields width 200
+and Auto heights 183-182-183; clearing restores width 300 and the original stack.
+IDs, order, indices and focus are retained, with no removal/reenrollment. This
+changes only the test client's reported bounds, not niri production source.
+
+Initial three-contract expansion passed all twenty-three. Adding the dynamic
+case passed all twenty-four, zero failed/ignored, 203 unrelated tests filtered;
+expectations required no corrections. Exact expanded report/log retained after
+fixture-hash verification. Validation passed: actual locked pinned library run,
+fixture rustfmt, cargo fmt check, source/archive/lock/fixture/log hashes, clean
+reference, source index/local links and diff checks. Runner/parser/driftwm runtime
+unchanged; full implementation CI not rerun, B4 evidence retained. Synthetic
+TestWindow communication and update_window(None) do not test Wayland serial/buffer
+ordering, nonresponse timeouts, atomic transactions or animated/GPU continuity.
+No push/install/TTY claim. Next A0: initial-size offers versus first-buffer/enrolled
+geometry and remaining parser/scalar/consumer plus reference/differential acceptance.

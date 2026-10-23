@@ -560,3 +560,210 @@ fn overconstrained_height_keeps_minimum_and_one_pixel_auto_clients() {
         ],
     );
 }
+
+fn assert_client_sizes(layout: &Layout<TestWindow>, expected: &[(usize, (i32, i32))]) {
+    let (_, _, ws) = layout
+        .workspaces()
+        .find(|(_, _, ws)| ws.windows().next().is_some())
+        .unwrap();
+    let actual: Vec<_> = ws
+        .tiles_with_ipc_layouts()
+        .map(|(tile, geometry)| (*tile.window().id(), geometry.window_size))
+        .collect();
+    assert_eq!(actual, expected);
+    assert_eq!(*ws.active_window().unwrap().id(), 1);
+}
+
+#[test]
+fn resize_converges_for_all_three_client_response_orders() {
+    for order in [
+        [1, 2, 3],
+        [1, 3, 2],
+        [2, 1, 3],
+        [2, 3, 1],
+        [3, 1, 2],
+        [3, 2, 1],
+    ] {
+        let mut layout = consume_three_windows();
+        check_ops_on_layout(
+            &mut layout,
+            [
+                Op::SetColumnWidth(SizeChange::SetFixed(400)),
+                Op::SetWindowHeight {
+                    id: Some(2),
+                    change: SizeChange::SetFixed(100),
+                },
+            ],
+        );
+        let mut expected = [(1, (300, 183)), (2, (300, 182)), (3, (300, 183))];
+        assert_client_sizes(&layout, &expected);
+        for id in order {
+            check_ops_on_layout(&mut layout, [Op::Communicate(id)]);
+            expected[id - 1].1 = (400, if id == 2 { 100 } else { 224 });
+            assert_client_sizes(&layout, &expected);
+        }
+        check_ops_on_layout(&mut layout, [Op::AdvanceAnimations { msec_delta: 10000 }]);
+        assert_fractional_stack_with_width(
+            &layout,
+            &[
+                (1, 1, 1, 224, 225.6, 8.8),
+                (2, 1, 2, 100, 101.6, 237.6),
+                (3, 1, 3, 224, 225.6, 342.4),
+            ],
+            400,
+            401.6,
+        );
+    }
+}
+
+#[test]
+fn width_refusal_preserves_actual_client_size_until_later_acceptance() {
+    let mut layout = consume_three_windows();
+    check_ops_on_layout(
+        &mut layout,
+        [
+            Op::SetForcedSize {
+                id: 2,
+                size: Some((250, 182).into()),
+            },
+            Op::SetColumnWidth(SizeChange::SetFixed(400)),
+        ],
+    );
+    settle_three_windows(&mut layout);
+    assert_client_sizes(
+        &layout,
+        &[(1, (400, 183)), (2, (250, 182)), (3, (400, 183))],
+    );
+    let (_, _, ws) = layout
+        .workspaces()
+        .find(|(_, _, ws)| ws.windows().next().is_some())
+        .unwrap();
+    for ((tile, geometry), (id, frame_width)) in
+        ws.tiles_with_ipc_layouts()
+            .zip([(1, 401.6), (2, 252.), (3, 401.6)])
+    {
+        assert_eq!(*tile.window().id(), id);
+        assert_near(geometry.tile_size.0, frame_width);
+    }
+    let (_, middle) = layout
+        .windows()
+        .find(|(_, window)| *window.id() == 2)
+        .unwrap();
+    assert_eq!(middle.0.requested_size.get(), Some((400, 182).into()));
+    check_ops_on_layout(
+        &mut layout,
+        [
+            Op::SetForcedSize { id: 2, size: None },
+            Op::Communicate(2),
+            Op::AdvanceAnimations { msec_delta: 10000 },
+        ],
+    );
+    assert_fractional_stack_with_width(
+        &layout,
+        &[
+            (1, 1, 1, 183, 184.8, 8.8),
+            (2, 1, 2, 182, 184., 196.8),
+            (3, 1, 3, 183, 184.8, 384.),
+        ],
+        400,
+        401.6,
+    );
+}
+
+#[test]
+fn height_refusal_positions_follow_actual_frame_and_recover_on_acceptance() {
+    let mut layout = consume_three_windows();
+    check_ops_on_layout(
+        &mut layout,
+        [Op::SetForcedSize {
+            id: 2,
+            size: Some((300, 400).into()),
+        }],
+    );
+    settle_three_windows(&mut layout);
+    assert_fractional_stack(
+        &layout,
+        &[
+            (1, 1, 1, 183, 184.8, 8.8),
+            (2, 1, 2, 400, 401.6, 196.8),
+            (3, 1, 3, 183, 184.8, 601.6),
+        ],
+    );
+    let (_, middle) = layout
+        .windows()
+        .find(|(_, window)| *window.id() == 2)
+        .unwrap();
+    assert_eq!(middle.0.requested_size.get(), Some((300, 182).into()));
+    check_ops_on_layout(
+        &mut layout,
+        [
+            Op::SetForcedSize { id: 2, size: None },
+            Op::Communicate(2),
+            Op::AdvanceAnimations { msec_delta: 10000 },
+        ],
+    );
+    assert_fractional_stack(
+        &layout,
+        &[
+            (1, 1, 1, 183, 184.8, 8.8),
+            (2, 1, 2, 182, 184., 196.8),
+            (3, 1, 3, 183, 184.8, 384.),
+        ],
+    );
+}
+
+fn change_middle_constraints(layout: &mut Layout<TestWindow>, min: (i32, i32), max: (i32, i32)) {
+    layout.with_windows_mut(|window, _| {
+        if *window.id() == 2 {
+            let client =
+                Rc::get_mut(&mut window.0).expect("fixture client must have a single owner");
+            client.min_size = min.into();
+            client.max_size = max.into();
+        }
+    });
+    layout.update_window(&2, None);
+    layout.verify_invariants();
+}
+
+#[test]
+fn mapped_constraint_changes_reflow_and_restore_without_reenrollment() {
+    let mut layout = consume_three_windows();
+    change_middle_constraints(&mut layout, (500, 300), (0, 0));
+    assert_client_sizes(
+        &layout,
+        &[(1, (300, 183)), (2, (300, 182)), (3, (300, 183))],
+    );
+    settle_three_windows(&mut layout);
+    assert_fractional_stack_with_width(
+        &layout,
+        &[
+            (1, 1, 1, 124, 125.6, 8.8),
+            (2, 1, 2, 300, 301.6, 137.6),
+            (3, 1, 3, 124, 125.6, 442.4),
+        ],
+        500,
+        501.6,
+    );
+    change_middle_constraints(&mut layout, (0, 0), (200, 100));
+    settle_three_windows(&mut layout);
+    assert_fractional_stack_with_width(
+        &layout,
+        &[
+            (1, 1, 1, 183, 184.8, 8.8),
+            (2, 1, 2, 182, 184., 196.8),
+            (3, 1, 3, 183, 184.8, 384.),
+        ],
+        200,
+        201.6,
+    );
+    change_middle_constraints(&mut layout, (0, 0), (0, 0));
+    settle_three_windows(&mut layout);
+    assert_fractional_stack(
+        &layout,
+        &[
+            (1, 1, 1, 183, 184.8, 8.8),
+            (2, 1, 2, 182, 184., 196.8),
+            (3, 1, 3, 183, 184.8, 384.),
+        ],
+    );
+}

@@ -63,21 +63,25 @@ mode. These are documented fallbacks, not reference-compatible behavior.
 
 ## Verified evidence and its limits
 
-Latest A0 geometry evidence: [twenty executable layout contracts](niri-geometry-reference-fixtures.md)
-passed against pinned niri's library harness. Previous fifteen retain widths,
-origins, scales, fractional operations, height constraints and unequal Auto weights.
-Five new contracts verify shared column min/max/exact widths, conflicting width
-bounds across two clients and an overconstrained height. Middle min 500 expands
-all widths to 500; max 200 shrinks all to 200; exact 240 fixes all to 240. In the
-cross-client min-500/max-200 conflict, largest minimum wins. Height min 600 yields
-client heights 1/600/1 and settled y=8.8/14.4/619.2, extending below the output.
-Order/focus, indices, raw/visual dimensions, borders and settled x/y are checked.
-All twenty passed first run without expectation changes. Reference/archive/lock/
-fixture/log hashes and clean checkout retained. No driftwm runtime change/full CI
-rerun; implementation evidence remains B4. Cooperative simulated clients assert
-allocation, not refusal handling or offscreen rendering/visibility.
-Next: client-response order/refusal and dynamic-constraint cases, plus remaining
-parser/consumer and reference/differential acceptance before feature expansion.
+Latest A0 geometry evidence: [twenty-four executable layout contracts](niri-geometry-reference-fixtures.md)
+passed against pinned niri's library harness. Prior twenty retain widths, origins,
+scales, fractional operations, constraints, Auto weights and height overflow.
+Four new contracts cover all six response permutations, width refusal/recovery,
+height refusal/recovery and in-place constraint changes. Intermediate raw sizes
+change only on each synthetic response; all response orders reach the same
+400-width /224-100-224-height result. Forced middle width 250 keeps pending width
+400 and accepts it after force removal. Forced height 400 displaces the third
+tile to y=601.6; accepting pending height 182 restores the original stack.
+Changing the enrolled middle client's bounds to min=(500,300), then max=(200,100),
+then clear reflows and restores geometry with unchanged IDs/order/focus, without
+reenrollment. Both 23-test initial and 24-test expanded runs passed unchanged.
+Reference/archive/lock/fixture/log hashes and clean checkout retained. No driftwm
+runtime change/full CI rerun; implementation evidence remains B4. Synthetic
+responses/update_window(None) do not test Wayland serials/buffers, stalled-client
+timeouts, atomic transactions or GPU/animation continuity.
+Next: initial-size offers before first buffer versus enrolled geometry, plus
+remaining parser/scalar/consumer and reference/differential acceptance before
+feature expansion.
 
 A0 parser reference evidence: the
 [pinned parser corpus](niri-parser-reference-fixtures.md) ran 16 Rust contract

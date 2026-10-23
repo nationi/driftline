@@ -151,8 +151,8 @@ and the last rounds to 225. On the second resize the remaining frame weights are
 leaving content 138.130975… rounded to 138; the final window rounds to 310.
 Reset replaces only the target's weight with 1, preserving the other Auto weights;
 it does not globally reset all three windows to equal heights. All states also
-check IDs, focus, indices, widths, borders and horizontal positions. Dynamic constraint changes, tabs and client refusal remain outside these
-height/weight contracts.
+check IDs, focus, indices, widths, borders and horizontal positions. Tabs and real client/protocol behavior remain outside these height/weight
+contracts. The separate synthetic-response cases below extend allocation evidence.
 
 ## Column width bounds and overconstrained height
 
@@ -182,13 +182,49 @@ window: client heights 1/600/1. At 1.25 those one-pixel contents visually round
 to 0.8 logical, so visual frame heights are 2.4/601.6/2.4. Their y positions
 are 8.8/14.4/619.2; the final window lies below the physical output. Geometry is
 not shrunk to fit. This contract measures layout coordinates, not rendering or
-visibility/clipping of the offscreen window. Contradictory bounds within a single
-client, dynamic changes, asynchronous response order and width refusal remain open.
+visibility/clipping of the offscreen window. Contradictory bounds within a single client, real asynchronous protocol behavior
+and offscreen rendering remain open.
+
+## Client responses and changing constraints
+
+Four further contracts use the same fractional three-window fixture. Responses
+are explicit calls to niri's headless `TestWindow::communicate`, not Wayland
+clients, serial acknowledgements, buffer commits or compositor transactions.
+
+- One contract runs all six response permutations after requesting column content
+  width 400 and middle height 100. Before any response, all raw client sizes remain
+  unchanged. After each response, only that client's actual dimensions change;
+  all six converge to widths 400, heights 224/100/224 and the same settled frames,
+  coordinates, IDs, order and focus.
+- Width refusal forces the middle client to 250×182 while peers accept width 400.
+  Actual frame widths are 401.6/252/401.6, including physical visual rounding of
+  250 logical to 250.4. The middle pending request remains 400×182. Clearing the
+  forced response and communicating again accepts that retained target and
+  restores equal frame widths, without another resize action.
+- Height refusal forces middle content height 400 while its pending request remains
+  182. Actual frame heights are 184.8/401.6/184.8 and y positions 8.8/196.8/601.6.
+  Geometry follows the received size, including the displaced last tile. Clearing
+  the forced response restores heights 183/182/183 and y=8.8/196.8/384.
+- A constraint-change contract updates the already enrolled middle test client's
+  min/max through its uniquely owned fixture data, then calls real
+  `Layout::update_window` with no serial. No window is removed or reenrolled.
+  Initial min=(500,300) expands widths to 500 and heights to 124/300/124. Replacing
+  that with max=(200,100) shrinks widths to 200 while Auto heights return to
+  183/182/183, since nonfixed max height is ignored. Clearing constraints restores
+  requested width 300 and the original stack, retaining IDs, indices and focus.
+  Immediately after changing constraints, actual client sizes still reflect the
+  previous response until `communicate` is called.
+
+These tests exercise layout policy under deterministic synthetic responses.
+They do not establish nonresponsive-client timeouts, atomic buffer transactions,
+Wayland commit ordering or animated/GPU continuity. The dynamic case changes only
+the test client's reported constraints and invokes the reference update path;
+it does not patch niri production code or replace the window to simulate a change.
 
 ## Recorded result
 
 The [recorded report](../fixtures/niri-layout/geometry-contract-evidence.json) and
-[log](../fixtures/niri-layout/geometry-contract-evidence.log) show twenty passed,
+[log](../fixtures/niri-layout/geometry-contract-evidence.log) show twenty-four passed,
 zero failed and zero ignored tests; the other 203 library tests were filtered out.
 The reference checkout remained clean. Hashes identify the archived reference,
 lockfile, maintained fixture and run log. A zero-test run is rejected even when
