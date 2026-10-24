@@ -4,7 +4,7 @@
 <p><strong>Infinite canvas first. Scrolling-column tiling when you need it.</strong></p>
 <p>A trackpad-first Wayland compositor with independent, practical tiling layouts on every output.</p>
 <p>
-  <a href="https://github.com/nationi/driftline/tree/v1.1.4"><img alt="Version 1.1.4" src="https://img.shields.io/github/v/tag/nationi/driftline?label=version"></a>
+  <a href="https://github.com/nationi/driftline/tree/v1.1.5"><img alt="Version 1.1.5" src="https://img.shields.io/github/v/tag/nationi/driftline?label=version"></a>
   <a href="LICENSE"><img alt="License: GPL-3.0-or-later" src="https://img.shields.io/badge/license-GPL--3.0--or--later-blue.svg"></a>
 </p>
 <p><strong>This fork:</strong> <a href="https://github.com/nationi/driftline">nationi/driftline</a> ·
@@ -46,7 +46,7 @@ Explore the guides below for feature details and configuration.
 
 ### Build
 
-The project uses Rust 2024 and requires Rust 1.88 or newer, plus the system development libraries for Smithay's Wayland, input and graphics backends. The latest release is 1.1.4.
+The project uses Rust 2024 and requires Rust 1.88 or newer, plus the system development libraries for Smithay's Wayland, input and graphics backends. The latest release is 1.1.5.
 
 **Fedora**
 

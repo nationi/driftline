@@ -56,9 +56,10 @@ drop position chooses the operation:
   window's column beside it. A singleton column moves as a unit; a window from
   a stack becomes a new column there.
 
-While dragging near the left or right edge of the monitor, the view scrolls
-horizontally to reveal adjacent columns. Scrolling pauses when the pointer is
-over a valid drop target and stops at the end of the layout.
+While holding a tiled window near the left or right edge of the monitor, the
+view scrolls horizontally toward adjacent columns, even when the pointer is over
+another tile. This works for narrow and full-width columns and stops at the end
+of the layout.
 
 The destination is marked with a bright cyan preview while dragging, independent
 of window decoration settings. A full outline previews a swap; a horizontal bar
@@ -78,9 +79,9 @@ window from a stack becomes its own column on the destination.
 Hold `Alt` and drag with the right mouse button over a tiled window to widen or
 narrow its column. Drag right to expand and left to shrink; the width applies to
 every window stacked in that column. The column will not shrink below the
-largest minimum width requested by its windows. A small width label follows
-the pointer while resizing, and neighboring columns track the drag without
-waiting for each application to resize. `Alt`+`Shift`+right-drag and
+largest minimum width requested by its windows. A compact rounded label follows
+the pointer with the current width in pixels, and neighboring columns track
+the drag without waiting for each application to resize. `Alt`+`Shift`+right-drag and
 `Alt`+`Shift`+left-drag of a snapped cluster remain canvas-only.
 
 To assign the same key chord to different actions in each mode, use the

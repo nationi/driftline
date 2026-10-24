@@ -64,20 +64,6 @@ impl TilingReorderGrab {
             data.clear_edge_pan(&output);
             return;
         };
-        let over_drop_target = data
-            .topmost_client_under(location)
-            .and_then(|window| data.stage.id_of(&window))
-            .is_some_and(|target| {
-                target != self.source
-                    && data.stage.is_tiled(target)
-                    && data.stage.tiling_output_for_window(target)
-                        == Some(self.output_name.as_str())
-            });
-        if over_drop_target {
-            data.clear_edge_pan(&output);
-            return;
-        }
-
         let (camera, zoom) = {
             let state = output_state(&output);
             (state.camera, state.zoom)

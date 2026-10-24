@@ -2,6 +2,21 @@
 
 Notable changes to Driftline are recorded here.
 
+## 1.1.5 — 2026-10-24
+
+- Let tiled drag hit-testing pass through the moving window's stale layout
+  position, so overlapping drop targets remain reachable. Edge scrolling keeps
+  working while the pointer is over a valid drop target.
+- Restyle tiled drag, resize and mode cues as compact rounded badges, and make
+  the drop-target outline thinner.
+
+## 1.1.4 — 2026-10-24
+
+- Relaunch eligible apps after login and restore their saved canvas positions
+  and tiling slots when `restore_windows = true`.
+- Keep a clipped neighboring tile reachable during hover focus and refine tiled
+  resize and transition animations.
+
 ## 1.1.3 — 2026-10-24
 
 - Save tiling columns, stacks, widths, selected windows, and output ownership

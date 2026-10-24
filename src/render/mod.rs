@@ -18,6 +18,7 @@ mod suspended;
 mod tile_chunks;
 mod tile_chunks_tiff;
 mod tile_worker;
+mod tiling_badge;
 mod tiling_drop_indicator;
 mod tiling_mode_indicator;
 mod tiling_resize_indicator;
@@ -2494,38 +2495,39 @@ fn build_tiling_drop_feedback_elements(
     };
     let relative_x = (pointer.x - f64::from(bbox.loc.x)) / f64::from(bbox.size.w.max(1));
     let relative_y = (pointer.y - f64::from(bbox.loc.y)) / f64::from(bbox.size.h.max(1));
-    let thickness = 6;
+    let marker_thickness = 3;
+    let frame_thickness = 2;
     let strips = if relative_x < 0.12 {
         vec![Rectangle::new(
-            Point::from((screen_rect.loc.x - thickness / 2, screen_rect.loc.y)),
-            Size::from((thickness, screen_rect.size.h)),
+            Point::from((screen_rect.loc.x - marker_thickness / 2, screen_rect.loc.y)),
+            Size::from((marker_thickness, screen_rect.size.h)),
         )]
     } else if relative_x > 0.88 {
         vec![Rectangle::new(
             Point::from((
-                screen_rect.loc.x + screen_rect.size.w - thickness / 2,
+                screen_rect.loc.x + screen_rect.size.w - marker_thickness / 2,
                 screen_rect.loc.y,
             )),
-            Size::from((thickness, screen_rect.size.h)),
+            Size::from((marker_thickness, screen_rect.size.h)),
         )]
     } else if relative_y < 0.24 {
         vec![Rectangle::new(
-            Point::from((screen_rect.loc.x, screen_rect.loc.y - thickness / 2)),
-            Size::from((screen_rect.size.w, thickness)),
+            Point::from((screen_rect.loc.x, screen_rect.loc.y - marker_thickness / 2)),
+            Size::from((screen_rect.size.w, marker_thickness)),
         )]
     } else if relative_y > 0.76 {
         vec![Rectangle::new(
             Point::from((
                 screen_rect.loc.x,
-                screen_rect.loc.y + screen_rect.size.h - thickness / 2,
+                screen_rect.loc.y + screen_rect.size.h - marker_thickness / 2,
             )),
-            Size::from((screen_rect.size.w, thickness)),
+            Size::from((screen_rect.size.w, marker_thickness)),
         )]
     } else {
-        outline_edge_strips(screen_rect, viewport_size, thickness).collect()
+        outline_edge_strips(screen_rect, viewport_size, frame_thickness).collect()
     };
 
-    let color = [68, 211, 255, 255];
+    let color = tiling_badge::ACCENT;
     let cache = state
         .render
         .cached_tiling_drop_feedback

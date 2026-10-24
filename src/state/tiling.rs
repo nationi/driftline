@@ -833,7 +833,7 @@ impl Driftline {
             return None;
         }
         if let Some(target) = self
-            .topmost_client_under(position)
+            .topmost_client_under_except(position, source)
             .and_then(|window| self.stage.id_of(&window))
             .filter(|target| {
                 *target != source

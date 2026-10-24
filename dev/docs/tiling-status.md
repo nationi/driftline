@@ -1,6 +1,6 @@
 # Tiling development status
 
-Updated 2026-10-24. Driftline's latest release is 1.1.4. The `main`
+Updated 2026-10-24. Driftline's latest release is 1.1.5. The `main`
 branch is the only integration branch; the former `nationi/development` and
 `rebrand/driftline` branches were
 merged and deleted. Canvas remains the default, and niri is a design reference
@@ -74,17 +74,27 @@ mode label. Successful swaps, stack insertions and detachments use the existing
 reflow animation. Mode cues do not change camera or window geometry and are
 omitted with `animation_speed = 1`. Focused fixture tests cover resize, mode
 isolation, navigation, hover, drag swap/insert/detach, invalid-drop return and
-mode-cue lifecycle across multiple outputs. The drop preview is now rendered as
-a high-contrast cyan overlay, independent of client border configuration;
-stack insertion uses a horizontal position marker, and a pointer label names
-the pending operation. Tiled reorder drags horizontally edge-pan toward an
-existing adjacent column; target side zones reorder singleton columns or detach
-stacked windows into a new column. Focused drag fixtures cover target-side
-placement and edge-pan camera movement. Existing output-transfer fixtures cover
+mode-cue lifecycle across multiple outputs. The drop preview uses a thin,
+high-contrast accent outline, independent of client border configuration;
+stack insertion uses a horizontal position marker, and a compact rounded badge
+names the pending operation. The same badge style shows the current column
+width and the brief per-output mode cue. Tiled reorder drags horizontally edge-pan toward an
+existing adjacent column, including while the pointer is over another valid
+tile target; this works for narrow and full-width columns. Hit-testing skips the
+dragged window's stale layout rectangle so the moving picture does not occlude
+the drop target underneath. Target side zones reorder singleton columns or
+detach stacked windows into a new column. Focused drag fixtures cover overlapping
+drop targets, target-side placement and edge-pan camera movement. Existing output-transfer fixtures cover
 tiling ownership and layout state; the mouse gesture across outputs still needs
-live hardware verification. An ignored surfaceless-GPU pixel test
-verifies the mode label appears and fades. Full CI and live mouse verification
-of the drop preview and edge behavior remain.
+live hardware verification. An ignored surfaceless-GPU pixel test verifies the
+mode label appears and fades. Full CI and live mouse verification of the drop
+preview and edge behavior remain.
+
+The latest drag regression verifies that hit-testing reaches a tiled target
+under the moving source picture, and that edge-pan remains active with a valid
+tile under the pointer. `cargo fmt --check`, the mode-cue pixel test, all 74
+tiling fixtures, and `cargo clippy --all-targets -- -D warnings` pass after
+these changes.
 
 The user confirmed the multi-monitor tiling workflow and manually verified
 window relaunch and tiling restoration across a real compositor restart on

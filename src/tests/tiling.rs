@@ -99,6 +99,37 @@ fn alt_drag_swaps_tiled_windows_without_leaving_tiling() {
 }
 
 #[test]
+fn tiled_drag_hit_test_passes_through_the_dragged_window_to_overlapping_target() {
+    let mut f = Fixture::new();
+    f.add_output(1, (1200, 800));
+    let client = f.add_client();
+    map_window(&mut f, client, "source", (400, 300));
+    map_window(&mut f, client, "target", (400, 300));
+    let source = window_by_app_id(&mut f, "source").unwrap();
+    let target = window_by_app_id(&mut f, "target").unwrap();
+    let source_id = f.state().stage.id_of(&source).unwrap();
+    let target_id = f.state().stage.id_of(&target).unwrap();
+    f.state().execute_action(&Action::ToggleTiling);
+
+    let source_position = f.state().stage.position_of(&source).unwrap();
+    f.state().stage.set_position(&target, source_position);
+    f.state().stage.raise(&source);
+    let bbox = f.state().window_bbox_with_popups(&source).unwrap();
+    let overlap = Point::from((
+        f64::from(bbox.loc.x + bbox.size.w / 2),
+        f64::from(bbox.loc.y + bbox.size.h / 2),
+    ));
+
+    assert_eq!(f.state().topmost_client_under(overlap), Some(source));
+    assert_eq!(
+        f.state()
+            .tiling_drop_feedback_target(source_id, "HEADLESS-1", overlap),
+        Some(target_id),
+        "the dragged window's stale hitbox must not hide the tile beneath its moving picture"
+    );
+}
+
+#[test]
 fn alt_dragging_to_a_tile_edge_inserts_it_into_that_column() {
     let mut f = Fixture::new();
     f.add_output(1, (1200, 800));
@@ -408,6 +439,33 @@ fn tiling_reorder_edge_pan_reveals_an_adjacent_column() {
         (state.camera, state.zoom)
     };
     let edge_position = screen_to_canvas(ScreenPos(Point::from((1190.0, 400.0))), camera, zoom).0;
+    let target = {
+        let state = f.state();
+        let columns = state.stage.tiled_columns_for_output("HEADLESS-1").unwrap();
+        let target_id = columns[1].windows[0].id;
+        state
+            .stage
+            .window_by_id(target_id)
+            .unwrap()
+            .client()
+            .unwrap()
+            .clone()
+    };
+    let target_stage_position = f.state().stage.position_of(&target).unwrap();
+    let target_bbox = f.state().window_bbox_with_popups(&target).unwrap();
+    let shift = Point::from((
+        edge_position.x.round() as i32 - (target_bbox.loc.x + target_bbox.size.w / 2),
+        edge_position.y.round() as i32 - (target_bbox.loc.y + target_bbox.size.h / 2),
+    ));
+    f.state()
+        .stage
+        .set_position(&target, target_stage_position + shift);
+    f.state().stage.raise(&target);
+    assert_eq!(
+        f.state().topmost_client_under(edge_position),
+        Some(target.clone()),
+        "the pointer should be over a valid tiled target while at the output edge"
+    );
     let pointer = f.state().seat.get_pointer().unwrap();
     let serial = SERIAL_COUNTER.next_serial();
     pointer.set_grab(

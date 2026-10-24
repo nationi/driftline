@@ -1,21 +1,16 @@
-use smithay::backend::allocator::Fourcc;
 use smithay::backend::renderer::element::Kind;
 use smithay::backend::renderer::element::memory::{
     MemoryRenderBuffer, MemoryRenderBufferRenderElement,
 };
 use smithay::backend::renderer::gles::GlesRenderer;
 use smithay::output::Output;
-use smithay::utils::{Logical, Physical, Point, Transform};
+use smithay::utils::{Logical, Physical, Point};
 
 use driftline::canvas::{CanvasPos, canvas_to_screen};
 use driftline::config::FontWeight;
 
 use super::elements::{OutputRenderElements, PixelSnapRescaleElement};
 use crate::state::Driftline;
-
-const WIDTH: i32 = 164;
-const HEIGHT: i32 = 34;
-const SCALE: i32 = 2;
 
 #[derive(Clone, PartialEq, Eq)]
 struct CacheKey {
@@ -138,9 +133,11 @@ pub(crate) fn build_elements(
 
     let font = state.config.decorations.font.clone();
     let weight = state.config.decorations.font_weight;
+    let scale = output.current_scale().fractional_scale().ceil() as i32;
+    let (badge_width, badge_height) = super::tiling_badge::logical_size(label, &font, weight);
     let key = CacheKey {
         label: label.to_owned(),
-        scale: SCALE,
+        scale,
         font: font.clone(),
         weight,
     };
@@ -150,24 +147,24 @@ pub(crate) fn build_elements(
         .entry(output_name.clone())
         .or_insert_with(|| TilingDropIndicatorCache {
             key: key.clone(),
-            buffer: render_buffer(label, &font, weight),
+            buffer: super::tiling_badge::render_buffer(label, &font, weight, scale),
         });
     if cache.key != key {
-        cache.buffer = render_buffer(label, &font, weight);
+        cache.buffer = super::tiling_badge::render_buffer(label, &font, weight, scale);
         cache.key = key;
     }
 
     let viewport = crate::state::output_logical_size(output);
     let pointer_screen = canvas_to_screen(CanvasPos(pointer), camera, zoom).0;
-    let margin: f64 = 8.0;
-    let max_x = (viewport.w - WIDTH).max(0) as f64;
-    let max_y = (viewport.h - HEIGHT).max(0) as f64;
-    let x = (pointer_screen.x + 20.0).clamp(margin.min(max_x), max_x);
-    let above = pointer_screen.y - HEIGHT as f64 - 14.0;
+    let margin: f64 = 10.0;
+    let max_x = (viewport.w - badge_width).max(0) as f64;
+    let max_y = (viewport.h - badge_height).max(0) as f64;
+    let x = (pointer_screen.x + 16.0).clamp(margin.min(max_x), max_x);
+    let above = pointer_screen.y - badge_height as f64 - 12.0;
     let y = if above >= margin {
         above.min(max_y)
     } else {
-        (pointer_screen.y + 24.0).min(max_y)
+        (pointer_screen.y + 18.0).min(max_y)
     };
     let loc = Point::<i32, Logical>::from((x.round() as i32, y.round() as i32))
         .to_f64()
@@ -186,44 +183,4 @@ pub(crate) fn build_elements(
     vec![OutputRenderElements::Decoration(
         PixelSnapRescaleElement::from_element(element, Point::<i32, Physical>::from((0, 0)), 1.0),
     )]
-}
-
-fn render_buffer(label: &str, font: &str, weight: FontWeight) -> MemoryRenderBuffer {
-    let (pixel_width, pixel_height) = (WIDTH * SCALE, HEIGHT * SCALE);
-    let border = 2 * SCALE;
-    let mut pixels = vec![0; (pixel_width * pixel_height * 4) as usize];
-    for y in 0..pixel_height {
-        for x in 0..pixel_width {
-            let color = if x < border
-                || y < border
-                || x >= pixel_width - border
-                || y >= pixel_height - border
-            {
-                [68, 211, 255, 255]
-            } else {
-                [18, 23, 32, 240]
-            };
-            let offset = ((y * pixel_width + x) * 4) as usize;
-            pixels[offset..offset + 4].copy_from_slice(&color);
-        }
-    }
-    driftline::text::rasterize_into(
-        &mut pixels,
-        pixel_width,
-        pixel_height,
-        label,
-        font,
-        12.0 * SCALE as f32,
-        weight,
-        [248, 250, 255, 255],
-        10 * SCALE,
-    );
-    MemoryRenderBuffer::from_slice(
-        &pixels,
-        Fourcc::Abgr8888,
-        (pixel_width, pixel_height),
-        SCALE,
-        Transform::Normal,
-        None,
-    )
 }

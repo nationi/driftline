@@ -1853,6 +1853,23 @@ impl Driftline {
         }
     }
 
+    /// Like `topmost_client_under`, but let the hit-test pass through one
+    /// window. A dragged tiled window keeps its layout geometry until release,
+    /// while its picture follows the pointer, so its old hitbox must not hide
+    /// the drop target underneath it.
+    pub(crate) fn topmost_client_under_except(
+        &self,
+        pos: Point<f64, Logical>,
+        excluded: driftline::stage::ElementId,
+    ) -> Option<Window> {
+        match self.topmost_under(pos, |element, _| {
+            !matches!(element, StageWindow::Client(window) if self.stage.id_of(window) == Some(excluded))
+        })? {
+            (StageWindow::Client(w), _) => Some(w),
+            (StageWindow::Suspended(_), _) => None,
+        }
+    }
+
     /// The pick target under a canvas position: a suspended stand-in occluding
     /// the point, or a non-widget canvas window taken as one uniform target —
     /// its content, its SSD title bar and close button, and while
