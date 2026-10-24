@@ -909,6 +909,27 @@ fn alt_right_resize_stops_at_output_edge_and_slowly_pans_to_grow_column() {
     let pointer_screen = canvas_to_screen(CanvasPos(pointer_canvas), camera, zoom).0;
     assert!((pointer_screen.x - 1199.0).abs() < 0.01);
 
+    let old_width_limit = f.state().usable_area_on(&output).size.w.saturating_mul(2);
+    let mut width = width_after_pan;
+    for _ in 0..2_000 {
+        if width > old_width_limit {
+            break;
+        }
+        f.state().apply_edge_pan();
+        width = match f.state().stage.column(column).unwrap().width {
+            ColumnWidth::Fixed(width) => width,
+            ColumnWidth::Proportion(_) => unreachable!(),
+        };
+    }
+    assert!(
+        width > old_width_limit,
+        "edge-pan should keep growing the column beyond the former two-screen cap"
+    );
+    assert!(
+        f.state().camera().x > after_pan.x,
+        "camera should keep moving as the column expands"
+    );
+
     release(&mut f, &pointer, BTN_RIGHT);
     assert!(output_state(&output).edge_pan_velocity.is_none());
     assert!(f.state().tiling_width_indicator.is_none());

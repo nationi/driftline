@@ -52,7 +52,7 @@ impl TilingResizeGrab {
         }
     }
 
-    fn update_edge_pan(&self, data: &Driftline, location: Point<f64, Logical>, width: i32) {
+    fn update_edge_pan(&self, data: &Driftline, location: Point<f64, Logical>) {
         let (camera, zoom) = {
             let os = crate::state::output_state(&self.output);
             (os.camera, os.zoom)
@@ -67,16 +67,6 @@ impl TilingResizeGrab {
             data.clear_edge_pan(&self.output);
             return;
         };
-
-        let can_resize = if direction < 0.0 {
-            width > self.min_width
-        } else {
-            width < self.max_width
-        };
-        if !can_resize {
-            data.clear_edge_pan(&self.output);
-            return;
-        }
 
         let depth = ((EDGE_PAN_ZONE - distance) / EDGE_PAN_ZONE).clamp(0.0, 1.0);
         let speed = EDGE_PAN_MIN + (EDGE_PAN_MAX - EDGE_PAN_MIN) * depth * depth;
@@ -125,7 +115,7 @@ impl PointerGrab<Driftline> for TilingResizeGrab {
             data.mark_all_dirty();
             self.changed = true;
         }
-        self.update_edge_pan(data, event.location, width);
+        self.update_edge_pan(data, event.location);
         handle.motion(data, None, event);
     }
 

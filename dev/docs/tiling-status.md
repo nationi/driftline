@@ -108,6 +108,12 @@ confirms canvas `Mod+X` remains `focus-center`; all 76 tiling fixtures, the
 config docs generation test, `cargo fmt --check`, and
 `cargo clippy --all-targets -- -D warnings` pass.
 
+Alt+right-drag no longer stops camera edge-pan at the former two-output-width
+resize cap. The column continues to grow as the camera scrolls, and edge-pan
+remains active through long drags. The regression drives repeated camera ticks
+past the old cap while checking that the pointer stays confined to its starting
+output.
+
 The user confirmed the multi-monitor tiling workflow and manually verified
 window relaunch and tiling restoration across a real compositor restart on
 2026-10-24. Restart coverage verifies that still-open eligible apps are
