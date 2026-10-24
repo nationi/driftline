@@ -65,6 +65,10 @@ pub(crate) struct TilingView {
     commit_wakeups: usize,
     presentation: Option<TilingPresentation>,
     snapshots: std::collections::HashMap<driftline::stage::ElementId, TilingSnapshot>,
+    entry_seeds: std::collections::HashMap<
+        driftline::stage::ElementId,
+        smithay::utils::Rectangle<f64, Logical>,
+    >,
     pending_close_return: Option<CloseReturnView>,
     selected: Option<driftline::stage::ElementId>,
     configure_timer: Option<smithay::reexports::calloop::RegistrationToken>,
@@ -420,6 +424,7 @@ impl Driftline {
             commit_wakeups: 0,
             presentation: None,
             snapshots: Default::default(),
+            entry_seeds: Default::default(),
             pending_close_return: None,
             selected: None,
             initial_configures: Default::default(),
@@ -452,6 +457,15 @@ impl Driftline {
             );
             return;
         }
+        let entry_visuals: std::collections::HashMap<_, _> = self
+            .stage
+            .windows()
+            .filter_map(|element| {
+                let id = self.stage.id_of(element)?;
+                let loc = self.stage.position_of(element)?;
+                Some((id, self.geometry_seed(id, loc, element.geometry().size)))
+            })
+            .collect();
         self.cancel_animations_everywhere();
         let mut view_seeds = Vec::with_capacity(outputs.len());
         for output in &outputs {
@@ -487,6 +501,7 @@ impl Driftline {
                 commit_wakeups: 0,
                 presentation: None,
                 snapshots: Default::default(),
+                entry_seeds: Default::default(),
                 pending_close_return: None,
                 selected: None,
                 initial_configures: Default::default(),
@@ -558,6 +573,25 @@ impl Driftline {
                 .collect();
             self.stage.restore_tiling_placements(&placements);
         }
+        if self.config.effects.animation_speed < 1.0 {
+            for tiled in self.stage.tiled_windows() {
+                let Some(name) = self.stage.tiling_output_for_window(tiled.id) else {
+                    continue;
+                };
+                let Some(view) = self.tiling_view.views.get_mut(name) else {
+                    continue;
+                };
+                if let Some(visual) = entry_visuals.get(&tiled.id) {
+                    view.entry_seeds.insert(
+                        tiled.id,
+                        smithay::utils::Rectangle::new(
+                            view.camera + (visual.loc - view.camera).upscale(view.zoom),
+                            visual.size.upscale(view.zoom),
+                        ),
+                    );
+                }
+            }
+        }
         self.update_output_from_camera();
         for output in outputs {
             self.refresh_tiling_for_output(&output, std::time::Instant::now());
@@ -588,7 +622,11 @@ impl Driftline {
                 let Some(loc) = self.stage.position_of(element) else {
                     continue;
                 };
-                let visual = self.geometry_seed(tiled.id, loc, element.geometry().size);
+                let visual = self
+                    .tiling_view
+                    .for_output(&output)
+                    .and_then(|view| view.entry_seeds.get(&tiled.id).copied())
+                    .unwrap_or_else(|| self.geometry_seed(tiled.id, loc, element.geometry().size));
                 let (camera, zoom) = {
                     let os = output_state(&output);
                     (os.camera, os.zoom)
@@ -647,7 +685,12 @@ impl Driftline {
                     toplevel.send_configure();
                 }
             }
-            for column in self.stage.clear_tiling_for_output(&view.output.name()) {
+            for (order, column) in self
+                .stage
+                .clear_tiling_for_output(&view.output.name())
+                .into_iter()
+                .enumerate()
+            {
                 let Some(element) = self.stage.window_by_id(column.id).cloned() else {
                     continue;
                 };
@@ -691,6 +734,8 @@ impl Driftline {
                         super::window_animation::ContentPolicy::Stretch,
                         Some(column.restore.loc),
                     );
+                    self.window_animations
+                        .set_layout_transition(column.id, false, order);
                 }
             }
         }
@@ -1663,6 +1708,7 @@ impl Driftline {
         };
         // Placement remains atomic in Stage; the renderer chases from the
         // picture held by the completed transaction without another configure.
+        let mut entry_seeds = std::mem::take(&mut self.tiling_view.as_mut().unwrap().entry_seeds);
         for (id, mut snapshot) in snapshots {
             if self.config.effects.animation_speed >= 1.0 {
                 continue;
@@ -1677,8 +1723,9 @@ impl Driftline {
             };
             let old_size = snapshot.blur.geometry.size;
             let new_size = window.geometry().size;
-            let mut seed = snapshot
-                .held_geometry
+            let entry_seed = entry_seeds.remove(&id);
+            let mut seed = entry_seed
+                .or(snapshot.held_geometry)
                 .unwrap_or_else(|| self.geometry_seed(id, snapshot.blur.position, old_size));
             if translated {
                 seed.loc.x += anchor_translation;
@@ -1687,6 +1734,7 @@ impl Driftline {
             let content_changed = old_size != new_size || snapshot.held_geometry.is_some();
             if seed == smithay::utils::Rectangle::new(destination.to_f64(), new_size.to_f64())
                 && !content_changed
+                && entry_seed.is_none()
             {
                 continue;
             }
@@ -1699,6 +1747,11 @@ impl Driftline {
                 super::window_animation::ContentPolicy::Stretch,
                 Some(destination),
             );
+            if entry_seed.is_some() {
+                let order = placements.iter().position(|p| p.id == id).unwrap_or(0);
+                self.window_animations
+                    .set_layout_transition(id, true, order);
+            }
             if content_changed
                 && self.window_animations.generation_of(id).is_some()
                 && let Some(mut resize) = snapshot.resize.take()
@@ -1707,6 +1760,30 @@ impl Driftline {
                 resize.set_resize_direction(old_size, new_size);
                 self.resize_crossfades.insert(id, resize);
             }
+        }
+        for (id, mut seed) in entry_seeds {
+            if !self.stage.is_tiled(id) {
+                continue;
+            }
+            if translated {
+                seed.loc.x += anchor_translation;
+            }
+            let Some(element) = self.stage.window_by_id(id).cloned() else {
+                continue;
+            };
+            let destination = self.stage.position_of(&element);
+            self.begin_element_geometry_animation_seeded(
+                &element,
+                seed,
+                super::window_animation::AnimSpace::Canvas,
+                None,
+                super::window_animation::GeometryRole::Normal,
+                super::window_animation::ContentPolicy::Stretch,
+                destination,
+            );
+            let order = placements.iter().position(|p| p.id == id).unwrap_or(0);
+            self.window_animations
+                .set_layout_transition(id, true, order);
         }
         if let Some(saved) = close_return
             && self.stage.active_column() == Some(saved.previous)
@@ -1790,11 +1867,23 @@ impl Driftline {
                 continue;
             }
             let crossfading = self.resize_crossfades.contains_key(&id);
-            let held_geometry = ((has_geometry && !translating) || crossfading).then(|| {
-                self.window_animations
-                    .geometry_visual_rect(id)
-                    .unwrap_or_else(|| Rectangle::new(position.to_f64(), geometry.size.to_f64()))
-            });
+            let held_geometry = self
+                .tiling_view
+                .as_ref()
+                .unwrap()
+                .entry_seeds
+                .get(&id)
+                .copied()
+                .filter(|seed| *seed != Rectangle::new(position.to_f64(), geometry.size.to_f64()))
+                .or_else(|| {
+                    ((has_geometry && !translating) || crossfading).then(|| {
+                        self.window_animations
+                            .geometry_visual_rect(id)
+                            .unwrap_or_else(|| {
+                                Rectangle::new(position.to_f64(), geometry.size.to_f64())
+                            })
+                    })
+                });
             let visible = if let Some(held) = held_geometry {
                 held.to_i32_round()
             } else if translating {
@@ -1895,6 +1984,7 @@ impl Driftline {
                 None
             };
             let native_chrome = crossfading
+                || held_geometry.is_some()
                 || blur.bar_height.is_some()
                 || self.window_animations.open_progress(id).is_some()
                 || (has_geometry && (!translating || client_effect));

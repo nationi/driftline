@@ -13,8 +13,11 @@ tiling. Changing modes does not make navigation shortcuts switch modes. Canvas
 navigation and geometry actions are ignored in tiling, and tiling actions are
 ignored on the canvas. General actions such as closing a window remain
 available in both modes. Entering tiling briefly shows a `TILING MODE` label on
-each output. Leaving tiling animates the windows from their tiled positions and
-sizes back to their saved canvas positions and sizes.
+each output. Switching modes gathers windows into columns or spreads them back
+to their saved canvas positions along a shallow arc, with a slight mid-flight
+shrink and a short stagger between windows. Entry preserves the visible canvas
+scale; switching back during the animation continues from the current picture.
+The transition follows `[effects] animation_speed` and is immediate at `1`.
 
 On the canvas, `Mod+Arrow` moves to and centers the nearest window or navigation
 anchor. `Mod+Ctrl+Arrow` focuses the nearest window with the canvas's directional

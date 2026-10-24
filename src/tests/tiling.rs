@@ -653,7 +653,7 @@ fn exiting_tiling_animates_from_the_visible_tile_without_a_canvas_mode_cue() {
     let mut f = Fixture::new();
     f.add_output(1, (1200, 800));
     let client = f.add_client();
-    map_window(&mut f, client, "a", (400, 300));
+    let surface = map_window(&mut f, client, "a", (400, 300));
     let window = window_by_app_id(&mut f, "a").unwrap();
     let id = f.state().stage.id_of(&window).unwrap();
     f.state().set_camera((180.0, -90.0).into());
@@ -662,6 +662,9 @@ fn exiting_tiling_animates_from_the_visible_tile_without_a_canvas_mode_cue() {
     let canvas_screen_rect = f.state().window_screen_rect_on(&window, &output).unwrap();
     f.state().execute_action(&Action::ToggleTiling);
     f.double_roundtrip(client);
+    adopt_last_configure(&mut f, client, &surface);
+    f.state()
+        .tick_window_animations(std::time::Duration::from_secs(2));
     let tiled_screen_rect = f.state().window_screen_rect_on(&window, &output).unwrap();
 
     f.state().execute_action(&Action::ToggleTiling);
@@ -689,6 +692,84 @@ fn exiting_tiling_animates_from_the_visible_tile_without_a_canvas_mode_cue() {
             + (rect.size.h - canvas_screen_rect.size.h).abs()
     };
     assert!(distance(transition_midpoint) < distance(transition_start));
+    let center = |rect: smithay::utils::Rectangle<f64, smithay::utils::Logical>| {
+        rect.loc + Point::from((rect.size.w / 2.0, rect.size.h / 2.0))
+    };
+    let start = center(transition_start);
+    let target = center(canvas_screen_rect);
+    let mid = center(transition_midpoint);
+    let travelled = (mid.x - start.x) / (target.x - start.x);
+    let straight_y = start.y + (target.y - start.y) * travelled;
+    assert!(
+        (mid.y - straight_y).abs() > 5.0,
+        "mode switching follows an arc rather than a straight slide"
+    );
+}
+
+#[test]
+fn entering_tiling_preserves_the_zoomed_canvas_picture_and_can_reverse_midflight() {
+    let mut f = Fixture::new();
+    let output = f.add_output(1, (1200, 800));
+    let client = f.add_client();
+    let surface = map_window(&mut f, client, "a", (400, 300));
+    let window = window_by_app_id(&mut f, "a").unwrap();
+    let id = f.state().stage.id_of(&window).unwrap();
+    f.state()
+        .tick_window_animations(std::time::Duration::from_secs(2));
+    f.state().set_camera((180.0, -90.0).into());
+    f.state().set_zoom(0.7);
+    f.state().stage.set_position(&window, (300, 200).into());
+    let before = f.state().window_screen_rect_on(&window, &output).unwrap();
+
+    f.state().execute_action(&Action::ToggleTiling);
+    f.double_roundtrip(client);
+    adopt_last_configure(&mut f, client, &surface);
+    let start = f.state().window_screen_rect_on(&window, &output).unwrap();
+    assert_eq!(
+        start, before,
+        "entry starts at the canvas picture, including its zoom"
+    );
+    assert!(
+        f.state()
+            .window_animations
+            .geometry_visual_rect(id)
+            .is_some()
+    );
+    f.state()
+        .tick_window_animations(std::time::Duration::from_millis(100));
+    let midway = f.state().window_screen_rect_on(&window, &output).unwrap();
+    assert_ne!(midway, start, "the collection transition must advance");
+
+    f.state().execute_action(&Action::ToggleTiling);
+    let reversed = f.state().window_screen_rect_on(&window, &output).unwrap();
+    assert!((reversed.loc.x - midway.loc.x).abs() < 0.01);
+    assert!((reversed.loc.y - midway.loc.y).abs() < 0.01);
+    assert!((reversed.size.w - midway.size.w).abs() < 0.01);
+    assert!((reversed.size.h - midway.size.h).abs() < 0.01);
+    f.double_roundtrip(client);
+    adopt_last_configure(&mut f, client, &surface);
+    f.state()
+        .tick_window_animations(std::time::Duration::from_secs(2));
+    assert!(f.state().tiling_view.is_none());
+    assert!(
+        f.state()
+            .window_animations
+            .geometry_visual_rect(id)
+            .is_none()
+    );
+    assert_eq!(
+        f.state().window_screen_rect_on(&window, &output).unwrap(),
+        before
+    );
+
+    f.state().execute_action(&Action::ToggleTiling);
+    f.double_roundtrip(client);
+    f.state().execute_action(&Action::ToggleTiling);
+    let cancelled = f.state().window_screen_rect_on(&window, &output).unwrap();
+    assert!((cancelled.loc.x - before.loc.x).abs() < 0.01);
+    assert!((cancelled.loc.y - before.loc.y).abs() < 0.01);
+    assert!((cancelled.size.w - before.size.w).abs() < 0.01);
+    assert!((cancelled.size.h - before.size.h).abs() < 0.01);
 }
 
 #[test]
@@ -696,10 +777,21 @@ fn mode_switch_cue_is_immediate_when_animations_are_disabled() {
     let mut f = Fixture::new();
     f.add_output(1, (1200, 800));
     f.state().config.effects.animation_speed = 1.0;
+    let client = f.add_client();
+    map_window(&mut f, client, "a", (400, 300));
+    let window = window_by_app_id(&mut f, "a").unwrap();
+    let id = f.state().stage.id_of(&window).unwrap();
 
     f.state().execute_action(&Action::ToggleTiling);
+    f.double_roundtrip(client);
 
     assert!(f.state().tiling_mode_cues.is_empty());
+    assert!(
+        f.state()
+            .window_animations
+            .geometry_visual_rect(id)
+            .is_none()
+    );
 }
 
 #[test]

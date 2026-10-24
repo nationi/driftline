@@ -478,6 +478,86 @@ fn tiling_live_frame(f: &mut Fixture, output: &smithay::output::Output) -> Vec<u
 
 #[test]
 #[ignore = "needs Mesa surfaceless EGL; run with --include-ignored"]
+fn tiling_entry_retains_the_zoomed_canvas_frame_until_clients_redraw() {
+    let _gl = gl::lock();
+    let Some(renderer) = gl::surfaceless_renderer("zoomed tiling transition") else {
+        return;
+    };
+    let mut f = Fixture::with_config(super::config(&config_toml(false)));
+    let output = f.add_output(1, (1200, 800));
+    gl::install(&mut f, renderer);
+    let client = f.add_client();
+    let surface = map_window_shm(
+        &mut f,
+        client,
+        "a",
+        (400, 300),
+        (400, 300),
+        &solid_bgra(400, 300, CONTENT_BGRA, false),
+    );
+    let window = super::window_by_app_id(&mut f, "a").unwrap();
+    super::tick_until_settled(&mut f);
+    f.state().stage.set_position(&window, (300, 200).into());
+    f.state().set_camera((100.0, 100.0).into());
+    f.state().set_zoom(0.7);
+    let before = tiling_live_frame(&mut f, &output);
+
+    f.state()
+        .execute_action(&driftline::config::Action::ToggleTiling);
+    assert_eq!(f.state().tiling_snapshot_count(), 1);
+    let held = tiling_live_frame(&mut f, &output);
+    let content_bounds = |frame: &[u8]| {
+        let points: Vec<_> = frame
+            .as_chunks::<4>()
+            .0
+            .iter()
+            .enumerate()
+            .filter(|(_, p)| **p == [255, 0, 0, 255])
+            .map(|(i, _)| (i % 1200, i / 1200))
+            .collect();
+        [
+            points.iter().map(|p| p.0).min().unwrap(),
+            points.iter().map(|p| p.1).min().unwrap(),
+            points.iter().map(|p| p.0).max().unwrap(),
+            points.iter().map(|p| p.1).max().unwrap(),
+        ]
+    };
+    let before_bounds = content_bounds(&before);
+    let held_bounds = content_bounds(&held);
+    assert!(
+        before_bounds
+            .iter()
+            .zip(held_bounds)
+            .all(|(a, b)| a.abs_diff(b) <= 1),
+        "switching zoom must preserve the held content bounds: {before_bounds:?} -> {held_bounds:?}"
+    );
+
+    let target = super::last_configured(&mut f, client, &surface);
+    let app = f.client(client).window(&surface);
+    app.set_size(target.0 as u16, target.1 as u16);
+    app.attach_shm_buffer(target, &solid_bgra(target.0, target.1, CONTENT_BGRA, false));
+    app.ack_last_and_commit();
+    f.double_roundtrip(client);
+    assert_eq!(f.state().tiling_snapshot_count(), 0);
+    let released = tiling_live_frame(&mut f, &output);
+    let released_bounds = content_bounds(&released);
+    assert!(
+        held_bounds
+            .iter()
+            .zip(released_bounds)
+            .all(|(a, b)| a.abs_diff(b) <= 1),
+        "the transition starts at the retained frame: {held_bounds:?} -> {released_bounds:?}"
+    );
+
+    f.state()
+        .tick_window_animations(std::time::Duration::from_millis(100));
+    assert!(released != tiling_live_frame(&mut f, &output));
+    f.state().render.remove_output(&output.name());
+    gl::uninstall(&mut f);
+}
+
+#[test]
+#[ignore = "needs Mesa surfaceless EGL; run with --include-ignored"]
 fn tiling_mode_cue_is_visible_then_fades_on_the_output() {
     let _gl = gl::lock();
     let Some(renderer) = gl::surfaceless_renderer("tiling mode cue") else {
@@ -3704,6 +3784,13 @@ fn check_disconnected_tiling_peer(scale: f64, ssd: bool, mixed: bool) {
 #[ignore = "needs surfaceless EGL; run with --include-ignored"]
 fn protocol_remap_during_held_or_mixed_tiling_resize_reenrolls_cleanly() {
     let _gl = gl::lock();
+    let (ready, loaded) = std::sync::mpsc::sync_channel(1);
+    driftline::text::warm_fonts(move || {
+        let _ = ready.send(());
+    });
+    loaded
+        .recv_timeout(std::time::Duration::from_secs(10))
+        .unwrap();
     for scale in [1.0, 1.25, 1.5] {
         for ssd in [false, true] {
             for mixed in [false, true] {
@@ -3835,7 +3922,20 @@ fn check_protocol_tiling_remap(scale: f64, ssd: bool, mixed: bool) {
     f.client(client).window(&surface).commit();
     f.double_roundtrip(client);
     assert!(!f.state().window_animations.is_active());
-    assert_eq!(tiling_live_frame(&mut f, &output), frame);
+    let after = tiling_live_frame(&mut f, &output);
+    assert!(
+        after == frame,
+        "{scale}x SSD={ssd} mixed={mixed}: a redundant commit changed pixels: {:?}",
+        frame
+            .as_chunks::<4>()
+            .0
+            .iter()
+            .zip(after.as_chunks::<4>().0)
+            .enumerate()
+            .filter(|(_, (before, after))| before != after)
+            .take(12)
+            .collect::<Vec<_>>()
+    );
     f.state().render.remove_output(&output.name());
     gl::uninstall(&mut f);
 }

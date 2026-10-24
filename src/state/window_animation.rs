@@ -248,6 +248,7 @@ enum AnimationKind {
         leg_target: Rectangle<f64, Logical>,
         progress: f64,
         space: AnimSpace,
+        layout_transition: Option<LayoutTransition>,
         requested_size: Option<Size<i32, Logical>>,
         /// We have configured a size the client has not committed yet, so its
         /// buffer does not match the rect being animated. A property of the
@@ -310,6 +311,24 @@ enum AnimationKind {
 
 struct WindowAnimation {
     kind: AnimationKind,
+}
+
+#[derive(Clone, Copy, Debug)]
+struct LayoutTransition {
+    entering: bool,
+    delay: f64,
+}
+
+impl LayoutTransition {
+    fn progress_and_lift(self, progress: f64) -> (f64, f64) {
+        // Recover the exponential chase's timeline for a quiet start and landing.
+        let t = ((1.0 - progress).max(PROGRESS_DONE_EPSILON).ln() / PROGRESS_DONE_EPSILON.ln())
+            .clamp(0.0, 1.0);
+        let t = ((t - self.delay) / (1.0 - self.delay)).clamp(0.0, 1.0);
+        let eased = t * t * t * (t * (t * 6.0 - 15.0) + 10.0);
+        let lift = (std::f64::consts::PI * t).sin() * if self.entering { -1.0 } else { 1.0 };
+        (eased, lift)
+    }
 }
 
 #[derive(Default)]
@@ -380,6 +399,7 @@ impl WindowAnimations {
                     leg_target,
                     progress,
                     space: entry_space,
+                    layout_transition,
                     requested_size: entry_request,
                     role: entry_role,
                     hold_deadline,
@@ -415,6 +435,7 @@ impl WindowAnimations {
             *leg_target = *visual;
             *progress = 0.0;
             *entry_space = space;
+            *layout_transition = None;
             *entry_role = role;
             *last_committed_size = committed_size;
             // A member pushed again by a fresh cluster shift waits on the new
@@ -483,6 +504,7 @@ impl WindowAnimations {
                     leg_target: seed,
                     progress: 0.0,
                     space,
+                    layout_transition: None,
                     requested_size,
                     buffer_stale: requested_size.is_some(),
                     content_policy,
@@ -817,6 +839,20 @@ impl WindowAnimations {
         }
     }
 
+    pub(crate) fn set_layout_transition(&mut self, id: ElementId, entering: bool, order: usize) {
+        if let Some(WindowAnimation {
+            kind: AnimationKind::Geometry {
+                layout_transition, ..
+            },
+        }) = self.animations.get_mut(&id)
+        {
+            *layout_transition = Some(LayoutTransition {
+                entering,
+                delay: order.min(4) as f64 * 0.035,
+            });
+        }
+    }
+
     /// The canvas rect a geometry entry is currently drawn at, for render
     /// culling. `None` for a `Screen` entry — its rect lives in screen space,
     /// and the pin that put it there already scopes it to one output.
@@ -1059,6 +1095,7 @@ impl WindowAnimations {
                 waits_for,
                 open_fade,
                 chrome_travelled,
+                layout_transition,
                 ..
             } => {
                 if !eligible {
@@ -1122,6 +1159,8 @@ impl WindowAnimations {
                 }
                 *progress += (1.0 - *progress) * frame_factor;
                 let p = progress.clamp(0.0, 1.0);
+                let (p, lift) =
+                    layout_transition.map_or((p, 0.0), |motion| motion.progress_and_lift(p));
                 // Lerp to the result directly (never via a delta): a shrink would
                 // build a negative-component `Size`, which panics in debug.
                 visual.loc = Point::from((
@@ -1132,6 +1171,10 @@ impl WindowAnimations {
                     (from.size.w + (target.size.w - from.size.w) * p).max(0.0),
                     (from.size.h + (target.size.h - from.size.h) * p).max(0.0),
                 ));
+                if layout_transition.is_some() {
+                    *visual = scaled_about_centre(*visual, 1.0 - 0.065 * lift.abs());
+                    visual.loc.y += 28.0 * lift;
+                }
 
                 if 1.0 - *progress > PROGRESS_DONE_EPSILON {
                     return true;

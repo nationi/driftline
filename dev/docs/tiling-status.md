@@ -114,6 +114,20 @@ remains active through long drags. The regression drives repeated camera ticks
 past the old cap while checking that the pointer stays confined to its starting
 output.
 
+Mode switching uses a staggered geometry transition: windows briefly shrink
+and travel along a shallow arc while gathering into columns or returning to
+their saved canvas positions. Entry seeds preserve the original canvas zoom
+through the configure barrier. Reversing during motion or before clients redraw
+starts from the visible picture. `animation_speed = 1` remains immediate.
+The transition is render-only; Stage placement and saved canvas geometry retain
+their existing behavior.
+Validation: all 1613 non-ignored compositor tests pass (including 77 tiling
+fixtures), as do the GPU regressions for zoomed entry, retained pixels,
+multi-output snapshots, and protocol unmap/remap. The latter warms fonts before
+comparing SSD pixels to avoid a background font scan changing title text between
+frames. All-target Clippy, the locked check, formatting and diff whitespace checks
+pass. Live user review of the new motion remains.
+
 The user confirmed the multi-monitor tiling workflow and manually verified
 window relaunch and tiling restoration across a real compositor restart on
 2026-10-24. Restart coverage verifies that still-open eligible apps are
