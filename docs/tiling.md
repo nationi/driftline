@@ -43,11 +43,20 @@ visible, so you can move the pointer back to it and switch focus again.
 | `Mod+Alt+Arrow` | Send the focused window to an adjacent output |
 
 Hold `Alt` and drag a tiled window with the left mouse button. The window's
-picture follows the pointer while its original slot stays in the layout; release
-over another window on the same output to swap their positions. A valid drop
-target is outlined while dragging; focus and layout change only on release. On
-an invalid drop, the picture smoothly returns to its original tile without
-changing the layout. On the canvas, this gesture moves windows freely instead.
+picture follows the pointer while its original slot stays in the layout. The
+drop position chooses the operation:
+
+- Release near the top or bottom edge of another tile on the same output to
+  insert the dragged window into that tile's column, before or after it.
+- Release over the middle of another tile to swap their positions, as before.
+- Drag a window out of a stack and release just beyond the source column's left
+  or right edge in open space to give it a new column immediately before or
+  after its source column. The new column keeps the source column's width.
+
+The destination is outlined while dragging; focus and layout change only on
+release. Dropping somewhere without a valid target smoothly returns the picture
+to its original tile without changing the layout. On the canvas, this gesture
+moves windows freely instead.
 
 Hold `Alt` and drag with the right mouse button over a tiled window to widen or
 narrow its column. Drag right to expand and left to shrink; the width applies to

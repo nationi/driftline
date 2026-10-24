@@ -47,13 +47,7 @@ impl PointerGrab<Driftline> for TilingReorderGrab {
     ) {
         self.last_position = event.location;
         data.tiling_drop_target = data
-            .topmost_client_under(event.location)
-            .and_then(|window| data.stage.id_of(&window))
-            .filter(|id| {
-                *id != self.source
-                    && data.stage.is_tiled(*id)
-                    && data.stage.tiling_output_for_window(*id) == Some(self.output_name.as_str())
-            })
+            .tiling_drop_feedback_target(self.source, &self.output_name, event.location)
             .map(|id| (id, self.output_name.clone()));
         data.tiling_drag_visual = Some((
             self.source,

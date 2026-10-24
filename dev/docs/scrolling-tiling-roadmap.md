@@ -144,8 +144,8 @@ review config reload and output-specific rendering. Keep canvas as the default
 and update the guide to describe only observed behavior.
 
 Acceptance: focused tests and required CI pass; the user confirmed the manual
-multi-monitor workflow on 2026-10-24. A separate manual check of topology
-restore after a compositor restart remains.
+multi-monitor workflow and topology restore after a compositor restart on
+2026-10-24.
 
 ### 5. Keep keyboard controls mode-exclusive
 
@@ -176,9 +176,9 @@ restore rectangle.
 
 Acceptance: a restart round-trip preserves columns, stacks, width, selection
 and output ownership for restored windows; older session files still load;
-missing outputs do not prevent startup or lose windows. Implementation and
-focused regression coverage pass. Manual restart testing on the user's
-multi-monitor setup remains.
+missing outputs do not prevent startup or lose windows. Implementation,
+focused regression coverage and manual restart testing on the user's
+multi-monitor setup pass.
 
 ## Working rules
 

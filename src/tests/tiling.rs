@@ -95,6 +95,156 @@ fn alt_drag_swaps_tiled_windows_without_leaving_tiling() {
 }
 
 #[test]
+fn alt_dragging_to_a_tile_edge_inserts_it_into_that_column() {
+    let mut f = Fixture::new();
+    f.add_output(1, (1200, 800));
+    let client = f.add_client();
+    map_window(&mut f, client, "a", (400, 300));
+    map_window(&mut f, client, "b", (400, 300));
+    map_window(&mut f, client, "c", (400, 300));
+    let a = window_by_app_id(&mut f, "a").unwrap();
+    let b = window_by_app_id(&mut f, "b").unwrap();
+    let c = window_by_app_id(&mut f, "c").unwrap();
+    let aid = f.state().stage.id_of(&a).unwrap();
+    let bid = f.state().stage.id_of(&b).unwrap();
+    let cid = f.state().stage.id_of(&c).unwrap();
+    f.state().execute_action(&Action::ToggleTiling);
+    f.state().stage.select_tile(cid);
+    assert!(f.state().stage.move_into_column(true));
+    f.state().refresh_tiling();
+    let stacked_len = {
+        let state = f.state();
+        state
+            .stage
+            .column(state.stage.column_of(cid).unwrap())
+            .unwrap()
+            .windows
+            .len()
+    };
+    assert_eq!(stacked_len, 2);
+    let bbox = f.state().window_bbox_with_popups(&b).unwrap();
+    let drop = smithay::utils::Point::from((
+        f64::from(bbox.loc.x + bbox.size.w / 2),
+        f64::from(bbox.loc.y + bbox.size.h / 10),
+    ));
+
+    f.state().complete_tiling_reorder(
+        aid,
+        "HEADLESS-1",
+        drop,
+        smithay::utils::Point::from((100.0, 0.0)),
+    );
+
+    assert_eq!(
+        f.state().stage.column_of(aid),
+        f.state().stage.column_of(bid)
+    );
+    let column = f
+        .state()
+        .stage
+        .tiled_columns_for_output("HEADLESS-1")
+        .unwrap()
+        .iter()
+        .find(|column| column.windows.iter().any(|tile| tile.id == aid))
+        .unwrap();
+    assert_eq!(
+        column
+            .windows
+            .iter()
+            .map(|tile| tile.id)
+            .collect::<Vec<_>>(),
+        vec![aid, bid, cid]
+    );
+    assert_eq!(column.selected, aid);
+    assert_eq!(f.state().stage.active_tile(), Some(aid));
+}
+
+#[test]
+fn alt_dragging_a_stacked_window_into_a_column_gap_detaches_it() {
+    let mut f = Fixture::new();
+    f.add_output(1, (1200, 800));
+    let client = f.add_client();
+    map_window(&mut f, client, "a", (400, 300));
+    map_window(&mut f, client, "b", (400, 300));
+    map_window(&mut f, client, "c", (400, 300));
+    map_window(&mut f, client, "d", (400, 300));
+    let b = window_by_app_id(&mut f, "b").unwrap();
+    let c = window_by_app_id(&mut f, "c").unwrap();
+    let d = window_by_app_id(&mut f, "d").unwrap();
+    let bid = f.state().stage.id_of(&b).unwrap();
+    let cid = f.state().stage.id_of(&c).unwrap();
+    let did = f.state().stage.id_of(&d).unwrap();
+    f.state().execute_action(&Action::ToggleTiling);
+    f.state().stage.select_tile(cid);
+    assert!(f.state().stage.move_into_column(true));
+    f.state().refresh_tiling();
+    let stacked_len = {
+        let state = f.state();
+        state
+            .stage
+            .column(state.stage.column_of(cid).unwrap())
+            .unwrap()
+            .windows
+            .len()
+    };
+    assert_eq!(stacked_len, 2);
+    let (drop, expected_before) = {
+        let state = f.state();
+        let columns = state.stage.tiled_columns_for_output("HEADLESS-1").unwrap();
+        let source_column = columns
+            .iter()
+            .position(|column| column.windows.iter().any(|tile| tile.id == cid))
+            .unwrap();
+        let source_bbox = state.window_bbox_with_popups(&c).unwrap();
+        let next = columns
+            .get(source_column + 1)
+            .and_then(|column| column.windows.first())
+            .map(|tile| tile.id);
+        (
+            smithay::utils::Point::from((
+                f64::from(source_bbox.loc.x + source_bbox.size.w + 20),
+                f64::from(source_bbox.loc.y + source_bbox.size.h / 2),
+            )),
+            next,
+        )
+    };
+    f.state().complete_tiling_reorder(
+        cid,
+        "HEADLESS-1",
+        drop,
+        smithay::utils::Point::from((100.0, 0.0)),
+    );
+
+    let columns = f
+        .state()
+        .stage
+        .tiled_columns_for_output("HEADLESS-1")
+        .unwrap();
+    let detached_index = columns
+        .iter()
+        .position(|column| column.windows.iter().any(|tile| tile.id == cid))
+        .unwrap();
+    assert_eq!(columns[detached_index].windows.len(), 1);
+    if let Some(expected_before) = expected_before {
+        let before_index = columns
+            .iter()
+            .position(|column| column.windows.iter().any(|tile| tile.id == expected_before))
+            .unwrap();
+        assert_eq!(detached_index + 1, before_index);
+    }
+    assert!(
+        columns
+            .iter()
+            .any(|column| column.windows.iter().any(|tile| tile.id == did))
+    );
+    assert_ne!(
+        f.state().stage.column_of(cid),
+        f.state().stage.column_of(bid)
+    );
+    assert_eq!(f.state().stage.active_tile(), Some(cid));
+}
+
+#[test]
 fn invalid_alt_drag_returns_the_window_to_its_tile_without_reordering() {
     let mut f = Fixture::new();
     f.add_output(1, (1200, 800));

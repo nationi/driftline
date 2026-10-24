@@ -676,6 +676,104 @@ impl<W: StageElement> Stage<W> {
         true
     }
 
+    /// Move a tiled window into the column containing `target`, immediately
+    /// before or after that window. The moved window becomes selected.
+    pub fn insert_tiled_window_at(
+        &mut self,
+        source: ElementId,
+        target: ElementId,
+        before: bool,
+    ) -> bool {
+        if source == target {
+            return false;
+        }
+        let Some(output) = self.output_for_tile(source) else {
+            return false;
+        };
+        if self.output_for_tile(target).as_deref() != Some(output.as_str()) {
+            return false;
+        }
+        self.activate_tiling_output(&output);
+        let Some(source_column) = self.column_index(source) else {
+            return false;
+        };
+        let Some(target_column_id) = self
+            .column_index(target)
+            .map(|index| self.tiling.columns[index].id)
+        else {
+            return false;
+        };
+        let moved = self.take_tiled_window(source_column, source);
+        let Some(target_column) = self
+            .tiling
+            .columns
+            .iter_mut()
+            .find(|column| column.id == target_column_id)
+        else {
+            return false;
+        };
+        let target_index = target_column
+            .windows
+            .iter()
+            .position(|window| window.id == target)
+            .expect("target column no longer contains its window");
+        target_column
+            .windows
+            .insert(target_index + usize::from(!before), moved);
+        target_column.selected = source;
+        self.tiling.restore_previous = None;
+        self.tiling.pending_close_return = None;
+        self.tiling.active = Some(target_column_id);
+        true
+    }
+
+    /// Pull a window out of its stack into a new column before `before`, or at
+    /// the end of the strip when no following column is supplied.
+    pub fn detach_tiled_window(&mut self, source: ElementId, before: Option<ElementId>) -> bool {
+        let Some(output) = self.output_for_tile(source) else {
+            return false;
+        };
+        if before
+            .is_some_and(|target| self.output_for_tile(target).as_deref() != Some(output.as_str()))
+        {
+            return false;
+        }
+        self.activate_tiling_output(&output);
+        let Some(source_column) = self.column_index(source) else {
+            return false;
+        };
+        if self.tiling.columns[source_column].windows.len() < 2 {
+            return false;
+        }
+        let width = self.tiling.columns[source_column].width;
+        let target_column_id = before
+            .and_then(|target| self.column_index(target))
+            .map(|index| self.tiling.columns[index].id);
+        let moved = self.take_tiled_window(source_column, source);
+        let insert_at = target_column_id
+            .and_then(|id| {
+                self.tiling
+                    .columns
+                    .iter()
+                    .position(|column| column.id == id)
+            })
+            .unwrap_or(self.tiling.columns.len());
+        let id = self.next_column_id();
+        self.tiling.columns.insert(
+            insert_at,
+            TiledColumn {
+                id,
+                selected: source,
+                width,
+                windows: vec![moved],
+            },
+        );
+        self.tiling.restore_previous = None;
+        self.tiling.pending_close_return = None;
+        self.tiling.active = Some(id);
+        true
+    }
+
     /// Move the active window after the selected window of its neighboring column.
     pub fn move_into_column(&mut self, backward: bool) -> bool {
         let Some(active) = self.active_tile() else {

@@ -12,6 +12,13 @@ use crate::grabs::SizeConstraints;
 
 const HOVER_RETURN_TARGET: i32 = 48;
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum TilingDropAction {
+    Swap(driftline::stage::ElementId),
+    Insert(driftline::stage::ElementId, bool),
+    Detach(Option<driftline::stage::ElementId>),
+}
+
 fn preserve_hover_target(
     target: Point<i32, Logical>,
     previous: smithay::utils::Rectangle<i32, Logical>,
@@ -729,22 +736,26 @@ impl Driftline {
         let active_output_matches = self
             .active_output()
             .is_some_and(|output| output.name() == output_name);
-        let target = self
-            .topmost_client_under(position)
-            .and_then(|window| self.stage.id_of(&window))
-            .filter(|target| {
-                active_output_matches
-                    && *target != source
-                    && self.stage.is_tiled(*target)
-                    && self.stage.tiling_output_for_window(*target) == Some(output_name)
-            });
-        if let Some(target) = target
-            && self.stage.swap_tiled_windows(source, target)
-        {
-            self.refresh_tiling();
+        let action = active_output_matches
+            .then(|| self.tiling_drop_action(source, output_name, position))
+            .flatten();
+        let changed = match action {
+            Some(TilingDropAction::Swap(target)) => self.stage.swap_tiled_windows(source, target),
+            Some(TilingDropAction::Insert(target, before)) => {
+                self.stage.insert_tiled_window_at(source, target, before)
+            }
+            Some(TilingDropAction::Detach(before)) => {
+                self.stage.detach_tiled_window(source, before)
+            }
+            None => false,
+        };
+        if changed {
+            self.stage.select_tile(source);
             if let Some(element) = self.stage.window_by_id(source).cloned() {
                 self.raise_and_focus_element(&element, SERIAL_COUNTER.next_serial());
             }
+            self.refresh_tiling();
+            self.session_store_mark_dirty();
             return;
         }
 
@@ -778,6 +789,96 @@ impl Driftline {
         );
         if self.window_animations.generation_of(source).is_some() {
             self.mark_all_dirty();
+        }
+    }
+
+    fn tiling_drop_action(
+        &self,
+        source: driftline::stage::ElementId,
+        output_name: &str,
+        position: Point<f64, Logical>,
+    ) -> Option<TilingDropAction> {
+        if !self.stage.is_tiled(source)
+            || self.stage.tiling_output_for_window(source) != Some(output_name)
+        {
+            return None;
+        }
+        if let Some(target) = self
+            .topmost_client_under(position)
+            .and_then(|window| self.stage.id_of(&window))
+            .filter(|target| {
+                *target != source
+                    && self.stage.is_tiled(*target)
+                    && self.stage.tiling_output_for_window(*target) == Some(output_name)
+            })
+        {
+            let window = self.stage.window_by_id(target)?.client()?;
+            let bbox = self.window_bbox_with_popups(window)?;
+            let relative_y = (position.y - f64::from(bbox.loc.y)) / f64::from(bbox.size.h.max(1));
+            return Some(if relative_y < 0.24 {
+                TilingDropAction::Insert(target, true)
+            } else if relative_y > 0.76 {
+                TilingDropAction::Insert(target, false)
+            } else {
+                TilingDropAction::Swap(target)
+            });
+        }
+
+        let column_id = self.stage.column_of(source)?;
+        (self.stage.column(column_id)?.windows.len() > 1)
+            .then(|| self.tiling_detach_target(source, output_name, position.x))
+            .flatten()
+    }
+
+    pub(crate) fn tiling_drop_feedback_target(
+        &self,
+        source: driftline::stage::ElementId,
+        output_name: &str,
+        position: Point<f64, Logical>,
+    ) -> Option<driftline::stage::ElementId> {
+        match self.tiling_drop_action(source, output_name, position)? {
+            TilingDropAction::Swap(target) | TilingDropAction::Insert(target, _) => Some(target),
+            TilingDropAction::Detach(Some(target)) => Some(target),
+            TilingDropAction::Detach(None) => self
+                .stage
+                .tiled_columns_for_output(output_name)?
+                .last()?
+                .windows
+                .last()
+                .map(|tile| tile.id),
+        }
+    }
+
+    fn tiling_detach_target(
+        &self,
+        source: driftline::stage::ElementId,
+        output_name: &str,
+        x: f64,
+    ) -> Option<TilingDropAction> {
+        let columns = self.stage.tiled_columns_for_output(output_name)?;
+        let index = columns
+            .iter()
+            .position(|column| column.windows.iter().any(|tile| tile.id == source))?;
+        let column = &columns[index];
+        let (left, right) = column
+            .windows
+            .iter()
+            .filter_map(|tile| {
+                let window = self.stage.window_by_id(tile.id)?.client()?;
+                let bbox = self.window_bbox_with_popups(window)?;
+                Some((f64::from(bbox.loc.x), f64::from(bbox.loc.x + bbox.size.w)))
+            })
+            .reduce(|a, b| (a.0.min(b.0), a.1.max(b.1)))?;
+        if x < left {
+            Some(TilingDropAction::Detach(Some(column.windows[0].id)))
+        } else if x > right {
+            let next = columns
+                .get(index + 1)
+                .and_then(|next| next.windows.first())
+                .map(|tile| tile.id);
+            Some(TilingDropAction::Detach(next))
+        } else {
+            None
         }
     }
 

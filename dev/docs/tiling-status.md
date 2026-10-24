@@ -14,12 +14,13 @@ rather than a parity target.
 - `Mod+Ctrl+T` switches between canvas and tiling. Keyboard and pointer actions
   intended for one mode do not switch modes or run in the other. `Alt+Tab` cycles
   windows without leaving tiling.
-- `Alt`+left-drag swaps tiled windows, shows the dragged picture, and outlines a
-  valid same-output drop target without changing focus before release. An
-  invalid drop animates the picture back to its original tile without changing
-  the layout. Entering tiling briefly shows a fading `TILING MODE` label on each
-  output. Exiting animates tiled windows back to their saved canvas positions
-  and sizes.
+- `Alt`+left-drag keeps the dragged picture attached to the pointer and marks a
+  same-output drop target. Dropping near a tile's top or bottom edge inserts the
+  window into that column; dropping in its middle swaps positions. Dragging a
+  window in a stack beyond the column's side creates an adjacent new column.
+  Invalid drops animate the picture back without changing the layout. Entering tiling
+  briefly shows a fading `TILING MODE` label on each output. Exiting animates
+  tiled windows back to their saved canvas positions and sizes.
   Fullscreen covers only its output and keeps its tile slot; closing that
   window removes it.
 - Hover can focus a visible tile without recentering the tiled camera. When
@@ -59,37 +60,38 @@ restored at startup.
 
 ## Validation
 
-`Alt`+right-drag now adjusts the tiled column width horizontally and saves the
+`Alt`+right-drag adjusts the tiled column width horizontally and saves the
 final fixed width when the grab ends. The Alt-only resize binding is active for
 tiles; `Alt`+`Shift`+right-drag stays canvas-only. Focus navigation also parks
 sloppy-focus camera pulls for tiled `Alt+Tab` navigation. Hovering a clipped
 tile can reveal it without hiding the previous selection from the pointer.
-Tiling animation feedback includes a reorder-target
-outline, a live width label, a return animation for invalid reorder drops, and a
-brief per-output mode label. Successful swaps use the existing reflow
-animation. Mode cues do not change camera or window geometry and are omitted
-with `animation_speed = 1`. Focused fixture tests cover resize, mode isolation,
-navigation, hover, drag feedback, invalid-drop return and mode-cue lifecycle
-across multiple outputs. An ignored surfaceless-GPU pixel test verifies the
-mode label appears and fades. `cargo fmt --check`, all 65 `tests::tiling::`
-fixtures, that GPU test, all-target Clippy and `git diff --check` pass. The
-generated configuration reference is in sync. Manual testing on a live session
-remains.
+Tiling animation feedback includes a reorder-target outline, a live width
+label, a return animation for invalid reorder drops, and a brief per-output
+mode label. Successful swaps, stack insertions and detachments use the existing
+reflow animation. Mode cues do not change camera or window geometry and are
+omitted with `animation_speed = 1`. Focused fixture tests cover resize, mode
+isolation, navigation, hover, drag swap/insert/detach, invalid-drop return and
+mode-cue lifecycle across multiple outputs. An ignored surfaceless-GPU pixel
+test verifies the mode label appears and fades. All 70 tiling fixtures and
+`dev/scripts/ci-local` pass, including formatting, all-target Clippy, 1687
+compositor tests, integration tests and the isolated soak test. Live mouse
+verification of the new drop zones remains.
 
-The user confirmed the multi-monitor tiling workflow on 2026-10-24. Restart
-coverage verifies that still-open eligible apps are relaunched and adopt their
-saved entries while explicitly suspended windows remain dormant. Fixture
-coverage also verifies saved window placements and Stage reconstruction of
-columns, stacks, widths, selection and active column state. Compatibility with
-a schema-v2 session without tiling fields is covered.
+The user confirmed the multi-monitor tiling workflow and manually verified
+window relaunch and tiling restoration across a real compositor restart on
+2026-10-24. Restart coverage verifies that still-open eligible apps are
+relaunched and adopt their saved entries while explicitly suspended windows
+remain dormant. Fixture coverage also verifies saved window placements and
+Stage reconstruction of columns, stacks, widths, selection and active column
+state. Compatibility with a schema-v2 session without tiling fields is covered.
 
 `dev/scripts/ci-local` passes on the release candidate: formatting, locked
 check, all-target Clippy, test compilation, 1685 compositor tests including
 ignored rendering cases, all integration targets and the isolated soak test.
 The rendering tests use deterministic animation time for frame-driven checks.
 Automatic app relaunch and clipped-tile hover return also have focused fixture
-regressions. Manual verification of tiling restore across a real compositor
-restart on the target multi-monitor setup remains.
+regressions. The user manually verified tiling restore across a real
+multi-monitor compositor restart on 2026-10-24.
 
 ## Start here
 
