@@ -51,9 +51,7 @@ the removed output before dropping its state.
 These are not parity gaps and should not be implemented just to mirror niri:
 
 - Workspaces, workspace overview, tabs and tab indicators.
-- A complete floating-window layer, tiled fullscreen/maximize policy, or
-  topology restore across compositor restarts. In-session topology is retained
-  when toggling between canvas and tiling.
+- A complete floating-window layer or tiled fullscreen/maximize policy.
 - Every niri action, configuration field, animation, gesture, or edge case.
 - Exact niri workspace/overview semantics.
 - Exhaustive source inventories, differential fixtures and compatibility
@@ -165,6 +163,22 @@ config guide documents the defaults and tests verify both mode filters.
 Acceptance: a mode-specific chord dispatches only in its own mode, and the
 toggle works in both. Automated acceptance passes. Manual multi-output
 acceptance above remains the only planned product validation.
+
+### 6. Restore tiling topology across restarts
+
+Store each restorable window's output name, column and stack order, width,
+selected-window state and active-column state alongside its durable session
+entry. On startup, associate that record with its stand-in's fresh stage ID;
+when the client adopts the stand-in, the stage ID remains stable. Rebuild the
+topology when the user next enters tiling, leaving canvas as the startup mode.
+Ignore missing windows and outputs safely, and retain canvas geometry as the
+restore rectangle.
+
+Acceptance: a restart round-trip preserves columns, stacks, width, selection
+and output ownership for restored windows; older session files still load;
+missing outputs do not prevent startup or lose windows. Implementation and
+focused regression coverage pass. Manual restart testing on the user's
+multi-monitor setup remains.
 
 ## Working rules
 

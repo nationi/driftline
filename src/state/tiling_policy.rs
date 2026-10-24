@@ -23,6 +23,7 @@ impl TilingOperation<'_> {
                 | Action::FocusColumn(_)
                 | Action::CycleColumnWidth
                 | Action::ToggleWideColumn
+                | Action::CycleWindows { .. }
                 | Action::ToggleFullscreen
                 | Action::MoveIntoColumn(_)
                 | Action::ConsumeWindowIntoColumn
@@ -55,7 +56,6 @@ impl TilingOperation<'_> {
                     | Direction::DownLeft
                     | Direction::DownRight,
                 )
-                | Action::CycleWindows { .. }
                 | Action::HomeToggle
                 | Action::GoToBookmark(_)
                 | Action::SetBookmark(_)

@@ -11,6 +11,7 @@ use super::{
 
 const KEY_LEFTALT: u32 = 56;
 const KEY_LEFTMETA: u32 = 125;
+const KEY_TAB: u32 = 15;
 const KEY_F: u32 = 33;
 const KEY_LEFT: u32 = 105;
 const KEY_RIGHT: u32 = 106;
@@ -657,6 +658,31 @@ fn fullscreen_restore_commit_keeps_tiling_active() {
     assert!(f.state().tiling_view.is_some());
     assert!(f.state().stage.is_tiled(id));
     assert_eq!(window_position(&mut f, &window), (900, 100).into());
+}
+
+#[test]
+fn alt_tab_cycles_windows_without_leaving_tiling() {
+    let mut f = Fixture::new();
+    f.add_output(1, (1200, 800));
+    let client = f.add_client();
+    map_window(&mut f, client, "a", (400, 300));
+    map_window(&mut f, client, "b", (400, 300));
+    map_window(&mut f, client, "c", (400, 300));
+    let focused_before = f.state().focused_window();
+
+    f.state().execute_action(&Action::ToggleTiling);
+    key_press(&mut f, KEY_LEFTALT);
+    key_press(&mut f, KEY_TAB);
+
+    assert!(f.state().tiling_view.is_some());
+    assert!(f.state().stage.cycle_state().is_some());
+    assert_ne!(f.state().focused_window(), focused_before);
+
+    key_release(&mut f, KEY_TAB);
+    key_release(&mut f, KEY_LEFTALT);
+
+    assert!(f.state().tiling_view.is_some());
+    assert!(f.state().stage.cycle_state().is_none());
 }
 
 #[test]

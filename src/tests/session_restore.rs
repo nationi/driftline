@@ -93,6 +93,40 @@ fn tiling_saves_the_canvas_rectangle_and_view_instead_of_temporary_geometry() {
     }
     assert_eq!(after.outputs[&output.name()].camera, [50.0, 75.0]);
     assert_eq!(after.outputs[&output.name()].zoom, 0.6);
+
+    let placements: Vec<_> = after
+        .entries
+        .iter()
+        .map(|entry| {
+            entry
+                .tiling
+                .clone()
+                .expect("tiled window placement is saved")
+        })
+        .collect();
+    assert!(placements.iter().all(|tile| tile.output == output.name()));
+    assert_eq!(placements[0].column, placements[1].column);
+    assert_ne!(placements[0].stack, placements[1].stack);
+    assert!(placements.iter().filter(|tile| tile.selected).count() == 1);
+    assert!(placements.iter().all(|tile| tile.active));
+
+    let mut restored = Fixture::with_config(config_restore(true));
+    restored.add_output(1, (1200, 800));
+    restored.state().session_store.path = Some(path);
+    restored.state().load_session();
+    assert_eq!(restored.state().session_store.durable_tiling.len(), 2);
+    let loaded: Vec<_> = restored
+        .state()
+        .session_store
+        .durable_tiling
+        .values()
+        .collect();
+    assert!(loaded.iter().all(|tile| tile.output == output.name()));
+    assert_eq!(loaded[0].column, loaded[1].column);
+    assert_ne!(loaded[0].stack, loaded[1].stack);
+    for (standin, _) in suspended_in_order(&mut restored) {
+        restored.state().dismiss_suspended(standin.id);
+    }
 }
 
 /// Map a client at `app_id`/`size` parked at a known canvas position. Returns
@@ -156,6 +190,7 @@ fn entry(id: u64, app: &str, origin: Origin) -> SessionEntry {
         origin,
         csd: false,
         focused: false,
+        tiling: None,
     }
 }
 
@@ -914,16 +949,14 @@ fn v1_session_entry_converts_body_to_frame_on_load() {
     f.state().dismiss_suspended(s.id);
 }
 
-/// The same visible frame as the v1 file above, but already in the v2
-/// convention: no migration runs (`envelope.version == session::VERSION`), so
-/// landing on the identical body and position proves those really are the
-/// current on-disk numbers, not an artifact of the v1 conversion.
+/// A schema-v2 entry has no tiling placement; it still restores as a normal
+/// canvas entry after the v3 schema adds the optional field.
 #[test]
-fn v2_session_entry_round_trips_unchanged() {
+fn v2_session_entry_without_tiling_still_restores() {
     let tmp = TempDir::new();
     let path = tmp.path().join("session.json");
     let envelope = SessionEnvelope {
-        version: session::VERSION,
+        version: 2,
         bookmarks: BTreeMap::new(),
         saved_at: 0,
         entries: vec![SessionEntry {
@@ -936,10 +969,12 @@ fn v2_session_entry_round_trips_unchanged() {
             origin: Origin::Explicit,
             csd: false,
             focused: false,
+            tiling: None,
         }],
         outputs: BTreeMap::new(),
     };
     session::write(&path, &envelope, false).unwrap();
+    assert!(session::read(&path).entries[0].tiling.is_none());
 
     let mut f =
         Fixture::with_config(Config::from_toml("[decorations]\nborder_width = 4\n").unwrap());

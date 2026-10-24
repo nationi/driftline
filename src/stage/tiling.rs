@@ -6,6 +6,15 @@ use crate::layout::scrolling::ColumnWidth;
 
 use super::{ElementId, Stage, StageElement};
 
+struct SavedTilePlacement {
+    stack: usize,
+    window: TiledWindow,
+    column_id: ColumnId,
+    width: ColumnWidth,
+    selected: bool,
+    active: bool,
+}
+
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct TiledWindow {
     pub id: ElementId,
@@ -224,6 +233,95 @@ impl<W: StageElement> Stage<W> {
         }
     }
 
+    /// Rebuild tiled windows from session placements after their process-local
+    /// element IDs have been recreated. Placements for missing windows or
+    /// disconnected outputs are ignored; newly tiled windows remain afterward.
+    pub fn restore_tiling_placements(
+        &mut self,
+        placements: &[(ElementId, String, usize, usize, ColumnWidth, bool, bool)],
+    ) {
+        for (output, layout) in &mut self.tiling.outputs {
+            let mut current = BTreeMap::new();
+            for column in &layout.columns {
+                for window in &column.windows {
+                    current.insert(window.id, (*window, column.id, column.width));
+                }
+            }
+            let mut saved: BTreeMap<usize, Vec<SavedTilePlacement>> = BTreeMap::new();
+            for (id, owner, column, stack, width, selected, active) in placements {
+                if owner == output
+                    && let Some((window, column_id, _)) = current.get(id)
+                {
+                    saved.entry(*column).or_default().push(SavedTilePlacement {
+                        stack: *stack,
+                        window: *window,
+                        column_id: *column_id,
+                        width: *width,
+                        selected: *selected,
+                        active: *active,
+                    });
+                }
+            }
+            let mut included = std::collections::HashSet::new();
+            let mut restored = Vec::new();
+            let mut active = None;
+            for (_, mut members) in saved {
+                members.sort_by_key(|member| member.stack);
+                let Some(first) = members.first() else {
+                    continue;
+                };
+                let id = first.column_id;
+                let mut width = first.width;
+                if !matches!(width, ColumnWidth::Fixed(value) if value > 0)
+                    && !matches!(width, ColumnWidth::Proportion(value) if value.is_finite() && value > 0.0)
+                {
+                    width = ColumnWidth::default();
+                }
+                let windows: Vec<_> = members
+                    .iter()
+                    .filter_map(|member| included.insert(member.window.id).then_some(member.window))
+                    .collect();
+                if windows.is_empty() {
+                    continue;
+                }
+                let selected = members
+                    .iter()
+                    .find(|member| member.selected && included.contains(&member.window.id))
+                    .map_or(windows[0].id, |member| member.window.id);
+                let column_id = id;
+                if members.iter().any(|member| member.active) {
+                    active = Some(column_id);
+                }
+                restored.push(TiledColumn {
+                    id: column_id,
+                    selected,
+                    width,
+                    windows,
+                });
+            }
+            for column in &layout.columns {
+                for window in &column.windows {
+                    if included.insert(window.id) {
+                        restored.push(TiledColumn {
+                            id: column.id,
+                            selected: window.id,
+                            width: column.width,
+                            windows: vec![*window],
+                        });
+                    }
+                }
+            }
+            if !restored.is_empty() {
+                layout.active = active
+                    .filter(|id| restored.iter().any(|column| column.id == *id))
+                    .or_else(|| restored.last().map(|column| column.id));
+                layout.columns = restored;
+                layout.restore_previous = None;
+                layout.pending_close_return = None;
+            }
+        }
+    }
+
     /// Selects the output whose layout is used by the existing focused-layout APIs.
     pub fn activate_tiling_output(&mut self, output: &str) {
         self.tiling.outputs.entry(output.to_owned()).or_default();
@@ -281,6 +379,10 @@ impl<W: StageElement> Stage<W> {
 
     pub fn active_column(&self) -> Option<ColumnId> {
         self.tiling.active
+    }
+
+    pub fn active_column_for_output(&self, output: &str) -> Option<ColumnId> {
+        self.tiling.outputs.get(output)?.active
     }
 
     pub fn column(&self, id: ColumnId) -> Option<&TiledColumn> {
@@ -928,6 +1030,77 @@ mod tests {
         assert!(!stage.is_tiled(first_id));
         assert!(stage.is_tiled(second_id));
         assert_eq!(stage.clear_tiling_for_output("HDMI-A-1").len(), 1);
+        stage.verify_invariants();
+    }
+
+    #[test]
+    fn session_placements_rebuild_columns_stacks_selection_and_output() {
+        let mut stage = Stage::<TestWindow>::new();
+        let windows: Vec<_> = (1..=4).map(TestWindow::new).collect();
+        for window in &windows {
+            stage.map(window.clone(), (10, 20).into());
+        }
+        let ids: Vec<_> = windows.iter().map(|w| stage.id_of(w).unwrap()).collect();
+        stage.begin_tiling_for_output("DP-1");
+        for id in ids.iter().copied() {
+            assert!(stage.tile(id, (400, 300).into()));
+        }
+        stage.restore_tiling_placements(&[
+            (
+                ids[0],
+                "DP-1".into(),
+                0,
+                0,
+                ColumnWidth::Fixed(700),
+                false,
+                false,
+            ),
+            (
+                ids[1],
+                "DP-1".into(),
+                0,
+                1,
+                ColumnWidth::Fixed(700),
+                true,
+                false,
+            ),
+            (
+                ids[2],
+                "DP-1".into(),
+                1,
+                0,
+                ColumnWidth::Proportion(0.75),
+                true,
+                true,
+            ),
+            (
+                ids[3],
+                "HDMI-A-1".into(),
+                0,
+                0,
+                ColumnWidth::default(),
+                true,
+                true,
+            ),
+        ]);
+
+        let columns = stage.tiled_columns_for_output("DP-1").unwrap();
+        assert_eq!(
+            columns.len(),
+            3,
+            "unknown output placement falls back safely"
+        );
+        assert_eq!(
+            columns[0].windows.iter().map(|w| w.id).collect::<Vec<_>>(),
+            ids[..2]
+        );
+        assert_eq!(columns[0].selected, ids[1]);
+        assert_eq!(columns[0].width, ColumnWidth::Fixed(700));
+        assert_eq!(columns[1].windows[0].id, ids[2]);
+        assert_eq!(columns[1].width, ColumnWidth::Proportion(0.75));
+        assert_eq!(columns[2].windows[0].id, ids[3]);
+        assert_eq!(stage.active_tiling_output(), "DP-1");
+        assert_eq!(stage.active_tile(), Some(ids[2]));
         stage.verify_invariants();
     }
 

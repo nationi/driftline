@@ -446,6 +446,12 @@ impl Driftline {
                     .tiling_topology
                     .as_ref()
                     .and_then(|topology| self.stage.tiling_topology_output(topology, id))
+                    .or_else(|| {
+                        self.session_store
+                            .durable_tiling
+                            .get(&id)
+                            .map(|tile| tile.output.as_str())
+                    })
                     .filter(|name| outputs.iter().any(|output| output.name() == *name));
                 let output = remembered_output
                     .and_then(|name| self.output_by_name(name))
@@ -460,6 +466,32 @@ impl Driftline {
         }
         if let Some(topology) = self.tiling_topology.as_ref() {
             self.stage.restore_tiling_topology(topology);
+        } else {
+            let placements: Vec<_> = self
+                .session_store
+                .durable_tiling
+                .iter()
+                .map(|(id, tile)| {
+                    let width = match tile.width {
+                        driftline::session::SessionColumnWidth::Fixed(width) => {
+                            scrolling::ColumnWidth::Fixed(width)
+                        }
+                        driftline::session::SessionColumnWidth::Proportion(value) => {
+                            scrolling::ColumnWidth::Proportion(value)
+                        }
+                    };
+                    (
+                        *id,
+                        tile.output.clone(),
+                        tile.column,
+                        tile.stack,
+                        width,
+                        tile.selected,
+                        tile.active,
+                    )
+                })
+                .collect();
+            self.stage.restore_tiling_placements(&placements);
         }
         self.update_output_from_camera();
         for output in outputs {
@@ -471,6 +503,15 @@ impl Driftline {
     }
 
     pub(super) fn exit_tiling(&mut self) {
+        let saved: Vec<_> = self
+            .stage
+            .tiled_windows()
+            .filter_map(|window| {
+                self.current_tiling_tile(window.id)
+                    .map(|placement| (window.id, placement))
+            })
+            .collect();
+        self.session_store.durable_tiling.extend(saved);
         let views = self.tiling_view.take_all();
         if views.is_empty() {
             return;

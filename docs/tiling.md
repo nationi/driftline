@@ -25,6 +25,7 @@ the layout scrolls, including when `focus_follows_mouse` is enabled.
 | Keys | Action |
 | --- | --- |
 | `Mod+Ctrl+T` | Switch between canvas and tiling |
+| `Alt+Tab` / `Alt+Shift+Tab` | Cycle through windows / cycle backward without leaving tiling |
 | `Mod+Arrow` | Focus a column or a window in its stack |
 | `Mod+Shift+Left/Right` | Move the focused column |
 | `Mod+Shift+Up/Down` | Move the focused window within its column |
@@ -100,9 +101,11 @@ pan the views apart first if you want those windows on different strips.
 
 Switching back restores saved window positions and sizes, as well as each
 output's camera and zoom. Tiling order, stacks, widths, output ownership and
-selection are remembered while the compositor remains running, so entering
-tiling again restores that arrangement. This tiling topology is not saved across
-compositor restarts; saved sessions retain canvas geometry and camera state.
+selection are saved with the session. After a restart, windows restored from
+session records return to their previous output, column order, stack order,
+column width and selected position when you switch into tiling. The compositor
+still starts in canvas mode. This requires the same output name to be connected;
+if a saved output is absent, its windows join an available output.
 
 Fullscreen covers only its target output while tiling stays active on every
 output. The fullscreen window keeps its column slot and returns to it when
@@ -117,8 +120,7 @@ do not join columns.
 Scrolling tiling is focused on columns and independent per-output layouts. It
 does not include workspaces, tabs, a general floating-window layer, drag-based
 column reordering, per-window detach to the canvas, trackpad column snapping, or
-layout-native drag resizing. Column width presets are fixed. Tiling topology is
-not restored after a compositor restart.
+layout-native drag resizing. Column width presets are fixed.
 
 For development scope and validation notes, see the
 [tiling status](../dev/docs/tiling-status.md) and

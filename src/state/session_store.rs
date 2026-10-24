@@ -31,7 +31,9 @@ use smithay::wayland::seat::WaylandFocus;
 
 use driftline::canvas::{Chrome, ScreenPos, content_to_rule, rule_to_internal, screen_to_canvas};
 use driftline::desktop_entry::AppIdentity;
-use driftline::session::{self, Origin, SessionEntry, SessionEnvelope, SessionOutput};
+use driftline::session::{
+    self, Origin, SessionColumnWidth, SessionEntry, SessionEnvelope, SessionOutput, SessionTile,
+};
 use driftline::window_ext::WindowExt;
 
 use super::persistence::viewport_moved;
@@ -92,6 +94,9 @@ pub struct SessionStore {
     /// The bookmark registry read from the file at startup, stashed
     /// unconditionally (mirrors `durable_cameras`).
     pub(crate) durable_bookmarks: BTreeMap<String, [f64; 2]>,
+    /// Session placements keyed by this boot's stage IDs. Materialized
+    /// stand-ins keep their IDs when relaunched clients adopt them.
+    pub(crate) durable_tiling: HashMap<driftline::stage::ElementId, SessionTile>,
     /// The stand-in that materialized from the focused entry, waiting for
     /// `apply_restored_focus` to hand it the focus once the boot outputs exist.
     /// Survives a refused hand-over: the write side re-emits the flag for it
@@ -168,7 +173,14 @@ impl Driftline {
         self.session_store.carried_forward = carried;
         for entry in materialize {
             let held_focus = entry.focused;
+            let placement = entry.tiling.clone();
             let sid = self.materialize_entry(entry);
+            if let Some(placement) = placement
+                && let Some(standin) = self.find_suspended(sid)
+                && let Some(id) = self.stage.id_of(&StageWindow::Suspended(standin))
+            {
+                self.session_store.durable_tiling.insert(id, placement);
+            }
             // Last flag wins: a hand-edited file with several entries flagged
             // resolves to the last one, not the first. This build's own writes
             // never produce more than one.
@@ -484,6 +496,7 @@ impl Driftline {
         // Tally live windows per app so carried quit records can be deduped
         // against the apps that actually came back.
         let mut tail: Vec<SessionEntry> = Vec::new();
+        let mut current_tiling = HashMap::new();
         let mut live_counts: HashMap<String, usize> = HashMap::new();
         for window in &windows {
             let has_focus = focused.as_ref() == Some(window);
@@ -493,11 +506,23 @@ impl Driftline {
                 // `pending_focus` is `None` whenever anything holds focus, so
                 // the two sources can never flag two entries.
                 entry.focused = has_focus || pending_focus == Some(s.id);
+                if let Some(id) = self.stage.id_of(window)
+                    && let Some(tile) = self.session_store.durable_tiling.get(&id).cloned()
+                {
+                    entry.tiling = Some(tile.clone());
+                    current_tiling.insert(id, tile);
+                }
                 tail.push(entry);
             } else if include_live
                 && let Some(mut entry) = self.live_window_entry(window, &mut next_live_id)
             {
                 entry.focused = has_focus;
+                if let Some(id) = self.stage.id_of(window)
+                    && let Some(tile) = self.current_tiling_tile(id)
+                {
+                    entry.tiling = Some(tile.clone());
+                    current_tiling.insert(id, tile);
+                }
                 *live_counts.entry(entry.app_id.clone()).or_default() += 1;
                 tail.push(entry);
             }
@@ -523,6 +548,7 @@ impl Driftline {
             entries.push(entry);
         }
         entries.extend(tail);
+        self.session_store.durable_tiling.extend(current_tiling);
 
         SessionEnvelope {
             version: session::VERSION,
@@ -609,7 +635,46 @@ impl Driftline {
             origin: Origin::Quit,
             csd,
             focused: false,
+            tiling: None,
         })
+    }
+
+    pub(crate) fn current_tiling_tile(
+        &self,
+        id: driftline::stage::ElementId,
+    ) -> Option<SessionTile> {
+        if let Some(output) = self.stage.tiling_output_for_window(id)
+            && let Some(columns) = self.stage.tiled_columns_for_output(output)
+            && let Some((column_index, column, stack)) =
+                columns
+                    .iter()
+                    .enumerate()
+                    .find_map(|(column_index, column)| {
+                        column
+                            .windows
+                            .iter()
+                            .position(|window| window.id == id)
+                            .map(|stack| (column_index, column, stack))
+                    })
+        {
+            let width = match column.width {
+                driftline::layout::scrolling::ColumnWidth::Fixed(width) => {
+                    SessionColumnWidth::Fixed(width)
+                }
+                driftline::layout::scrolling::ColumnWidth::Proportion(value) => {
+                    SessionColumnWidth::Proportion(value)
+                }
+            };
+            return Some(SessionTile {
+                output: output.to_owned(),
+                column: column_index,
+                stack,
+                width,
+                selected: column.selected == id,
+                active: self.stage.active_column_for_output(output) == Some(column.id),
+            });
+        }
+        self.session_store.durable_tiling.get(&id).cloned()
     }
 
     /// The canvas rect a live window restores to. Fullscreen and pinned windows
@@ -687,6 +752,7 @@ fn suspended_entry(s: &SuspendedWindow, loc: Point<i32, Logical>, chrome: Chrome
         origin: s.origin,
         csd: s.csd,
         focused: false,
+        tiling: None,
     }
 }
 
@@ -774,6 +840,7 @@ mod tests {
             origin: Origin::Explicit,
             csd: false,
             focused: false,
+            tiling: None,
         }
     }
 

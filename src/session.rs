@@ -19,7 +19,7 @@ use serde::{Deserialize, Serialize};
 /// and converted by the caller; anything else — a newer schema this build cannot
 /// know, or a garbled number — is quarantined, so a downgrade never misparses a
 /// file it would corrupt.
-pub const VERSION: u32 = 2;
+pub const VERSION: u32 = 3;
 
 /// The oldest schema this build converts on read rather than quarantining.
 pub const MIN_READABLE_VERSION: u32 = 1;
@@ -40,7 +40,7 @@ pub enum Origin {
 /// `position` its center in Y-up rule coordinates, matching the window-rules and
 /// state-file convention. Schema v1 stored the bare body instead; those entries
 /// are converted on read.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct SessionEntry {
     pub id: u64,
     pub app_id: String,
@@ -64,6 +64,31 @@ pub struct SessionEntry {
     /// Additive: a file without this field defaults to unfocused.
     #[serde(default)]
     pub focused: bool,
+    /// Position in the optional scrolling-column layout. Older session files
+    /// and windows which are not tiled have no placement.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub tiling: Option<SessionTile>,
+}
+
+/// One window's place in the per-output scrolling layout. Column and stack
+/// indices are stable across process restarts; runtime stage IDs are not.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct SessionTile {
+    pub output: String,
+    pub column: usize,
+    pub stack: usize,
+    pub width: SessionColumnWidth,
+    #[serde(default)]
+    pub selected: bool,
+    #[serde(default)]
+    pub active: bool,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+#[serde(tag = "kind", content = "value", rename_all = "snake_case")]
+pub enum SessionColumnWidth {
+    Fixed(i32),
+    Proportion(f64),
 }
 
 /// A per-output camera/zoom, mirroring the runtime state file's shape.
@@ -267,6 +292,7 @@ mod tests {
             origin,
             csd: false,
             focused: false,
+            tiling: None,
         }
     }
 

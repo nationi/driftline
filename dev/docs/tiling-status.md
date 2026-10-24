@@ -21,25 +21,23 @@ target.
   multi-output tiling session remains active; the fullscreen window retains its
   slot on exit and is pruned if it closes.
 - Toggling back into tiling during the same compositor session restores output
-  ownership, column order, vertical stacks, widths and selected tiles. Closed
-  or ineligible windows are skipped; new windows get new columns. This topology
-  is not persisted across compositor restarts.
+  ownership, column order, vertical stacks, widths and selected tiles. Durable
+  session records now also preserve these placements across restarts; canvas
+  remains the startup mode and the saved topology applies when tiling is entered.
 - Removing one output transfers its columns to a surviving output. Removing the
   last output restores canvas mode. Canvas geometry and view are retained.
 
 ## Scope and known limits
 
 The fork focuses on practical scrolling columns alongside the infinite canvas.
-It does not add workspaces, tabs, a general floating-window policy, or layout
-restore across compositor restarts. Fullscreen is output-local and leaves other
-outputs in tiling mode. Trackpad column snapping and layout-native drag resizing
-are not implemented.
+It does not add workspaces, tabs, or a general floating-window policy.
+Fullscreen is output-local and leaves other outputs in tiling mode. Trackpad
+column snapping and layout-native drag resizing are not implemented.
 
 The automated multi-output fixtures cover independent layouts, mapping,
 cross-output transfer, disconnect/reconnect policy and tiling re-entry. The
-full hardware checklist is in [the TTY acceptance guide](tty-preview.md). No
-formal run record is kept in this repository, so hardware-specific behavior
-should be confirmed on the target setup.
+user confirmed a successful manual multi-monitor check on 2026-10-24. The full
+hardware checklist is in [the TTY acceptance guide](tty-preview.md).
 
 ## Latest validation
 
@@ -138,6 +136,27 @@ free-moved tile. Recenter commits now preserve existing tile membership. The
 regression covers the restoring commit. All 59 tiling tests and the compositor
 test suite (1594 passed, 81 ignored), all-target clippy, formatting and
 `git diff --check` passed. These fixes are included in release 1.1.2.
+
+## Alt-Tab in tiling
+
+Alt-Tab is a focus-cycle action that is valid in both modes, but its tiling
+policy was incorrectly grouped with canvas-only navigation and restored the
+canvas before cycling. It now keeps the active tiling layout; a key-input
+regression verifies both the held cycle session and its commit on Alt release.
+All 60 tiling tests, all-target clippy, formatting and `git diff --check` pass.
+
+## Restart-safe tiling topology
+
+Durable session schema v3 stores each saved window's output, column and stack
+indices, width policy, selected state and active-column state. On restore, the
+placement follows the fresh stand-in stage ID, which remains stable when a
+relaunched client adopts it. The next entry into tiling rebuilds the layout;
+canvas remains the startup mode. Missing outputs fall back to an available
+output, and old session files default to no tiling placement. `dev/scripts/ci-local`
+passes: format, locked check, all-target clippy, test compilation, 1675 tests
+including ignored rendering cases, all integration targets and the isolated
+soak test. The user confirmed the general multi-monitor workflow before this
+change; manual verification of restart restore on the target setup remains.
 
 ## Documentation baseline
 
