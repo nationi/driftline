@@ -20,7 +20,6 @@ const FONT_PX: f32 = 12.0;
 
 #[derive(Clone, PartialEq, Eq)]
 struct CacheKey {
-    tiling: bool,
     scale: i32,
     font: String,
     weight: FontWeight,
@@ -50,7 +49,6 @@ pub(crate) fn build_elements(
     let font = state.config.decorations.font.clone();
     let weight = state.config.decorations.font_weight;
     let key = CacheKey {
-        tiling: cue.tiling,
         scale: buffer_scale,
         font: font.clone(),
         weight,
@@ -61,10 +59,10 @@ pub(crate) fn build_elements(
         .entry(output_name)
         .or_insert_with(|| TilingModeIndicatorCache {
             key: key.clone(),
-            buffer: render_buffer(cue.tiling, buffer_scale, &font, weight),
+            buffer: render_buffer(buffer_scale, &font, weight),
         });
     if cache.key != key {
-        cache.buffer = render_buffer(cue.tiling, buffer_scale, &font, weight);
+        cache.buffer = render_buffer(buffer_scale, &font, weight);
         cache.key = key;
     }
 
@@ -90,15 +88,11 @@ pub(crate) fn build_elements(
     )]
 }
 
-fn render_buffer(tiling: bool, scale: i32, font: &str, weight: FontWeight) -> MemoryRenderBuffer {
+fn render_buffer(scale: i32, font: &str, weight: FontWeight) -> MemoryRenderBuffer {
     let scale = scale.max(1);
     let (pixel_width, pixel_height) = (WIDTH * scale, HEIGHT * scale);
     let border = BORDER * scale;
-    let accent = if tiling {
-        [122, 170, 255, 255]
-    } else {
-        [185, 166, 216, 255]
-    };
+    let accent = [122, 170, 255, 255];
     let mut pixels = vec![0; (pixel_width * pixel_height * 4) as usize];
     for y in 0..pixel_height {
         for x in 0..pixel_width {
@@ -116,7 +110,7 @@ fn render_buffer(tiling: bool, scale: i32, font: &str, weight: FontWeight) -> Me
         }
     }
 
-    let label = if tiling { "TILING MODE" } else { "CANVAS MODE" };
+    let label = "TILING MODE";
     let font_px = FONT_PX * scale as f32;
     driftline::text::rasterize_into(
         &mut pixels,

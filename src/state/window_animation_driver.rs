@@ -469,6 +469,30 @@ impl Driftline {
         );
     }
 
+    #[allow(clippy::too_many_arguments)]
+    pub(crate) fn begin_element_geometry_animation_seeded(
+        &mut self,
+        element: &StageWindow,
+        seed: Rectangle<f64, Logical>,
+        space: AnimSpace,
+        requested_size: Option<Size<i32, Logical>>,
+        role: GeometryRole,
+        content_policy: ContentPolicy,
+        final_loc: Option<Point<i32, Logical>>,
+    ) {
+        self.start_geometry_entry(
+            element,
+            seed,
+            space,
+            requested_size,
+            role,
+            true,
+            content_policy,
+            None,
+            final_loc,
+        );
+    }
+
     /// [`Self::animate_element_move_from`] for a client window.
     #[cfg(test)]
     pub(crate) fn animate_window_move_from(

@@ -17,8 +17,9 @@ rather than a parity target.
 - `Alt`+left-drag swaps tiled windows, shows the dragged picture, and outlines a
   valid same-output drop target without changing focus before release. An
   invalid drop animates the picture back to its original tile without changing
-  the layout. Switching modes briefly shows a fading Canvas/Tiling label on
-  each output.
+  the layout. Entering tiling briefly shows a fading `TILING MODE` label on each
+  output. Exiting animates tiled windows back to their saved canvas positions
+  and sizes.
   Fullscreen covers only its output and keeps its tile slot; closing that
   window removes it.
 - Hover can focus a visible tile without recentering the tiled camera. Keyboard
@@ -28,7 +29,9 @@ rather than a parity target.
   resulting fixed width is saved with the session. Resizing respects the
   largest client-declared minimum width among the column's windows. A compact
   width label near the pointer updates during the drag and disappears on
-  release.
+  release. Layout movement follows the drag immediately without waiting for
+  client resize commits; repeated pointer updates are coalesced to a 16 ms
+  layout-refresh interval.
 - Tiling topology is stored with durable session entries: output name, column
   and stack order, width, selected window and active column. After restart, the
   compositor still starts in canvas mode; the layout is rebuilt when the user

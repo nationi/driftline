@@ -600,7 +600,6 @@ pub struct PopupGrabState {
 pub type PointerDelivery = (FocusTarget, Point<f64, Logical>, Point<f64, Logical>);
 
 pub(crate) struct TilingModeCue {
-    pub tiling: bool,
     pub elapsed: std::time::Duration,
     pub duration: std::time::Duration,
 }

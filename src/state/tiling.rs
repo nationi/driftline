@@ -237,7 +237,7 @@ fn mapped_tiling_popups(
 }
 
 impl Driftline {
-    fn show_tiling_mode_cue(&mut self, outputs: &[Output], tiling: bool) {
+    fn show_tiling_mode_cue(&mut self, outputs: &[Output]) {
         let speed = self.config.effects.animation_speed;
         if speed >= 1.0 {
             self.tiling_mode_cues.clear();
@@ -249,7 +249,6 @@ impl Driftline {
             self.tiling_mode_cues.insert(
                 output.name(),
                 super::TilingModeCue {
-                    tiling,
                     elapsed: std::time::Duration::ZERO,
                     duration,
                 },
@@ -522,10 +521,42 @@ impl Driftline {
         self.focused_output = Some(active_output);
         self.stage
             .activate_tiling_output(&self.focused_output.as_ref().unwrap().name());
-        self.show_tiling_mode_cue(&cue_outputs, true);
+        self.show_tiling_mode_cue(&cue_outputs);
     }
 
     pub(super) fn exit_tiling(&mut self) {
+        let mut tiled_screen_rects = std::collections::HashMap::new();
+        if self.config.effects.animation_speed < 1.0 {
+            for tiled in self.stage.tiled_windows() {
+                let Some(element) = self.stage.window_by_id(tiled.id) else {
+                    continue;
+                };
+                let Some(output_name) = self.stage.tiling_output_for_window(tiled.id) else {
+                    continue;
+                };
+                let Some(output) = self.output_by_name(output_name) else {
+                    continue;
+                };
+                let Some(loc) = self.stage.position_of(element) else {
+                    continue;
+                };
+                let visual = self.geometry_seed(tiled.id, loc, element.geometry().size);
+                let (camera, zoom) = {
+                    let os = output_state(&output);
+                    (os.camera, os.zoom)
+                };
+                tiled_screen_rects.insert(
+                    tiled.id,
+                    smithay::utils::Rectangle::<f64, Logical>::new(
+                        Point::from((
+                            (visual.loc.x - camera.x) * zoom,
+                            (visual.loc.y - camera.y) * zoom,
+                        )),
+                        smithay::utils::Size::from((visual.size.w * zoom, visual.size.h * zoom)),
+                    ),
+                );
+            }
+        }
         let saved: Vec<_> = self
             .stage
             .tiled_windows()
@@ -539,7 +570,6 @@ impl Driftline {
         if views.is_empty() {
             return;
         }
-        let cue_outputs: Vec<_> = views.iter().map(|view| view.output.clone()).collect();
         self.tiling_topology = Some(self.stage.tiling_topology());
         self.cancel_animations_everywhere();
         for mut view in views {
@@ -549,6 +579,13 @@ impl Driftline {
             }
             if let Some(timer) = view.configure_timer.take() {
                 self.loop_handle.remove(timer);
+            }
+            {
+                let mut os = output_state(&view.output);
+                os.camera = view.camera;
+                os.zoom = view.zoom;
+                os.camera_target = None;
+                os.zoom_target = None;
             }
             for (id, _) in view.initial_configures {
                 if !self.stage.is_tiled(id)
@@ -584,16 +621,36 @@ impl Driftline {
                     true,
                     false,
                 );
+                if let Some(screen_rect) = tiled_screen_rects.get(&column.id)
+                    && view.zoom > 0.0
+                {
+                    let seed = smithay::utils::Rectangle::<f64, Logical>::new(
+                        Point::from((
+                            view.camera.x + screen_rect.loc.x / view.zoom,
+                            view.camera.y + screen_rect.loc.y / view.zoom,
+                        )),
+                        smithay::utils::Size::from((
+                            screen_rect.size.w / view.zoom,
+                            screen_rect.size.h / view.zoom,
+                        )),
+                    );
+                    self.begin_element_geometry_animation_seeded(
+                        &element,
+                        seed,
+                        super::window_animation::AnimSpace::Canvas,
+                        element.client().map(|_| column.restore.size),
+                        super::window_animation::GeometryRole::Normal,
+                        super::window_animation::ContentPolicy::Stretch,
+                        Some(column.restore.loc),
+                    );
+                }
             }
-            let mut os = output_state(&view.output);
-            os.camera = view.camera;
-            os.zoom = view.zoom;
         }
         self.update_output_from_camera();
         self.render.blur_geometry_generation += 1;
         self.mark_all_dirty();
         self.session_store_mark_dirty();
-        self.show_tiling_mode_cue(&cue_outputs, false);
+        self.tiling_mode_cues.clear();
     }
 
     pub(crate) fn focus_tiling_column(&mut self, direction: Direction) {
@@ -931,6 +988,13 @@ impl Driftline {
             return;
         }
         let output_name = output.name();
+        // Interactive width changes need canvas-like feedback: client buffers
+        // may take several frames to honor their configure, but that must not
+        // hold the neighboring columns' positions behind a commit barrier.
+        let interactive_resize = self
+            .tiling_width_indicator
+            .as_ref()
+            .is_some_and(|(_, resizing_output, _)| *resizing_output == output_name);
         let Some(view) = self.tiling_view.as_ref() else {
             return;
         };
@@ -1151,12 +1215,14 @@ impl Driftline {
             extra_x += reserved_width - desired_width;
         }
         self.expire_tiling_commits(now);
-        if placements.iter().any(|p| {
-            self.stage
-                .window_by_id(p.id)
-                .and_then(|w| w.client())
-                .is_some_and(|w| configured_window_size(w) != p.content.size)
-        }) {
+        if !interactive_resize
+            && placements.iter().any(|p| {
+                self.stage
+                    .window_by_id(p.id)
+                    .and_then(|w| w.client())
+                    .is_some_and(|w| configured_window_size(w) != p.content.size)
+            })
+        {
             self.capture_tiling_snapshots();
         }
         let mut requests = std::collections::HashMap::new();
@@ -1279,17 +1345,22 @@ impl Driftline {
         if added {
             self.session_store_mark_dirty();
         }
-        if self
+        let waiting_for_clients = self
             .tiling_view
             .as_ref()
             .is_some_and(|v| v.commits.is_some() || v.commit_wakeups != 0)
-            || !self.tiling_presentation_ready(now)
-        {
+            || !self.tiling_presentation_ready(now);
+        if waiting_for_clients && !interactive_resize {
             return;
         }
         let view = self.tiling_view.as_mut().unwrap();
         view.presentation = None;
-        let snapshots = std::mem::take(&mut view.snapshots);
+        let snapshots = if interactive_resize {
+            view.snapshots.clear();
+            std::collections::HashMap::new()
+        } else {
+            std::mem::take(&mut view.snapshots)
+        };
         if !snapshots.is_empty() {
             self.render.blur_geometry_generation += 1;
             self.mark_all_dirty();

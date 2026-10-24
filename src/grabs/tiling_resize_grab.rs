@@ -1,3 +1,5 @@
+use std::time::{Duration, Instant};
+
 use smithay::{
     input::{
         SeatHandler,
@@ -11,6 +13,8 @@ use crate::state::Driftline;
 use driftline::layout::scrolling::ColumnWidth;
 use driftline::stage::ColumnId;
 
+const RESIZE_REFRESH_INTERVAL: Duration = Duration::from_millis(16);
+
 /// Resizes one scrolling column horizontally while Alt+right-drag is held.
 pub struct TilingResizeGrab {
     pub start_data: GrabStartData<Driftline>,
@@ -19,6 +23,7 @@ pub struct TilingResizeGrab {
     initial_width: i32,
     min_width: i32,
     max_width: i32,
+    last_refresh: Option<Instant>,
     changed: bool,
 }
 
@@ -38,6 +43,7 @@ impl TilingResizeGrab {
             initial_width: initial_width.max(1),
             min_width: min_width.max(1),
             max_width: max_width.max(min_width).max(1),
+            last_refresh: None,
             changed: false,
         }
     }
@@ -66,7 +72,17 @@ impl PointerGrab<Driftline> for TilingResizeGrab {
             .stage
             .set_column_width(self.column, ColumnWidth::Fixed(width))
         {
-            data.refresh_tiling();
+            let now = Instant::now();
+            // Pointer devices can report much faster than the display refreshes.
+            // Coalesce the expensive layout/configure work; release flushes the
+            // final width below.
+            if self
+                .last_refresh
+                .is_none_or(|last| now.duration_since(last) >= RESIZE_REFRESH_INTERVAL)
+            {
+                data.refresh_tiling();
+                self.last_refresh = Some(now);
+            }
             data.mark_all_dirty();
             self.changed = true;
         }
@@ -82,6 +98,7 @@ impl PointerGrab<Driftline> for TilingResizeGrab {
         handle.button(data, event);
         if handle.current_pressed().is_empty() {
             if self.changed {
+                data.refresh_tiling();
                 data.session_store_mark_dirty();
             }
             handle.unset_grab(self, data, event.serial, event.time, true);

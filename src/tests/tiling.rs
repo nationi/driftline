@@ -164,15 +164,13 @@ fn invalid_alt_drag_returns_the_window_to_its_tile_without_reordering() {
 }
 
 #[test]
-fn mode_switch_shows_a_brief_per_output_cue_that_fades_away() {
+fn entering_tiling_shows_a_brief_per_output_cue_that_fades_away() {
     let mut f = Fixture::new();
     f.add_output(1, (1200, 800));
     f.add_output(2, (1600, 900));
 
     f.state().execute_action(&Action::ToggleTiling);
     assert_eq!(f.state().tiling_mode_cues.len(), 2);
-    assert!(f.state().tiling_mode_cues["HEADLESS-1"].tiling);
-    assert!(f.state().tiling_mode_cues["HEADLESS-2"].tiling);
 
     f.state()
         .tick_window_animations(std::time::Duration::from_millis(300));
@@ -183,12 +181,50 @@ fn mode_switch_shows_a_brief_per_output_cue_that_fades_away() {
     assert!(!f.state().tiling_mode_cues.contains_key("HEADLESS-1"));
 
     f.state().execute_action(&Action::ToggleTiling);
-    assert_eq!(f.state().tiling_mode_cues.len(), 2);
-    assert!(!f.state().tiling_mode_cues["HEADLESS-1"].tiling);
-    assert!(!f.state().tiling_mode_cues["HEADLESS-2"].tiling);
-    f.state()
-        .tick_window_animations(std::time::Duration::from_secs(1));
     assert!(f.state().tiling_mode_cues.is_empty());
+}
+
+#[test]
+fn exiting_tiling_animates_from_the_visible_tile_without_a_canvas_mode_cue() {
+    let mut f = Fixture::new();
+    f.add_output(1, (1200, 800));
+    let client = f.add_client();
+    map_window(&mut f, client, "a", (400, 300));
+    let window = window_by_app_id(&mut f, "a").unwrap();
+    let id = f.state().stage.id_of(&window).unwrap();
+    f.state().set_camera((180.0, -90.0).into());
+    f.state().set_zoom(0.7);
+    let output = f.state().space.outputs().next().unwrap().clone();
+    let canvas_screen_rect = f.state().window_screen_rect_on(&window, &output).unwrap();
+    f.state().execute_action(&Action::ToggleTiling);
+    f.double_roundtrip(client);
+    let tiled_screen_rect = f.state().window_screen_rect_on(&window, &output).unwrap();
+
+    f.state().execute_action(&Action::ToggleTiling);
+
+    assert!(f.state().tiling_view.is_none());
+    assert!(f.state().tiling_mode_cues.is_empty());
+    assert!(
+        f.state()
+            .window_animations
+            .geometry_visual_rect(id)
+            .is_some()
+    );
+    let transition_start = f.state().window_screen_rect_on(&window, &output).unwrap();
+    assert!((transition_start.loc.x - tiled_screen_rect.loc.x).abs() < 0.01);
+    assert!((transition_start.loc.y - tiled_screen_rect.loc.y).abs() < 0.01);
+    assert!((transition_start.size.w - tiled_screen_rect.size.w).abs() < 0.01);
+    assert!((transition_start.size.h - tiled_screen_rect.size.h).abs() < 0.01);
+
+    f.state()
+        .tick_window_animations(std::time::Duration::from_millis(100));
+    let transition_midpoint = f.state().window_screen_rect_on(&window, &output).unwrap();
+    let distance = |rect: smithay::utils::Rectangle<f64, smithay::utils::Logical>| {
+        (rect.loc.x - canvas_screen_rect.loc.x).hypot(rect.loc.y - canvas_screen_rect.loc.y)
+            + (rect.size.w - canvas_screen_rect.size.w).abs()
+            + (rect.size.h - canvas_screen_rect.size.h).abs()
+    };
+    assert!(distance(transition_midpoint) < distance(transition_start));
 }
 
 #[test]
@@ -265,6 +301,7 @@ fn alt_right_drag_resizes_tiled_column_without_leaving_tiling() {
     map_window(&mut f, client, "a", (400, 300));
     map_window(&mut f, client, "b", (400, 300));
     let window = window_by_app_id(&mut f, "a").unwrap();
+    let next_window = window_by_app_id(&mut f, "b").unwrap();
     let id = f.state().stage.id_of(&window).unwrap();
     f.state().execute_action(&Action::ToggleTiling);
     f.double_roundtrip(client);
@@ -275,6 +312,7 @@ fn alt_right_drag_resizes_tiled_column_without_leaving_tiling() {
         .visual_frame_rect(&StageWindow::Client(window.clone()))
         .unwrap();
     let initial_width = (frame.x_high - frame.x_low).round() as i32;
+    let next_initial_position = window_position(&mut f, &next_window);
     let center = window_position(&mut f, &window)
         + smithay::utils::Point::from((window.geometry().size.w / 2, window.geometry().size.h / 2));
     let pointer = FakeDevice::mouse();
@@ -294,6 +332,10 @@ fn alt_right_drag_resizes_tiled_column_without_leaving_tiling() {
     assert_eq!(
         f.state().stage.column(column).unwrap().width,
         ColumnWidth::Fixed(initial_width + 100)
+    );
+    assert!(
+        window_position(&mut f, &next_window).x > next_initial_position.x,
+        "the following column should track the drag without waiting for client commits"
     );
     assert_eq!(
         f.state().tiling_width_indicator,
