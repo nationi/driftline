@@ -124,7 +124,7 @@ tiling. The refresh now pauses for the fullscreen output, preserving its tile
 slot until fullscreen exits; normal layout refresh resumes after exit. The
 regression exercises the actual `Win+F` key path and acknowledges both
 fullscreen and restore configures. All 58 tiling tests, formatting and
-`git diff --check` passed. The fix is included in release 1.1.1.
+`git diff --check` passed. The fix is superseded by the fuller 1.1.2 fix below.
 
 ## Fullscreen restore recenter
 
@@ -137,7 +137,7 @@ arrived: the commit handler used ordinary placement, which exits tiling for a
 free-moved tile. Recenter commits now preserve existing tile membership. The
 regression covers the restoring commit. All 59 tiling tests and the compositor
 test suite (1594 passed, 81 ignored), all-target clippy, formatting and
-`git diff --check` passed. These fixes are follow-ups to release 1.1.1.
+`git diff --check` passed. These fixes are included in release 1.1.2.
 
 ## Documentation baseline
 
