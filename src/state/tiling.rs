@@ -862,9 +862,14 @@ impl Driftline {
             .stage
             .tiled_windows_for_output(&output_name)
             .any(|column| {
-                self.stage
-                    .window_by_id(column.id)
-                    .is_some_and(|w| !self.tiling_eligible(w))
+                self.stage.window_by_id(column.id).is_some_and(|w| {
+                    // An existing tile stays in its layout while the client
+                    // commits the restored size after fullscreen.
+                    let restoring_tiled_window = w
+                        .wl_surface()
+                        .is_some_and(|surface| self.pending_recenter.contains_key(&surface.id()));
+                    !self.tiling_eligible(w) && !restoring_tiled_window
+                })
             })
         {
             self.prepare_tiling_operation(super::TilingOperation::LayoutInvalidated);

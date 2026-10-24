@@ -126,6 +126,17 @@ regression exercises the actual `Win+F` key path and acknowledges both
 fullscreen and restore configures. All 58 tiling tests, formatting and
 `git diff --check` passed. The fix is included in release 1.1.1.
 
+## Fullscreen restore recenter
+
+Follow-up testing found a second transition edge: when the fullscreen buffer is
+larger than the saved tiled size, exit creates a pending recenter while waiting
+for the client to commit its restored buffer. That temporary state must not
+invalidate an already-owned tile. Tiling refresh now preserves that membership
+until the recenter settles. A focused regression covers an existing tile with
+a pending restore recenter. All 59 tiling tests and the compositor test suite
+(1594 passed, 81 ignored), all-target clippy, formatting and `git diff --check`
+passed. The fix is currently an uncommitted follow-up to release 1.1.1.
+
 ## Documentation baseline
 
 The README describes the fork and uses versioned release checkouts. The user

@@ -1,5 +1,7 @@
 use driftline::config::{Action, BTN_LEFT, BTN_MIDDLE, BTN_RIGHT, Direction};
+use smithay::reexports::wayland_server::Resource;
 use smithay::utils::SERIAL_COUNTER;
+use smithay::wayland::seat::WaylandFocus;
 
 use super::input_backend::{FakeDevice, key_press, key_release, pointer_to, press, release};
 use super::{
@@ -627,6 +629,31 @@ fn win_f_enters_and_exits_fullscreen_without_leaving_tiling() {
     key_release(&mut f, KEY_LEFTMETA);
     ack_but_keep_size(&mut f, client, &surface);
     assert!(f.state().stage.fullscreen_on(&output.name()).is_none());
+    assert!(f.state().tiling_view.is_some());
+    assert!(f.state().stage.is_tiled(id));
+}
+
+#[test]
+fn fullscreen_exit_recenter_does_not_invalidate_tiling() {
+    let mut f = Fixture::new();
+    f.add_output(1, (1200, 800));
+    let client = f.add_client();
+    map_window(&mut f, client, "fullscreen", (400, 300));
+    let window = window_by_app_id(&mut f, "fullscreen").unwrap();
+    let id = f.state().stage.id_of(&window).unwrap();
+
+    f.state().execute_action(&Action::ToggleTiling);
+    assert!(f.state().stage.is_tiled(id));
+    f.state().pending_recenter.insert(
+        window.wl_surface().unwrap().id(),
+        crate::state::PendingRecenter {
+            target_center: (600.0, 400.0).into(),
+            pre_exit_size: window.geometry().size,
+        },
+    );
+
+    f.state().refresh_tiling();
+
     assert!(f.state().tiling_view.is_some());
     assert!(f.state().stage.is_tiled(id));
 }
