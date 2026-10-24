@@ -42,9 +42,9 @@ On real hardware (udev backend), the compositor owns all input devices via libin
 
 `SERIAL_COUNTER.next_serial()` generates unique serials for input events. Reusing or going backwards breaks client-side validation. Always generate a fresh serial per event.
 
-## We lie to clients about being tiled
+## We advertise tiled states in every window mode
 
-driftline sets all four `xdg_toplevel` Tiled states on every CSD window, even though no window is ever actually tiled — driftline is a floating compositor. We clip client shadow ourselves regardless (via the `corner_clip` shader), so Tiled is **not** load-bearing for shadow suppression. What it actually buys is corner-radius uniformity: GTK/libadwaita/Chromium drop their own rounded corners on seeing Tiled, so our clip arc is the only one visible. Without Tiled, a client that rounds to 8 px inside our 10 px clip shows a subtle double-curve.
+Driftline sets all four `xdg_toplevel` Tiled states on every CSD window, in canvas and scrolling-tiling modes alike. In canvas mode windows float; in tiling mode the compositor arranges them in columns. The protocol state is therefore not a report of current layout membership. We clip client shadow ourselves regardless (via the `corner_clip` shader), so Tiled is **not** load-bearing for shadow suppression. What it actually buys is corner-radius uniformity: GTK/libadwaita/Chromium drop their own rounded corners on seeing Tiled, so our clip arc is the only one visible. Without Tiled, a client that rounds to 8 px inside our 10 px clip shows a subtle double-curve.
 
 This is a deliberate semantic misuse of the protocol. The debt it incurs:
 

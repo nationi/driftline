@@ -35,6 +35,10 @@ Record each output's resolution and scale, then check:
    it gets a fresh empty layout.
 5. Switch to canvas. Confirm windows return to their saved positions and that
    no window is lost, stuck mid-configure or left displaying stale content.
+6. To check restart persistence, keep the same `--session-file`, wait for the
+   session save after arranging columns, then exit and launch the same command
+   again. Relaunch the restored apps, enter tiling, and confirm their output,
+   column and stack order, width, and selected position return.
 
 Record the observations and any failure in
 [`tiling-status.md`](tiling-status.md). Automated fixture and GPU tests cover

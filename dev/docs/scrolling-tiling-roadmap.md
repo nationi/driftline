@@ -1,6 +1,6 @@
 # Practical scrolling tiling roadmap
 
-Updated 2026-10-23. This roadmap replaces the former niri parity objective. The
+Updated 2026-10-24. This roadmap replaces the former niri parity objective. The
 project is a trackpad-first infinite canvas compositor with an optional,
 practical scrolling-column mode. Niri informs interaction choices where useful;
 matching every niri behavior is not a goal.
@@ -30,7 +30,7 @@ Driftline
 
 Each output's state owns its layout identity, column order and selection,
 configure/commit transactions, snapshots and view anchor. Layout geometry uses
-that output's usable area and scale. Driftwm's existing output state continues
+that output's usable area and scale. Driftline's existing output state continues
 to own each camera. A window belongs to at most one output layout; focusing
 another monitor selects that monitor's layout. New windows join the output where
 they are created, using their canvas-space center: if the active (pointer-focused)
@@ -96,7 +96,7 @@ implementation is in place. Fixture coverage verifies assignment of existing
 and late-mapped windows, navigation to a tiled window on another output,
 independent configure progress and output-specific size offers. An ignored GPU
 case verifies snapshot rendering and independent release on the two outputs.
-Manual multi-monitor acceptance remains part of step 4.
+The user confirmed manual multi-monitor acceptance on 2026-10-24.
 
 ### 2. Handle output topology changes safely
 
@@ -111,13 +111,12 @@ not resurrect stale IDs, configure groups, snapshots or ownership. Keep the
 user-facing behavior predictable when output names are reused.
 
 Acceptance: connect, surviving-output transfer, last-output removal and
-same-name reconnect have passing fixture coverage. Remaining is unplug with
-pending configure groups or retained snapshots while a survivor remains; this
-is now covered by a fixture and an ignored GPU pixel regression. The fixture
-keeps configure requests pending through unplug and drains the survivor's
-reflow. The GPU case confirms the survivor's held pixels remain stable while
-the removed output view is discarded. `dev/scripts/ci-local` passes with both
-regressions included.
+same-name reconnect have passing fixture coverage. The unplug case with pending
+configure groups and retained snapshots is covered by a fixture and an ignored
+GPU pixel regression. The fixture keeps configure requests pending through
+unplug and drains the survivor's reflow. The GPU case confirms the survivor's
+held pixels remain stable while the removed output view is discarded.
+`dev/scripts/ci-local` passes with both regressions included.
 
 ### 3. Add practical cross-output navigation and transfer
 
@@ -133,8 +132,9 @@ Acceptance: the existing transfer has Stage and compositor fixture coverage
 for stable identity, saved geometry, destination focus, configure convergence,
 and different output sizes. The compositor test also covers a 1.5x destination
 and a 700-pixel minimum width; a second compositor test covers splitting a
-stacked tile across the two outputs. Decide whether a separate whole-column
-binding is useful after the transfer has seen manual use.
+stacked tile across the two outputs. The user confirmed the multi-output
+workflow; a separate whole-column binding can be considered if a concrete use
+case emerges.
 
 ### 4. Validate the multi-output user journey
 
@@ -143,9 +143,9 @@ cross-output transfer, hotplug and exit on a real multi-monitor session. Then
 review config reload and output-specific rendering. Keep canvas as the default
 and update the guide to describe only observed behavior.
 
-Acceptance: focused tests and required CI pass; a manual check records output
-geometry/scale and confirms there is no lost window, stuck configure, wrong
-output focus, stale rendering or corrupted canvas restore.
+Acceptance: focused tests and required CI pass; the user confirmed the manual
+multi-monitor workflow on 2026-10-24. A separate manual check of topology
+restore after a compositor restart remains.
 
 ### 5. Keep keyboard controls mode-exclusive
 
@@ -161,8 +161,8 @@ actions to the same chord, with per-mode `none` masks and tap bindings. The
 config guide documents the defaults and tests verify both mode filters.
 
 Acceptance: a mode-specific chord dispatches only in its own mode, and the
-toggle works in both. Automated acceptance passes. Manual multi-output
-acceptance above remains the only planned product validation.
+toggle works in both. Automated acceptance passes, and the user confirmed the
+manual multi-output workflow above.
 
 ### 6. Restore tiling topology across restarts
 

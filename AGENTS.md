@@ -11,14 +11,15 @@ Actively developed and released — a public, multi-contributor project, so matc
 - `dev/docs/testing.md` — the test-suite map and testing rules (config-reference workflow, proptest conventions).
 - `dev/docs/` also holds profiling setup, the `config.reference.toml` grammar, accumulated smithay API notes, and container build recipes.
 
-## Active development: practical scrolling tiling
+## Current tiling work
 
-The objective is dependable scrolling-column tiling across multiple outputs,
-alongside driftline's infinite canvas. Each output should own an independent
-layout. Niri is an inspiration and a source of useful design references, not a
-parity target. Keep the canvas as the default. Do not add workspaces, tabs,
-floating-window policy or broad niri configuration merely to match niri;
-consider each only if it solves a concrete usability gap.
+The fork provides practical scrolling-column tiling across multiple outputs,
+alongside driftline's infinite canvas. Each output owns an independent layout;
+durable session records preserve topology across restarts. Niri is an inspiration
+and a source of useful design references, not a parity target. Keep the canvas
+as the default. Do not add workspaces, tabs, floating-window policy or broad
+niri configuration merely to match niri; consider each only if it solves a
+concrete usability gap.
 
 When continuing tiling work, read these before choosing the next change:
 
@@ -28,9 +29,10 @@ When continuing tiling work, read these before choosing the next change:
   authoritative focused roadmap and definition of done.
 - [`docs/tiling.md`](docs/tiling.md) — behavior currently available to users.
 
-Continue the next unfinished task in dependency order. Check the code and Git
-history against the status before acting. Update the status after each delivered
-change with what passed, what remains and the next step.
+The initial multi-output delivery sequence is implemented. Check the code and
+Git history against the status before further tiling work; prioritize a concrete
+user need or verified bug over adding parity features. Update the status after
+each delivered change with what passed and what remains.
 Keep detailed session context in the status file rather than growing this file.
 The roadmap alone does not authorize pushing, publishing or messaging others.
 

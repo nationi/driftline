@@ -1,175 +1,59 @@
 # Tiling development status
 
-Updated 2026-10-24. The fork's 1.0.0 baseline is integrated into both `main`
-and `nationi/development` at `f29bf70`; documentation was refreshed in
-`6a4f418`. Canvas remains the default. Niri is a design reference, not a parity
-target.
+Updated 2026-10-24. Driftline's latest published release is 1.1.3. The `main`
+branch is the only integration branch; the former `nationi/development` and
+`rebrand/driftline` branches were
+merged and deleted. Canvas remains the default, and niri is a design reference
+rather than a parity target.
 
 ## Current behavior
 
-- Each connected output owns an independent scrolling strip. Windows can be
-  focused, reordered, stacked, widened, transferred between outputs and
-  restored to their canvas geometry.
-- Canvas and tiling keyboard actions are mode-exclusive. `Mod+Ctrl+T` toggles
-  modes; `Mod+R` cycles column widths; `Mod+Shift+R` toggles half/full width.
-- `Mod+Arrow` centers the nearest window or anchor on the canvas and focuses
-  the adjacent column/window in tiling. Explicit tiling focus is protected from
-  the camera-driven hover-focus pull when `focus_follows_mouse` is enabled.
-- Alt+left-drag carries the window picture with the pointer while preserving its
-  layout slot as the drop target; release swaps it with the window underneath
-  on the same output. Fullscreen covers only its target output while the
-  multi-output tiling session remains active; the fullscreen window retains its
-  slot on exit and is pruned if it closes.
-- Toggling back into tiling during the same compositor session restores output
-  ownership, column order, vertical stacks, widths and selected tiles. Durable
-  session records now also preserve these placements across restarts; canvas
-  remains the startup mode and the saved topology applies when tiling is entered.
-- Removing one output transfers its columns to a surviving output. Removing the
-  last output restores canvas mode. Canvas geometry and view are retained.
+- Every connected output has its own scrolling-column layout, selection and
+  view. Windows can be focused, reordered, stacked, resized by column width,
+  and transferred between outputs.
+- `Mod+Ctrl+T` switches between canvas and tiling. Keyboard and pointer actions
+  intended for one mode do not switch modes or run in the other. `Alt+Tab` cycles
+  windows without leaving tiling.
+- `Alt`+left-drag swaps tiled windows and shows drag feedback. Fullscreen covers
+  only its output and keeps its tile slot; closing that window removes it.
+- Tiling topology is stored with durable session entries: output name, column
+  and stack order, width, selected window and active column. After restart, the
+  compositor still starts in canvas mode; the layout is rebuilt when the user
+  enters tiling and the corresponding app windows have adopted their stand-ins.
+- If an output is disconnected during tiling, its columns transfer to a
+  surviving output. Removing the last output restores canvas mode. Canvas
+  geometry and each output's view are retained.
 
-## Scope and known limits
+## Scope and limits
 
-The fork focuses on practical scrolling columns alongside the infinite canvas.
-It does not add workspaces, tabs, or a general floating-window policy.
-Fullscreen is output-local and leaves other outputs in tiling mode. Trackpad
-column snapping and layout-native drag resizing are not implemented.
+The project focuses on practical scrolling columns alongside the infinite
+canvas. It does not add workspaces, tabs, or a general floating-window policy.
+Trackpad column snapping, drag-based column reordering, per-window detach to the
+canvas, and layout-native drag resizing are not implemented. Suspended stand-ins
+do not join columns until their applications are relaunched.
 
-The automated multi-output fixtures cover independent layouts, mapping,
-cross-output transfer, disconnect/reconnect policy and tiling re-entry. The
-user confirmed a successful manual multi-monitor check on 2026-10-24. The full
-hardware checklist is in [the TTY acceptance guide](tty-preview.md).
+When a saved output name is unavailable at tiling entry, its restored windows
+are placed on an available output. Layout state follows session-restored
+windows; it does not auto-launch applications or restore tiling mode at startup.
 
-## Latest validation
+## Validation
 
-At the 1.0.0 integration commit, `dev/scripts/ci-local` passed in full: format,
-locked check, all-target clippy, test compilation, 1668 library/compositor
-tests including ignored GPU cases, all integration targets and the isolated
-soak test. The release build also passed. `.github/workflows/ci.yml` remains
-the source of truth for CI; the local hardware checklist is documented above.
+The user confirmed the multi-monitor tiling workflow on 2026-10-24. The restart
+topology change has fixture coverage for saving and loading window placements,
+and Stage coverage for rebuilding columns, stacks, widths, selection and active
+column state. Compatibility with a schema-v2 session without tiling fields is
+covered.
 
-The 1.1.0 release binary is installed at `~/.local/bin/driftline` and
-`/usr/local/bin/driftline`; the `driftwm` command remains a compatibility alias.
-The active Wayland process keeps its already-loaded executable until the next
-session start.
-
-## Latest fix validation
-
-`cargo fmt --check`, all-target clippy, 54 tiling tests, all 25 keybinding
-integration tests, the generated config-doc gate and `git diff --check` passed.
-`cargo build --release --locked` passed; the matching 1.0.0 binary is installed
-at both user and system paths.
-
-## Alt-drag feedback
-
-The tiled reorder grab now publishes its source window and pointer delta to the
-renderer. While held, the window follows the pointer at reduced opacity and its
-Stage geometry remains unchanged, so it can still be dropped over another tile.
-The feedback clears on grab unset; canvas Alt-drag keeps its existing free-move
-behavior. `cargo fmt` and `cargo check --locked` passed. Automated verification
-of the live pointer/render path and manual multi-monitor acceptance remain
-pending.
-
-## Output-local fullscreen in tiling
-
-Fullscreen no longer exits the global tiling session. The target output is
-covered by fullscreen while each output keeps its independent tiled layout;
-`Win+F` is mode-neutral, and the tiled window retains its slot when fullscreen
-ends. Closing it prunes that slot normally. Added regressions cover keyboard
-toggle, fullscreen close and a second output retaining its layout. All 56
-tiling tests and 161 fullscreen-matched compositor tests passed. The focused
-window-rule case for a fullscreen-on-map window also passes. All-target clippy,
-formatting and `git diff --check` passed. Manual testing on the user's
-multi-monitor setup remains.
-
-## Canvas input isolation
-
-Pointer bindings are mode-filtered before their direct grab paths, which
-previously let resize and snapped-cluster drags call `prepare_tiling_operation`
-and exit tiling without passing through `execute_action`. Tiling permits the
-dedicated Alt+left reorder for a tile and actions explicitly valid in both
-modes; canvas resize, cluster-move, pan and zoom bindings are ignored. Pinned
-and suspended-window chrome and fullscreen pointer paths use the same filter.
-Continuous swipe/pinch canvas bindings are suppressed in tiling; threshold
-actions continue through the existing action-mode guard. Regression coverage
-for Alt+right, Alt+Shift+right, Alt+middle, Alt+Shift+middle,
-Alt+Shift+left and Alt+left reorder is in place. The focused regressions pass;
-`cargo test --locked --bin driftline` passed (1592 passed, 81 ignored),
-`cargo clippy --locked --all-targets -- -D warnings`, `cargo fmt --check` and
-`git diff --check` passed. Manual pointer testing on a live session remains.
-
-## Version 1.1.0
-
-Version 1.1.0 includes arrow-key navigation updates,
-output-local fullscreen while tiling, Alt-drag reorder feedback, and canvas
-mouse/gesture isolation while tiling. The focused changes and full bin test
-suite pass; live multi-monitor acceptance remains hardware-specific. On
-2026-10-24, `dev/scripts/ci-local` passed every CI stage: formatting, locked
-check, all-target clippy, test compilation, 1672 tests including ignored GPU
-cases, integration targets and the isolated soak test.
-
-## Horizontal pointer panning in tiling
-
-Super+left-drag scrolls tiling columns horizontally again. The tiling camera
-already clamps pointer panning to the horizontal axis; the input mode filter
-had been rejecting the `PanViewport` mouse binding before the grab could start.
-An in-process regression covers horizontal movement and a fixed vertical camera.
-
-## Fullscreen configure while tiling
-
-After `Win+F`, a fullscreen client's configure acknowledgement previously made
-the ordinary layout refresh reject that output's fullscreen tile and exit
-tiling. The refresh now pauses for the fullscreen output, preserving its tile
-slot until fullscreen exits; normal layout refresh resumes after exit. The
-regression exercises the actual `Win+F` key path and acknowledges both
-fullscreen and restore configures. All 58 tiling tests, formatting and
-`git diff --check` passed. The fix is superseded by the fuller 1.1.2 fix below.
-
-## Fullscreen restore recenter
-
-Follow-up testing found a second transition edge: when the fullscreen buffer is
-larger than the saved tiled size, exit creates a pending recenter while waiting
-for the client to commit its restored buffer. That temporary state must not
-invalidate an already-owned tile. Tiling refresh now preserves that membership
-until the recenter settles. A second issue occurred when that restored buffer
-arrived: the commit handler used ordinary placement, which exits tiling for a
-free-moved tile. Recenter commits now preserve existing tile membership. The
-regression covers the restoring commit. All 59 tiling tests and the compositor
-test suite (1594 passed, 81 ignored), all-target clippy, formatting and
-`git diff --check` passed. These fixes are included in release 1.1.2.
-
-## Alt-Tab in tiling
-
-Alt-Tab is a focus-cycle action that is valid in both modes, but its tiling
-policy was incorrectly grouped with canvas-only navigation and restored the
-canvas before cycling. It now keeps the active tiling layout; a key-input
-regression verifies both the held cycle session and its commit on Alt release.
-All 60 tiling tests, all-target clippy, formatting and `git diff --check` pass.
-
-## Restart-safe tiling topology
-
-Durable session schema v3 stores each saved window's output, column and stack
-indices, width policy, selected state and active-column state. On restore, the
-placement follows the fresh stand-in stage ID, which remains stable when a
-relaunched client adopts it. The next entry into tiling rebuilds the layout;
-canvas remains the startup mode. Missing outputs fall back to an available
-output, and old session files default to no tiling placement. `dev/scripts/ci-local`
-passes: format, locked check, all-target clippy, test compilation, 1675 tests
-including ignored rendering cases, all integration targets and the isolated
-soak test. The user confirmed the general multi-monitor workflow before this
-change; manual verification of restart restore on the target setup remains.
-
-## Documentation baseline
-
-The README describes the fork and uses versioned release checkouts. The user
-tiling guide covers behavior and controls; detailed implementation and
-validation history belongs in this status and the roadmap. Machine-specific
-preview paths and the stale general TODO archive were removed. No backup or
-editor-temporary files were present in the tracked tree during this review.
+`dev/scripts/ci-local` passed after the restart-persistence implementation:
+formatting, locked check, all-target Clippy, test compilation, 1675 tests
+including ignored rendering cases, integration targets and the isolated soak
+test. Manual verification of tiling restore across a real compositor restart
+on the target multi-monitor setup remains.
 
 ## Start here
 
 - User behavior and bindings: [tiling guide](../../docs/tiling.md)
-- Scope, sequence and acceptance: [roadmap](scrolling-tiling-roadmap.md)
-- Architecture and testing rules: [caveats](caveats.md),
-  [testing](testing.md)
+- Session persistence: [session guide](../../docs/session.md)
+- Scope and acceptance: [roadmap](scrolling-tiling-roadmap.md)
+- Architecture and testing rules: [caveats](caveats.md), [testing](testing.md)
 - Local hardware preview: [TTY guide](tty-preview.md)

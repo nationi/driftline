@@ -1,7 +1,11 @@
 # Testing
 
-The test-suite map and the few rules that keep it trustworthy. Everything runs
-under plain `cargo test` — no display, GPU, or root — and CI runs exactly that.
+The test-suite map and the few rules that keep it trustworthy. The standard
+tests need no display or root. A subset of ignored rendering tests attempts to
+use surfaceless GLES and skips itself when the required EGL/GLES support is not
+available. CI runs the complete command sequence from
+[`ci-local`](../scripts/ci-local), including those ignored cases and the
+isolated soak test.
 
 ## The map
 

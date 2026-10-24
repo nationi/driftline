@@ -126,6 +126,14 @@ Suspended windows themselves are **always** saved and restored, regardless of
 this flag; `restore_windows` only decides whether still-_open_ windows are
 saved too.
 
+If a saved window belonged to a tiled layout, its session entry also carries
+the output name, column and stack position, column width, selected window, and
+active column. Once the app is relaunched and adopts its stand-in, those saved
+placements are used when you enter tiling again. This restores layout state;
+it does not automatically launch applications or start the compositor in
+tiling mode. A live window is included only when `restore_windows` resolves on
+for that app, while an existing suspended entry is always retained.
+
 The window you had focused comes back focused, as focus on its stand-in — so it
 wears a focus ring, `Enter` relaunches it, and `window_placement = "auto"` (the
 default) puts your first new window beside it. The restored focus is applied
@@ -187,9 +195,10 @@ launch.
 
 The session lives at `~/.local/state/driftline/session.json` (respects
 `XDG_STATE_HOME`). If no Driftline session exists yet, an existing file under
-`~/.local/state/driftwm/session.json` is reused in place. Every change that belongs in it — suspending, dismissing,
-relaunching, moving, resizing, changing focus — queues a write that lands ~1s
-later, so a drag costs one write per second rather than one per frame. Panning
+`~/.local/state/driftwm/session.json` is reused in place. Every change that
+belongs in it — suspending, dismissing, relaunching, moving, resizing, changing
+focus or tiling layout — queues a write that lands ~1s later, so a drag costs
+one write per second rather than one per frame. Panning
 and zooming queue the same write on a ~5s delay instead, so a long pan across
 the canvas costs a write every five seconds. A file written by an older driftline
 is read and converted in place; one from a *newer* version, or that fails to
