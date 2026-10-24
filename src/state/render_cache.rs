@@ -71,6 +71,8 @@ pub struct RenderCache {
     pub tile_mirror_shader: Option<GlesTexProgram>,
     pub wallpaper_shader: Option<GlesTexProgram>,
     pub cached_error_bar: HashMap<String, crate::render::ErrorBarCache>,
+    pub cached_tiling_resize_indicators: HashMap<String, crate::render::TilingResizeIndicatorCache>,
+    pub cached_tiling_mode_indicators: HashMap<String, crate::render::TilingModeIndicatorCache>,
     /// Solid-colour strip buffers for other outputs' viewport outlines, per
     /// output. Rebuilding them each frame minted a fresh element `Id` every
     /// frame, which re-damaged every outline and made the blur's background
@@ -114,6 +116,8 @@ impl RenderCache {
             tile_mirror_shader: None,
             wallpaper_shader: None,
             cached_error_bar: HashMap::new(),
+            cached_tiling_resize_indicators: HashMap::new(),
+            cached_tiling_mode_indicators: HashMap::new(),
             cached_outlines: HashMap::new(),
             chunk_bg_shader: None,
             cached_tile_chunks: HashMap::new(),
@@ -181,6 +185,8 @@ impl RenderCache {
         self.remove_blur_caches(output_name);
         self.background_last_animate.remove(output_name);
         self.cached_error_bar.remove(output_name);
+        self.cached_tiling_resize_indicators.remove(output_name);
+        self.cached_tiling_mode_indicators.remove(output_name);
         self.cached_outlines.remove(output_name);
         self.remove_background_chunks(output_name);
         self.remove_capture_state(output_name);

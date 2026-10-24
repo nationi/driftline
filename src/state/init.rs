@@ -278,6 +278,11 @@ impl Driftline {
             stage: driftline::stage::Stage::new(),
             tiling_view: super::tiling::TilingViews::default(),
             tiling_drag_visual: None,
+            tiling_drop_target: None,
+            tiling_width_indicator: None,
+            tiling_mode_cues: HashMap::new(),
+            #[cfg(test)]
+            render_mode_cues_in_tests: false,
             tiling_topology: None,
             space: Space::default(),
             popups: PopupManager::default(),

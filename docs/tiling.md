@@ -12,7 +12,8 @@ With the default Super modifier, press `Mod+Ctrl+T` to switch between canvas and
 tiling. Changing modes does not make navigation shortcuts switch modes. Canvas
 navigation and geometry actions are ignored in tiling, and tiling actions are
 ignored on the canvas. General actions such as closing a window remain
-available in both modes.
+available in both modes. A brief mode label fades at the top of each output after
+the switch.
 
 On the canvas, `Mod+Arrow` moves to and centers the nearest window or navigation
 anchor. `Mod+Ctrl+Arrow` focuses the nearest window with the canvas's directional
@@ -38,12 +39,15 @@ the layout scrolls, including when `focus_follows_mouse` is enabled.
 
 Hold `Alt` and drag a tiled window with the left mouse button. The window's
 picture follows the pointer while its original slot stays in the layout; release
-over another window on the same output to swap their positions. On the canvas,
-this gesture moves windows freely instead.
+over another window on the same output to swap their positions. A valid drop
+target is outlined while dragging; focus and layout change only on release. On
+an invalid drop, the picture smoothly returns to its original tile without
+changing the layout. On the canvas, this gesture moves windows freely instead.
 
 Hold `Alt` and drag with the right mouse button over a tiled window to widen or
 narrow its column. Drag right to expand and left to shrink; the width applies to
-every window stacked in that column. `Alt`+`Shift`+right-drag and
+every window stacked in that column. A small width label follows the pointer
+while resizing. `Alt`+`Shift`+right-drag and
 `Alt`+`Shift`+left-drag of a snapped cluster remain canvas-only.
 
 To assign the same key chord to different actions in each mode, use the

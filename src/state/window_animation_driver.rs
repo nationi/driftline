@@ -847,6 +847,24 @@ impl Driftline {
             self.render.shadow_cache.remove(&key);
         }
 
+        let cue_outputs: Vec<_> = self.tiling_mode_cues.keys().cloned().collect();
+        for name in cue_outputs {
+            let Some(output) = self.output_by_name(&name) else {
+                self.tiling_mode_cues.remove(&name);
+                continue;
+            };
+            let expired = if let Some(cue) = self.tiling_mode_cues.get_mut(&name) {
+                cue.elapsed = cue.elapsed.saturating_add(dt);
+                cue.elapsed >= cue.duration
+            } else {
+                false
+            };
+            if expired {
+                self.tiling_mode_cues.remove(&name);
+            }
+            self.redraws_needed.insert(output);
+        }
+
         for output in affected {
             self.redraws_needed.insert(output);
         }

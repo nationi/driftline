@@ -476,6 +476,43 @@ fn tiling_live_frame(f: &mut Fixture, output: &smithay::output::Output) -> Vec<u
     bytes
 }
 
+#[test]
+#[ignore = "needs Mesa surfaceless EGL; run with --include-ignored"]
+fn tiling_mode_cue_is_visible_then_fades_on_the_output() {
+    let _gl = gl::lock();
+    let Some(renderer) = gl::surfaceless_renderer("tiling mode cue") else {
+        return;
+    };
+    let mut f = Fixture::with_config(super::config(&config_toml(false)));
+    let output = f.add_output(1, (1200, 800));
+    gl::install(&mut f, renderer);
+    f.state().render_mode_cues_in_tests = true;
+    f.state()
+        .execute_action(&driftline::config::Action::ToggleTiling);
+
+    let first = tiling_live_frame(&mut f, &output);
+    let first = RgbaImage::from_raw(1200, 800, first).expect("mode cue frame size");
+    let first_border = first.get_pixel(600, 16);
+    assert!(
+        first_border[2] > first_border[0],
+        "the top-center mode cue should render its blue border: {first_border:?}"
+    );
+
+    f.state()
+        .tick_window_animations(std::time::Duration::from_millis(300));
+    let faded = tiling_live_frame(&mut f, &output);
+    let faded = RgbaImage::from_raw(1200, 800, faded).expect("faded mode cue frame size");
+    let faded_border = faded.get_pixel(600, 16);
+    assert!(
+        faded_border[2] < first_border[2],
+        "mode cue opacity should fall as its animation advances: {first_border:?} → {faded_border:?}"
+    );
+
+    let output_name = output.name();
+    f.state().render.remove_output(&output_name);
+    gl::uninstall(&mut f);
+}
+
 fn upright_scanout(
     raw: &[u8],
     stride: usize,

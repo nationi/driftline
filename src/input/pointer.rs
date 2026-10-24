@@ -731,6 +731,9 @@ impl Driftline {
                                 };
                                 let usable = self.usable_area_on(&output);
                                 let width = (frame.x_high - frame.x_low).round() as i32;
+                                self.tiling_width_indicator =
+                                    Some((column, output.name(), width.max(1)));
+                                self.mark_all_dirty();
                                 let grab = TilingResizeGrab::new(
                                     start_data,
                                     column,

@@ -14,13 +14,19 @@ rather than a parity target.
 - `Mod+Ctrl+T` switches between canvas and tiling. Keyboard and pointer actions
   intended for one mode do not switch modes or run in the other. `Alt+Tab` cycles
   windows without leaving tiling.
-- `Alt`+left-drag swaps tiled windows and shows drag feedback. Fullscreen covers
-  only its output and keeps its tile slot; closing that window removes it.
+- `Alt`+left-drag swaps tiled windows, shows the dragged picture, and outlines a
+  valid same-output drop target without changing focus before release. An
+  invalid drop animates the picture back to its original tile without changing
+  the layout. Switching modes briefly shows a fading Canvas/Tiling label on
+  each output.
+  Fullscreen covers only its output and keeps its tile slot; closing that
+  window removes it.
 - Hover can focus a visible tile without recentering the tiled camera. Keyboard
   and `Alt+Tab` focus navigation suppresses camera-follow hover until the user
   moves the camera, so a stationary cursor cannot undo the selected focus.
 - `Alt`+right-drag widens or narrows the focused column horizontally; the
-  resulting fixed width is saved with the session.
+  resulting fixed width is saved with the session. A compact width label near
+  the pointer updates during the drag and disappears on release.
 - Tiling topology is stored with durable session entries: output name, column
   and stack order, width, selected window and active column. After restart, the
   compositor still starts in canvas mode; the layout is rebuilt when the user
@@ -47,10 +53,16 @@ windows; it does not auto-launch applications or restore tiling mode at startup.
 final fixed width when the grab ends. The Alt-only resize binding is active for
 tiles; `Alt`+`Shift`+right-drag stays canvas-only. Focus navigation also parks
 sloppy-focus camera pulls for tiled `Alt+Tab` navigation, and hover focus leaves
-the tiled camera in place. Focused fixture tests cover resize, mode isolation,
-navigation and hover; all 62 tiling tests, 35 hover-focus tests and 10 cycle
-tests pass. The generated configuration reference is in sync. Formatting,
-all-target Clippy and `git diff --check` pass. Manual testing on a live session
+the tiled camera in place. Tiling animation feedback includes a reorder-target
+outline, a live width label, a return animation for invalid reorder drops, and a
+brief per-output mode label. Successful swaps use the existing reflow
+animation. Mode cues do not change camera or window geometry and are omitted
+with `animation_speed = 1`. Focused fixture tests cover resize, mode isolation,
+navigation, hover, drag feedback, invalid-drop return and mode-cue lifecycle
+across multiple outputs. An ignored surfaceless-GPU pixel test verifies the
+mode label appears and fades. `cargo fmt --check`, all 65 `tests::tiling::`
+fixtures, that GPU test, all-target Clippy and `git diff --check` pass. The
+generated configuration reference is in sync. Manual testing on a live session
 remains.
 
 The user confirmed the multi-monitor tiling workflow on 2026-10-24. The restart

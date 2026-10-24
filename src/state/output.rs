@@ -336,6 +336,7 @@ impl Driftline {
         }
 
         self.exit_fullscreen_on(output);
+        self.tiling_mode_cues.remove(&output.name());
         self.render.remove_output(&output.name());
         self.lock_surfaces.remove(output);
         self.redraws_needed.remove(output);

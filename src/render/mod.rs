@@ -18,6 +18,8 @@ mod suspended;
 mod tile_chunks;
 mod tile_chunks_tiff;
 mod tile_worker;
+mod tiling_mode_indicator;
+mod tiling_resize_indicator;
 mod title;
 pub(crate) use title::{TitleCrossfade, TitlePixels};
 
@@ -47,6 +49,8 @@ pub use shaders::{
     compile_shadow_shader,
 };
 pub use tile_chunks::BgChunkCache;
+pub(crate) use tiling_mode_indicator::TilingModeIndicatorCache;
+pub(crate) use tiling_resize_indicator::TilingResizeIndicatorCache;
 
 #[cfg(test)]
 pub(crate) use capture::{render_elements_to_rgba, render_elements_to_rgba_transformed};
@@ -1130,6 +1134,12 @@ pub fn compose_frame(
         let shows_pinned = state.pinned_picture_of(element_id, window);
         let bucket_pinned = state.draws_pinned_on(element_id, window, output_fullscreen);
         let is_focused = focused_window.as_ref() == Some(window);
+        let is_tiling_drop_target = element_id.is_some_and(|id| {
+            state
+                .tiling_drop_target
+                .as_ref()
+                .is_some_and(|(target, target_output)| *target == id && target_output == &name)
+        });
         let effective_mode = driftline::config::effective_decoration_mode(
             applied.as_ref().and_then(|r| r.decoration.as_ref()),
             &state.config.decorations.default_mode,
@@ -1160,8 +1170,13 @@ pub fn compose_frame(
         // render transform to decide coverage from.
         let frame_chrome = configured.drawn(is_fullscreen, canvas::Coverage::None);
         let has_ssd = frame_chrome.ssd_bar;
-        let effective_bw = frame_chrome.border_width;
-        let border_color = if is_focused {
+        let effective_bw = if is_tiling_drop_target {
+            frame_chrome.border_width.max(2)
+        } else {
+            frame_chrome.border_width
+        };
+        let border_focused = is_focused || is_tiling_drop_target;
+        let border_color = if border_focused {
             driftline::config::effective_border_color_focused(
                 applied.as_ref(),
                 &state.config.decorations,
@@ -1739,7 +1754,7 @@ pub fn compose_frame(
                     effective_corner_radius as f32,
                     effective_bw,
                     border_color,
-                    is_focused,
+                    border_focused,
                     chrome_opacity,
                     scale,
                     zoom,
@@ -1824,7 +1839,7 @@ pub fn compose_frame(
                         radius,
                         effective_bw,
                         border_color,
-                        is_focused,
+                        border_focused,
                         chrome_opacity,
                         scale,
                         zoom,
@@ -2321,8 +2336,28 @@ pub fn compose_frame(
     // cursor. Spliced after blur so it doesn't shift the prefix offsets blur
     // indexes into.
     let error_bar = error_bar::build_error_bar_elements(state, renderer, output);
+    let error_bar_count = error_bar.len();
     if !error_bar.is_empty() {
         all_elements.splice(cursor_count..cursor_count, error_bar);
+    }
+
+    let tiling_width_indicator =
+        tiling_resize_indicator::build_elements(state, renderer, output, camera, zoom);
+    let tiling_width_indicator_count = tiling_width_indicator.len();
+    if !tiling_width_indicator.is_empty() {
+        all_elements.splice(
+            cursor_count + error_bar_count..cursor_count + error_bar_count,
+            tiling_width_indicator,
+        );
+    }
+
+    let tiling_mode_indicator = tiling_mode_indicator::build_elements(state, renderer, output);
+    if !tiling_mode_indicator.is_empty() {
+        all_elements.splice(
+            cursor_count + error_bar_count + tiling_width_indicator_count
+                ..cursor_count + error_bar_count + tiling_width_indicator_count,
+            tiling_mode_indicator,
+        );
     }
 
     all_elements

@@ -131,7 +131,9 @@ impl Driftline {
         };
         // No cutoff: a frozen entry draws nothing new, but its deadline can only
         // fire from a tick, so it has to keep the loop awake.
-        camera_active || self.output_shows_window_animations(output, camera, zoom, None)
+        camera_active
+            || self.output_shows_window_animations(output, camera, zoom, None)
+            || self.tiling_mode_cues.contains_key(&output.name())
     }
 
     /// True when `output_name`'s animated background is due for its next tick
@@ -202,5 +204,6 @@ impl Driftline {
             || !self.closing_snapshots.is_empty()
             || !self.standin_fades.is_empty()
             || !self.resize_crossfades.is_empty()
+            || !self.tiling_mode_cues.is_empty()
     }
 }

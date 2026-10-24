@@ -46,6 +46,15 @@ impl PointerGrab<Driftline> for TilingReorderGrab {
         event: &MotionEvent,
     ) {
         self.last_position = event.location;
+        data.tiling_drop_target = data
+            .topmost_client_under(event.location)
+            .and_then(|window| data.stage.id_of(&window))
+            .filter(|id| {
+                *id != self.source
+                    && data.stage.is_tiled(*id)
+                    && data.stage.tiling_output_for_window(*id) == Some(self.output_name.as_str())
+            })
+            .map(|id| (id, self.output_name.clone()));
         data.tiling_drag_visual = Some((
             self.source,
             self.output_name.clone(),
@@ -66,8 +75,9 @@ impl PointerGrab<Driftline> for TilingReorderGrab {
             let source = self.source;
             let output_name = self.output_name.clone();
             let position = self.last_position;
+            let drag_delta = self.last_position - self.start_data.location;
             data.loop_handle.insert_idle(move |data| {
-                data.complete_tiling_reorder(source, &output_name, position);
+                data.complete_tiling_reorder(source, &output_name, position, drag_delta);
             });
             handle.unset_grab(self, data, event.serial, event.time, true);
         }
@@ -75,6 +85,7 @@ impl PointerGrab<Driftline> for TilingReorderGrab {
 
     fn unset(&mut self, data: &mut Driftline) {
         data.tiling_drag_visual = None;
+        data.tiling_drop_target = None;
         data.mark_all_dirty();
     }
 

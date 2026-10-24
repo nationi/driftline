@@ -58,6 +58,7 @@ impl PointerGrab<Driftline> for TilingResizeGrab {
         let delta = (event.location.x - self.start_data.location.x).round();
         let width =
             (f64::from(self.initial_width) + delta).clamp(1.0, f64::from(self.max_width)) as i32;
+        data.tiling_width_indicator = Some((self.column, self.output.name(), width));
         if data
             .stage
             .set_column_width(self.column, ColumnWidth::Fixed(width))
@@ -84,7 +85,10 @@ impl PointerGrab<Driftline> for TilingResizeGrab {
         }
     }
 
-    fn unset(&mut self, _data: &mut Driftline) {}
+    fn unset(&mut self, data: &mut Driftline) {
+        data.tiling_width_indicator = None;
+        data.mark_all_dirty();
+    }
 
     crate::grabs::forward_pointer_grab_methods!();
 }

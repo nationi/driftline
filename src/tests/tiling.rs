@@ -78,14 +78,128 @@ fn alt_drag_swaps_tiled_windows_without_leaving_tiling() {
         .topmost_client_under(pointer_position)
         .and_then(|window| f.state().stage.id_of(&window));
     assert_eq!(hit, Some(bid), "drop point should hit the target tile");
+    assert_eq!(
+        f.state().tiling_drop_target,
+        Some((bid, "HEADLESS-1".to_owned())),
+        "the destination should be marked for drop feedback while dragging"
+    );
     release(&mut f, &mouse, BTN_LEFT);
     key_release(&mut f, KEY_LEFTALT);
     f.pump(1);
 
+    assert!(f.state().tiling_drop_target.is_none());
     assert_eq!(f.state().stage.column_of(aid), Some(b_column));
     assert_eq!(f.state().stage.column_of(bid), Some(a_column));
     assert_eq!(f.state().stage.active_tile(), Some(aid));
     assert!(f.state().tiling_view.is_some());
+}
+
+#[test]
+fn invalid_alt_drag_returns_the_window_to_its_tile_without_reordering() {
+    let mut f = Fixture::new();
+    f.add_output(1, (1200, 800));
+    let client = f.add_client();
+    map_window(&mut f, client, "a", (400, 300));
+    map_window(&mut f, client, "b", (400, 300));
+    let a = window_by_app_id(&mut f, "a").unwrap();
+    let aid = f.state().stage.id_of(&a).unwrap();
+    f.state().execute_action(&Action::ToggleTiling);
+    f.double_roundtrip(client);
+
+    // Let the windows' initial open effects settle so the return seed is the
+    // drag picture, not an undrawn open fade's destination.
+    f.state()
+        .tick_window_animations(std::time::Duration::from_secs(2));
+    let initial_position = window_position(&mut f, &a);
+    let initial_columns: Vec<_> = f
+        .state()
+        .stage
+        .tiled_columns()
+        .iter()
+        .map(|column| {
+            (
+                column.id,
+                column
+                    .windows
+                    .iter()
+                    .map(|tile| tile.id)
+                    .collect::<Vec<_>>(),
+            )
+        })
+        .collect();
+    let drag_delta = smithay::utils::Point::from((120.0, 32.0));
+
+    f.state().complete_tiling_reorder(
+        aid,
+        "HEADLESS-1",
+        smithay::utils::Point::from((10_000.0, 10_000.0)),
+        drag_delta,
+    );
+
+    let animated = f
+        .state()
+        .window_animations
+        .geometry_visual_rect(aid)
+        .expect("an invalid drop should animate the picture back");
+    assert_eq!(animated.loc, (initial_position.to_f64() + drag_delta));
+    assert_eq!(window_position(&mut f, &a), initial_position);
+    let final_columns: Vec<_> = f
+        .state()
+        .stage
+        .tiled_columns()
+        .iter()
+        .map(|column| {
+            (
+                column.id,
+                column
+                    .windows
+                    .iter()
+                    .map(|tile| tile.id)
+                    .collect::<Vec<_>>(),
+            )
+        })
+        .collect();
+    assert_eq!(final_columns, initial_columns);
+    assert!(f.state().tiling_view.is_some());
+}
+
+#[test]
+fn mode_switch_shows_a_brief_per_output_cue_that_fades_away() {
+    let mut f = Fixture::new();
+    f.add_output(1, (1200, 800));
+    f.add_output(2, (1600, 900));
+
+    f.state().execute_action(&Action::ToggleTiling);
+    assert_eq!(f.state().tiling_mode_cues.len(), 2);
+    assert!(f.state().tiling_mode_cues["HEADLESS-1"].tiling);
+    assert!(f.state().tiling_mode_cues["HEADLESS-2"].tiling);
+
+    f.state()
+        .tick_window_animations(std::time::Duration::from_millis(300));
+    let cue = &f.state().tiling_mode_cues["HEADLESS-1"];
+    assert!(cue.alpha() > 0.0 && cue.alpha() < 1.0);
+    f.state()
+        .tick_window_animations(std::time::Duration::from_secs(1));
+    assert!(!f.state().tiling_mode_cues.contains_key("HEADLESS-1"));
+
+    f.state().execute_action(&Action::ToggleTiling);
+    assert_eq!(f.state().tiling_mode_cues.len(), 2);
+    assert!(!f.state().tiling_mode_cues["HEADLESS-1"].tiling);
+    assert!(!f.state().tiling_mode_cues["HEADLESS-2"].tiling);
+    f.state()
+        .tick_window_animations(std::time::Duration::from_secs(1));
+    assert!(f.state().tiling_mode_cues.is_empty());
+}
+
+#[test]
+fn mode_switch_cue_is_immediate_when_animations_are_disabled() {
+    let mut f = Fixture::new();
+    f.add_output(1, (1200, 800));
+    f.state().config.effects.animation_speed = 1.0;
+
+    f.state().execute_action(&Action::ToggleTiling);
+
+    assert!(f.state().tiling_mode_cues.is_empty());
 }
 
 #[test]
@@ -168,6 +282,10 @@ fn alt_right_drag_resizes_tiled_column_without_leaving_tiling() {
     pointer_to(&mut f, &pointer, center.to_f64());
     key_press(&mut f, KEY_LEFTALT);
     press(&mut f, &pointer, BTN_RIGHT);
+    assert_eq!(
+        f.state().tiling_width_indicator,
+        Some((column, "HEADLESS-1".to_owned(), initial_width))
+    );
     pointer_to(
         &mut f,
         &pointer,
@@ -176,6 +294,10 @@ fn alt_right_drag_resizes_tiled_column_without_leaving_tiling() {
     assert_eq!(
         f.state().stage.column(column).unwrap().width,
         ColumnWidth::Fixed(initial_width + 100)
+    );
+    assert_eq!(
+        f.state().tiling_width_indicator,
+        Some((column, "HEADLESS-1".to_owned(), initial_width + 100))
     );
     assert!(f.state().tiling_view.is_some());
     pointer_to(
@@ -188,6 +310,7 @@ fn alt_right_drag_resizes_tiled_column_without_leaving_tiling() {
         ColumnWidth::Fixed(initial_width - 50)
     );
     release(&mut f, &pointer, BTN_RIGHT);
+    assert!(f.state().tiling_width_indicator.is_none());
     key_release(&mut f, KEY_LEFTALT);
 }
 

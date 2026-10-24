@@ -237,6 +237,27 @@ fn mapped_tiling_popups(
 }
 
 impl Driftline {
+    fn show_tiling_mode_cue(&mut self, outputs: &[Output], tiling: bool) {
+        let speed = self.config.effects.animation_speed;
+        if speed >= 1.0 {
+            self.tiling_mode_cues.clear();
+            return;
+        }
+        let duration = std::time::Duration::from_millis((420.0 + (1.0 - speed) * 360.0) as u64);
+        self.tiling_mode_cues.clear();
+        for output in outputs {
+            self.tiling_mode_cues.insert(
+                output.name(),
+                super::TilingModeCue {
+                    tiling,
+                    elapsed: std::time::Duration::ZERO,
+                    duration,
+                },
+            );
+            self.redraws_needed.insert(output.clone());
+        }
+    }
+
     pub(crate) fn move_tiled_window_to_output(
         &mut self,
         id: driftline::stage::ElementId,
@@ -406,6 +427,7 @@ impl Driftline {
             };
             view_seeds.push((output.clone(), camera, zoom, Point::from((x, y))));
         }
+        let cue_outputs = outputs.clone();
         for (output, camera, zoom, origin) in view_seeds {
             let layout_id = self.stage.begin_tiling_for_output(&output.name());
             self.tiling_view.insert(TilingView {
@@ -500,6 +522,7 @@ impl Driftline {
         self.focused_output = Some(active_output);
         self.stage
             .activate_tiling_output(&self.focused_output.as_ref().unwrap().name());
+        self.show_tiling_mode_cue(&cue_outputs, true);
     }
 
     pub(super) fn exit_tiling(&mut self) {
@@ -516,6 +539,7 @@ impl Driftline {
         if views.is_empty() {
             return;
         }
+        let cue_outputs: Vec<_> = views.iter().map(|view| view.output.clone()).collect();
         self.tiling_topology = Some(self.stage.tiling_topology());
         self.cancel_animations_everywhere();
         for mut view in views {
@@ -569,6 +593,7 @@ impl Driftline {
         self.render.blur_geometry_generation += 1;
         self.mark_all_dirty();
         self.session_store_mark_dirty();
+        self.show_tiling_mode_cue(&cue_outputs, false);
     }
 
     pub(crate) fn focus_tiling_column(&mut self, direction: Direction) {
@@ -597,28 +622,65 @@ impl Driftline {
         source: driftline::stage::ElementId,
         output_name: &str,
         position: Point<f64, Logical>,
+        drag_delta: Point<f64, Logical>,
     ) {
         if self.tiling_view.is_none()
-            || self
-                .active_output()
-                .is_none_or(|output| output.name() != output_name)
+            || self.stage.tiling_output_for_window(source) != Some(output_name)
         {
             return;
         }
-        let Some(target) = self
+        let active_output_matches = self
+            .active_output()
+            .is_some_and(|output| output.name() == output_name);
+        let target = self
             .topmost_client_under(position)
             .and_then(|window| self.stage.id_of(&window))
+            .filter(|target| {
+                active_output_matches
+                    && *target != source
+                    && self.stage.is_tiled(*target)
+                    && self.stage.tiling_output_for_window(*target) == Some(output_name)
+            });
+        if let Some(target) = target
+            && self.stage.swap_tiled_windows(source, target)
+        {
+            self.refresh_tiling();
+            if let Some(element) = self.stage.window_by_id(source).cloned() {
+                self.raise_and_focus_element(&element, SERIAL_COUNTER.next_serial());
+            }
+            return;
+        }
+
+        if drag_delta.x.abs() < 1.0 && drag_delta.y.abs() < 1.0 {
+            return;
+        }
+        if self.config.effects.animation_speed >= 1.0 {
+            return;
+        }
+        let Some(window) = self
+            .stage
+            .window_by_id(source)
+            .and_then(|element| element.client())
+            .cloned()
         else {
             return;
         };
-        if self.stage.tiling_output_for_window(source) != Some(output_name)
-            || !self.stage.swap_tiled_windows(source, target)
-        {
+        let Some(origin) = self.stage.position_of(&window) else {
             return;
-        }
-        self.refresh_tiling();
-        if let Some(element) = self.stage.window_by_id(source).cloned() {
-            self.raise_and_focus_element(&element, SERIAL_COUNTER.next_serial());
+        };
+        let mut seed = self.geometry_seed(source, origin, window.geometry().size);
+        seed.loc += drag_delta;
+        self.begin_geometry_animation_seeded(
+            &window,
+            seed,
+            super::window_animation::AnimSpace::Canvas,
+            None,
+            super::window_animation::GeometryRole::Normal,
+            super::window_animation::ContentPolicy::Stretch,
+            Some(origin),
+        );
+        if self.window_animations.generation_of(source).is_some() {
+            self.mark_all_dirty();
         }
     }
 

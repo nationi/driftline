@@ -599,6 +599,26 @@ pub struct PopupGrabState {
 /// point. See [`Driftline::last_pointer_delivery`].
 pub type PointerDelivery = (FocusTarget, Point<f64, Logical>, Point<f64, Logical>);
 
+pub(crate) struct TilingModeCue {
+    pub tiling: bool,
+    pub elapsed: std::time::Duration,
+    pub duration: std::time::Duration,
+}
+
+impl TilingModeCue {
+    pub(crate) fn alpha(&self) -> f32 {
+        let hold = std::time::Duration::from_millis(160);
+        if self.elapsed <= hold {
+            return 1.0;
+        }
+        let fade = self.duration.saturating_sub(hold);
+        if fade.is_zero() {
+            return 0.0;
+        }
+        (1.0 - (self.elapsed - hold).as_secs_f64() / fade.as_secs_f64()).clamp(0.0, 1.0) as f32
+    }
+}
+
 /// Central compositor state.
 pub struct Driftline {
     pub start_time: Instant,
@@ -616,6 +636,16 @@ pub struct Driftline {
     /// new position. The stage keeps its layout slot until the drop commits.
     pub(crate) tiling_drag_visual:
         Option<(driftline::stage::ElementId, String, Point<f64, Logical>)>,
+    /// Same-output tiled destination under an active reorder drag. Rendering
+    /// uses it for temporary drop feedback without changing keyboard focus.
+    pub(crate) tiling_drop_target: Option<(driftline::stage::ElementId, String)>,
+    /// Live column width shown while Alt+right-drag is resizing that column.
+    pub(crate) tiling_width_indicator: Option<(driftline::stage::ColumnId, String, i32)>,
+    /// Brief per-output label shown after changing between canvas and tiling.
+    pub(crate) tiling_mode_cues: HashMap<String, TilingModeCue>,
+    /// Pixel fixtures omit transient mode UI unless the visual is under test.
+    #[cfg(test)]
+    pub(crate) render_mode_cues_in_tests: bool,
     pub(crate) tiling_topology: Option<driftline::stage::TilingTopology>,
     /// Output registry only (`map_output` / `outputs` / `output_geometry`);
     /// holds no window elements. Per-window output membership
