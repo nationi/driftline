@@ -1,6 +1,6 @@
 # Tiling development status
 
-Updated 2026-10-24. Driftline's next release is 1.1.4. The `main`
+Updated 2026-10-24. Driftline's latest release is 1.1.4. The `main`
 branch is the only integration branch; the former `nationi/development` and
 `rebrand/driftline` branches were
 merged and deleted. Canvas remains the default, and niri is a design reference
