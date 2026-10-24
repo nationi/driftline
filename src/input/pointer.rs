@@ -18,7 +18,9 @@ use smithay::wayland::seat::WaylandFocus;
 use std::rc::Rc;
 
 use crate::decorations::DecorationHit;
-use crate::grabs::{MoveGrab, NavigateGrab, PanGrab, ResizeGrab, TilingReorderGrab};
+use crate::grabs::{
+    MoveGrab, NavigateGrab, PanGrab, ResizeGrab, TilingReorderGrab, TilingResizeGrab,
+};
 use crate::input::{DecoTarget, HitKind, PinnedChrome};
 use crate::state::{
     CLICK_NAVIGATE_SLOP, ClusterMember, ClusterResizeSnapshot, Driftline, FocusTarget,
@@ -105,6 +107,15 @@ impl Driftline {
             // `drift_pan_on`; keep pointer panning available to scroll columns.
             MouseAction::PanViewport => true,
             MouseAction::MoveWindow if context == BindingContext::OnWindow => self
+                .topmost_client_under(pos)
+                .and_then(|window| self.stage.id_of(&window))
+                .is_some_and(|id| {
+                    self.stage.is_tiled(id)
+                        && self.active_output().is_some_and(|output| {
+                            self.stage.tiling_output_for_window(id) == Some(output.name().as_str())
+                        })
+                }),
+            MouseAction::ResizeWindowSnapped if context == BindingContext::OnWindow => self
                 .topmost_client_under(pos)
                 .and_then(|window| self.stage.id_of(&window))
                 .is_some_and(|id| {
@@ -697,6 +708,39 @@ impl Driftline {
                                 .and_then(|s| config::applied_rule(&s))
                                 .is_some_and(|r| r.widget)
                         {
+                            if let (Some(id), Some(output)) =
+                                (self.stage.id_of(&window), self.active_output())
+                                && self.stage.is_tiled(id)
+                                && self.stage.tiling_output_for_window(id)
+                                    == Some(output.name().as_str())
+                            {
+                                let Some(column) = self.stage.column_of(id) else {
+                                    return;
+                                };
+                                let Some(frame) =
+                                    self.visual_frame_rect(&StageWindow::Client(window.clone()))
+                                else {
+                                    return;
+                                };
+                                self.stage.select_tile(id);
+                                self.raise_and_focus(&window, serial);
+                                let start_data = GrabStartData {
+                                    focus: None,
+                                    button,
+                                    location: pos,
+                                };
+                                let usable = self.usable_area_on(&output);
+                                let width = (frame.x_high - frame.x_low).round() as i32;
+                                let grab = TilingResizeGrab::new(
+                                    start_data,
+                                    column,
+                                    output,
+                                    width,
+                                    usable.size.w.saturating_mul(2),
+                                );
+                                pointer.set_grab(self, grab, serial, Focus::Clear);
+                                return;
+                            }
                             self.raise_and_focus(&window, serial);
 
                             self.start_compositor_resize(

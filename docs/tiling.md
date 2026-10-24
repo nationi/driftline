@@ -41,10 +41,10 @@ picture follows the pointer while its original slot stays in the layout; release
 over another window on the same output to swap their positions. On the canvas,
 this gesture moves windows freely instead.
 
-Canvas-only mouse manipulations such as `Alt`+right-click resize,
-`Alt`+`Shift`+right-click resize, and `Alt`+`Shift`+left-drag of a snapped
-cluster are ignored in tiling. Switch back to the canvas to use them. Tiled
-windows can still be focused and reordered with `Alt`+left-drag.
+Hold `Alt` and drag with the right mouse button over a tiled window to widen or
+narrow its column. Drag right to expand and left to shrink; the width applies to
+every window stacked in that column. `Alt`+`Shift`+right-drag and
+`Alt`+`Shift`+left-drag of a snapped cluster remain canvas-only.
 
 To assign the same key chord to different actions in each mode, use the
 mode-specific tables:
@@ -119,8 +119,9 @@ do not join columns.
 
 Scrolling tiling is focused on columns and independent per-output layouts. It
 does not include workspaces, tabs, a general floating-window layer, drag-based
-column reordering, per-window detach to the canvas, trackpad column snapping, or
-layout-native drag resizing. Column width presets are fixed.
+column reordering, per-window detach to the canvas, or trackpad column snapping.
+Column widths can be resized by mouse drag or set to one of the keyboard
+presets.
 
 For development scope and validation notes, see the
 [tiling status](../dev/docs/tiling-status.md) and

@@ -1,7 +1,10 @@
 use driftline::config::{Action, BTN_LEFT, BTN_MIDDLE, BTN_RIGHT, Direction};
+use driftline::layout::scrolling::ColumnWidth;
 use smithay::reexports::wayland_server::Resource;
 use smithay::utils::SERIAL_COUNTER;
 use smithay::wayland::seat::WaylandFocus;
+
+use crate::state::StageWindow;
 
 use super::input_backend::{FakeDevice, key_press, key_release, pointer_to, press, release};
 use super::{
@@ -86,7 +89,7 @@ fn alt_drag_swaps_tiled_windows_without_leaving_tiling() {
 }
 
 #[test]
-fn canvas_mouse_resize_and_cluster_move_bindings_do_not_leave_tiling() {
+fn canvas_mouse_cluster_resize_and_move_bindings_do_not_leave_tiling() {
     let mut f = Fixture::new();
     f.add_output(1, (1200, 800));
     let client = f.add_client();
@@ -113,8 +116,17 @@ fn canvas_mouse_resize_and_cluster_move_bindings_do_not_leave_tiling() {
 
     key_press(&mut f, KEY_LEFTALT);
     key_press(&mut f, 42); // Left Shift
+    let window_id = f.state().stage.id_of(&window).unwrap();
+    let column = f.state().stage.column_of(window_id).unwrap();
+    let width_before = f.state().stage.column(column).unwrap().width;
     press(&mut f, &pointer, BTN_RIGHT);
+    pointer_to(
+        &mut f,
+        &pointer,
+        (location + smithay::utils::Point::from((100, 0))).to_f64(),
+    );
     assert!(f.state().tiling_view.is_some());
+    assert_eq!(f.state().stage.column(column).unwrap().width, width_before);
     assert!(f.state().interactive_move.is_empty());
     release(&mut f, &pointer, BTN_RIGHT);
     press(&mut f, &pointer, BTN_MIDDLE);
@@ -129,6 +141,54 @@ fn canvas_mouse_resize_and_cluster_move_bindings_do_not_leave_tiling() {
     key_release(&mut f, 42);
     key_release(&mut f, KEY_LEFTALT);
     assert!(f.state().tiling_view.is_some());
+}
+
+#[test]
+fn alt_right_drag_resizes_tiled_column_without_leaving_tiling() {
+    let mut f = Fixture::new();
+    f.add_output(1, (1200, 800));
+    let client = f.add_client();
+    map_window(&mut f, client, "a", (400, 300));
+    map_window(&mut f, client, "b", (400, 300));
+    let window = window_by_app_id(&mut f, "a").unwrap();
+    let id = f.state().stage.id_of(&window).unwrap();
+    f.state().execute_action(&Action::ToggleTiling);
+    f.double_roundtrip(client);
+
+    let column = f.state().stage.column_of(id).unwrap();
+    let frame = f
+        .state()
+        .visual_frame_rect(&StageWindow::Client(window.clone()))
+        .unwrap();
+    let initial_width = (frame.x_high - frame.x_low).round() as i32;
+    let center = window_position(&mut f, &window)
+        + smithay::utils::Point::from((window.geometry().size.w / 2, window.geometry().size.h / 2));
+    let pointer = FakeDevice::mouse();
+
+    pointer_to(&mut f, &pointer, center.to_f64());
+    key_press(&mut f, KEY_LEFTALT);
+    press(&mut f, &pointer, BTN_RIGHT);
+    pointer_to(
+        &mut f,
+        &pointer,
+        (center + smithay::utils::Point::from((100, 0))).to_f64(),
+    );
+    assert_eq!(
+        f.state().stage.column(column).unwrap().width,
+        ColumnWidth::Fixed(initial_width + 100)
+    );
+    assert!(f.state().tiling_view.is_some());
+    pointer_to(
+        &mut f,
+        &pointer,
+        (center - smithay::utils::Point::from((50, 0))).to_f64(),
+    );
+    assert_eq!(
+        f.state().stage.column(column).unwrap().width,
+        ColumnWidth::Fixed(initial_width - 50)
+    );
+    release(&mut f, &pointer, BTN_RIGHT);
+    key_release(&mut f, KEY_LEFTALT);
 }
 
 #[test]
@@ -662,7 +722,7 @@ fn fullscreen_restore_commit_keeps_tiling_active() {
 
 #[test]
 fn alt_tab_cycles_windows_without_leaving_tiling() {
-    let mut f = Fixture::new();
+    let mut f = Fixture::with_config(super::config("focus_follows_mouse = true\n"));
     f.add_output(1, (1200, 800));
     let client = f.add_client();
     map_window(&mut f, client, "a", (400, 300));
@@ -677,12 +737,42 @@ fn alt_tab_cycles_windows_without_leaving_tiling() {
     assert!(f.state().tiling_view.is_some());
     assert!(f.state().stage.cycle_state().is_some());
     assert_ne!(f.state().focused_window(), focused_before);
+    assert!(
+        !f.state().hover_follows_camera,
+        "Alt-Tab's camera movement must not hand focus to a tile under the resting cursor"
+    );
 
     key_release(&mut f, KEY_TAB);
     key_release(&mut f, KEY_LEFTALT);
 
     assert!(f.state().tiling_view.is_some());
     assert!(f.state().stage.cycle_state().is_none());
+}
+
+#[test]
+fn hovering_a_tiled_window_changes_focus_without_moving_the_camera() {
+    let mut f = Fixture::with_config(super::config("focus_follows_mouse = true\n"));
+    f.add_output(1, (1200, 800));
+    let client = f.add_client();
+    map_window(&mut f, client, "a", (400, 300));
+    map_window(&mut f, client, "b", (400, 300));
+    let a = window_by_app_id(&mut f, "a").unwrap();
+    let b = window_by_app_id(&mut f, "b").unwrap();
+
+    f.state().execute_action(&Action::ToggleTiling);
+    f.double_roundtrip(client);
+    f.state().raise_and_focus(&a, SERIAL_COUNTER.next_serial());
+    f.state().refresh_tiling();
+
+    let camera_before = f.state().camera();
+    let b_position = window_position(&mut f, &b);
+    let hover = b_position
+        + smithay::utils::Point::from((b.geometry().size.w / 2, b.geometry().size.h / 2));
+    f.state().maybe_hover_focus(hover.to_f64());
+
+    assert_eq!(f.state().focused_window(), Some(b));
+    assert_eq!(f.state().camera(), camera_before);
+    assert!(f.state().tiling_view.is_some());
 }
 
 #[test]

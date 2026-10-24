@@ -389,6 +389,27 @@ impl<W: StageElement> Stage<W> {
         self.tiling.columns.iter().find(|c| c.id == id)
     }
 
+    pub fn set_column_width(&mut self, id: ColumnId, width: ColumnWidth) -> bool {
+        if !matches!(width, ColumnWidth::Fixed(width) if width > 0)
+            && !matches!(width, ColumnWidth::Proportion(fraction) if fraction.is_finite() && fraction > 0.0)
+        {
+            return false;
+        }
+        let Some(column) = self
+            .tiling
+            .columns
+            .iter_mut()
+            .find(|column| column.id == id)
+        else {
+            return false;
+        };
+        if column.width == width {
+            return false;
+        }
+        column.width = width;
+        true
+    }
+
     pub fn active_tile(&self) -> Option<ElementId> {
         self.column(self.tiling.active?).map(|c| c.selected)
     }

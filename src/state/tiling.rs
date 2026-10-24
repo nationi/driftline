@@ -806,6 +806,11 @@ impl Driftline {
             // Reflow owns the camera target; a new window's temporary canvas
             // placement must not overwrite the stationary tiling view.
             self.raise_and_focus(window, serial);
+            // Alt-Tab and activation can land here without running the canvas
+            // navigation path below. Their camera movement is in service of
+            // the chosen tile, so a resting cursor must not pull focus back to
+            // whichever tile the reflow places beneath it.
+            self.hover_follows_camera = false;
             return true;
         }
         false

@@ -958,6 +958,9 @@ Mouse actions:
 - `move-snapped-windows` — drag the window plus every window connected via snap adjacency
 - `resize-window` — drag-resize the focused window
 - `resize-window-snapped` — drag-resize, propagating to the snap cluster
+
+In tiling, resize-window-snapped adjusts the width of the tiled column.
+
 - `pan-viewport` — drag or scroll to pan the camera
 - `zoom` — drag or scroll to zoom
 - `center-nearest` — navigate toward the drag direction
