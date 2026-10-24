@@ -578,6 +578,56 @@ impl<W: StageElement> Stage<W> {
         true
     }
 
+    /// Place the source column immediately before or after the target column.
+    /// Window order, widths and stable column IDs travel with their columns.
+    pub fn move_tiled_column_relative(
+        &mut self,
+        source: ElementId,
+        target: ElementId,
+        before: bool,
+    ) -> bool {
+        if source == target {
+            return false;
+        }
+        let Some(output) = self.output_for_tile(source) else {
+            return false;
+        };
+        if self.output_for_tile(target).as_deref() != Some(output.as_str()) {
+            return false;
+        }
+        self.activate_tiling_output(&output);
+        let Some(source_index) = self.column_index(source) else {
+            return false;
+        };
+        let Some(target_column) = self.column_index(target).map(|i| self.tiling.columns[i].id)
+        else {
+            return false;
+        };
+        if self.tiling.columns[source_index].id == target_column {
+            return false;
+        }
+
+        let target_index = self
+            .tiling
+            .columns
+            .iter()
+            .position(|column| column.id == target_column)
+            .expect("target column is still present");
+        let target_index_after_removal = target_index - usize::from(source_index < target_index);
+        let insert_index = target_index_after_removal + usize::from(!before);
+        if insert_index == source_index {
+            return false;
+        }
+
+        let moved = self.tiling.columns.remove(source_index);
+        let moved_id = moved.id;
+        self.tiling.columns.insert(insert_index, moved);
+        self.tiling.active = Some(moved_id);
+        self.tiling.restore_previous = None;
+        self.tiling.pending_close_return = None;
+        true
+    }
+
     pub fn move_tile(&mut self, backward: bool) -> bool {
         let Some(id) = self.active_tile() else {
             return false;

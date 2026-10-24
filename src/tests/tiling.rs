@@ -1,10 +1,14 @@
 use driftline::config::{Action, BTN_LEFT, BTN_MIDDLE, BTN_RIGHT, Direction};
 use driftline::layout::scrolling::ColumnWidth;
+use smithay::input::pointer::{Focus, GrabStartData, MotionEvent};
 use smithay::reexports::wayland_server::Resource;
-use smithay::utils::SERIAL_COUNTER;
+use smithay::utils::{Point, SERIAL_COUNTER};
 use smithay::wayland::seat::WaylandFocus;
 
+use crate::grabs::TilingReorderGrab;
 use crate::state::StageWindow;
+use crate::state::output_state;
+use driftline::canvas::{ScreenPos, screen_to_canvas};
 
 use super::input_backend::{FakeDevice, key_press, key_release, pointer_to, press, release};
 use super::{
@@ -242,6 +246,206 @@ fn alt_dragging_a_stacked_window_into_a_column_gap_detaches_it() {
         f.state().stage.column_of(bid)
     );
     assert_eq!(f.state().stage.active_tile(), Some(cid));
+}
+
+#[test]
+fn alt_dragging_a_singleton_to_a_tile_side_reorders_its_column() {
+    let mut f = Fixture::new();
+    f.add_output(1, (1200, 800));
+    let client = f.add_client();
+    map_window(&mut f, client, "a", (400, 300));
+    map_window(&mut f, client, "b", (400, 300));
+    f.state().execute_action(&Action::ToggleTiling);
+    f.double_roundtrip(client);
+    let target_column_id = f
+        .state()
+        .stage
+        .tiled_columns_for_output("HEADLESS-1")
+        .unwrap()[0]
+        .id;
+    f.state()
+        .stage
+        .set_column_width(target_column_id, ColumnWidth::Fixed(1200));
+    f.state().refresh_tiling();
+
+    let (source, target, original_source_column) = {
+        let state = f.state();
+        let columns = state.stage.tiled_columns_for_output("HEADLESS-1").unwrap();
+        let source_column = columns.last().unwrap();
+        let target_column = columns.first().unwrap();
+        (
+            source_column.windows[0].id,
+            target_column.windows[0].id,
+            source_column.id,
+        )
+    };
+    let source_width = f
+        .state()
+        .stage
+        .column(original_source_column)
+        .unwrap()
+        .width;
+    let target_window = f
+        .state()
+        .stage
+        .window_by_id(target)
+        .unwrap()
+        .client()
+        .unwrap()
+        .clone();
+    let target_bbox = f.state().window_bbox_with_popups(&target_window).unwrap();
+    let drop = Point::from((
+        f64::from(target_bbox.loc.x + 8),
+        f64::from(target_bbox.loc.y + target_bbox.size.h / 2),
+    ));
+
+    f.state()
+        .complete_tiling_reorder(source, "HEADLESS-1", drop, Point::from((100.0, 0.0)));
+
+    let columns = f
+        .state()
+        .stage
+        .tiled_columns_for_output("HEADLESS-1")
+        .unwrap();
+    assert_eq!(columns[0].windows[0].id, source);
+    assert_eq!(columns[0].id, original_source_column);
+    assert_eq!(columns[0].width, source_width);
+    assert_eq!(columns[1].windows[0].id, target);
+}
+
+#[test]
+fn alt_dragging_a_stacked_window_to_a_tile_side_detaches_it_as_a_column() {
+    let mut f = Fixture::new();
+    f.add_output(1, (1200, 800));
+    let client = f.add_client();
+    map_window(&mut f, client, "a", (400, 300));
+    map_window(&mut f, client, "b", (400, 300));
+    map_window(&mut f, client, "c", (400, 300));
+    f.state().execute_action(&Action::ToggleTiling);
+    f.double_roundtrip(client);
+
+    let a_window = window_by_app_id(&mut f, "a").unwrap();
+    let c_window = window_by_app_id(&mut f, "c").unwrap();
+    let (a, c) = {
+        let state = f.state();
+        (
+            state.stage.id_of(&a_window).unwrap(),
+            state.stage.id_of(&c_window).unwrap(),
+        )
+    };
+    f.state().stage.select_tile(c);
+    assert!(f.state().stage.move_into_column(true));
+    f.state().refresh_tiling();
+    let target = f
+        .state()
+        .stage
+        .window_by_id(a)
+        .unwrap()
+        .client()
+        .unwrap()
+        .clone();
+    let bbox = f.state().window_bbox_with_popups(&target).unwrap();
+    let drop = Point::from((
+        f64::from(bbox.loc.x + bbox.size.w - 8),
+        f64::from(bbox.loc.y + bbox.size.h / 2),
+    ));
+
+    f.state()
+        .complete_tiling_reorder(c, "HEADLESS-1", drop, Point::from((100.0, 0.0)));
+
+    let columns = f
+        .state()
+        .stage
+        .tiled_columns_for_output("HEADLESS-1")
+        .unwrap();
+    let target_index = columns
+        .iter()
+        .position(|column| column.windows.iter().any(|tile| tile.id == a))
+        .unwrap();
+    assert_eq!(columns[target_index + 1].windows[0].id, c);
+    assert_eq!(columns[target_index + 1].windows.len(), 1);
+    assert_eq!(
+        columns
+            .iter()
+            .flat_map(|column| column.windows.iter())
+            .filter(|tile| tile.id == c)
+            .count(),
+        1
+    );
+}
+
+#[test]
+fn tiling_reorder_edge_pan_reveals_an_adjacent_column() {
+    let mut f = Fixture::new();
+    let output = f.add_output(1, (1200, 800));
+    let client = f.add_client();
+    map_window(&mut f, client, "a", (400, 300));
+    map_window(&mut f, client, "b", (400, 300));
+    f.state().execute_action(&Action::ToggleTiling);
+    f.double_roundtrip(client);
+
+    let (source, start) = {
+        let state = f.state();
+        let first = state
+            .stage
+            .tiled_columns_for_output("HEADLESS-1")
+            .unwrap()
+            .first()
+            .unwrap();
+        let id = first.windows[0].id;
+        let window = state.stage.window_by_id(id).unwrap().client().unwrap();
+        let bbox = state.window_bbox_with_popups(window).unwrap();
+        (
+            id,
+            Point::from((
+                f64::from(bbox.loc.x + bbox.size.w / 2),
+                f64::from(bbox.loc.y + bbox.size.h / 2),
+            )),
+        )
+    };
+    let (camera, zoom) = {
+        let state = output_state(&output);
+        (state.camera, state.zoom)
+    };
+    let edge_position = screen_to_canvas(ScreenPos(Point::from((1190.0, 400.0))), camera, zoom).0;
+    let pointer = f.state().seat.get_pointer().unwrap();
+    let serial = SERIAL_COUNTER.next_serial();
+    pointer.set_grab(
+        f.state(),
+        TilingReorderGrab::new(
+            GrabStartData {
+                focus: None,
+                button: BTN_LEFT,
+                location: start,
+            },
+            source,
+            output.name(),
+        ),
+        serial,
+        Focus::Clear,
+    );
+    pointer.motion(
+        f.state(),
+        None,
+        &MotionEvent {
+            location: edge_position,
+            serial: SERIAL_COUNTER.next_serial(),
+            time: 1,
+        },
+    );
+
+    assert!(
+        output_state(&output)
+            .edge_pan_velocity
+            .is_some_and(|velocity| velocity.x > 0.0),
+        "dragging to the right edge with a next column arms horizontal edge-pan"
+    );
+    let camera_before = f.state().camera().x;
+    f.state().apply_edge_pan();
+    assert!(f.state().camera().x > camera_before);
+
+    pointer.unset_grab(f.state(), SERIAL_COUNTER.next_serial(), 2);
+    assert!(output_state(&output).edge_pan_velocity.is_none());
 }
 
 #[test]

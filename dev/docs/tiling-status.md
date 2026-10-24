@@ -18,6 +18,9 @@ rather than a parity target.
   same-output drop target. Dropping near a tile's top or bottom edge inserts the
   window into that column; dropping in its middle swaps positions. Dragging a
   window in a stack beyond the column's side creates an adjacent new column.
+  Continuing the same drag across an output boundary previews the window on the
+  destination and transfers it there on release, preserving the existing
+  singleton-column and stacked-window transfer behavior.
   Invalid drops animate the picture back without changing the layout. Entering tiling
   briefly shows a fading `TILING MODE` label on each output. Exiting animates
   tiled windows back to their saved canvas positions and sizes.
@@ -71,11 +74,17 @@ mode label. Successful swaps, stack insertions and detachments use the existing
 reflow animation. Mode cues do not change camera or window geometry and are
 omitted with `animation_speed = 1`. Focused fixture tests cover resize, mode
 isolation, navigation, hover, drag swap/insert/detach, invalid-drop return and
-mode-cue lifecycle across multiple outputs. An ignored surfaceless-GPU pixel
-test verifies the mode label appears and fades. All 70 tiling fixtures and
-`dev/scripts/ci-local` pass, including formatting, all-target Clippy, 1687
-compositor tests, integration tests and the isolated soak test. Live mouse
-verification of the new drop zones remains.
+mode-cue lifecycle across multiple outputs. The drop preview is now rendered as
+a high-contrast cyan overlay, independent of client border configuration;
+stack insertion uses a horizontal position marker, and a pointer label names
+the pending operation. Tiled reorder drags horizontally edge-pan toward an
+existing adjacent column; target side zones reorder singleton columns or detach
+stacked windows into a new column. Focused drag fixtures cover target-side
+placement and edge-pan camera movement. Existing output-transfer fixtures cover
+tiling ownership and layout state; the mouse gesture across outputs still needs
+live hardware verification. An ignored surfaceless-GPU pixel test
+verifies the mode label appears and fades. Full CI and live mouse verification
+of the drop preview and edge behavior remain.
 
 The user confirmed the multi-monitor tiling workflow and manually verified
 window relaunch and tiling restoration across a real compositor restart on

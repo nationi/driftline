@@ -16,6 +16,7 @@ const HOVER_RETURN_TARGET: i32 = 48;
 enum TilingDropAction {
     Swap(driftline::stage::ElementId),
     Insert(driftline::stage::ElementId, bool),
+    PlaceColumn(driftline::stage::ElementId, bool),
     Detach(Option<driftline::stage::ElementId>),
 }
 
@@ -744,6 +745,34 @@ impl Driftline {
             Some(TilingDropAction::Insert(target, before)) => {
                 self.stage.insert_tiled_window_at(source, target, before)
             }
+            Some(TilingDropAction::PlaceColumn(target, before)) => {
+                let source_column = self.stage.column_of(source);
+                let source_is_stacked = source_column
+                    .and_then(|id| self.stage.column(id))
+                    .is_some_and(|column| column.windows.len() > 1);
+                if source_is_stacked {
+                    let before_window =
+                        self.stage
+                            .tiled_columns_for_output(output_name)
+                            .and_then(|columns| {
+                                let target_column = columns.iter().position(|column| {
+                                    column.windows.iter().any(|tile| tile.id == target)
+                                })?;
+                                if before {
+                                    Some(target)
+                                } else {
+                                    columns
+                                        .get(target_column + 1)
+                                        .and_then(|column| column.windows.first())
+                                        .map(|tile| tile.id)
+                                }
+                            });
+                    self.stage.detach_tiled_window(source, before_window)
+                } else {
+                    self.stage
+                        .move_tiled_column_relative(source, target, before)
+                }
+            }
             Some(TilingDropAction::Detach(before)) => {
                 self.stage.detach_tiled_window(source, before)
             }
@@ -815,6 +844,13 @@ impl Driftline {
             let window = self.stage.window_by_id(target)?.client()?;
             let bbox = self.window_bbox_with_popups(window)?;
             let relative_y = (position.y - f64::from(bbox.loc.y)) / f64::from(bbox.size.h.max(1));
+            let relative_x = (position.x - f64::from(bbox.loc.x)) / f64::from(bbox.size.w.max(1));
+            if relative_x < 0.12 {
+                return Some(TilingDropAction::PlaceColumn(target, true));
+            }
+            if relative_x > 0.88 {
+                return Some(TilingDropAction::PlaceColumn(target, false));
+            }
             return Some(if relative_y < 0.24 {
                 TilingDropAction::Insert(target, true)
             } else if relative_y > 0.76 {
@@ -837,7 +873,9 @@ impl Driftline {
         position: Point<f64, Logical>,
     ) -> Option<driftline::stage::ElementId> {
         match self.tiling_drop_action(source, output_name, position)? {
-            TilingDropAction::Swap(target) | TilingDropAction::Insert(target, _) => Some(target),
+            TilingDropAction::Swap(target)
+            | TilingDropAction::Insert(target, _)
+            | TilingDropAction::PlaceColumn(target, _) => Some(target),
             TilingDropAction::Detach(Some(target)) => Some(target),
             TilingDropAction::Detach(None) => self
                 .stage

@@ -122,6 +122,8 @@ impl Driftline {
         // Outline strips bake the configured colour into their pixels, so a
         // colour edit must not keep sampling the old buffers.
         self.render.cached_outlines.clear();
+        self.render.cached_tiling_drop_feedback.clear();
+        self.render.cached_tiling_drop_indicators.clear();
 
         // Validate cursor theme before committing. XCURSOR_* reaches
         // children via child_env (rebuilt by `Config::from_raw`); cursor

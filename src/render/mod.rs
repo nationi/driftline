@@ -18,6 +18,7 @@ mod suspended;
 mod tile_chunks;
 mod tile_chunks_tiff;
 mod tile_worker;
+mod tiling_drop_indicator;
 mod tiling_mode_indicator;
 mod tiling_resize_indicator;
 mod title;
@@ -49,6 +50,7 @@ pub use shaders::{
     compile_shadow_shader,
 };
 pub use tile_chunks::BgChunkCache;
+pub(crate) use tiling_drop_indicator::TilingDropIndicatorCache;
 pub(crate) use tiling_mode_indicator::TilingModeIndicatorCache;
 pub(crate) use tiling_resize_indicator::TilingResizeIndicatorCache;
 
@@ -1201,6 +1203,12 @@ pub fn compose_frame(
             bbox.size.w += 2 * effective_bw;
             bbox.size.h += 2 * effective_bw;
         }
+        if let Some((dragged, drag_output, delta)) = state.tiling_drag_visual.as_ref()
+            && element_id == Some(*dragged)
+            && drag_output == &name
+        {
+            bbox.loc += Point::from((delta.x.round() as i32, delta.y.round() as i32));
+        }
         if !visible_rect.overlaps(state.window_cull_rect(element_id, bbox)) {
             continue;
         }
@@ -2352,6 +2360,7 @@ pub fn compose_frame(
     }
 
     let tiling_mode_indicator = tiling_mode_indicator::build_elements(state, renderer, output);
+    let tiling_mode_indicator_count = tiling_mode_indicator.len();
     if !tiling_mode_indicator.is_empty() {
         all_elements.splice(
             cursor_count + error_bar_count + tiling_width_indicator_count
@@ -2359,6 +2368,20 @@ pub fn compose_frame(
             tiling_mode_indicator,
         );
     }
+
+    let tiling_drop_feedback =
+        build_tiling_drop_feedback_elements(state, renderer, output, camera, zoom, viewport_size);
+    let tiling_drop_feedback_count = tiling_drop_feedback.len();
+    let overlay_position =
+        cursor_count + error_bar_count + tiling_width_indicator_count + tiling_mode_indicator_count;
+    all_elements.splice(overlay_position..overlay_position, tiling_drop_feedback);
+    let tiling_drop_indicator =
+        tiling_drop_indicator::build_elements(state, renderer, output, camera, zoom);
+    all_elements.splice(
+        overlay_position + tiling_drop_feedback_count
+            ..overlay_position + tiling_drop_feedback_count,
+        tiling_drop_indicator,
+    );
 
     all_elements
 }
@@ -2422,6 +2445,118 @@ fn outline_buffer(
             None,
         )
     })
+}
+
+/// A high-contrast drop preview that stays visible even when window borders are
+/// disabled or use a low-contrast theme color.
+fn build_tiling_drop_feedback_elements(
+    state: &mut crate::state::Driftline,
+    renderer: &mut GlesRenderer,
+    output: &Output,
+    camera: Point<f64, Logical>,
+    zoom: f64,
+    viewport_size: Size<i32, Logical>,
+) -> Vec<OutputRenderElements> {
+    let Some((target, output_name)) = state.tiling_drop_target.as_ref() else {
+        return Vec::new();
+    };
+    if output.name() != *output_name {
+        return Vec::new();
+    }
+    let Some(window) = state
+        .stage
+        .window_by_id(*target)
+        .and_then(|entry| entry.client())
+    else {
+        return Vec::new();
+    };
+    let Some(bbox) = state.window_bbox_with_popups(window) else {
+        return Vec::new();
+    };
+
+    let scale = output.current_scale().fractional_scale();
+    let screen_rect = Rectangle::new(
+        Point::from((
+            ((bbox.loc.x as f64 - camera.x) * zoom).round() as i32,
+            ((bbox.loc.y as f64 - camera.y) * zoom).round() as i32,
+        )),
+        Size::from((
+            (bbox.size.w as f64 * zoom).round() as i32,
+            (bbox.size.h as f64 * zoom).round() as i32,
+        )),
+    );
+    let Some(pointer) = state
+        .seat
+        .get_pointer()
+        .map(|pointer| pointer.current_location())
+    else {
+        return Vec::new();
+    };
+    let relative_x = (pointer.x - f64::from(bbox.loc.x)) / f64::from(bbox.size.w.max(1));
+    let relative_y = (pointer.y - f64::from(bbox.loc.y)) / f64::from(bbox.size.h.max(1));
+    let thickness = 6;
+    let strips = if relative_x < 0.12 {
+        vec![Rectangle::new(
+            Point::from((screen_rect.loc.x - thickness / 2, screen_rect.loc.y)),
+            Size::from((thickness, screen_rect.size.h)),
+        )]
+    } else if relative_x > 0.88 {
+        vec![Rectangle::new(
+            Point::from((
+                screen_rect.loc.x + screen_rect.size.w - thickness / 2,
+                screen_rect.loc.y,
+            )),
+            Size::from((thickness, screen_rect.size.h)),
+        )]
+    } else if relative_y < 0.24 {
+        vec![Rectangle::new(
+            Point::from((screen_rect.loc.x, screen_rect.loc.y - thickness / 2)),
+            Size::from((screen_rect.size.w, thickness)),
+        )]
+    } else if relative_y > 0.76 {
+        vec![Rectangle::new(
+            Point::from((
+                screen_rect.loc.x,
+                screen_rect.loc.y + screen_rect.size.h - thickness / 2,
+            )),
+            Size::from((screen_rect.size.w, thickness)),
+        )]
+    } else {
+        outline_edge_strips(screen_rect, viewport_size, thickness).collect()
+    };
+
+    let color = [68, 211, 255, 255];
+    let cache = state
+        .render
+        .cached_tiling_drop_feedback
+        .entry(output_name.clone())
+        .or_default();
+    let mut elements = Vec::with_capacity(strips.len());
+    for strip in strips {
+        if strip.size.w <= 0 || strip.size.h <= 0 {
+            continue;
+        }
+        let buffer = outline_buffer(cache, color, strip);
+        let loc: Point<f64, Physical> = strip.loc.to_f64().to_physical(scale);
+        if let Ok(element) = MemoryRenderBufferRenderElement::from_buffer(
+            renderer,
+            loc,
+            buffer,
+            Some(1.0),
+            None,
+            None,
+            Kind::Unspecified,
+        ) {
+            elements.push(OutputRenderElements::Decoration(
+                PixelSnapRescaleElement::from_element(
+                    element,
+                    Point::<i32, Physical>::from((0, 0)),
+                    1.0,
+                ),
+            ));
+        }
+    }
+    elements
 }
 
 /// Thin outlines showing where other monitors' viewports sit on the canvas.

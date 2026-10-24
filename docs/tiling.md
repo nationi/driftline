@@ -52,11 +52,28 @@ drop position chooses the operation:
 - Drag a window out of a stack and release just beyond the source column's left
   or right edge in open space to give it a new column immediately before or
   after its source column. The new column keeps the source column's width.
+- Release near the left or right edge of another tile to place the dragged
+  window's column beside it. A singleton column moves as a unit; a window from
+  a stack becomes a new column there.
 
-The destination is outlined while dragging; focus and layout change only on
-release. Dropping somewhere without a valid target smoothly returns the picture
-to its original tile without changing the layout. On the canvas, this gesture
-moves windows freely instead.
+While dragging near the left or right edge of the monitor, the view scrolls
+horizontally to reveal adjacent columns. Scrolling pauses when the pointer is
+over a valid drop target and stops at the end of the layout.
+
+The destination is marked with a bright cyan preview while dragging, independent
+of window decoration settings. A full outline previews a swap; a horizontal bar
+at a tile edge previews insertion into its stack, and a vertical bar previews
+column placement. A label beside the pointer names the pending action,
+including when a stacked window will become a new column. Focus and layout
+change only on release. Dropping somewhere without a valid target smoothly
+returns the picture to its original tile without changing the layout. On the
+canvas, this gesture moves windows freely instead.
+
+You can also keep holding `Alt`+left-drag across an output boundary and release
+on another monitor to transfer the tiled window there. The dragged picture
+follows the pointer, the destination output shows a `MOVE WINDOW HERE` cue, and
+the transfer completes on release. A single-window column moves as a unit; a
+window from a stack becomes its own column on the destination.
 
 Hold `Alt` and drag with the right mouse button over a tiled window to widen or
 narrow its column. Drag right to expand and left to shrink; the width applies to
@@ -109,7 +126,8 @@ Each output maintains an independent strip, selection and view. Focus and layout
 operations apply to the output under the pointer. `Mod+Alt+Arrow` transfers the
 focused window to the adjacent output while keeping it tiled. A single-window
 column moves as a unit; a window from a stack becomes a new column. The
-destination receives focus.
+destination receives focus. Alt+left-drag can also transfer a window directly
+to the output under the pointer.
 
 An output connected while tiling is active gets an empty strip. If one of
 several outputs disconnects, its columns move to a surviving output. Removing

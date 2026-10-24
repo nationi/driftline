@@ -73,12 +73,15 @@ pub struct RenderCache {
     pub cached_error_bar: HashMap<String, crate::render::ErrorBarCache>,
     pub cached_tiling_resize_indicators: HashMap<String, crate::render::TilingResizeIndicatorCache>,
     pub cached_tiling_mode_indicators: HashMap<String, crate::render::TilingModeIndicatorCache>,
+    pub cached_tiling_drop_indicators: HashMap<String, crate::render::TilingDropIndicatorCache>,
     /// Solid-colour strip buffers for other outputs' viewport outlines, per
     /// output. Rebuilding them each frame minted a fresh element `Id` every
     /// frame, which re-damaged every outline and made the blur's background
     /// hash differ every frame. Keyed by colour and extent only — see
     /// [`crate::render::OutlineBufferKey`].
     pub cached_outlines:
+        HashMap<String, HashMap<crate::render::OutlineBufferKey, MemoryRenderBuffer>>,
+    pub cached_tiling_drop_feedback:
         HashMap<String, HashMap<crate::render::OutlineBufferKey, MemoryRenderBuffer>>,
     /// Pass-through fragment shader cloned into each `BgChunkCache`.
     pub chunk_bg_shader: Option<GlesTexProgram>,
@@ -118,7 +121,9 @@ impl RenderCache {
             cached_error_bar: HashMap::new(),
             cached_tiling_resize_indicators: HashMap::new(),
             cached_tiling_mode_indicators: HashMap::new(),
+            cached_tiling_drop_indicators: HashMap::new(),
             cached_outlines: HashMap::new(),
+            cached_tiling_drop_feedback: HashMap::new(),
             chunk_bg_shader: None,
             cached_tile_chunks: HashMap::new(),
             cached_shader_chunks: HashMap::new(),
@@ -187,7 +192,9 @@ impl RenderCache {
         self.cached_error_bar.remove(output_name);
         self.cached_tiling_resize_indicators.remove(output_name);
         self.cached_tiling_mode_indicators.remove(output_name);
+        self.cached_tiling_drop_indicators.remove(output_name);
         self.cached_outlines.remove(output_name);
+        self.cached_tiling_drop_feedback.remove(output_name);
         self.remove_background_chunks(output_name);
         self.remove_capture_state(output_name);
     }
