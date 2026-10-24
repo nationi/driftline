@@ -634,7 +634,7 @@ fn win_f_enters_and_exits_fullscreen_without_leaving_tiling() {
 }
 
 #[test]
-fn fullscreen_exit_recenter_does_not_invalidate_tiling() {
+fn fullscreen_restore_commit_keeps_tiling_active() {
     let mut f = Fixture::new();
     f.add_output(1, (1200, 800));
     let client = f.add_client();
@@ -652,10 +652,11 @@ fn fullscreen_exit_recenter_does_not_invalidate_tiling() {
         },
     );
 
-    f.state().refresh_tiling();
+    f.state().map_recentered_window(&window, (900, 100).into());
 
     assert!(f.state().tiling_view.is_some());
     assert!(f.state().stage.is_tiled(id));
+    assert_eq!(window_position(&mut f, &window), (900, 100).into());
 }
 
 #[test]

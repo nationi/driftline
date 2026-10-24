@@ -132,10 +132,12 @@ Follow-up testing found a second transition edge: when the fullscreen buffer is
 larger than the saved tiled size, exit creates a pending recenter while waiting
 for the client to commit its restored buffer. That temporary state must not
 invalidate an already-owned tile. Tiling refresh now preserves that membership
-until the recenter settles. A focused regression covers an existing tile with
-a pending restore recenter. All 59 tiling tests and the compositor test suite
-(1594 passed, 81 ignored), all-target clippy, formatting and `git diff --check`
-passed. The fix is currently an uncommitted follow-up to release 1.1.1.
+until the recenter settles. A second issue occurred when that restored buffer
+arrived: the commit handler used ordinary placement, which exits tiling for a
+free-moved tile. Recenter commits now preserve existing tile membership. The
+regression covers the restoring commit. All 59 tiling tests and the compositor
+test suite (1594 passed, 81 ignored), all-target clippy, formatting and
+`git diff --check` passed. These fixes are follow-ups to release 1.1.1.
 
 ## Documentation baseline
 

@@ -30,6 +30,19 @@ impl Driftline {
         }
     }
 
+    pub(crate) fn map_recentered_window(&mut self, window: &Window, position: Point<i32, Logical>) {
+        let element = StageWindow::Client(window.clone());
+        if self
+            .stage
+            .id_of(&element)
+            .is_some_and(|id| self.stage.is_tiled(id))
+        {
+            self.map_window_preserving_tiling(element, position, false);
+        } else {
+            self.map_window(element, position, false);
+        }
+    }
+
     /// Place `window` so its visual center lands on the window-rule point
     /// `(x, y)` — what `msg move` and the bookmark binding both ask for —
     /// re-aiming any recenter the window still owes rather than dropping it.

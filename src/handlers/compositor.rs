@@ -908,7 +908,7 @@ impl CompositorHandler for Driftline {
                         let bar = self.window_ssd_bar(&window);
                         let new_loc =
                             crate::state::frame_loc_for_center(target_center, geo.size, bar);
-                        self.map_window(window.clone(), new_loc, false);
+                        self.map_recentered_window(&window, new_loc);
                         self.refresh_stable_snap_rect(&StageWindow::Client(window.clone()));
                         self.pending_recenter.remove(&root.id());
                     }
