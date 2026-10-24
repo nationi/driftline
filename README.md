@@ -4,7 +4,7 @@
 <p><strong>Infinite canvas first. Scrolling-column tiling when you need it.</strong></p>
 <p>A trackpad-first Wayland compositor with independent, practical tiling layouts on every output.</p>
 <p>
-  <a href="https://github.com/nationi/driftline/tree/v1.1.3"><img alt="Version 1.1.3" src="https://img.shields.io/github/v/tag/nationi/driftline?label=version"></a>
+  <a href="https://github.com/nationi/driftline/tree/v1.1.4"><img alt="Version 1.1.4" src="https://img.shields.io/github/v/tag/nationi/driftline?label=version"></a>
   <a href="LICENSE"><img alt="License: GPL-3.0-or-later" src="https://img.shields.io/badge/license-GPL--3.0--or--later-blue.svg"></a>
 </p>
 <p><strong>This fork:</strong> <a href="https://github.com/nationi/driftline">nationi/driftline</a> ·
@@ -31,7 +31,7 @@ https://github.com/user-attachments/assets/155511a6-0a6e-4681-9061-21be1e93e02a
 - **Choose your mode.** The canvas stays the default. `Mod+Ctrl+T` switches between canvas and tiling; canvas-only pointer gestures are isolated while tiling is active.
 - **Reorder by dragging.** `Alt`+left-drag swaps tiled windows, with on-screen feedback while dragging.
 
-Tiling order, stacks, widths, selected windows, and output ownership are saved with restorable session windows. After a restart, Driftline still opens in canvas mode; relaunch the restored apps and switch to tiling to restore the saved arrangement. See [Scrolling tiling](docs/tiling.md) for details.
+Tiling order, stacks, widths, selected windows, and output ownership are saved with restorable session windows. After a restart, Driftline relaunches apps that were still open, then starts in canvas mode; switch to tiling to restore the saved arrangement. See [Scrolling tiling](docs/tiling.md) for details.
 
 ## The canvas is still the foundation
 
@@ -46,7 +46,7 @@ Explore the guides below for feature details and configuration.
 
 ### Build
 
-The project uses Rust 2024 and requires Rust 1.88 or newer, plus the system development libraries for Smithay's Wayland, input and graphics backends. The latest published release is 1.1.3; the commands below build the current `main`, which includes post-release changes.
+The project uses Rust 2024 and requires Rust 1.88 or newer, plus the system development libraries for Smithay's Wayland, input and graphics backends. The latest release is 1.1.4.
 
 **Fedora**
 

@@ -982,6 +982,94 @@ fn hovering_a_tiled_window_changes_focus_without_moving_the_camera() {
 }
 
 #[test]
+fn hover_reveal_keeps_the_previous_tile_reachable_in_both_directions() {
+    let mut f = Fixture::with_config(super::config("focus_follows_mouse = true\n"));
+    f.add_output(1, (1200, 800));
+    let client = f.add_client();
+    let a_surface = map_window(&mut f, client, "a", (400, 300));
+    let b_surface = map_window(&mut f, client, "b", (400, 300));
+    let a = window_by_app_id(&mut f, "a").unwrap();
+    let b = window_by_app_id(&mut f, "b").unwrap();
+
+    f.state().execute_action(&Action::ToggleTiling);
+    f.double_roundtrip(client);
+    let a_id = f.state().stage.id_of(&a).unwrap();
+    let b_id = f.state().stage.id_of(&b).unwrap();
+    let columns: Vec<_> = f.state().stage.tiled_columns().to_vec();
+    for column in columns {
+        f.state()
+            .stage
+            .set_column_width(column.id, ColumnWidth::Fixed(1200));
+    }
+    f.state().refresh_tiling();
+    f.double_roundtrip(client);
+    adopt_last_configure(&mut f, client, &a_surface);
+    adopt_last_configure(&mut f, client, &b_surface);
+    f.state().refresh_tiling();
+    f.state().raise_and_focus(&a, SERIAL_COUNTER.next_serial());
+    f.state().refresh_tiling();
+    super::settle(&mut f);
+    f.state().refresh_tiling();
+    assert_eq!(f.state().stage.active_tile(), Some(a_id));
+
+    let a_frame = f
+        .state()
+        .visual_frame_rect(&StageWindow::Client(a.clone()))
+        .unwrap();
+    let b_frame = f
+        .state()
+        .visual_frame_rect(&StageWindow::Client(b.clone()))
+        .unwrap();
+    let usable = f.state().get_usable_area();
+    let visible_width = |frame: driftline::layout::snap::SnapRect, camera: f64| {
+        (frame
+            .x_high
+            .min(camera + f64::from(usable.loc.x + usable.size.w))
+            - frame.x_low.max(camera + f64::from(usable.loc.x)))
+        .max(0.0)
+    };
+    let camera_y = f.state().camera().y;
+    f.state().set_camera((1100.0, camera_y).into());
+
+    // B is partly clipped at the right edge. Hovering it should reveal most of
+    // B while retaining a 48px strip of A that can receive the pointer again.
+    let hover_b = smithay::utils::Point::from((
+        b_frame.x_low + 100.0,
+        (b_frame.y_low + b_frame.y_high) / 2.0,
+    ));
+    f.state().maybe_hover_focus(hover_b);
+    assert_eq!(f.state().focused_window(), Some(b.clone()));
+    assert!(!f.state().hover_follows_camera);
+    f.state().refresh_tiling();
+    super::settle(&mut f);
+    let camera_after_forward_reveal = f.state().camera().x;
+    assert!(
+        camera_after_forward_reveal < 1100.0
+            && visible_width(a_frame, camera_after_forward_reveal) >= 48.0,
+        "camera should reveal B while leaving part of A reachable: {:?}",
+        f.state().camera()
+    );
+    assert_eq!(f.state().stage.active_tile(), Some(b_id));
+
+    // Hover back over the exposed strip. The reverse reveal likewise keeps B
+    // reachable, so cursor focus can move between the adjacent tiles.
+    let hover_a = smithay::utils::Point::from((
+        a_frame.x_high - 24.0,
+        (a_frame.y_low + a_frame.y_high) / 2.0,
+    ));
+    f.state().maybe_hover_focus(hover_a);
+    assert_eq!(f.state().focused_window(), Some(a));
+    f.state().refresh_tiling();
+    super::settle(&mut f);
+    assert!(
+        f.state().camera().x < camera_after_forward_reveal
+            && visible_width(b_frame, f.state().camera().x) >= 48.0,
+        "reverse camera movement must leave part of B reachable: {:?}",
+        f.state().camera()
+    );
+}
+
+#[test]
 fn a_window_opening_fullscreen_does_not_switch_other_outputs_to_canvas() {
     let mut f = Fixture::with_config(super::config(
         r#"

@@ -140,11 +140,13 @@ fn tick_until_settled(f: &mut Fixture) {
 
 /// As [`tick_until_settled`], returning how many ticks convergence took.
 fn ticks_to_settle(f: &mut Fixture) -> usize {
+    let start = std::time::Instant::now();
     for n in 0..MAX_TICKS {
         if !f.state().window_animations.is_active() {
             return n;
         }
-        f.state().tick_window_animations(TICK);
+        f.state()
+            .tick_window_animations_at(TICK, start + TICK * n as u32);
     }
     panic!("window animations did not converge within {MAX_TICKS} ticks");
 }

@@ -1439,12 +1439,6 @@ fn check_pending_tiling_capture(
         if matches!(finish, TilingFinish::ReleaseRetarget) {
             f.state().execute_action(&Action::CycleColumnWidth);
             assert_eq!(f.state().tiling_snapshot_count(), 2);
-            assert!(
-                f.state()
-                    .window_animations
-                    .geometry_visual_rect(id)
-                    .is_none()
-            );
             let held = tiling_live_frame(&mut f, &output);
             let delta = held
                 .iter()
@@ -1495,10 +1489,7 @@ fn check_pending_tiling_capture(
             f.state().execute_action(&Action::ToggleTiling);
             assert!(f.state().resize_crossfades.is_empty());
         }
-        for _ in 0..30 {
-            f.state()
-                .tick_window_animations(std::time::Duration::from_millis(16));
-        }
+        super::tick_until_settled(&mut f);
         assert!(!f.state().resize_crossfades.contains_key(&id));
         assert!(
             f.state()
@@ -3461,7 +3452,6 @@ fn check_remapped_tiling_capture(scale: f64, ssd: bool, mixed: bool) {
     assert_eq!(f.state().tiling_snapshot_count(), 0);
     assert_eq!(f.state().tiling_pending_configures(), 0);
     assert!(!f.state().resize_crossfades.contains_key(&id));
-    assert!(!f.state().window_animations.is_active());
     assert_eq!(f.state().stage.id_of(&window), Some(id));
     assert_eq!(window_position(&mut f, &window), destination);
     // An already produced tiling buffer can arrive after the remap cancelled

@@ -111,9 +111,17 @@ restore_windows = true
 
 Every eligible open window is saved as you go, about a second after the canvas
 changes — pan and zoom take a longer five seconds, since a camera moves
-constantly and costs little to lose. On the next launch they come back as
-dormant suspended windows at the positions they were at; nothing auto-launches,
-you relaunch each one same as any other suspended window (or leave it be).
+constantly and costs little to lose. On the next launch Driftline starts each
+saved app and returns its window to the saved position and size. It uses the
+same activation-token and app-identity matching as manual relaunch, so the
+restored window also reclaims its saved tiling slot. Launches wait until the
+Wayland socket and desktop-entry cache are ready.
+
+An app must still have a launchable `.desktop` entry. If it was removed, its
+entry no longer resolves, or it does not create a window Driftline can match,
+the saved slot remains as a suspended window that you can relaunch or dismiss.
+Windows explicitly suspended before logout remain suspended; only windows
+saved as still open are automatically started.
 
 Nothing extra is saved when the compositor exits, so a logout, a `kill -9` and a
 crash all restore whatever that rolling save last held — up to about a second of
@@ -128,11 +136,11 @@ saved too.
 
 If a saved window belonged to a tiled layout, its session entry also carries
 the output name, column and stack position, column width, selected window, and
-active column. Once the app is relaunched and adopts its stand-in, those saved
-placements are used when you enter tiling again. This restores layout state;
-it does not automatically launch applications or start the compositor in
-tiling mode. A live window is included only when `restore_windows` resolves on
-for that app, while an existing suspended entry is always retained.
+active column. Once the app is relaunched and adopts its saved slot, those
+placements are used when you enter tiling again. This restores layout state; it
+does not start the compositor in tiling mode. A live window is included only
+when `restore_windows` resolves on for that app, while an existing suspended
+entry is always retained.
 
 The window you had focused comes back focused, as focus on its stand-in — so it
 wears a focus ring, `Enter` relaunches it, and `window_placement = "auto"` (the

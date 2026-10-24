@@ -267,6 +267,8 @@ impl Driftline {
                 .flatten();
             if let Some(survivor) = survivor {
                 self.transfer_tiling_from_disconnected_output(output, &survivor);
+            } else if is_last {
+                self.exit_tiling_with_animation(false);
             } else {
                 self.exit_tiling();
             }

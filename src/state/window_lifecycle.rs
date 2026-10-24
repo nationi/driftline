@@ -81,6 +81,9 @@ impl Driftline {
             // Leaving tiling may owe a restore recenter, but this explicit
             // placement supersedes that exit's saved canvas position.
             self.drop_owed_recenter(&window);
+            if !preserve_tiling && let Some(window) = window.client() {
+                self.cancel_window_animation(window);
+            }
         }
         self.stage.map(window.clone(), pos);
         if activate {

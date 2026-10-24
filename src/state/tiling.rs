@@ -10,6 +10,39 @@ use driftline::window_ext::WindowExt;
 use super::{Driftline, StageWindow, configured_window_size, output_state, visual_frame_center};
 use crate::grabs::SizeConstraints;
 
+const HOVER_RETURN_TARGET: i32 = 48;
+
+fn preserve_hover_target(
+    target: Point<i32, Logical>,
+    previous: smithay::utils::Rectangle<i32, Logical>,
+    usable: smithay::utils::Rectangle<i32, Logical>,
+) -> Point<i32, Logical> {
+    let axis = |camera: i32, start: i32, size: i32, inset: i32, extent: i32| {
+        let visible = HOVER_RETURN_TARGET.min(size.max(1)).min(extent.max(1));
+        let min = i64::from(start) + i64::from(visible) - i64::from(inset) - i64::from(extent);
+        let max = i64::from(start) + i64::from(size) - i64::from(visible) - i64::from(inset);
+        i64::from(camera)
+            .clamp(min, max)
+            .clamp(i64::from(i32::MIN), i64::from(i32::MAX)) as i32
+    };
+    Point::from((
+        axis(
+            target.x,
+            previous.loc.x,
+            previous.size.w,
+            usable.loc.x,
+            usable.size.w,
+        ),
+        axis(
+            target.y,
+            previous.loc.y,
+            previous.size.h,
+            usable.loc.y,
+            usable.size.h,
+        ),
+    ))
+}
+
 pub(crate) struct TilingView {
     layout_id: driftline::stage::TilingLayoutId,
     output: Output,
@@ -33,6 +66,7 @@ pub(crate) struct TilingView {
         driftline::stage::ElementId,
         smithay::utils::Rectangle<i32, Logical>,
     )>,
+    hover_camera_guard: Option<(driftline::stage::ElementId, driftline::stage::ElementId)>,
 }
 
 #[derive(Default)]
@@ -382,6 +416,7 @@ impl Driftline {
             selected: None,
             initial_configures: Default::default(),
             revealed: None,
+            hover_camera_guard: None,
         });
         let mut state = output_state(output);
         state.zoom = 1.0;
@@ -448,6 +483,7 @@ impl Driftline {
                 selected: None,
                 initial_configures: Default::default(),
                 revealed: None,
+                hover_camera_guard: None,
             });
             let mut state = output_state(&output);
             state.zoom = 1.0;
@@ -525,8 +561,12 @@ impl Driftline {
     }
 
     pub(super) fn exit_tiling(&mut self) {
+        self.exit_tiling_with_animation(true);
+    }
+
+    pub(super) fn exit_tiling_with_animation(&mut self, animate: bool) {
         let mut tiled_screen_rects = std::collections::HashMap::new();
-        if self.config.effects.animation_speed < 1.0 {
+        if animate && self.config.effects.animation_speed < 1.0 {
             for tiled in self.stage.tiled_windows() {
                 let Some(element) = self.stage.window_by_id(tiled.id) else {
                     continue;
@@ -933,6 +973,25 @@ impl Driftline {
             return true;
         }
         false
+    }
+
+    pub(crate) fn preserve_tiling_camera_for_hover(&mut self, window: &smithay::desktop::Window) {
+        let element = StageWindow::Client(window.clone());
+        let Some(id) = self.stage.id_of(&element) else {
+            return;
+        };
+        let Some(output) = self.stage.tiling_output_for_window(id) else {
+            return;
+        };
+        if let Some(view) = self.tiling_view.views.get_mut(output) {
+            let previous = view
+                .hover_camera_guard
+                .map(|(anchor, _)| anchor)
+                .or(view.selected);
+            if let Some(previous) = previous {
+                view.hover_camera_guard = Some((previous, id));
+            }
+        }
     }
 
     fn select_tiling_output_for_window(&mut self, id: driftline::stage::ElementId) -> bool {
@@ -1388,6 +1447,17 @@ impl Driftline {
             .iter()
             .find(|p| Some(p.id) == self.stage.active_tile())
             .map(|p| (p.id, p.frame));
+        let hover_camera_anchor = self
+            .tiling_view
+            .as_ref()
+            .and_then(|view| view.hover_camera_guard)
+            .filter(|(_, target)| selected.is_some_and(|(id, _)| id == *target))
+            .and_then(|(anchor, _)| {
+                placements
+                    .iter()
+                    .find(|placement| placement.id == anchor)
+                    .map(|placement| placement.frame)
+            });
         let anchor = self
             .stage
             .active_column()
@@ -1489,9 +1559,13 @@ impl Driftline {
             })
             && let Ok(target) = scrolling::reveal(frame, usable, self.camera().to_i32_round())
         {
+            let target = hover_camera_anchor.map_or(target, |anchor| {
+                preserve_hover_target(target, anchor, usable)
+            });
             self.set_camera_target(Some(target.to_f64()));
         }
         if let Some(view) = self.tiling_view.as_mut() {
+            view.hover_camera_guard = None;
             view.revealed = selected;
             view.last_usable = Some(usable);
             view.anchor = anchor;

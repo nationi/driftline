@@ -407,6 +407,35 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // waitpid() during session setup.
     unsafe { libc::signal(libc::SIGCHLD, libc::SIG_IGN) };
 
+    // A restored window's launch token must be registered before the app maps,
+    // and its child needs the newly-created Wayland socket in the environment.
+    // Wait for the off-thread desktop-entry scan as well, so session restore
+    // never parses the full application database on the event loop.
+    if data.has_pending_window_relaunches() {
+        let mut cache_waits = 0;
+        event_loop.handle().insert_source(
+            smithay::reexports::calloop::timer::Timer::from_duration(
+                std::time::Duration::from_millis(100),
+            ),
+            move |_, _, data: &mut Driftline| {
+                if data.desktop_entry_cache.is_none() {
+                    cache_waits += 1;
+                    if cache_waits >= 120 {
+                        tracing::warn!(
+                            "desktop-entry cache did not become ready; restored windows remain suspended"
+                        );
+                        return smithay::reexports::calloop::timer::TimeoutAction::Drop;
+                    }
+                    return smithay::reexports::calloop::timer::TimeoutAction::ToDuration(
+                        std::time::Duration::from_millis(250),
+                    );
+                }
+                data.relaunch_saved_windows();
+                smithay::reexports::calloop::timer::TimeoutAction::Drop
+            },
+        )?;
+    }
+
     // Defer autostart so the event loop is running first — GTK apps (swaync)
     // need Wayland event processing before they connect.
     let autostart = data.autostart.clone();

@@ -87,7 +87,7 @@ Suspend instead of close when a window is closed by the client (titlebar X, in-a
 
 Default: `true`
 
-Restore still-open windows after a restart: windows that resolve to a .desktop entry are saved as you go and come back as suspended windows on the next launch (nothing auto-launches). Per-window overridable via a `restore_windows` window rule. See docs/session.md.
+Restore still-open windows after a restart: windows that resolve to a .desktop entry are saved as you go and relaunched into their saved slots on the next launch. Per-window overridable via a `restore_windows` window rule. Apps that can no longer be launched remain as suspended windows. See docs/session.md.
 
 ### `restore_camera`
 

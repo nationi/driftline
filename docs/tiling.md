@@ -22,6 +22,10 @@ reveal behavior. In tiling, `Mod+Arrow` focuses the adjacent column or the next
 window in the current stack. This explicit tiling focus remains selected while
 the layout scrolls, including when `focus_follows_mouse` is enabled.
 
+With `focus_follows_mouse` enabled, hovering a partly clipped tile can scroll
+the layout toward it. The movement keeps a strip of the previously selected tile
+visible, so you can move the pointer back to it and switch focus again.
+
 ## Default tiling keys
 
 | Keys | Action |

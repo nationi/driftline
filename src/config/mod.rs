@@ -139,7 +139,7 @@ pub struct SessionConfig {
     /// Overridable per window rule. Read at close time, so hot-reload applies.
     pub suspend_on_close: bool,
     /// When true, eligible windows are serialized into the rolling durable save
-    /// and materialized as suspended windows on the next launch. Read at use, so
+    /// and relaunched into their saved slots on the next launch. Read at use, so
     /// hot-reload applies.
     pub restore_windows: bool,
     /// When true, each output's camera and zoom are seeded from the durable

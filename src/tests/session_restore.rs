@@ -194,6 +194,45 @@ fn entry(id: u64, app: &str, origin: Origin) -> SessionEntry {
     }
 }
 
+#[test]
+fn restore_windows_relaunches_open_entries_but_keeps_explicit_suspends_dormant() {
+    let cache = TempDir::new();
+    let tmp = TempDir::new();
+    let path = tmp.path().join("session.json");
+    let mut open_entry = entry(2, "open", Origin::Quit);
+    open_entry.desktop_id = "open".into();
+    let envelope = SessionEnvelope {
+        version: session::VERSION,
+        bookmarks: BTreeMap::new(),
+        saved_at: 0,
+        entries: vec![entry(1, "sleeping", Origin::Explicit), open_entry],
+        outputs: BTreeMap::new(),
+    };
+    session::write(&path, &envelope, false).unwrap();
+
+    let mut f = Fixture::with_config(config_restore(true));
+    f.add_output(1, (1920, 1080));
+    inject_cache(&mut f, &cache, &["sleeping", "open"]);
+    f.state().session_store.path = Some(path);
+    f.state().load_session();
+
+    let restored = suspended_in_order(&mut f);
+    assert_eq!(restored.len(), 2);
+    assert!(f.state().has_pending_window_relaunches());
+    f.state().relaunch_saved_windows();
+
+    let launches = f.state().take_relaunch_spawns_for_test();
+    assert_eq!(launches.len(), 1, "only the previously-open app launches");
+    assert!(launches[0].0.contains("open"));
+    assert!(!f.state().has_pending_window_relaunches());
+    assert!(f.state().is_suspended_launching(restored[1].0.id));
+    assert!(!f.state().is_suspended_launching(restored[0].0.id));
+
+    for (standin, _) in restored {
+        f.state().dismiss_suspended(standin.id);
+    }
+}
+
 /// A flush records live windows (`restore_windows = true`), then a fresh
 /// `Driftline` materializes them in z-order at their exact rects with `Quit`
 /// origin.

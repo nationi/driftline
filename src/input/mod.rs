@@ -788,6 +788,15 @@ impl Driftline {
             return;
         }
 
+        // Hovering a clipped tile can reveal it, but keep the previously
+        // selected tile reachable so the pointer can switch focus back.
+        if self.tiling_view.is_some() {
+            self.preserve_tiling_camera_for_hover(&target);
+            // The reveal is in service of this hover-focus choice. Don't let
+            // the camera motion itself immediately refocus a different tile
+            // under the stationary pointer; real pointer motion still can.
+            self.hover_follows_camera = false;
+        }
         let serial = SERIAL_COUNTER.next_serial();
         self.set_window_focus(focus_surface, serial);
         // Keep the client's Activated hint in step with keyboard focus without raising it.

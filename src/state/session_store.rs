@@ -103,6 +103,9 @@ pub struct SessionStore {
     /// while nothing else holds focus, so an off-screen boot defers the record
     /// to the next one instead of erasing it.
     pub(crate) restore_focus: Option<SuspendedId>,
+    /// Restored `Quit` entries waiting for the Wayland socket and desktop-entry
+    /// cache to be ready before their applications can be relaunched.
+    pub(crate) pending_window_relaunches: Vec<SuspendedId>,
     /// Per-output camera/zoom as of the last viewport motion that armed the
     /// debounce — the baseline [`Driftline::session_store_watch_cameras`] diffs
     /// against. Keyed by output name, and dropped there on the first iteration
@@ -124,8 +127,9 @@ pub struct SessionStore {
 
 impl Driftline {
     /// Read the durable session at startup: stash per-output cameras for
-    /// fresh-boot seeding, materialize the eligible entries as suspended
-    /// windows (bottom→top), and hold the rest to carry forward.
+    /// fresh-boot seeding, materialize eligible entries as suspended windows
+    /// (bottom→top), queue previously-open windows for relaunch, and hold the
+    /// rest to carry forward.
     pub fn load_session(&mut self) {
         let Some(path) = self.session_store.path.clone() else {
             return;
@@ -173,8 +177,12 @@ impl Driftline {
         self.session_store.carried_forward = carried;
         for entry in materialize {
             let held_focus = entry.focused;
+            let relaunch = entry.origin == Origin::Quit;
             let placement = entry.tiling.clone();
             let sid = self.materialize_entry(entry);
+            if relaunch {
+                self.session_store.pending_window_relaunches.push(sid);
+            }
             if let Some(placement) = placement
                 && let Some(standin) = self.find_suspended(sid)
                 && let Some(id) = self.stage.id_of(&StageWindow::Suspended(standin))
@@ -197,6 +205,26 @@ impl Driftline {
             let overlay = self.session_store.durable_bookmarks.clone();
             for (name, value) in overlay {
                 self.bookmarks.insert(name, value);
+            }
+        }
+    }
+
+    /// Whether startup has saved windows waiting for the Wayland socket and
+    /// application database to become available.
+    pub(crate) fn has_pending_window_relaunches(&self) -> bool {
+        !self.session_store.pending_window_relaunches.is_empty()
+    }
+
+    /// Relaunch every still-open window from the saved session. The startup
+    /// timer calls this only after the Wayland display is accepting clients and
+    /// the desktop-entry cache has finished warming.
+    pub(crate) fn relaunch_saved_windows(&mut self) {
+        let pending = std::mem::take(&mut self.session_store.pending_window_relaunches);
+        for sid in pending {
+            if !self.relaunch_suspended(sid) {
+                tracing::warn!(
+                    "could not relaunch restored window {sid:?}; leaving its stand-in available"
+                );
             }
         }
     }
