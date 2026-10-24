@@ -101,6 +101,9 @@ impl Driftline {
             return true;
         }
         match action {
+            // The tiling camera is constrained to horizontal movement by
+            // `drift_pan_on`; keep pointer panning available to scroll columns.
+            MouseAction::PanViewport => true,
             MouseAction::MoveWindow if context == BindingContext::OnWindow => self
                 .topmost_client_under(pos)
                 .and_then(|window| self.stage.id_of(&window))

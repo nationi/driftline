@@ -801,6 +801,12 @@ impl Driftline {
             return;
         }
         self.stage.activate_tiling_output(&output.name());
+        // Fullscreen parks its window at the viewport origin and gives it the
+        // output's size. Keep the saved tile slot intact, but don't validate or
+        // reflow this output's layout against fullscreen geometry until exit.
+        if self.is_output_fullscreen(&output) {
+            return;
+        }
         let output_name = output.name();
         let Some(view) = self.tiling_view.as_ref() else {
             return;

@@ -4,7 +4,7 @@
 <p><strong>Infinite canvas first. Scrolling-column tiling when you need it.</strong></p>
 <p>A trackpad-first Wayland compositor with independent, practical tiling layouts on every output.</p>
 <p>
-  <a href="https://github.com/nationi/driftline/tree/v1.1.0"><img alt="Version 1.1.0" src="https://img.shields.io/github/v/tag/nationi/driftline?label=version"></a>
+  <a href="https://github.com/nationi/driftline/tree/v1.1.1"><img alt="Version 1.1.1" src="https://img.shields.io/github/v/tag/nationi/driftline?label=version"></a>
   <a href="LICENSE"><img alt="License: GPL-3.0-or-later" src="https://img.shields.io/badge/license-GPL--3.0--or--later-blue.svg"></a>
 </p>
 <p><strong>This fork:</strong> <a href="https://github.com/nationi/driftline">nationi/driftline</a> ·
@@ -69,7 +69,7 @@ sudo pacman -S libdisplay-info libinput seatd mesa libxkbcommon
 Install Rust with [rustup](https://rustup.rs/) if your distribution's packaged compiler is older than 1.88. Then build the fork:
 
 ```bash
-git clone --branch v1.1.0 --depth 1 https://github.com/nationi/driftline.git
+git clone --branch v1.1.1 --depth 1 https://github.com/nationi/driftline.git
 cd driftline
 cargo build --release --locked
 ```

@@ -1,6 +1,6 @@
 # Tiling development status
 
-Updated 2026-10-23. The fork's 1.0.0 baseline is integrated into both `main`
+Updated 2026-10-24. The fork's 1.0.0 baseline is integrated into both `main`
 and `nationi/development` at `f29bf70`; documentation was refreshed in
 `6a4f418`. Canvas remains the default. Niri is a design reference, not a parity
 target.
@@ -49,11 +49,10 @@ tests including ignored GPU cases, all integration targets and the isolated
 soak test. The release build also passed. `.github/workflows/ci.yml` remains
 the source of truth for CI; the local hardware checklist is documented above.
 
-The executable at `~/.local/bin/driftline` and `/usr/local/bin/driftline` now
-contains the fix and both pass `--check-config`. The active Wayland service
-still holds the earlier 1.0.0 executable in memory; restart the session to
-load the new build, then verify canvas nearest-window navigation and
-left/right tiling focus on the physical multi-output setup.
+The 1.1.0 release binary is installed at `~/.local/bin/driftline` and
+`/usr/local/bin/driftline`; the `driftwm` command remains a compatibility alias.
+The active Wayland process keeps its already-loaded executable until the next
+session start.
 
 ## Latest fix validation
 
@@ -110,13 +109,30 @@ suite pass; live multi-monitor acceptance remains hardware-specific. On
 check, all-target clippy, test compilation, 1672 tests including ignored GPU
 cases, integration targets and the isolated soak test.
 
+## Horizontal pointer panning in tiling
+
+Super+left-drag scrolls tiling columns horizontally again. The tiling camera
+already clamps pointer panning to the horizontal axis; the input mode filter
+had been rejecting the `PanViewport` mouse binding before the grab could start.
+An in-process regression covers horizontal movement and a fixed vertical camera.
+
+## Fullscreen configure while tiling
+
+After `Win+F`, a fullscreen client's configure acknowledgement previously made
+the ordinary layout refresh reject that output's fullscreen tile and exit
+tiling. The refresh now pauses for the fullscreen output, preserving its tile
+slot until fullscreen exits; normal layout refresh resumes after exit. The
+regression exercises the actual `Win+F` key path and acknowledges both
+fullscreen and restore configures. All 58 tiling tests, formatting and
+`git diff --check` passed. The fix is included in release 1.1.1.
+
 ## Documentation baseline
 
-The root README describes fork 1.0.0 and clones from `main`. The user tiling
-guide covers behavior and controls; detailed implementation and validation
-history belongs in this status and the roadmap. Machine-specific preview paths
-and the stale general TODO archive were removed. No backup or editor-temporary
-files were present in the tracked tree during this review.
+The README describes the fork and uses versioned release checkouts. The user
+tiling guide covers behavior and controls; detailed implementation and
+validation history belongs in this status and the roadmap. Machine-specific
+preview paths and the stale general TODO archive were removed. No backup or
+editor-temporary files were present in the tracked tree during this review.
 
 ## Start here
 

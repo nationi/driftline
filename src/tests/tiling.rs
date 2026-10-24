@@ -9,6 +9,7 @@ use super::{
 
 const KEY_LEFTALT: u32 = 56;
 const KEY_LEFTMETA: u32 = 125;
+const KEY_F: u32 = 33;
 const KEY_LEFT: u32 = 105;
 const KEY_RIGHT: u32 = 106;
 
@@ -125,6 +126,40 @@ fn canvas_mouse_resize_and_cluster_move_bindings_do_not_leave_tiling() {
     key_release(&mut f, 42);
     key_release(&mut f, KEY_LEFTALT);
     assert!(f.state().tiling_view.is_some());
+}
+
+#[test]
+fn super_left_drag_scrolls_columns_horizontally_in_tiling() {
+    let mut f = Fixture::new();
+    f.add_output(1, (1200, 800));
+    let client = f.add_client();
+    map_window(&mut f, client, "a", (400, 300));
+    map_window(&mut f, client, "b", (400, 300));
+    let window = window_by_app_id(&mut f, "a").unwrap();
+    f.state().execute_action(&Action::ToggleTiling);
+    f.double_roundtrip(client);
+    f.state().cancel_animations_everywhere();
+
+    let position = window_position(&mut f, &window);
+    let start = position
+        + smithay::utils::Point::from((window.geometry().size.w / 2, window.geometry().size.h / 2));
+    let pointer = FakeDevice::mouse();
+    pointer_to(&mut f, &pointer, start.to_f64());
+    let camera_before = f.state().camera();
+
+    key_press(&mut f, KEY_LEFTMETA);
+    press(&mut f, &pointer, BTN_LEFT);
+    pointer_to(
+        &mut f,
+        &pointer,
+        (start + smithay::utils::Point::from((120, 0))).to_f64(),
+    );
+    release(&mut f, &pointer, BTN_LEFT);
+    key_release(&mut f, KEY_LEFTMETA);
+
+    assert!(f.state().tiling_view.is_some());
+    assert!(f.state().camera().x < camera_before.x);
+    assert_eq!(f.state().camera().y, camera_before.y);
 }
 
 #[test]
@@ -572,17 +607,25 @@ fn win_f_enters_and_exits_fullscreen_without_leaving_tiling() {
     let mut f = Fixture::new();
     let output = f.add_output(1, (1200, 800));
     let client = f.add_client();
-    map_window(&mut f, client, "fullscreen", (400, 300));
+    let surface = map_window(&mut f, client, "fullscreen", (400, 300));
     let window = window_by_app_id(&mut f, "fullscreen").unwrap();
     let id = f.state().stage.id_of(&window).unwrap();
 
     f.state().execute_action(&Action::ToggleTiling);
-    f.state().execute_action(&Action::ToggleFullscreen);
+    key_press(&mut f, KEY_LEFTMETA);
+    key_press(&mut f, KEY_F);
+    key_release(&mut f, KEY_F);
+    key_release(&mut f, KEY_LEFTMETA);
+    ack_but_keep_size(&mut f, client, &surface);
     assert!(f.state().stage.fullscreen_on(&output.name()).is_some());
     assert!(f.state().tiling_view.is_some());
     assert!(f.state().stage.is_tiled(id));
 
-    f.state().execute_action(&Action::ToggleFullscreen);
+    key_press(&mut f, KEY_LEFTMETA);
+    key_press(&mut f, KEY_F);
+    key_release(&mut f, KEY_F);
+    key_release(&mut f, KEY_LEFTMETA);
+    ack_but_keep_size(&mut f, client, &surface);
     assert!(f.state().stage.fullscreen_on(&output.name()).is_none());
     assert!(f.state().tiling_view.is_some());
     assert!(f.state().stage.is_tiled(id));
