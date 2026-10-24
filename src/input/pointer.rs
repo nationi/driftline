@@ -731,6 +731,7 @@ impl Driftline {
                                 };
                                 let usable = self.usable_area_on(&output);
                                 let width = (frame.x_high - frame.x_low).round() as i32;
+                                let min_width = self.tiling_column_min_width(column);
                                 self.tiling_width_indicator =
                                     Some((column, output.name(), width.max(1)));
                                 self.mark_all_dirty();
@@ -739,6 +740,7 @@ impl Driftline {
                                     column,
                                     output,
                                     width,
+                                    min_width,
                                     usable.size.w.saturating_mul(2),
                                 );
                                 pointer.set_grab(self, grab, serial, Focus::Clear);

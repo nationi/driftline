@@ -893,6 +893,21 @@ impl Driftline {
         self.refresh_tiling_at(std::time::Instant::now());
     }
 
+    pub(crate) fn tiling_column_min_width(&self, column: driftline::stage::ColumnId) -> i32 {
+        self.stage
+            .column(column)
+            .into_iter()
+            .flat_map(|column| column.windows.iter())
+            .filter_map(|tile| {
+                let element = self.stage.window_by_id(tile.id)?;
+                let window = element.client()?;
+                let minimum = SizeConstraints::for_window(window).min.w.max(1);
+                Some(minimum.saturating_add(2 * self.element_chrome(element).border))
+            })
+            .max()
+            .unwrap_or(1)
+    }
+
     fn refresh_tiling_for_output(&mut self, output: &Output, now: std::time::Instant) {
         let previous_output = self.focused_output.replace(output.clone());
         self.tiling_view.select_output(output);

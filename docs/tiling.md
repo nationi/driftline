@@ -46,8 +46,9 @@ changing the layout. On the canvas, this gesture moves windows freely instead.
 
 Hold `Alt` and drag with the right mouse button over a tiled window to widen or
 narrow its column. Drag right to expand and left to shrink; the width applies to
-every window stacked in that column. A small width label follows the pointer
-while resizing. `Alt`+`Shift`+right-drag and
+every window stacked in that column. The column will not shrink below the
+largest minimum width requested by its windows. A small width label follows
+the pointer while resizing. `Alt`+`Shift`+right-drag and
 `Alt`+`Shift`+left-drag of a snapped cluster remain canvas-only.
 
 To assign the same key chord to different actions in each mode, use the

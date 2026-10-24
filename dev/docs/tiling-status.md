@@ -25,8 +25,10 @@ rather than a parity target.
   and `Alt+Tab` focus navigation suppresses camera-follow hover until the user
   moves the camera, so a stationary cursor cannot undo the selected focus.
 - `Alt`+right-drag widens or narrows the focused column horizontally; the
-  resulting fixed width is saved with the session. A compact width label near
-  the pointer updates during the drag and disappears on release.
+  resulting fixed width is saved with the session. Resizing respects the
+  largest client-declared minimum width among the column's windows. A compact
+  width label near the pointer updates during the drag and disappears on
+  release.
 - Tiling topology is stored with durable session entries: output name, column
   and stack order, width, selected window and active column. After restart, the
   compositor still starts in canvas mode; the layout is rebuilt when the user

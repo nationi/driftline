@@ -315,6 +315,47 @@ fn alt_right_drag_resizes_tiled_column_without_leaving_tiling() {
 }
 
 #[test]
+fn alt_right_drag_respects_the_largest_client_minimum_in_a_column() {
+    let mut f = Fixture::new();
+    f.add_output(1, (1200, 800));
+    let client = f.add_client();
+    let surface = map_window(&mut f, client, "a", (400, 300));
+    map_window(&mut f, client, "b", (400, 300));
+    let window = window_by_app_id(&mut f, "a").unwrap();
+    let id = f.state().stage.id_of(&window).unwrap();
+    f.client(client).window(&surface).set_min_size(700, 0);
+    f.client(client).window(&surface).commit();
+    f.roundtrip(client);
+    f.state().execute_action(&Action::ToggleTiling);
+    f.double_roundtrip(client);
+
+    let column = f.state().stage.column_of(id).unwrap();
+    let center = window_position(&mut f, &window)
+        + smithay::utils::Point::from((window.geometry().size.w / 2, window.geometry().size.h / 2));
+    let pointer = FakeDevice::mouse();
+
+    pointer_to(&mut f, &pointer, center.to_f64());
+    key_press(&mut f, KEY_LEFTALT);
+    press(&mut f, &pointer, BTN_RIGHT);
+    pointer_to(
+        &mut f,
+        &pointer,
+        smithay::utils::Point::from((0.0, center.y as f64)),
+    );
+
+    assert_eq!(
+        f.state().stage.column(column).unwrap().width,
+        ColumnWidth::Fixed(700)
+    );
+    assert_eq!(
+        f.state().tiling_width_indicator,
+        Some((column, "HEADLESS-1".to_owned(), 700))
+    );
+    release(&mut f, &pointer, BTN_RIGHT);
+    key_release(&mut f, KEY_LEFTALT);
+}
+
+#[test]
 fn super_left_drag_scrolls_columns_horizontally_in_tiling() {
     let mut f = Fixture::new();
     f.add_output(1, (1200, 800));

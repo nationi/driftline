@@ -17,6 +17,7 @@ pub struct TilingResizeGrab {
     column: ColumnId,
     output: Output,
     initial_width: i32,
+    min_width: i32,
     max_width: i32,
     changed: bool,
 }
@@ -27,6 +28,7 @@ impl TilingResizeGrab {
         column: ColumnId,
         output: Output,
         initial_width: i32,
+        min_width: i32,
         max_width: i32,
     ) -> Self {
         Self {
@@ -34,7 +36,8 @@ impl TilingResizeGrab {
             column,
             output,
             initial_width: initial_width.max(1),
-            max_width: max_width.max(1),
+            min_width: min_width.max(1),
+            max_width: max_width.max(min_width).max(1),
             changed: false,
         }
     }
@@ -56,8 +59,8 @@ impl PointerGrab<Driftline> for TilingResizeGrab {
         }
         data.stage.activate_tiling_output(&self.output.name());
         let delta = (event.location.x - self.start_data.location.x).round();
-        let width =
-            (f64::from(self.initial_width) + delta).clamp(1.0, f64::from(self.max_width)) as i32;
+        let width = (f64::from(self.initial_width) + delta)
+            .clamp(f64::from(self.min_width), f64::from(self.max_width)) as i32;
         data.tiling_width_indicator = Some((self.column, self.output.name(), width));
         if data
             .stage
