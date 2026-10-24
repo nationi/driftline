@@ -90,6 +90,7 @@ pub enum Action {
     SendToOutput(Direction),
     SendCursorToOutput(Direction),
     FocusCenter,
+    FocusTilingCenter,
     TogglePinToScreen,
     SwitchLayout(LayoutSwitch),
     ReloadConfig,
@@ -125,6 +126,7 @@ impl Action {
                 | Action::ExpelWindowFromColumn
                 | Action::MoveColumn(_)
                 | Action::MoveTiledWindow(_)
+                | Action::FocusTilingCenter
         );
         let canvas_action = matches!(
             self,

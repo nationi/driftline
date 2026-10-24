@@ -8,9 +8,11 @@ use smithay::wayland::seat::WaylandFocus;
 use crate::grabs::TilingReorderGrab;
 use crate::state::StageWindow;
 use crate::state::output_state;
-use driftline::canvas::{ScreenPos, screen_to_canvas};
+use driftline::canvas::{CanvasPos, ScreenPos, canvas_to_screen, screen_to_canvas};
 
-use super::input_backend::{FakeDevice, key_press, key_release, pointer_to, press, release};
+use super::input_backend::{
+    FakeDevice, key_press, key_release, pointer_relative_motion, pointer_to, press, release,
+};
 use super::{
     Fixture, ack_but_keep_size, adopt_last_configure, configure_count, last_configured, map_window,
     window_by_app_id, window_position,
@@ -96,6 +98,56 @@ fn alt_drag_swaps_tiled_windows_without_leaving_tiling() {
     assert_eq!(f.state().stage.column_of(bid), Some(a_column));
     assert_eq!(f.state().stage.active_tile(), Some(aid));
     assert!(f.state().tiling_view.is_some());
+}
+
+#[test]
+fn mod_x_focuses_and_centers_the_tiled_window_under_pointer() {
+    let mut f = Fixture::new();
+    f.add_output(1, (1200, 800));
+    let client = f.add_client();
+    map_window(&mut f, client, "a", (400, 300));
+    map_window(&mut f, client, "b", (400, 300));
+    let a = window_by_app_id(&mut f, "a").unwrap();
+    let b = window_by_app_id(&mut f, "b").unwrap();
+    let aid = f.state().stage.id_of(&a).unwrap();
+    let bid = f.state().stage.id_of(&b).unwrap();
+    f.state().execute_action(&Action::ToggleTiling);
+    f.double_roundtrip(client);
+
+    let b_center = f.state().nav_center(&StageWindow::Client(b.clone()));
+    let pointer = FakeDevice::mouse();
+    pointer_to(&mut f, &pointer, b_center);
+    let pointer_position = f.state().seat.get_pointer().unwrap().current_location();
+    assert_eq!(
+        f.state()
+            .topmost_client_under(pointer_position)
+            .and_then(|window| f.state().stage.id_of(&window)),
+        Some(bid),
+        "the pointer should be over the intended tile"
+    );
+
+    let a_position = window_position(&mut f, &a);
+    let b_position = window_position(&mut f, &b);
+    f.state().execute_action(&Action::FocusTilingCenter);
+
+    assert!(f.state().tiling_view.is_some(), "centering stays in tiling");
+    assert_eq!(f.state().stage.active_tile(), Some(bid));
+    assert_eq!(
+        f.state()
+            .focused_element()
+            .and_then(|element| f.state().stage.id_of(&element)),
+        Some(bid)
+    );
+    assert_eq!(window_position(&mut f, &a), a_position);
+    assert_eq!(window_position(&mut f, &b), b_position);
+
+    let output = f.state().active_output().unwrap();
+    let center = f.state().nav_center(&StageWindow::Client(b));
+    let screen_center = f.state().usable_center_screen_on(&output);
+    let camera_target = f.state().camera_target().unwrap();
+    assert!((camera_target.x - (center.x - screen_center.x)).abs() < 0.01);
+    assert!((camera_target.y - (center.y - screen_center.y)).abs() < 0.01);
+    assert_ne!(f.state().stage.active_tile(), Some(aid));
 }
 
 #[test]
@@ -764,6 +816,101 @@ fn alt_right_drag_resizes_tiled_column_without_leaving_tiling() {
         ColumnWidth::Fixed(initial_width - 50)
     );
     release(&mut f, &pointer, BTN_RIGHT);
+    assert!(f.state().tiling_width_indicator.is_none());
+    key_release(&mut f, KEY_LEFTALT);
+}
+
+#[test]
+fn alt_right_resize_stops_at_output_edge_and_slowly_pans_to_grow_column() {
+    let mut f = Fixture::new();
+    f.add_output(1, (1200, 800));
+    f.add_output(2, (1200, 800));
+    let client = f.add_client();
+    map_window(&mut f, client, "a", (400, 300));
+    map_window(&mut f, client, "b", (400, 300));
+    let window = window_by_app_id(&mut f, "a").unwrap();
+    let id = f.state().stage.id_of(&window).unwrap();
+    f.state().execute_action(&Action::ToggleTiling);
+    f.double_roundtrip(client);
+
+    let output = f.state().active_output().unwrap();
+    let column = f.state().stage.column_of(id).unwrap();
+    let frame = f
+        .state()
+        .visual_frame_rect(&StageWindow::Client(window.clone()))
+        .unwrap();
+    let initial_width = (frame.x_high - frame.x_low).round() as i32;
+    let center = window_position(&mut f, &window)
+        + Point::from((window.geometry().size.w / 2, window.geometry().size.h / 2));
+    let pointer = FakeDevice::mouse();
+
+    pointer_to(&mut f, &pointer, center.to_f64());
+    key_press(&mut f, KEY_LEFTALT);
+    press(&mut f, &pointer, BTN_RIGHT);
+    let before_pan = f.state().camera();
+
+    pointer_relative_motion(&mut f, &pointer, Point::from((1800.0, 0.0)));
+
+    assert_eq!(
+        f.state().active_output().unwrap().name(),
+        output.name(),
+        "resizing must keep the pointer on its starting output"
+    );
+    let pointer_canvas = f.state().seat.get_pointer().unwrap().current_location();
+    let (camera, zoom) = {
+        let state = output_state(&output);
+        (state.camera, state.zoom)
+    };
+    let pointer_screen = canvas_to_screen(CanvasPos(pointer_canvas), camera, zoom).0;
+    assert_eq!(
+        pointer_screen.x, 1199.0,
+        "the output edge should act as a wall"
+    );
+    assert!(
+        matches!(f.state().stage.column(column).unwrap().width, ColumnWidth::Fixed(w) if w > initial_width),
+        "the column should grow to the edge even before auto-pan starts"
+    );
+    assert!(
+        output_state(&output)
+            .edge_pan_velocity
+            .is_some_and(|velocity| velocity.x > 0.0 && velocity.x <= 1.5 && velocity.y == 0.0),
+        "resizing at the right edge should arm slow horizontal camera pan"
+    );
+
+    let width_at_edge = match f.state().stage.column(column).unwrap().width {
+        ColumnWidth::Fixed(width) => width,
+        ColumnWidth::Proportion(_) => unreachable!(),
+    };
+    f.state().apply_edge_pan();
+
+    let after_pan = f.state().camera();
+    let width_after_pan = match f.state().stage.column(column).unwrap().width {
+        ColumnWidth::Fixed(width) => width,
+        ColumnWidth::Proportion(_) => unreachable!(),
+    };
+    assert!(
+        after_pan.x > before_pan.x,
+        "camera should follow the rightward drag"
+    );
+    assert!(
+        width_after_pan > width_at_edge,
+        "edge-pan should keep growing the column"
+    );
+    assert_eq!(
+        f.state().active_output().unwrap().name(),
+        output.name(),
+        "edge-pan must not move the cursor onto the neighboring output"
+    );
+    let pointer_canvas = f.state().seat.get_pointer().unwrap().current_location();
+    let (camera, zoom) = {
+        let state = output_state(&output);
+        (state.camera, state.zoom)
+    };
+    let pointer_screen = canvas_to_screen(CanvasPos(pointer_canvas), camera, zoom).0;
+    assert!((pointer_screen.x - 1199.0).abs() < 0.01);
+
+    release(&mut f, &pointer, BTN_RIGHT);
+    assert!(output_state(&output).edge_pan_velocity.is_none());
     assert!(f.state().tiling_width_indicator.is_none());
     key_release(&mut f, KEY_LEFTALT);
 }

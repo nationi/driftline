@@ -201,6 +201,7 @@ impl Driftline {
         match action {
             Action::ToggleTiling => self.toggle_tiling(),
             Action::FocusColumn(direction) => self.focus_tiling_column(direction.clone()),
+            Action::FocusTilingCenter => self.focus_tiling_center(),
             Action::MoveIntoColumn(direction) => self.move_into_tiling_column(direction.clone()),
             Action::ExpelFromColumn => self.expel_tiling_window(),
             Action::ConsumeWindowIntoColumn => self.consume_reference_tiling_window(),

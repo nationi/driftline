@@ -38,7 +38,8 @@ rather than a parity target.
   width label near the pointer updates during the drag and disappears on
   release. Layout movement follows the drag immediately without waiting for
   client resize commits; repeated pointer updates are coalesced to a 16 ms
-  layout-refresh interval.
+  layout-refresh interval. At an output edge the pointer is confined to its
+  starting output and a slow horizontal edge-pan keeps the resize moving.
 - Tiling topology is stored with durable session entries: output name, column
   and stack order, width, selected window and active column. Open apps with
   launchable desktop entries are started after restart and adopt their saved
@@ -64,7 +65,9 @@ restored at startup.
 ## Validation
 
 `Alt`+right-drag adjusts the tiled column width horizontally and saves the
-final fixed width when the grab ends. The Alt-only resize binding is active for
+final fixed width when the grab ends. Crossing a monitor boundary during this
+grab is blocked at the starting output's edge, where slow edge-pan continues
+the resize. The Alt-only resize binding is active for
 tiles; `Alt`+`Shift`+right-drag stays canvas-only. Focus navigation also parks
 sloppy-focus camera pulls for tiled `Alt+Tab` navigation. Hovering a clipped
 tile can reveal it without hiding the previous selection from the pointer.
@@ -92,9 +95,18 @@ preview and edge behavior remain.
 
 The latest drag regression verifies that hit-testing reaches a tiled target
 under the moving source picture, and that edge-pan remains active with a valid
-tile under the pointer. `cargo fmt --check`, the mode-cue pixel test, all 74
+tile under the pointer. `cargo fmt --check`, the mode-cue pixel test, all 76
 tiling fixtures, and `cargo clippy --all-targets -- -D warnings` pass after
-these changes.
+these changes. A two-output regression verifies the pointer wall and that the
+camera and column continue advancing together at the edge.
+
+The tiling-only `Mod+X` action focuses the tiled window under the pointer and
+animates its visual center to the active output's usable-area center. It keeps
+the current zoom and tiling mode, and falls back to centering the selected tile
+when the pointer is not over a tiled window. The mode-specific binding test
+confirms canvas `Mod+X` remains `focus-center`; all 76 tiling fixtures, the
+config docs generation test, `cargo fmt --check`, and
+`cargo clippy --all-targets -- -D warnings` pass.
 
 The user confirmed the multi-monitor tiling workflow and manually verified
 window relaunch and tiling restoration across a real compositor restart on

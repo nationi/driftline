@@ -142,6 +142,7 @@ pub fn parse_action(s: &str) -> Result<Action, String> {
         }
         "center-window" => Ok(Action::CenterWindow),
         "focus-center" => Ok(Action::FocusCenter),
+        "focus-tiling-center" => Ok(Action::FocusTilingCenter),
         "center-nearest" => {
             let dir = parse_direction(arg.ok_or("center-nearest requires a direction")?)?;
             Ok(Action::CenterNearest(dir))
@@ -298,6 +299,7 @@ pub const ACTION_NAMES: &[(&str, &str)] = &[
     ("fit-window", "fit-window"),
     ("fit-window-snapped", "fit-window-snapped"),
     ("focus-center", "focus-center"),
+    ("focus-tiling-center", "focus-tiling-center"),
     ("focus-nearest", "focus-nearest up"),
     ("go-to-bookmark", "go-to-bookmark 1"),
     ("grow-window", "grow-window up"),
@@ -717,6 +719,7 @@ mod tests {
             Action::SendToOutput(_) => "send-to-output",
             Action::SendCursorToOutput(_) => "send-cursor-to-output",
             Action::FocusCenter => "focus-center",
+            Action::FocusTilingCenter => "focus-tiling-center",
             Action::TogglePinToScreen => "toggle-pin-to-screen",
             Action::SwitchLayout(_) => "switch-layout",
             Action::ReloadConfig => "reload-config",

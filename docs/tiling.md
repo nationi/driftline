@@ -33,6 +33,7 @@ visible, so you can move the pointer back to it and switch focus again.
 | `Mod+Ctrl+T` | Switch between canvas and tiling |
 | `Alt+Tab` / `Alt+Shift+Tab` | Cycle through windows / cycle backward without leaving tiling |
 | `Mod+Arrow` | Focus a column or a window in its stack |
+| `Mod+X` | Focus the tiled window under the pointer and center it on screen |
 | `Mod+Shift+Left/Right` | Move the focused column |
 | `Mod+Shift+Up/Down` | Move the focused window within its column |
 | `Mod+Ctrl+Left/Right` | Move the focused window into an adjacent column |
@@ -81,7 +82,9 @@ narrow its column. Drag right to expand and left to shrink; the width applies to
 every window stacked in that column. The column will not shrink below the
 largest minimum width requested by its windows. A compact rounded label follows
 the pointer with the current width in pixels, and neighboring columns track
-the drag without waiting for each application to resize. `Alt`+`Shift`+right-drag and
+the drag without waiting for each application to resize. At a monitor edge the
+pointer stays on its starting output while its camera pans slowly, letting the
+column keep growing or shrinking. `Alt`+`Shift`+right-drag and
 `Alt`+`Shift`+left-drag of a snapped cluster remain canvas-only.
 
 To assign the same key chord to different actions in each mode, use the

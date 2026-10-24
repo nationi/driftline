@@ -475,6 +475,13 @@ pub(super) fn default_tiling_bindings(mod_key: ModKey) -> HashMap<KeyCombo, Acti
         (
             KeyCombo {
                 modifiers: m.clone(),
+                sym: Keysym::from(keysyms::KEY_x),
+            },
+            Action::FocusTilingCenter,
+        ),
+        (
+            KeyCombo {
+                modifiers: m.clone(),
                 sym: Keysym::from(keysyms::KEY_Left),
             },
             Action::FocusColumn(Direction::Left),

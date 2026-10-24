@@ -1422,7 +1422,15 @@ impl Driftline {
                 Some((focus, region))
             });
 
-        let cur_output = match self.active_output() {
+        let resizing_output_name = self
+            .tiling_width_indicator
+            .as_ref()
+            .map(|(_, output_name, _)| output_name.clone());
+        let cur_output = match resizing_output_name
+            .as_deref()
+            .and_then(|name| self.output_by_name(name))
+            .or_else(|| self.active_output())
+        {
             Some(o) => o,
             None => return,
         };
@@ -1456,7 +1464,17 @@ impl Driftline {
         // different canvas region, after which the confine could never
         // re-establish. The reject below keeps it inside its surface in this
         // output's coordinate space.
-        let (target_output, screen_pos) = if confined.is_none()
+        let is_tiling_resize = resizing_output_name
+            .as_deref()
+            .is_some_and(|name| name == cur_output.name().as_str());
+        let (target_output, screen_pos) = if is_tiling_resize && confined.is_none() {
+            let clamped = clamp_to_output(
+                ScreenPos((old_screen.x + delta.x, old_screen.y + delta.y).into()),
+                output_size,
+            )
+            .0;
+            (cur_output.clone(), clamped)
+        } else if confined.is_none()
             && let Some(target) = self.output_at_layout_pos(new_layout)
         {
             if target != cur_output {

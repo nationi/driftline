@@ -139,6 +139,14 @@ impl Driftline {
         if self.is_output_fullscreen(output) {
             return None;
         }
+        if self
+            .tiling_width_indicator
+            .as_ref()
+            .is_some_and(|(_, name, _)| name == output.name().as_str())
+        {
+            output_state(output).edge_pan_delay = None;
+            return Some(requested);
+        }
         let monitor_edges = self.monitor_facing_edges_at(output, screen_pos);
         let mut os = output_state(output);
         let mut immediate = requested;

@@ -759,7 +759,7 @@ For different actions on the same chord, use `[keybindings.canvas]` and `[keybin
 
 [keybindings.canvas] Canvas-only keyboard overrides; the same chord can have a different tiling action. [keybindings.tiling] Tiling-only keyboard overrides; the same chord can have a different canvas action.
 
-Default tiling keys are active only in tiling: Mod+arrows focus, Mod+Shift+Left/Right reorder columns, Mod+Shift+Up/Down reorder tiles, Mod+Ctrl+Left/Right move a tile into a neighboring column; Mod+Ctrl+Shift+Left/Right consume/expel a window; Mod+Ctrl+E splits a tile; Mod+R cycles column width; Mod+Shift+R toggles between half and full width. Mod+Ctrl+T toggles mode. These shortcuts can reuse canvas chords because each mode filters the other's actions. This also applies when mod_key = "alt".
+Default tiling keys are active only in tiling: Mod+X focuses and centers the tile under the pointer; Mod+arrows focus, Mod+Shift+Left/Right reorder columns, Mod+Shift+Up/Down reorder tiles, Mod+Ctrl+Left/Right move a tile into a neighboring column; Mod+Ctrl+Shift+Left/Right consume/expel a window; Mod+Ctrl+E splits a tile; Mod+R cycles column width; Mod+Shift+R toggles between half and full width. Mod+Ctrl+T toggles mode. These shortcuts can reuse canvas chords because each mode filters the other's actions. This also applies when mod_key = "alt".
 
 "mod" expands to mod_key. Literal modifiers: alt, super (alias logo), ctrl (alias control), shift, mod3. Keysyms are XKB names (case-insensitive): return, tab, up, a, equal, etc. A bare modifier combo (e.g. "alt+shift") is a tap binding (fires on chord release; see [input.keyboard] options).
 
@@ -796,6 +796,7 @@ Actions:
 - `fit-window` — toggle maximize: centers + resets zoom + fills viewport; restore only resizes back
 - `toggle-tiling` — toggle scrolling columns across outputs; toggle again to restore canvas positions, sizes and view
 - `focus-column <dir>` — focus a scrolling column (left/right) or a window inside it (up/down); center-nearest also follows this structure while tiling
+- `focus-tiling-center` — focus the tiled window under the pointer and center it on the active output without leaving tiling
 - `cycle-column-width` — cycle the active column through 1/3, 1/2 and full usable width
 - `toggle-wide-column` — toggle the active column between half and full usable width
 - `move-into-column <dir>` — move the focused tiled window into the neighboring column (left/right), after its selected window

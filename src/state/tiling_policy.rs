@@ -31,6 +31,7 @@ impl TilingOperation<'_> {
                 | Action::ExpelFromColumn
                 | Action::MoveColumn(_)
                 | Action::MoveTiledWindow(_)
+                | Action::FocusTilingCenter
                 | Action::Exec(_)
                 | Action::ExecTerminal
                 | Action::ExecLauncher

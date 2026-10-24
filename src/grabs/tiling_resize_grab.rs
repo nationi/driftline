@@ -10,10 +10,14 @@ use smithay::{
 };
 
 use crate::state::Driftline;
+use driftline::canvas::{CanvasPos, canvas_to_screen};
 use driftline::layout::scrolling::ColumnWidth;
 use driftline::stage::ColumnId;
 
 const RESIZE_REFRESH_INTERVAL: Duration = Duration::from_millis(16);
+const EDGE_PAN_ZONE: f64 = 96.0;
+const EDGE_PAN_MIN: f64 = 0.35;
+const EDGE_PAN_MAX: f64 = 1.5;
 
 /// Resizes one scrolling column horizontally while Alt+right-drag is held.
 pub struct TilingResizeGrab {
@@ -46,6 +50,41 @@ impl TilingResizeGrab {
             last_refresh: None,
             changed: false,
         }
+    }
+
+    fn update_edge_pan(&self, data: &Driftline, location: Point<f64, Logical>, width: i32) {
+        let (camera, zoom) = {
+            let os = crate::state::output_state(&self.output);
+            (os.camera, os.zoom)
+        };
+        let screen = canvas_to_screen(CanvasPos(location), camera, zoom).0;
+        let viewport = crate::state::output_logical_size(&self.output);
+        let (distance, direction) = if screen.x < EDGE_PAN_ZONE {
+            (screen.x, -1.0)
+        } else if viewport.w as f64 - screen.x < EDGE_PAN_ZONE {
+            (viewport.w as f64 - screen.x, 1.0)
+        } else {
+            data.clear_edge_pan(&self.output);
+            return;
+        };
+
+        let can_resize = if direction < 0.0 {
+            width > self.min_width
+        } else {
+            width < self.max_width
+        };
+        if !can_resize {
+            data.clear_edge_pan(&self.output);
+            return;
+        }
+
+        let depth = ((EDGE_PAN_ZONE - distance) / EDGE_PAN_ZONE).clamp(0.0, 1.0);
+        let speed = EDGE_PAN_MIN + (EDGE_PAN_MAX - EDGE_PAN_MIN) * depth * depth;
+        data.update_edge_pan_request(
+            &self.output,
+            Some(Point::from((direction * speed, 0.0))),
+            screen,
+        );
     }
 }
 
@@ -86,6 +125,7 @@ impl PointerGrab<Driftline> for TilingResizeGrab {
             data.mark_all_dirty();
             self.changed = true;
         }
+        self.update_edge_pan(data, event.location, width);
         handle.motion(data, None, event);
     }
 
@@ -97,6 +137,7 @@ impl PointerGrab<Driftline> for TilingResizeGrab {
     ) {
         handle.button(data, event);
         if handle.current_pressed().is_empty() {
+            data.clear_edge_pan(&self.output);
             if self.changed {
                 data.refresh_tiling();
                 data.session_store_mark_dirty();
@@ -106,6 +147,7 @@ impl PointerGrab<Driftline> for TilingResizeGrab {
     }
 
     fn unset(&mut self, data: &mut Driftline) {
+        data.clear_edge_pan(&self.output);
         data.tiling_width_indicator = None;
         data.mark_all_dirty();
     }

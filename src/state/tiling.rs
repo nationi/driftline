@@ -722,6 +722,41 @@ impl Driftline {
         }
     }
 
+    pub(crate) fn focus_tiling_center(&mut self) {
+        let pointer = self.seat.get_pointer().unwrap().current_location();
+        let target = self
+            .topmost_under(pointer, |_, _| true)
+            .and_then(|(element, _)| {
+                self.stage
+                    .id_of(&element)
+                    .filter(|id| self.stage.is_tiled(*id))
+                    .map(|id| (id, element))
+            })
+            .or_else(|| {
+                let id = self.stage.active_tile()?;
+                let element = self.stage.window_by_id(id)?.clone();
+                Some((id, element))
+            });
+        let Some((id, element)) = target else {
+            return;
+        };
+        if !self.select_tiling_output_for_window(id) {
+            return;
+        }
+
+        self.hover_follows_camera = false;
+        self.stage.select_tile(id);
+        self.raise_and_focus_element(&element, SERIAL_COUNTER.next_serial());
+        self.refresh_tiling();
+
+        let Some(output) = self.active_output() else {
+            return;
+        };
+        let center = self.nav_center(&element);
+        let screen_center = self.usable_center_screen_on(&output);
+        self.set_camera_anchor(&output, center, screen_center, 1.0);
+    }
+
     pub(crate) fn complete_tiling_reorder(
         &mut self,
         source: driftline::stage::ElementId,

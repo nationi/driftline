@@ -2390,6 +2390,15 @@ mod tests {
         let config = Config::from_toml("").unwrap();
         let cases = [
             (
+                "mod+x",
+                ModifiersState {
+                    logo: true,
+                    ..Default::default()
+                },
+                Action::FocusTilingCenter,
+                Action::FocusCenter,
+            ),
+            (
                 "mod+up",
                 ModifiersState {
                     logo: true,
