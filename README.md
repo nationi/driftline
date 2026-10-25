@@ -15,7 +15,7 @@
 
 `driftline` treats the desktop as an infinite 2D canvas. Windows keep their natural size; you pan and zoom the view, and nearby windows snap into groups. When you want a more structured layout, switch to optional scrolling-column tiling. Every connected monitor gets its own layout, while the canvas remains available as the default way to work.
 
-This is an independently maintained fork of [driftwm](https://github.com/malbiruk/driftwm), focused on usable multi-monitor tiling alongside the original canvas experience. It takes inspiration from [niri](https://github.com/niri-wm/niri), without aiming for feature parity.
+This is an independently maintained fork of [driftwm](https://github.com/malbiruk/driftwm), focused on usable multi-monitor tiling alongside the original canvas experience. It takes inspiration from [niri](https://github.com/niri-wm/niri).
 
 ## See driftline in action
 
