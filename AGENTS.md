@@ -25,8 +25,6 @@ When continuing tiling work, read these before choosing the next change:
 
 - [`dev/docs/tiling-status.md`](dev/docs/tiling-status.md) — current progress,
   next tasks, validation evidence and working-tree precautions.
-- [`dev/docs/scrolling-tiling-roadmap.md`](dev/docs/scrolling-tiling-roadmap.md) —
-  authoritative focused roadmap and definition of done.
 - [`docs/tiling.md`](docs/tiling.md) — behavior currently available to users.
 
 The initial multi-output delivery sequence is implemented. Check the code and
@@ -34,7 +32,10 @@ Git history against the status before further tiling work; prioritize a concrete
 user need or verified bug over adding parity features. Update the status after
 each delivered change with what passed and what remains.
 Keep detailed session context in the status file rather than growing this file.
-The roadmap alone does not authorize pushing, publishing or messaging others.
+Status notes do not authorize pushing, publishing or messaging others.
+Work on the fork's `main`; push only to `origin` (`nationi/driftline`).
+`upstream` (`malbiruk/driftwm`) is the original project: preserve fork changes
+when integrating updates and never reset or force-push `main`.
 
 ## Conventions
 
@@ -101,7 +102,7 @@ tests, same flags, one link at a time — and bounds parallelism via `CI_JOBS` /
 `CI_TEST_THREADS` (default 2 each). Off by default; unnecessary on a machine
 with headroom, where CI's own parallel invocations are faster.
 
-Udev backend build deps (Fedora): `libseat-devel libdisplay-info-devel libinput-devel mesa-libgbm-devel`. Cross-distro build checks: `dev/docs/cross-distro-builds.md`.
+Udev backend build deps (Fedora): `libseat-devel libdisplay-info-devel libinput-devel mesa-libgbm-devel`. Container build checks: `dev/docs/testing.md`.
 
 ## Architecture
 

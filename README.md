@@ -88,7 +88,7 @@ Run on real hardware from a TTY:
 ./target/release/driftline --backend udev
 ```
 
-The udev command uses all available outputs. To limit a test session to one connector, add `--drm-connector HDMI-A-1` and replace the name with a connector reported by your system. The [TTY guide](dev/docs/tty-preview.md) covers an isolated preview setup.
+The udev command uses all available outputs. To limit a test session to one connector, add `--drm-connector HDMI-A-1` and replace the name with a connector reported by your system. The [hardware testing guide](dev/docs/testing.md#hardware-acceptance) covers an isolated preview setup.
 
 ## First controls
 
@@ -142,14 +142,15 @@ The [configuration guide](docs/config.md) explains the options; [`config.referen
 - [Command-line reference](docs/cli.md) — compositor and `driftline msg` commands
 - [Session restore](docs/session.md) — save and restore canvas windows and views
 - [Shaders](docs/shaders.md) · [Gigapixel wallpapers](docs/gigapixel-wallpapers.md)
-- [Development status](dev/docs/tiling-status.md) · [tiling roadmap](dev/docs/scrolling-tiling-roadmap.md)
+- [Development documentation](dev/docs/README.md)
 
 ## Contributing
 
-Contributions to the fork are welcome. Read [CONTRIBUTING.md](CONTRIBUTING.md) before opening an issue or pull request. For tiling work, start with the [development notes](dev/docs/README.md) and [current roadmap](dev/docs/scrolling-tiling-roadmap.md).
+Contributions to the fork are welcome. Read [CONTRIBUTING.md](CONTRIBUTING.md) before opening an issue or pull request. For tiling work, start with the [development notes](dev/docs/README.md) and [current status](dev/docs/tiling-status.md).
 
 ## Credits and license
 
 This project is based on [upstream driftwm](https://github.com/malbiruk/driftwm), built on [Smithay](https://github.com/Smithay/smithay), and informed by design ideas from [niri](https://github.com/niri-wm/niri). The fork is maintained independently; packages and releases from upstream do not include fork-specific changes.
 
-Licensed under [GPL-3.0-or-later](LICENSE).
+Licensed under [GPL-3.0-or-later](LICENSE). Fork attribution and modification
+notices are recorded in [NOTICE.md](NOTICE.md).

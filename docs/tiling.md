@@ -169,5 +169,4 @@ Column widths can be resized by mouse drag or set to one of the keyboard
 presets.
 
 For development scope and validation notes, see the
-[tiling status](../dev/docs/tiling-status.md) and
-[roadmap](../dev/docs/scrolling-tiling-roadmap.md).
+[tiling status](../dev/docs/tiling-status.md).

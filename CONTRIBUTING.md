@@ -8,7 +8,7 @@ Thanks for your interest in driftline. Issues and pull requests are welcome.
 
 **Read the internal docs in [`dev/docs/`](dev/docs/) before touching code** — architectural rules ([`caveats.md`](dev/docs/caveats.md)) and testing conventions ([`testing.md`](dev/docs/testing.md)) especially.
 
-**Using an AI coding agent?** [`AGENTS.md`](AGENTS.md) is the single source of agent instructions. It follows the [agents.md](https://agents.md) convention, so Codex, Copilot, Cursor, Gemini CLI, Antigravity, Zed and others read it with no setup. Claude Code looks for `CLAUDE.md`, which is a one-line import of the same file. If your tool wants a different path, add a stub that points at `AGENTS.md` — copies drift, pointers don't.
+**Using an AI coding agent?** Read [`AGENTS.md`](AGENTS.md) for project instructions.
 
 ## Pull requests
 
@@ -40,6 +40,14 @@ Include:
 - Distro, GPU, nested vs TTY, driftline version
 - `RUST_LOG=debug` logs if relevant
 
-## Contributing without GitHub
+## Fork workflow
 
-If you'd rather not use GitHub, email patches to `2601074@gmail.com`. Generate them with `git format-patch` (one file per commit) and either attach them to a regular email or send via `git send-email`. They'll be applied with `git am`, preserving your authorship.
+This fork is maintained at [nationi/driftline](https://github.com/nationi/driftline).
+Use its issues and pull requests for fork-specific changes.
+`origin` points to the fork; `upstream` points to the original
+[malbiruk/driftwm](https://github.com/malbiruk/driftwm) project.
+
+The integration branch is `main`. Temporary topic branches are welcome for pull
+requests. Before integrating work, fetch current refs and inspect any divergence;
+use fast-forward-only pulls and never reset or force-push `main`. Upstream merges
+must preserve the fork's tiling, branding and packaging decisions and pass CI.

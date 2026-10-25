@@ -88,21 +88,39 @@ for). Never read or write `$XDG_RUNTIME_DIR/driftline`; the test pump
 deliberately excludes the state-file writer. Don't set process env vars in
 tests — the harness is multi-threaded.
 
-For a direct udev test on a machine with multiple connected monitors, omit
-`--drm-connector` to exercise independent tiling layouts across connected
-outputs. Pass `--drm-connector HDMI-A-1` (using the actual connector name) to
-limit an isolated preview to one output. Tiling views for outputs connected
-after entry and transfer of columns when one of several outputs disconnects
-are covered by fixtures. Disconnecting the last output exits tiling. Run from a
-separate TTY and use an isolated config/session file to preserve the main
-desktop.
+## Hardware acceptance
 
-For this checkout's isolated launcher, keys and return path, see
-[the local TTY guide](tty-preview.md). Direct udev is the visual acceptance
-environment for the current NVIDIA blur work; nested winit still has
-artifacts/lag. The surfaceless GLES helper self-skips without EGL; current local
-pixel evidence comes from NVIDIA RTX 3060, not an assumed Mesa software renderer.
-Record automated checks and manual observations in the
-[maintained status](tiling-status.md). Niri source is an optional implementation
-reference; external niri builds and parity audits are not project acceptance
-gates.
+Run from a separate TTY with an existing isolated test config and a separate
+session file, so the normal desktop state is preserved:
+
+```bash
+cargo build --release --locked
+./target/release/driftline --backend udev --config /path/to/test-config.toml --session-file /path/to/test-session.json
+```
+
+Omit `--drm-connector` to use every connected output, or add
+`--drm-connector HDMI-A-1` with an actual connector name to isolate one output.
+The default exit binding is `Mod+Ctrl+Shift+Q`. See the
+[tiling guide](../../docs/tiling.md) for controls.
+
+On a multi-monitor setup, check independent focus, reorder, stack and resize;
+new windows; keyboard and mouse transfer; fullscreen on one output; hotplug
+with pending client resizes; and return to saved canvas geometry and views.
+Restart with the same session file to check restored output ownership, column
+and stack order, widths and selection. Use the actual hardware for visual
+acceptance: surfaceless GLES tests do not prove driver or monitor behavior.
+Record remaining checks in [tiling status](tiling-status.md).
+
+## Container build checks
+
+For example, check Arch dependencies from the repository root with Podman:
+
+```bash
+podman run --rm -it --security-opt label=disable -v "$PWD":/src archlinux:latest bash
+pacman -Syu --noconfirm rust cargo pkg-config libdisplay-info libinput seatd mesa libxkbcommon
+cd /src
+cargo build
+```
+
+The volume is writable so Cargo can build in `target/`; on Fedora,
+`--security-opt label=disable` avoids SELinux blocking the container's access.

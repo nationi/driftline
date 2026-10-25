@@ -4,7 +4,7 @@ version = "1.1.5"
 edition = "2024"
 rust-version = "1.88"
 license = "GPL-3.0-or-later"
-authors = ["Klim Kostiuk <2601074@gmail.com>"]
+authors = ["Klim Kostiuk <2601074@gmail.com>", "nationi"]
 description = "Driftline, an infinite-canvas Wayland compositor forked from driftwm"
 repository = "https://github.com/nationi/driftline"
 

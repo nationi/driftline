@@ -4,7 +4,8 @@ driftline renders the canvas background using a GLSL fragment shader. You can
 write your own to replace the default dot grid.
 
 > [!TIP]
-> Looking for ready-made shaders, or want to share your own? Browse the [Gallery](https://github.com/malbiruk/driftwm/discussions/143).
+> Ready-made shader examples are included in [`extras/wallpapers/`](../extras/wallpapers/),
+> with static, animated and textured backgrounds.
 
 ## Your first shader
 
