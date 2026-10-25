@@ -152,5 +152,4 @@ Contributions to the fork are welcome. Read [CONTRIBUTING.md](CONTRIBUTING.md) b
 
 This project is based on [upstream driftwm](https://github.com/malbiruk/driftwm), built on [Smithay](https://github.com/Smithay/smithay), and informed by design ideas from [niri](https://github.com/niri-wm/niri). The fork is maintained independently; packages and releases from upstream do not include fork-specific changes.
 
-Licensed under [GPL-3.0-or-later](LICENSE). Fork attribution and modification
-notices are recorded in [NOTICE.md](NOTICE.md).
+Licensed under [GPL-3.0-or-later](LICENSE).
