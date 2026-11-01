@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" role="img" aria-labelledby="title desc">
+  <title id="title">Driftline icon</title>
+  <desc id="desc">Mint split D symbol on a dark rounded square.</desc>
+  <rect width="256" height="256" rx="48" fill="#101820"/>
+  <g transform="translate(20.48 17.92) scale(.84)">
+  <path fill="#79d4c2" d="M52 32H124C180 32 215 64 220 112H180C175 86 154 72 124 72H92V112H52ZM36 144H76V184H108C138 184 159 170 164 144H204C199 192 164 224 108 224H36Z"/>
+  </g>
+</svg>

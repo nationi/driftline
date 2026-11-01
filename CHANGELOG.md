@@ -2,6 +2,20 @@
 
 Notable changes to Driftline are recorded here.
 
+## 1.1.6 — 2026-11-02
+
+- Animate canvas/tiling switching with staggered window motion, a shallow arc
+  and a temporary shrink. Preserve the visible canvas zoom and reverse smoothly
+  when switching modes again during the transition.
+- Keep the pointer on its starting monitor during tiled Alt+right-drag resize,
+  and let edge scrolling continue widening a column beyond the viewport.
+- Support `Mod+X` in tiling to focus and center the window under the pointer.
+- Introduce the Split D logo, light/dark README artwork and an installed session
+  icon.
+- Refresh fork documentation and installation guidance, remove obsolete upstream
+  publishing assets and completed documentation scaffolding, and keep local AI
+  assistant files out of the repository.
+
 ## 1.1.5 — 2026-10-24
 
 - Let tiled drag hit-testing pass through the moving window's stale layout

@@ -2,5 +2,6 @@
 Name=driftline
 Comment=A trackpad-first infinite canvas Wayland compositor
 Exec=driftline-session
+Icon=driftline
 Type=Application
 DesktopNames=driftline

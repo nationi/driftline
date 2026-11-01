@@ -1,7 +1,7 @@
 # Development documentation
 
-Read [CONTRIBUTING.md](../../CONTRIBUTING.md) and
-[AGENTS.md](../../AGENTS.md) before making implementation changes.
+Read [CONTRIBUTING.md](../../CONTRIBUTING.md), the architecture caveats and
+the testing guide before making implementation changes.
 
 | Guide | Purpose |
 | --- | --- |

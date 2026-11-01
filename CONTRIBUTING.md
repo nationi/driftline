@@ -8,8 +8,6 @@ Thanks for your interest in driftline. Issues and pull requests are welcome.
 
 **Read the internal docs in [`dev/docs/`](dev/docs/) before touching code** — architectural rules ([`caveats.md`](dev/docs/caveats.md)) and testing conventions ([`testing.md`](dev/docs/testing.md)) especially.
 
-**Using an AI coding agent?** Read [`AGENTS.md`](AGENTS.md) for project instructions.
-
 ## Pull requests
 
 **Keep PRs small and focused on one concern.** One PR = one logical change. If your description says "this does X and Y", that's two PRs.

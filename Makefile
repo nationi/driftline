@@ -16,6 +16,7 @@ install:
 	ln -sfn driftline $(DESTDIR)$(BINDIR)/driftwm
 	install -Dm755 resources/driftline-session $(DESTDIR)$(BINDIR)/driftline-session
 	ln -sfn driftline-session $(DESTDIR)$(BINDIR)/driftwm-session
+	install -Dm644 assets/driftline-icon.svg $(DESTDIR)$(DATADIR)/icons/hicolor/scalable/apps/driftline.svg
 	install -Dm644 resources/driftline.desktop $(DESTDIR)$(DATADIR)/wayland-sessions/driftline.desktop
 	install -Dm644 resources/driftline-portals.conf $(DESTDIR)$(DATADIR)/xdg-desktop-portal/driftline-portals.conf
 	install -Dm644 resources/driftline.service $(DESTDIR)$(LIBDIR)/systemd/user/driftline.service
@@ -32,6 +33,7 @@ install:
 uninstall:
 	rm -f $(DESTDIR)$(BINDIR)/driftline $(DESTDIR)$(BINDIR)/driftwm
 	rm -f $(DESTDIR)$(BINDIR)/driftline-session $(DESTDIR)$(BINDIR)/driftwm-session
+	rm -f $(DESTDIR)$(DATADIR)/icons/hicolor/scalable/apps/driftline.svg
 	rm -f $(DESTDIR)$(DATADIR)/wayland-sessions/driftline.desktop
 	rm -f $(DESTDIR)$(DATADIR)/xdg-desktop-portal/driftline-portals.conf
 	rm -f $(DESTDIR)$(LIBDIR)/systemd/user/driftline.service $(DESTDIR)$(LIBDIR)/systemd/user/driftwm.service

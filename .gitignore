@@ -7,3 +7,19 @@ __pycache__
 .ruff_cache
 *.tar.gz
 *.tar.xz
+
+# Local AI assistant instructions and state
+AGENTS.md
+AGENTS.override.md
+CLAUDE.md
+GEMINI.md
+.codex/
+.claude/
+.cursor/
+.cursorrules
+
+# Editor and backup files
+*.bak
+*.orig
+*.rej
+*~

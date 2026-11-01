@@ -1,5 +1,8 @@
 <div align="center">
-<img src="assets/driftline-logo.svg" alt="Driftline" width="360">
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="assets/driftline-logo-dark.svg">
+  <img src="assets/driftline-logo.svg" alt="Driftline" width="360">
+</picture>
 <h1>Driftline</h1>
 <p><strong>Infinite canvas first. Scrolling-column tiling when you need it.</strong></p>
 <p>A trackpad-first Wayland compositor with independent, practical tiling layouts on every output.</p>
@@ -50,7 +53,7 @@ Explore the guides below for feature details and configuration.
 
 ### Build
 
-This README describes `main`, including changes made after the latest published version. [v1.1.5](https://github.com/nationi/driftline/releases/tag/v1.1.5) is currently a **prerelease**. Build `main` for the behavior documented here.
+This README describes `main`. For a reproducible release build, use the [v1.1.6](https://github.com/nationi/driftline/releases/tag/v1.1.6) tag; see the [changelog](CHANGELOG.md) for version history.
 
 Use a current stable Rust toolchain. The manifest declares Rust 1.88 as the minimum and uses the 2024 edition. Install a C toolchain, `pkg-config`, Git and the system libraries for Smithay's input and graphics backends:
 
@@ -75,7 +78,7 @@ sudo pacman -S --needed git base-devel libdisplay-info libinput seatd mesa libxk
 Install Rust with [rustup](https://rustup.rs/) if needed, then build the fork:
 
 ```bash
-git clone --branch main --depth 1 https://github.com/nationi/driftline.git
+git clone --branch v1.1.6 --depth 1 https://github.com/nationi/driftline.git
 cd driftline
 cargo build --release --locked
 ```

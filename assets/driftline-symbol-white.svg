@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" role="img" aria-labelledby="title desc">
+  <title id="title">Driftline symbol</title>
+  <desc id="desc">A capital D split horizontally, with its lower half shifted to the left.</desc>
+  <path fill="#ffffff" d="M52 32H124C180 32 215 64 220 112H180C175 86 154 72 124 72H92V112H52ZM36 144H76V184H108C138 184 159 170 164 144H204C199 192 164 224 108 224H36Z"/>
+</svg>
