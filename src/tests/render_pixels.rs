@@ -1184,13 +1184,9 @@ fn check_pending_tiling_capture(
                     );
                 }
             }
+            // Cancellation is synchronous. Dispatching here would also expire the
+            // snapshot lease if software-rendered pixel checks took over 300 ms.
             f.state().cancel_window_animation(&wa);
-            if !matches!(
-                finish,
-                TilingFinish::OpenAnimation | TilingFinish::ActiveOpen
-            ) {
-                f.pump(2);
-            }
             assert_eq!(f.state().tiling_snapshot_count(), expected_images);
             if retained {
                 let restored = tiling_live_frame(&mut f, &output);

@@ -57,6 +57,14 @@ adds the user-selected Split D logo and session icon, and removes local AI
 assistant instructions from version control. License and upstream attribution are preserved. Release publication is tracked by Git tags
 and GitHub releases rather than a pending checklist here.
 
+A pre-release GitHub CI run exposed a wall-clock dependency in
+`position_animation_preserves_pending_tiling_content_and_popups`: dispatching
+after slow pixel comparisons let the 300 ms snapshot lease expire before the
+cancellation assertion. A 350 ms diagnostic delay reproduced the same failure;
+removing the unnecessary dispatch passed with that delay and preserves all
+pixel assertions. The diagnostic delay is not retained in the test. Runtime
+snapshot deadlines are unchanged.
+
 ## Continuing work
 
 There are no outstanding implementation or hardware-acceptance tasks in the
