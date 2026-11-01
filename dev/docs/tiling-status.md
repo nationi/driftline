@@ -58,8 +58,12 @@ tests, 354 integration tests and one separate soak test passed.
 `PROPTEST_CASES=4000` runs of the library and config robustness suite also passed.
 The locked release build, staged install/uninstall and both reference/personal
 config validation passed. The staging directory was removed.
-The real-client test self-skips locally without `foot` or `weston-terminal`;
-GitHub CI installs `foot` for that coverage.
+The first GitHub run exposed a startup race in the real-client fixture: `app_id`
+can arrive before its first buffer, so initial placement could overwrite a move
+sent to the still-unmapped placeholder. The fixture now waits for nonzero
+geometry and completion of initial placement, retaining the exact move assertion.
+It passed 30 repetitions with an isolated, temporarily extracted `foot` 1.28.0;
+no terminal package was installed into the system. GitHub CI also installs `foot`.
 
 The user accepted multi-monitor operation, app relaunch, topology restore and
 the interaction/animation checks in TTY before this upstream integration.
