@@ -5,6 +5,10 @@ use smithay::{
     wayland::seat::WaylandFocus,
 };
 
+use std::collections::HashMap;
+use std::ffi::{OsStr, OsString};
+use std::os::unix::fs::PermissionsExt;
+
 use crate::state::{Driftline, HomeReturn, NavZoom, RevealPan, StageWindow};
 use driftline::canvas::{self};
 use driftline::config::{Action, Direction, LayoutSwitch, Modifiers, SendEvents, TrackpadState};
@@ -217,8 +221,8 @@ impl Driftline {
                 self.refresh_tiling();
             }
             Action::Exec(cmd) => self.exec_command(cmd),
-            Action::ExecTerminal => self.exec_command(&detect_terminal()),
-            Action::ExecLauncher => self.exec_command(&detect_launcher()),
+            Action::ExecTerminal => self.exec_command(&detect_terminal(&self.config.child_env)),
+            Action::ExecLauncher => self.exec_command(&detect_launcher(&self.config.child_env)),
             Action::Spawn(cmd) => {
                 tracing::info!("Spawning (no cursor): {cmd}");
                 crate::state::spawn_command(cmd, &self.config.child_env);
@@ -249,7 +253,7 @@ impl Driftline {
                 if let Some(element) = self.focused_element().filter(|e| self.is_canvas_window(e))
                     && let Some(loc) = self.stage.position_of(&element)
                 {
-                    let step = self.config.nudge_step;
+                    let step = self.canvas_step(&element, self.config.nudge_step);
                     let (ux, uy) = dir.to_unit_vec();
                     let offset = (
                         (ux * step as f64).round() as i32,
@@ -445,8 +449,9 @@ impl Driftline {
                 let (cam, zoom) = self.landing_view();
                 let x = cam.x + vc.x / zoom;
                 let y = -(cam.y + vc.y / zoom);
-                self.bookmarks.insert(name.clone(), [x, y]);
-                self.session_store_mark_dirty();
+                if let Err(e) = self.set_bookmark(name.clone(), [x, y]) {
+                    tracing::info!("set-bookmark '{name}': {e}");
+                }
             }
             Action::MoveToBookmark(name) => {
                 let Some(&[x, y]) = self.bookmarks.get(name) else {
@@ -899,22 +904,34 @@ impl Driftline {
     }
 }
 
-fn which(cmd: &str) -> bool {
-    std::process::Command::new("which")
-        .arg(cmd)
-        .stdout(std::process::Stdio::null())
-        .stderr(std::process::Stdio::null())
-        .status()
-        .is_ok_and(|s| s.success())
+/// A child-env variable as children see it: the config-built env first, then
+/// the process env it is layered on.
+fn child_var(env: &HashMap<String, String>, key: &str) -> Option<OsString> {
+    env.get(key)
+        .map(OsString::from)
+        .or_else(|| std::env::var_os(key))
+}
+
+/// Whether `cmd` is an executable regular file in a `PATH` directory. Searched
+/// in-process: SIGCHLD is ignored, so a `which` child could never be waited on.
+/// An empty entry would mean the compositor's working directory; it is skipped.
+fn on_path(cmd: &str, path: &OsStr) -> bool {
+    std::env::split_paths(path)
+        .filter(|dir| !dir.as_os_str().is_empty())
+        .any(|dir| {
+            std::fs::metadata(dir.join(cmd))
+                .is_ok_and(|m| m.is_file() && m.permissions().mode() & 0o111 != 0)
+        })
 }
 
 /// `$TERMINAL`, else the first installed of a preference list, else `foot`.
-fn detect_terminal() -> String {
-    if let Ok(term) = std::env::var("TERMINAL")
+pub(crate) fn detect_terminal(env: &HashMap<String, String>) -> String {
+    if let Some(term) = child_var(env, "TERMINAL").and_then(|t| t.into_string().ok())
         && !term.is_empty()
     {
         return term;
     }
+    let path = child_var(env, "PATH").unwrap_or_default();
     for cmd in [
         "foot",
         "alacritty",
@@ -924,7 +941,7 @@ fn detect_terminal() -> String {
         "gnome-terminal",
         "konsole",
     ] {
-        if which(cmd) {
+        if on_path(cmd, &path) {
             return cmd.to_string();
         }
     }
@@ -934,12 +951,13 @@ fn detect_terminal() -> String {
 /// `$LAUNCHER`, else the first installed of a preference list, else `fuzzel`.
 /// Detection probes only the binary; the returned string carries drun-mode
 /// flags so bare menus actually launch apps.
-fn detect_launcher() -> String {
-    if let Ok(launcher) = std::env::var("LAUNCHER")
+pub(crate) fn detect_launcher(env: &HashMap<String, String>) -> String {
+    if let Some(launcher) = child_var(env, "LAUNCHER").and_then(|l| l.into_string().ok())
         && !launcher.is_empty()
     {
         return launcher;
     }
+    let path = child_var(env, "PATH").unwrap_or_default();
     for cmd in [
         "fuzzel",
         "wofi --show drun",
@@ -950,7 +968,7 @@ fn detect_launcher() -> String {
         "mew-run",
     ] {
         let bin = cmd.split_whitespace().next().unwrap();
-        if which(bin) {
+        if on_path(bin, &path) {
             return cmd.to_string();
         }
     }

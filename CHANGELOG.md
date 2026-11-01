@@ -2,6 +2,25 @@
 
 Notable changes to Driftline are recorded here.
 
+## 1.1.7 — 2026-11-02
+
+- Integrate 104 upstream commits through `e97a9d0`, including v0.21.0 changes,
+  while retaining Driftline's tiling, branding and existing config/session paths.
+- Refresh fractional scale when windows move between outputs, including tiled
+  transfers, and correct scales for layer surfaces and canvas widgets.
+- Fix regional screen capture, buffer offsets/strides, capture timestamps,
+  resizing layer placement and off-screen shadows. Bound expensive client regions
+  and chrome buffers, harden activation, session locking, IPC and file handling.
+- Improve canvas snap fallbacks and keep keyboard move/resize steps consistent
+  in screen pixels across zoom levels. Detect terminals and launchers in-process.
+- Adopt upstream canvas defaults: `Mod+Shift+1..4` saves bookmarks;
+  `Alt`+middle fits a snapped group, `Alt+Shift`+middle fits one window, and
+  `Mod`+middle fills free space. Remove default modified pinch fit/fullscreen
+  gestures. Explicit user bindings continue to override the defaults; tiling
+  bindings and mode isolation remain in place.
+- Support the KDE decoration protocol and keep `--config` overrides inside the
+  compositor instead of exporting them to child applications.
+
 ## 1.1.6 — 2026-11-02
 
 - Animate canvas/tiling switching with staggered window motion, a shallow arc

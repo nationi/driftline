@@ -257,7 +257,7 @@ the result is `true`.
 `pass_mouse` is the same idea for the `[mouse.*]` bindings: a claimed press or
 scroll reaches the app instead of running its compositor action. Apps that want
 `alt`-drag for themselves — Blender, Krita, GIMP, CAD three-button emulation —
-need it, since `alt+left`/`alt+middle`/`alt+right` are the on-window move / fill /
+need it, since `alt+left`/`alt+middle`/`alt+right` are the on-window move / fit /
 resize defaults.
 
 Combo syntax is the `[mouse.*]` binding syntax: modifiers plus one of `left`,
@@ -280,7 +280,7 @@ resize border still resizes.
 
 A claimed click behaves exactly as an unbound one, which also means it still
 focuses and raises the window — and with `auto_navigate_on_click = true` it
-still pans the camera to the window.
+still scrolls a partly off-screen window into view.
 
 Below `[zoom] interact_min` a canvas window has no pointer focus to forward to,
 so a *canvas window's* `pass_mouse` claims are ignored there and the compositor

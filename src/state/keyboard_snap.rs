@@ -6,14 +6,16 @@ use std::collections::HashSet;
 
 use smithay::utils::{Logical, Point};
 
-use super::{Driftline, NavZoom, StageWindow};
+use super::{Driftline, MinimalPan, NavZoom, StageWindow};
 use driftline::config::Direction;
 use driftline::layout::snap::{self, SnapRect, StopQuery};
 
 impl Driftline {
     /// Move the focused canvas element along `dir` to the nearest stop past
     /// where it sits, and bring the camera along if that leaves the viewport.
-    /// Nothing that way is a no-op.
+    /// With no stop that way it nudges by `nudge_step` instead, the camera
+    /// scrolling along with it once its leading edge reaches `outer_gap` from
+    /// the usable edge.
     pub(crate) fn move_to_snap_focused(&mut self, dir: &Direction) {
         let Some((horizontal, forward)) = axis_of(dir) else {
             return;
@@ -42,15 +44,27 @@ impl Driftline {
         } else {
             (frame.y_low, frame.y_high - frame.y_low)
         };
-        let Some(origin) = snap::next_origin(from, forward, extent, &others, &q) else {
-            return;
-        };
-        // The stop places the visual frame; the stage holds the content
-        // top-left, one border in and the bar down from it.
-        let new_loc = if horizontal {
-            Point::from((origin as i32 + bw, loc.y))
-        } else {
-            Point::from((loc.x, origin as i32 + bar + bw))
+        let stop = snap::next_origin(from, forward, extent, &others, &q);
+        let new_loc = match stop {
+            // The stop places the visual frame; the stage holds the content
+            // top-left, one border in and the bar down from it.
+            Some(origin) if horizontal => Point::from((origin as i32 + bw, loc.y)),
+            Some(origin) => Point::from((loc.x, origin as i32 + bar + bw)),
+            // No clear stop means no window ahead in the perpendicular span:
+            // the one reaching furthest that way would offer a clear far dock.
+            // So the nudge can't land on a window either.
+            None => {
+                let step = self.canvas_step(&element, self.config.nudge_step);
+                if step == 0 {
+                    return;
+                }
+                let step = if forward { step } else { -step };
+                if horizontal {
+                    Point::from((loc.x.saturating_add(step), loc.y))
+                } else {
+                    Point::from((loc.x, loc.y.saturating_add(step)))
+                }
+            }
         };
         self.keyboard_move_element(&element, loc, new_loc);
 
@@ -58,8 +72,23 @@ impl Driftline {
         // frame: a pan heading for the previous stop would leave this one.
         let (camera, zoom) = self.landing_view();
         let landed = super::fit::snap_rect_at(new_loc, size, bar, bw);
-        if !self.frame_fully_in_view_at(&landed, camera, zoom) {
-            self.navigate_to_element(&element, NavZoom::Keep);
+        if stop.is_some() {
+            if !self.frame_fully_in_view_at(&landed, camera, zoom) {
+                self.navigate_to_element(&element, NavZoom::Keep);
+            }
+            return;
+        }
+        // As an edge pan carries a dragged window: it rides the `outer_gap`
+        // line while the canvas scrolls under it, only the way the window
+        // went, where parking every step would throw the view around. Shown
+        // at the size just judged, which a client that declined a resize is
+        // still drawn at.
+        let pan = MinimalPan::LeadingEdge {
+            horizontal,
+            forward,
+        };
+        if self.minimal_pan_moves(&element, &landed, camera, zoom, pan) {
+            self.pan_minimally_to_element(&element, &landed, camera, zoom, pan);
         }
     }
 
@@ -78,10 +107,40 @@ impl Driftline {
         self.session_store_mark_dirty();
     }
 
+    /// The canvas px that `step` screen px cover for `element`, keeping the
+    /// sign and never rounding a nonzero step down to nothing. Measured at the
+    /// landing zoom of the active output if that view shows the element's
+    /// centre (the view move-to-snap scrolls), else of `output_for_window`.
+    pub(crate) fn canvas_step(&self, element: &StageWindow, step: i32) -> i32 {
+        if step == 0 {
+            return 0;
+        }
+        let center = self.stage.position_of(element).map(|loc| {
+            let size = self.placed_element_size(element);
+            Point::from((
+                loc.x.saturating_add(size.w / 2),
+                loc.y.saturating_add(size.h / 2),
+            ))
+        });
+        let active = self.active_output().filter(|output| {
+            let (camera, zoom) = self.landing_view_on(output);
+            let view = driftline::canvas::visible_canvas_rect(
+                camera.to_i32_round(),
+                super::output_logical_size(output),
+                zoom,
+            );
+            center.is_some_and(|c| view.contains(c))
+        });
+        let zoom = active
+            .or_else(|| self.output_for_window(element))
+            .map_or(1.0, |output| self.landing_view_on(&output).1);
+        step.signum() * ((f64::from(step.unsigned_abs()) / zoom).round() as i32).max(1)
+    }
+
     /// Resize the focused canvas element by walking its right or bottom edge:
-    /// `right` / `down` grow it out to the next stop, `left` / `up` pull it
-    /// back to the previous one, never past the usable area or over another
-    /// window.
+    /// `right` / `down` grow it out to the next stop, never past the usable
+    /// area or over another window; `left` / `up` pull it back to the previous
+    /// one, or by `resize_step` with none inside the window.
     pub(crate) fn resize_to_snap_focused(&mut self, dir: &Direction) {
         let Some((horizontal, grow)) = axis_of(dir) else {
             return;
@@ -121,7 +180,12 @@ impl Driftline {
         let target = if grow {
             snap::next_grow_line(edge, edge.max(requested_edge), bound, &others, &q)
         } else {
-            snap::next_shrink_line(edge.min(requested_edge), anchor, bound, &others, &q)
+            let from = edge.min(requested_edge);
+            // A zero step isn't a reliable no-op: from a declined request it
+            // would ask for that request again.
+            let step = self.canvas_step(&element, self.config.resize_step);
+            snap::next_shrink_line(from, anchor, bound, &others, &q)
+                .or_else(|| (step > 0).then_some(from - step as f64))
         };
         let Some(target) = target else {
             return;

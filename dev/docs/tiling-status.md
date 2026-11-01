@@ -1,6 +1,7 @@
 # Tiling development status and next steps
 
-Updated 2026-11-02 for the `v1.1.6` release preparation. User behavior and bindings are documented in the
+Updated 2026-11-02 for the `v1.1.7` upstream integration. User behavior and
+bindings are documented in the
 [tiling guide](../../docs/tiling.md); persistence is described in the
 [session guide](../../docs/session.md).
 
@@ -32,44 +33,45 @@ Niri is a design reference, not a parity target. Workspaces, tabs and a general
 floating-window policy are outside the current scope. No further feature is
 required merely to finish the old checklist.
 
-## Validation already recorded
+## Upstream integration
 
-The user confirmed multi-monitor operation, app relaunch and topology restore
-across a real session restart. The user also accepted drag edge scrolling before
-the subsequent visual restyling. On 2026-11-02, the user confirmed completing
-the remaining TTY hardware acceptance checks for the latest interactions.
-No further manual acceptance is pending for this delivery.
+Merged 104 upstream commits through `e97a9d0` (v0.21.0 plus the fractional-scale
+follow-up), preserving the fork's tiling implementation, Split D artwork,
+Driftline package identity and legacy config/session/IPC compatibility.
+Nix support, the documentation site and tracked AI assistant files stay removed.
+Canvas default binding changes are listed in [the changelog](../../CHANGELOG.md).
+User config files are not migrated or overwritten.
 
-For the `1.1.6` release preparation, the complete `dev/scripts/ci-local`
-sequence passed: formatting, locked check, all-target Clippy, test compilation,
-all tests including ignored rendering cases, and the isolated soak stage.
-The run reported 1695 compositor tests plus one isolated soak test, 415 library
-tests and 354 integration tests passing. The real-client test can self-skip
-when neither `foot` nor `weston-terminal` is available; neither is installed on
-the local validation machine. CI installs `foot` for that coverage.
+The scaled-output transfer fixture now checks preferred scale in both directions
+(1.0 → 1.5 → 1.0), no duplicate scale events and preserved tiling membership.
+All upstream functions in changed files remain available after rebranding,
+except the old session round-trip fixture superseded by the fork's existing
+legacy-session restore coverage. The removed `which` subprocess is replaced by
+upstream's in-process PATH lookup.
 
-The locked release build and a staged
-`make install` also passed; the installed test binary reports `driftline 1.1.6`
-and accepts `config.reference.toml`. The staging directory was removed.
+## Validation
 
-The release updates the version and changelog, refreshes installation guidance,
-adds the user-selected Split D logo and session icon, and removes local AI
-assistant instructions from version control. License and upstream attribution are preserved. Release publication is tracked by Git tags
-and GitHub releases rather than a pending checklist here.
+The complete `dev/scripts/ci-local` sequence passed for `1.1.7`: formatting,
+locked check, all-target Clippy, test compilation, tests including ignored
+rendering cases, and isolated soak. Results: 428 library tests, 1817 compositor
+tests, 354 integration tests and one separate soak test passed.
+`PROPTEST_CASES=4000` runs of the library and config robustness suite also passed.
+The locked release build, staged install/uninstall and both reference/personal
+config validation passed. The staging directory was removed.
+The real-client test self-skips locally without `foot` or `weston-terminal`;
+GitHub CI installs `foot` for that coverage.
 
-A pre-release GitHub CI run exposed a wall-clock dependency in
-`position_animation_preserves_pending_tiling_content_and_popups`: dispatching
-after slow pixel comparisons let the 300 ms snapshot lease expire before the
-cancellation assertion. A 350 ms diagnostic delay reproduced the same failure;
-removing the unnecessary dispatch passed with that delay and preserves all
-pixel assertions. The diagnostic delay is not retained in the test. Runtime
-snapshot deadlines are unchanged.
+The user accepted multi-monitor operation, app relaunch, topology restore and
+the interaction/animation checks in TTY before this upstream integration.
+That acceptance is for the previous build; no live session was restarted during
+integration. Headless/GLES checks do not establish hardware acceptance of a new
+build. Release publication and CI outcomes are tracked by Git tags and GitHub.
 
 ## Continuing work
 
-There are no outstanding implementation or hardware-acceptance tasks in the
-current tiling plan. Choose the next change from a reproduced issue or a concrete
-user need. Do not recreate completed parity roadmaps or canceled demo work.
+There is no remaining feature checklist for the current tiling scope. Prioritize
+a reproduced issue or concrete user need; do not recreate parity roadmaps or
+canceled demo work. Preserve the user's running session during binary updates.
 
 ## Maintenance rules
 

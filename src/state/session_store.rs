@@ -200,7 +200,7 @@ impl Driftline {
         // side carries it forward verbatim (so flipping the flag on later loses
         // nothing), and with it on we overlay it onto the config seeds here — a
         // restored value wins per name, config seeds fill the names the file lacks.
-        self.session_store.durable_bookmarks = envelope.bookmarks;
+        self.session_store.durable_bookmarks = bounded_bookmarks(envelope.bookmarks);
         if self.config.session.restore_bookmarks {
             let overlay = self.session_store.durable_bookmarks.clone();
             for (name, value) in overlay {
@@ -768,8 +768,13 @@ impl Driftline {
 /// A durable entry for a suspended window at canvas position `loc`, recorded as
 /// the visual frame it wears rather than the body it stores.
 fn suspended_entry(s: &SuspendedWindow, loc: Point<i32, Logical>, chrome: Chrome) -> SessionEntry {
-    let frame = chrome.frame_size(s.size.get());
-    let (x, y) = content_to_rule(loc, s.size.get(), chrome);
+    // A stand-in can outgrow its ceiling after the clamp (a snap past it, a
+    // reload that thickened the chrome), and restore drops an entry past it.
+    let max = crate::grabs::SizeConstraints::for_suspended(chrome).max;
+    let size = s.size.get();
+    let size = Size::from((size.w.min(max.w), size.h.min(max.h)));
+    let frame = chrome.frame_size(size);
+    let (x, y) = content_to_rule(loc, size, chrome);
     SessionEntry {
         id: s.id.0,
         app_id: s.identity.app_id.clone(),
@@ -819,15 +824,15 @@ fn body_entry_to_frame(mut entry: SessionEntry, chrome: Chrome) -> SessionEntry 
 }
 
 /// Whether a saved window's geometry is safe to feed the stage: size components
-/// in `1..=32767` (smithay's `Size::from` debug-asserts non-negative; the upper
-/// bound keeps render buffers sane) and positions within a range that can't
-/// overflow `rule_to_internal`'s `i32` math.
+/// in `1..=MAX_BUFFER_EXTENT` (smithay's `Size::from` debug-asserts
+/// non-negative; the upper bound is the largest stand-in) and positions within
+/// [`POSITION_LIMIT`].
 fn valid_entry_geometry(entry: &SessionEntry) -> bool {
-    const POSITION_LIMIT: i32 = 16_000_000;
+    let sizes = 1..=crate::decorations::MAX_BUFFER_EXTENT;
     let [w, h] = entry.size;
     let [x, y] = entry.position;
-    let ok = (1..=32767).contains(&w)
-        && (1..=32767).contains(&h)
+    let ok = sizes.contains(&w)
+        && sizes.contains(&h)
         && (-POSITION_LIMIT..=POSITION_LIMIT).contains(&x)
         && (-POSITION_LIMIT..=POSITION_LIMIT).contains(&y);
     if !ok {
@@ -839,18 +844,96 @@ fn valid_entry_geometry(entry: &SessionEntry) -> bool {
     ok
 }
 
+/// The canvas range `msg camera` and bookmarks may point the view at.
+/// Navigating to a window can take it a little further, up to the windows'
+/// [`POSITION_LIMIT`], which a restored camera is checked against.
+pub(crate) const CAMERA_LIMIT: f64 = 1e9;
+
+/// The canvas range a window position may lie in, saved or requested: the
+/// camera's range plus headroom, so a window placed beside one at the camera's
+/// edge still survives a restore. Any two positions inside it stay an `i32`
+/// apart, so window-to-window math can't overflow.
+pub(crate) const POSITION_LIMIT: i32 = 1_050_000_000;
+
 /// Whether a durable/runtime camera seed is safe to apply: finite components
 /// within a sane canvas range and a zoom inside the real zoom bounds. An
 /// invalid seed (`zoom: 0.0`, non-finite, corruption) is skipped so it can't
 /// warp the pointer to infinity or divide every canvas conversion by zero.
 pub(crate) fn valid_camera_seed(camera: Point<f64, Logical>, zoom: f64) -> bool {
-    const CAMERA_LIMIT: f64 = 1e9;
-    camera.x.is_finite()
-        && camera.y.is_finite()
-        && camera.x.abs() <= CAMERA_LIMIT
-        && camera.y.abs() <= CAMERA_LIMIT
+    within_window_range(camera.x, camera.y)
         && zoom.is_finite()
         && (driftline::canvas::MIN_ZOOM_FLOOR..=driftline::canvas::MAX_ZOOM).contains(&zoom)
+}
+
+pub(crate) fn valid_canvas_point(x: f64, y: f64) -> bool {
+    x.is_finite() && y.is_finite() && x.abs() <= CAMERA_LIMIT && y.abs() <= CAMERA_LIMIT
+}
+
+/// Whether a point lies in the windows' range: where navigating to a window
+/// can take the view.
+pub(crate) fn within_window_range(x: f64, y: f64) -> bool {
+    let limit = f64::from(POSITION_LIMIT);
+    x.is_finite() && y.is_finite() && x.abs() <= limit && y.abs() <= limit
+}
+
+/// The registry takes no new name past this many bookmarks.
+pub(crate) const MAX_BOOKMARKS: usize = 256;
+/// Longest bookmark name, in bytes.
+pub(crate) const MAX_BOOKMARK_NAME: usize = 256;
+
+/// Why bookmark `name` at `[x, y]` can't be held, if it can't. Config seeds
+/// are the user's own and stand outside these bounds.
+fn bookmark_problem(name: &str, [x, y]: [f64; 2]) -> Option<String> {
+    if name.len() > MAX_BOOKMARK_NAME {
+        return Some(format!(
+            "bookmark names are at most {MAX_BOOKMARK_NAME} bytes"
+        ));
+    }
+    if !x.is_finite() || !y.is_finite() {
+        return Some("bookmark coordinates must be finite".to_string());
+    }
+    if !valid_canvas_point(x, y) {
+        return Some(format!(
+            "bookmark coordinates must be within ±{CAMERA_LIMIT:e}"
+        ));
+    }
+    None
+}
+
+/// A saved registry cut to what [`Driftline::set_bookmark`] would have
+/// accepted, so a corrupt or hand-edited session can't restore past it.
+fn bounded_bookmarks(saved: BTreeMap<String, [f64; 2]>) -> BTreeMap<String, [f64; 2]> {
+    let total = saved.len();
+    let kept: BTreeMap<_, _> = saved
+        .into_iter()
+        .filter(|(name, point)| bookmark_problem(name, *point).is_none())
+        .take(MAX_BOOKMARKS)
+        .collect();
+    if kept.len() < total {
+        tracing::warn!(
+            "session store: dropped {} of {total} saved bookmarks out of bounds",
+            total - kept.len()
+        );
+    }
+    kept
+}
+
+impl Driftline {
+    /// Set bookmark `name` to `point`, refusing a new name once the registry
+    /// holds [`MAX_BOOKMARKS`], and an overlong name or out-of-range point.
+    pub(crate) fn set_bookmark(&mut self, name: String, point: [f64; 2]) -> Result<(), String> {
+        if let Some(problem) = bookmark_problem(&name, point) {
+            return Err(problem);
+        }
+        if !self.bookmarks.contains_key(&name) && self.bookmarks.len() >= MAX_BOOKMARKS {
+            return Err(format!(
+                "at most {MAX_BOOKMARKS} bookmarks can be set; delete one first"
+            ));
+        }
+        self.bookmarks.insert(name, point);
+        self.session_store_mark_dirty();
+        Ok(())
+    }
 }
 
 #[cfg(test)]
@@ -887,9 +970,23 @@ mod tests {
             !valid_entry_geometry(&geom_entry([40000, 300], [0, 0])),
             "oversize"
         );
+        let cap = crate::decorations::MAX_BUFFER_EXTENT;
+        assert!(valid_entry_geometry(&geom_entry([cap, cap], [0, 0])));
         assert!(
-            !valid_entry_geometry(&geom_entry([400, 300], [20_000_000, 0])),
-            "extreme position that would overflow rule_to_internal"
+            !valid_entry_geometry(&geom_entry([cap + 1, 300], [0, 0])),
+            "wider than a stand-in can be"
+        );
+        assert!(
+            !valid_entry_geometry(&geom_entry([400, cap + 1], [0, 0])),
+            "taller than a stand-in can be"
+        );
+        assert!(
+            valid_entry_geometry(&geom_entry([400, 300], [POSITION_LIMIT, -POSITION_LIMIT])),
+            "a window at the limit is kept"
+        );
+        assert!(
+            !valid_entry_geometry(&geom_entry([400, 300], [POSITION_LIMIT + 1, 0])),
+            "a position past the limit is dropped"
         );
         assert!(!valid_entry_geometry(&geom_entry(
             [400, 300],
@@ -962,8 +1059,15 @@ mod tests {
             "a non-finite camera is refused even under a sane zoom"
         );
 
-        // A centre inside the canvas limit can still resolve past it.
-        let camera = CameraSeed::Center { x: -1e9, y: 0.0 }.resolve(0.5, logical);
+        // A centre inside the window range can still resolve past it.
+        let edge = -f64::from(POSITION_LIMIT);
+        let camera = CameraSeed::Center { x: edge, y: 0.0 }.resolve(0.5, logical);
         assert!(!valid_camera_seed(camera, 0.5));
+    }
+
+    #[test]
+    fn a_view_left_beside_a_window_past_the_camera_range_is_restored() {
+        let camera = Point::from((CAMERA_LIMIT + 2e7, 0.0));
+        assert!(valid_camera_seed(camera, 1.0));
     }
 }

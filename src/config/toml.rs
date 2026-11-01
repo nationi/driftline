@@ -453,15 +453,24 @@ impl Default for XwaylandConfig {
     }
 }
 
+/// Set by `--config`, held in-process so children don't inherit it the way they
+/// would an exported `DRIFTLINE_CONFIG` or legacy `DRIFTWM_CONFIG`.
+static CONFIG_PATH_OVERRIDE: std::sync::OnceLock<std::path::PathBuf> = std::sync::OnceLock::new();
+
+/// Point [`config_path`] at `path` for the rest of the process. Only the first
+/// call takes effect.
+pub fn set_config_path(path: &std::path::Path) {
+    let _ = CONFIG_PATH_OVERRIDE.set(expand_config_path(path.as_os_str().to_owned()));
+}
+
 pub fn config_path() -> std::path::PathBuf {
-    // Keep the old override for existing session wrappers and user scripts.
+    if let Some(path) = CONFIG_PATH_OVERRIDE.get() {
+        return path.clone();
+    }
     if let Some(p) =
         std::env::var_os("DRIFTLINE_CONFIG").or_else(|| std::env::var_os("DRIFTWM_CONFIG"))
     {
-        return match p.into_string() {
-            Ok(p) => std::path::PathBuf::from(expand_tilde(&p)),
-            Err(p) => std::path::PathBuf::from(p),
-        };
+        return expand_config_path(p);
     }
     let config_dir = std::env::var("XDG_CONFIG_HOME").unwrap_or_else(|_| {
         let home = std::env::var("HOME").unwrap_or_else(|_| ".".into());
@@ -477,6 +486,15 @@ fn default_config_path(config_dir: &std::path::Path) -> std::path::PathBuf {
         driftline
     } else {
         legacy
+    }
+}
+
+/// `~/` expanded; a non-UTF-8 path is taken as is rather than falling through
+/// to the default.
+fn expand_config_path(path: std::ffi::OsString) -> std::path::PathBuf {
+    match path.into_string() {
+        Ok(p) => std::path::PathBuf::from(expand_tilde(&p)),
+        Err(p) => std::path::PathBuf::from(p),
     }
 }
 

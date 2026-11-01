@@ -60,6 +60,10 @@ use wayland_protocols::ext::workspace::v1::client::{
     ext_workspace_handle_v1::{self, ExtWorkspaceHandleV1},
     ext_workspace_manager_v1::{self, ExtWorkspaceManagerV1},
 };
+use wayland_protocols::wp::fractional_scale::v1::client::wp_fractional_scale_manager_v1::WpFractionalScaleManagerV1;
+use wayland_protocols::wp::fractional_scale::v1::client::wp_fractional_scale_v1::{
+    self, WpFractionalScaleV1,
+};
 use wayland_protocols::wp::pointer_constraints::zv1::client::zwp_confined_pointer_v1::{
     self, ZwpConfinedPointerV1,
 };
@@ -83,6 +87,8 @@ use wayland_protocols::xdg::activation::v1::client::xdg_activation_token_v1::{
     self, XdgActivationTokenV1,
 };
 use wayland_protocols::xdg::activation::v1::client::xdg_activation_v1::XdgActivationV1;
+use wayland_protocols::xdg::dialog::v1::client::xdg_dialog_v1::XdgDialogV1;
+use wayland_protocols::xdg::dialog::v1::client::xdg_wm_dialog_v1::XdgWmDialogV1;
 use wayland_protocols::xdg::shell::client::xdg_popup::{self, XdgPopup};
 use wayland_protocols::xdg::shell::client::xdg_positioner::{
     Anchor, ConstraintAdjustment, Gravity, XdgPositioner,
@@ -90,6 +96,12 @@ use wayland_protocols::xdg::shell::client::xdg_positioner::{
 use wayland_protocols::xdg::shell::client::xdg_surface::{self, XdgSurface};
 use wayland_protocols::xdg::shell::client::xdg_toplevel::{self, XdgToplevel};
 use wayland_protocols::xdg::shell::client::xdg_wm_base::{self, XdgWmBase};
+use wayland_protocols_misc::server_decoration::client::org_kde_kwin_server_decoration::{
+    self, OrgKdeKwinServerDecoration,
+};
+use wayland_protocols_misc::server_decoration::client::org_kde_kwin_server_decoration_manager::{
+    self, OrgKdeKwinServerDecorationManager,
+};
 use wayland_protocols_misc::zwp_virtual_keyboard_v1::client::zwp_virtual_keyboard_manager_v1::ZwpVirtualKeyboardManagerV1;
 use wayland_protocols_misc::zwp_virtual_keyboard_v1::client::zwp_virtual_keyboard_v1::ZwpVirtualKeyboardV1;
 use wayland_protocols_wlr::layer_shell::v1::client::zwlr_layer_shell_v1::{self, ZwlrLayerShellV1};
@@ -124,6 +136,7 @@ pub struct State {
     pub spbm: Option<WpSinglePixelBufferManagerV1>,
     pub shm: Option<WlShm>,
     pub viewporter: Option<WpViewporter>,
+    pub fractional_scale_manager: Option<WpFractionalScaleManagerV1>,
     pub seat: Option<WlSeat>,
     /// Bound alongside the seat, so every scenario can observe touch delivery
     /// without opting in.
@@ -134,6 +147,7 @@ pub struct State {
     pub keyboard: Option<WlKeyboard>,
     pub pointer_constraints: Option<ZwpPointerConstraintsV1>,
     pub xdg_activation: Option<XdgActivationV1>,
+    pub xdg_wm_dialog: Option<XdgWmDialogV1>,
     pub ext_session_lock_manager: Option<ExtSessionLockManagerV1>,
     pub idle_notifier: Option<ExtIdleNotifierV1>,
     pub virtual_keyboard_manager: Option<ZwpVirtualKeyboardManagerV1>,
@@ -141,6 +155,7 @@ pub struct State {
     pub data_device_manager: Option<WlDataDeviceManager>,
     /// Created by [`Client::get_data_device`], not at bind time.
     pub data_device: Option<WlDataDevice>,
+    pub kde_decoration_manager: Option<OrgKdeKwinServerDecorationManager>,
 
     pub windows: Vec<Window>,
     pub layers: Vec<LayerSurface>,
@@ -188,6 +203,15 @@ pub struct State {
     /// Every `wl_data_device` enter, leave and drop this client's data device
     /// has received, oldest first.
     pub data_device_events: Vec<DataDeviceEvent>,
+    /// Every `default_mode` the KDE decoration manager has announced, oldest
+    /// first.
+    pub kde_default_modes: Vec<org_kde_kwin_server_decoration_manager::Mode>,
+    /// Every `mode` this client's KDE decorations have received, oldest first.
+    pub kde_decoration_modes: Vec<org_kde_kwin_server_decoration::Mode>,
+    /// Every `wp_fractional_scale_v1.preferred_scale` this client has received
+    /// as `(surface, scale in 120ths)`, oldest first. Empty until
+    /// [`Client::get_fractional_scale`] runs for a surface.
+    pub preferred_scales: Vec<(WlSurface, u32)>,
 
     /// The token string from the most recent `xdg_activation_token_v1.done`.
     pub activation_token: Option<String>,
@@ -583,18 +607,21 @@ impl Client {
             spbm: None,
             shm: None,
             viewporter: None,
+            fractional_scale_manager: None,
             seat: None,
             touch: None,
             pointer: None,
             keyboard: None,
             pointer_constraints: None,
             xdg_activation: None,
+            xdg_wm_dialog: None,
             ext_session_lock_manager: None,
             idle_notifier: None,
             virtual_keyboard_manager: None,
             tablet_manager: None,
             data_device_manager: None,
             data_device: None,
+            kde_decoration_manager: None,
             windows: Vec::new(),
             layers: Vec::new(),
             popups: Vec::new(),
@@ -612,6 +639,9 @@ impl Client {
             tablet_down_serial: None,
             pointer_enter_serial: None,
             data_device_events: Vec::new(),
+            kde_default_modes: Vec::new(),
+            kde_decoration_modes: Vec::new(),
+            preferred_scales: Vec::new(),
             activation_token: None,
             ext_workspace: ExtWorkspace::default(),
         };
@@ -808,7 +838,20 @@ impl Client {
     /// spontaneous attention request). The token string arrives asynchronously
     /// via `done`; roundtrip before calling [`Client::activate`].
     pub fn request_activation_token(&mut self, requester: &WlSurface, with_serial: bool) {
-        self.state.request_activation_token(requester, with_serial);
+        self.state
+            .request_activation_token(requester, with_serial.then_some(1));
+    }
+
+    /// [`Client::request_activation_token`] citing a specific seat `serial`.
+    pub fn request_activation_token_with_serial(&mut self, requester: &WlSurface, serial: u32) {
+        self.state.request_activation_token(requester, Some(serial));
+    }
+
+    /// Register `toplevel` as an xdg-dialog; the returned object carries the
+    /// modal hint.
+    pub fn get_dialog(&mut self, toplevel: &XdgToplevel) -> XdgDialogV1 {
+        let wm_dialog = self.state.xdg_wm_dialog.as_ref().unwrap();
+        wm_dialog.get_xdg_dialog(toplevel, &self.qh, ())
     }
 
     /// Activate `target` with the most recently received token string.
@@ -956,6 +999,33 @@ impl Client {
     /// the interaction a scenario cares about.
     pub fn drain_keyboard_events(&mut self) -> Vec<KeyboardEvent> {
         std::mem::take(&mut self.state.keyboard_events)
+    }
+
+    /// `wp_fractional_scale_manager_v1.get_fractional_scale` for `surface`.
+    /// Every `preferred_scale` that follows lands in
+    /// [`State::preferred_scales`], and the compositor sends the first one
+    /// right away, at object creation.
+    pub fn get_fractional_scale(&mut self, surface: &WlSurface) -> WpFractionalScaleV1 {
+        let manager = self.state.fractional_scale_manager.as_ref().unwrap();
+        manager.get_fractional_scale(surface, &self.qh, surface.clone())
+    }
+
+    /// Every `preferred_scale` received for `surface`, in 120ths, oldest first.
+    pub fn preferred_scales_for(&self, surface: &WlSurface) -> Vec<u32> {
+        self.state
+            .preferred_scales
+            .iter()
+            .filter(|(s, _)| s == surface)
+            .map(|(_, scale)| *scale)
+            .collect()
+    }
+
+    /// `org_kde_kwin_server_decoration_manager.create` for `surface`.
+    pub fn create_kde_decoration(&mut self, surface: &WlSurface) -> OrgKdeKwinServerDecoration {
+        let manager = self.state.kde_decoration_manager.as_ref().unwrap();
+        let decoration = manager.create(surface, &self.qh, ());
+        self.connection.flush().unwrap();
+        decoration
     }
 
     /// `zwp_virtual_keyboard_manager_v1.create_virtual_keyboard` on this
@@ -1356,12 +1426,12 @@ impl State {
             .unwrap()
     }
 
-    pub fn request_activation_token(&mut self, requester: &WlSurface, with_serial: bool) {
+    pub fn request_activation_token(&mut self, requester: &WlSurface, serial: Option<u32>) {
         let activation = self.xdg_activation.as_ref().unwrap();
         let token = activation.get_activation_token(&self.qh, ());
-        if with_serial {
+        if let Some(serial) = serial {
             let seat = self.seat.as_ref().unwrap();
-            token.set_serial(1, seat);
+            token.set_serial(serial, seat);
         }
         token.set_surface(requester);
         token.commit();
@@ -1541,7 +1611,7 @@ impl State {
 
 /// A read-write fd holding `pixels`, for a `wl_shm` pool. Created in the temp
 /// dir and unlinked straight away, so nothing outlives the fd itself.
-fn shm_file(pixels: &[u8]) -> std::fs::File {
+pub(super) fn shm_file(pixels: &[u8]) -> std::fs::File {
     static COUNTER: AtomicU64 = AtomicU64::new(0);
     let n = COUNTER.fetch_add(1, Ordering::Relaxed);
     let path = std::env::temp_dir().join(format!("driftline-test-shm-{}-{n}", std::process::id()));
@@ -1987,6 +2057,9 @@ impl Dispatch<WlRegistry, ()> for State {
                 } else if interface == XdgActivationV1::interface().name {
                     let version = min(version, XdgActivationV1::interface().version);
                     state.xdg_activation = Some(registry.bind(name, version, qh, ()));
+                } else if interface == XdgWmDialogV1::interface().name {
+                    let version = min(version, XdgWmDialogV1::interface().version);
+                    state.xdg_wm_dialog = Some(registry.bind(name, version, qh, ()));
                 } else if interface == WlOutput::interface().name {
                     let version = min(version, WlOutput::interface().version);
                     let output = registry.bind(name, version, qh, ());
@@ -2009,6 +2082,15 @@ impl Dispatch<WlRegistry, ()> for State {
                 } else if interface == ZwpTabletManagerV2::interface().name {
                     let version = min(version, ZwpTabletManagerV2::interface().version);
                     state.tablet_manager = Some(registry.bind(name, version, qh, ()));
+                } else if interface == OrgKdeKwinServerDecorationManager::interface().name {
+                    let version = min(
+                        version,
+                        OrgKdeKwinServerDecorationManager::interface().version,
+                    );
+                    state.kde_decoration_manager = Some(registry.bind(name, version, qh, ()));
+                } else if interface == WpFractionalScaleManagerV1::interface().name {
+                    let version = min(version, WpFractionalScaleManagerV1::interface().version);
+                    state.fractional_scale_manager = Some(registry.bind(name, version, qh, ()));
                 }
 
                 let global = Global {
@@ -2775,6 +2857,32 @@ impl Dispatch<XdgActivationV1, ()> for State {
     }
 }
 
+impl Dispatch<XdgWmDialogV1, ()> for State {
+    fn event(
+        _state: &mut Self,
+        _proxy: &XdgWmDialogV1,
+        _event: <XdgWmDialogV1 as wayland_client::Proxy>::Event,
+        _data: &(),
+        _conn: &Connection,
+        _qhandle: &QueueHandle<Self>,
+    ) {
+        unreachable!()
+    }
+}
+
+impl Dispatch<XdgDialogV1, ()> for State {
+    fn event(
+        _state: &mut Self,
+        _proxy: &XdgDialogV1,
+        _event: <XdgDialogV1 as wayland_client::Proxy>::Event,
+        _data: &(),
+        _conn: &Connection,
+        _qhandle: &QueueHandle<Self>,
+    ) {
+        unreachable!()
+    }
+}
+
 impl Dispatch<XdgActivationTokenV1, ()> for State {
     fn event(
         state: &mut Self,
@@ -2819,6 +2927,73 @@ impl Dispatch<ZwpVirtualKeyboardV1, ()> for State {
         _qhandle: &QueueHandle<Self>,
     ) {
         unreachable!()
+    }
+}
+
+impl Dispatch<WpFractionalScaleManagerV1, ()> for State {
+    fn event(
+        _state: &mut Self,
+        _proxy: &WpFractionalScaleManagerV1,
+        _event: <WpFractionalScaleManagerV1 as wayland_client::Proxy>::Event,
+        _data: &(),
+        _conn: &Connection,
+        _qhandle: &QueueHandle<Self>,
+    ) {
+        // The manager has no events.
+    }
+}
+
+impl Dispatch<WpFractionalScaleV1, WlSurface> for State {
+    fn event(
+        state: &mut Self,
+        _proxy: &WpFractionalScaleV1,
+        event: <WpFractionalScaleV1 as wayland_client::Proxy>::Event,
+        surface: &WlSurface,
+        _conn: &Connection,
+        _qhandle: &QueueHandle<Self>,
+    ) {
+        match event {
+            wp_fractional_scale_v1::Event::PreferredScale { scale } => {
+                state.preferred_scales.push((surface.clone(), scale));
+            }
+            _ => unreachable!(),
+        }
+    }
+}
+
+impl Dispatch<OrgKdeKwinServerDecorationManager, ()> for State {
+    fn event(
+        state: &mut Self,
+        _proxy: &OrgKdeKwinServerDecorationManager,
+        event: <OrgKdeKwinServerDecorationManager as wayland_client::Proxy>::Event,
+        _data: &(),
+        _conn: &Connection,
+        _qhandle: &QueueHandle<Self>,
+    ) {
+        match event {
+            org_kde_kwin_server_decoration_manager::Event::DefaultMode { mode } => {
+                state.kde_default_modes.push(mode.into_result().unwrap());
+            }
+            _ => unreachable!(),
+        }
+    }
+}
+
+impl Dispatch<OrgKdeKwinServerDecoration, ()> for State {
+    fn event(
+        state: &mut Self,
+        _proxy: &OrgKdeKwinServerDecoration,
+        event: <OrgKdeKwinServerDecoration as wayland_client::Proxy>::Event,
+        _data: &(),
+        _conn: &Connection,
+        _qhandle: &QueueHandle<Self>,
+    ) {
+        match event {
+            org_kde_kwin_server_decoration::Event::Mode { mode } => {
+                state.kde_decoration_modes.push(mode.into_result().unwrap());
+            }
+            _ => unreachable!(),
+        }
     }
 }
 

@@ -181,9 +181,12 @@ impl Driftline {
         }
 
         // child_env auto-rebuilds via `Config::from_raw`; process env
-        // untouched. Forward DISPLAY (set by xwayland::setup at startup).
-        if let Some(display) = self.config.child_env.get("DISPLAY").cloned() {
-            new_config.child_env.insert("DISPLAY".into(), display);
+        // untouched. Forward the displays set at startup: WAYLAND_DISPLAY by
+        // main, DISPLAY by xwayland::setup.
+        for key in ["WAYLAND_DISPLAY", "DISPLAY"] {
+            if let Some(display) = self.config.child_env.get(key).cloned() {
+                new_config.child_env.insert(key.into(), display);
+            }
         }
 
         // Reconcile the live bookmark registry with the config seed diff. Config
@@ -218,6 +221,11 @@ impl Driftline {
         }
 
         self.config = new_config;
+
+        let kde_mode = driftline::window_ext::decoration_mode_to_kde_manager(
+            &self.config.decorations.default_mode,
+        );
+        self.kde_decoration_state.set_default_mode(kde_mode);
 
         // Must stay below the swap: `configure_mouse` and `configure_trackpad`
         // read `self.config`, so running this any earlier applies the settings

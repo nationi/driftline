@@ -53,11 +53,14 @@ use edge_pan::EdgePanDelay;
 pub use errors::ErrorSource;
 pub use focus::{FocusIntent, FocusTarget};
 pub use layers::CanvasLayer;
-pub(crate) use navigation::CLICK_NAVIGATE_SLOP;
+pub(crate) use navigation::{CLICK_NAVIGATE_SLOP, MinimalPan};
 pub use navigation::{NavZoom, RevealPan};
 pub use persistence::{read_all_per_output_state, remove_state_file};
 pub use render_cache::{BorderCacheEntry, RenderCache, ShadowCacheEntry};
 pub(crate) use resize::{owes_a_configured_size, resize_constraints};
+pub(crate) use session_store::{
+    CAMERA_LIMIT, POSITION_LIMIT, valid_canvas_point, within_window_range,
+};
 pub use session_store::{CameraSeed, SessionStore};
 pub use stage_window::{StageWindow, SuspendedId, SuspendedWindow};
 pub use suspended::{
@@ -94,6 +97,7 @@ use smithay::{
     },
 };
 use std::collections::{BTreeMap, HashMap, HashSet};
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Mutex, MutexGuard, TryLockError};
 use std::time::Instant;
 
@@ -116,6 +120,7 @@ use smithay::wayland::selection::ext_data_control::DataControlState as ExtDataCo
 use smithay::wayland::selection::primary_selection::PrimarySelectionState;
 use smithay::wayland::selection::wlr_data_control::DataControlState;
 use smithay::wayland::session_lock::{LockSurface, SessionLockManagerState, SessionLocker};
+use smithay::wayland::shell::kde::decoration::KdeDecorationState;
 use smithay::wayland::shell::wlr_layer::WlrLayerShellState;
 use smithay::wayland::shell::xdg::decoration::XdgDecorationState;
 use smithay::wayland::viewporter::ViewporterState;
@@ -150,7 +155,7 @@ pub struct CaptureOutputState {
     pub age: usize,
     /// Reset age when cursor inclusion changes between frames.
     pub last_paint_cursors: bool,
-    /// Time (since `start_time`) this state was last rendered into; idle
+    /// [`monotonic_now`] when this state was last rendered into; idle
     /// entries are evicted so a finished capture's texture doesn't linger
     /// until output disconnect.
     pub last_used: std::time::Duration,
@@ -170,7 +175,8 @@ pub struct PendingMiddleClick {
 
 /// A click armed for auto-navigate: a normal window was pressed with
 /// `auto_navigate_on_click` enabled. On release — if the pointer barely moved
-/// and the window is still clipped — the camera pans to it like activation does.
+/// and the window is still clipped — the camera scrolls it just into view, as a
+/// focus-nearest walk does.
 pub struct PendingClickNavigate {
     pub window: Window,
     /// Press position in screen space, so the click/drag slop is measured in
@@ -316,13 +322,82 @@ pub(crate) fn log_err(context: &str, result: Result<impl Sized, impl std::fmt::D
     }
 }
 
-/// Spawn a shell command with SIGCHLD reset to default and sigmask cleared.
+/// The open-file limit driftline started with, kept by [`raise_nofile_limit`]
+/// for children to get back; zero until then.
+static ORIGINAL_NOFILE_CUR: AtomicU64 = AtomicU64::new(0);
+static ORIGINAL_NOFILE_MAX: AtomicU64 = AtomicU64::new(0);
+
+/// Raise the soft open-file limit to the hard one. Every client, IPC
+/// connection and dmabuf holds fds, and the common soft default of 1024 runs
+/// out long before the hard limit does. Children get the original back in
+/// [`prepare_child`], since some still `select()` on fds below 1024.
+pub fn raise_nofile_limit() {
+    let mut rlim = libc::rlimit {
+        rlim_cur: 0,
+        rlim_max: 0,
+    };
+    // SAFETY: getrlimit only writes the struct it is handed.
+    if unsafe { libc::getrlimit(libc::RLIMIT_NOFILE, &mut rlim) } != 0 {
+        tracing::warn!("getrlimit(NOFILE): {}", std::io::Error::last_os_error());
+        return;
+    }
+    ORIGINAL_NOFILE_CUR.store(rlim.rlim_cur, Ordering::Relaxed);
+    ORIGINAL_NOFILE_MAX.store(rlim.rlim_max, Ordering::Relaxed);
+    rlim.rlim_cur = rlim.rlim_max;
+    // SAFETY: setrlimit only reads the struct it is handed.
+    if unsafe { libc::setrlimit(libc::RLIMIT_NOFILE, &rlim) } != 0 {
+        tracing::warn!("setrlimit(NOFILE): {}", std::io::Error::last_os_error());
+    }
+}
+
+/// Reset what a child must not inherit from the compositor. Runs in `pre_exec`,
+/// between fork and exec, so it sticks to plain syscalls.
+///
 /// The compositor sets SIG_IGN on SIGCHLD for zombie reaping, but children
 /// inherit this — breaking GLib's waitpid()-based subprocess management
 /// (swaync-client hangs because GSpawnSync gets ECHILD).
 /// We also block SIGINT/SIGTERM/SIGHUP via pthread_sigmask for our own
 /// shutdown handling, and that mask is inherited too — clear it so apps
 /// with their own signal handlers still see those signals normally.
+///
+/// Every fd past stdio goes close-on-exec: libraries open some without it (the
+/// GPU render node among them), and a child has no use for any.
+pub(crate) fn prepare_child() -> std::io::Result<()> {
+    // SAFETY: async-signal-safe, and SIG_DFL is always a valid disposition.
+    unsafe { libc::signal(libc::SIGCHLD, libc::SIG_DFL) };
+    crate::signals::unblock_all()?;
+    let cur = ORIGINAL_NOFILE_CUR.load(Ordering::Relaxed);
+    if cur != 0 {
+        let rlim = libc::rlimit {
+            rlim_cur: cur,
+            rlim_max: ORIGINAL_NOFILE_MAX.load(Ordering::Relaxed),
+        };
+        // SAFETY: setrlimit only reads the struct it is handed.
+        unsafe { libc::setrlimit(libc::RLIMIT_NOFILE, &rlim) };
+    }
+    // Raw syscall: libc's wrapper needs glibc 2.34. A kernel before 5.11
+    // refuses the call, leaving those fds as they were rather than failing the
+    // spawn. SAFETY: only changes fd flags.
+    unsafe {
+        libc::syscall(
+            libc::SYS_close_range,
+            3 as libc::c_uint,
+            libc::c_uint::MAX,
+            libc::CLOSE_RANGE_CLOEXEC,
+        )
+    };
+    Ok(())
+}
+
+/// The current time on `CLOCK_MONOTONIC`, the clock driftline advertises for
+/// presentation times. A capture client lines its audio up against these stamps.
+pub fn monotonic_now() -> std::time::Duration {
+    smithay::utils::Clock::<smithay::utils::Monotonic>::new()
+        .now()
+        .into()
+}
+
+/// Spawn a shell command, reset by [`prepare_child`].
 ///
 /// `env` is layered on top of inherited env (toolkit defaults + user `[env]` +
 /// XCURSOR_*); driftline never mutates its own process env at runtime, so this
@@ -331,12 +406,9 @@ pub fn spawn_command(cmd: &str, env: &HashMap<String, String>) {
     use std::os::unix::process::CommandExt;
     let mut child = std::process::Command::new("sh");
     child.args(["-c", cmd]).envs(env);
+    // SAFETY: `prepare_child` makes only async-signal-safe calls.
     unsafe {
-        child.pre_exec(|| {
-            libc::signal(libc::SIGCHLD, libc::SIG_DFL);
-            crate::signals::unblock_all()?;
-            Ok(())
-        });
+        child.pre_exec(prepare_child);
     }
     log_err("spawn command", child.spawn());
 }
@@ -754,6 +826,7 @@ pub struct Driftline {
     pub screencopy_state: driftline::protocols::screencopy::ScreencopyManagerState,
     pub output_management_state: driftline::protocols::output_management::OutputManagementState,
     pub output_power_state: driftline::protocols::output_power::OutputPowerState,
+    pub kde_decoration_state: KdeDecorationState,
     /// Outputs currently in DPMS off; render loop skips these.
     pub dpms_off_outputs: HashSet<Output>,
     /// Client-requested DPMS transitions awaiting the udev render loop —
@@ -1477,8 +1550,9 @@ impl Driftline {
     /// Debug-only end-of-tick check: the stage's own structural invariants
     /// hold; the two halves of the fullscreen split (stage membership and
     /// per-output viewport-return) cover the same outputs; and every SSD
-    /// decoration entry belongs to a live window on the stage. A panic here is
-    /// a routing bug — some mutation bypassed the stage wrappers.
+    /// decoration entry belongs to a live window on the stage or a stand-in
+    /// still fading out. A panic here is a routing bug — some mutation
+    /// bypassed the stage wrappers.
     #[cfg(debug_assertions)]
     pub fn verify_stage_invariants(&self) {
         self.stage.verify_invariants();
@@ -1525,10 +1599,14 @@ impl Driftline {
                     .stage
                     .windows()
                     .any(|w| w.wl_surface().is_some_and(|s| s.id() == *id)),
-                crate::decorations::DecorationKey::Suspended(sid) => self
-                    .stage
-                    .windows()
-                    .any(|w| w.suspended().is_some_and(|s| s.id == *sid)),
+                // A departing stand-in's fade redraws its chrome off the
+                // stage; the tick purges it when the fade ends.
+                crate::decorations::DecorationKey::Suspended(sid) => {
+                    self.stage
+                        .windows()
+                        .any(|w| w.suspended().is_some_and(|s| s.id == *sid))
+                        || self.standin_fades.iter().any(|f| f.suspended.id == *sid)
+                }
             };
             assert!(present, "decoration entry for a window not on the stage");
         }

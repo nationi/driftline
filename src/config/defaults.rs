@@ -105,7 +105,7 @@ pub(super) fn default_bindings(mod_key: ModKey) -> HashMap<KeyCombo, Action> {
         ),
         (
             KeyCombo {
-                modifiers: m_ctrl.clone(),
+                modifiers: m_ctrl,
                 sym: Keysym::from(keysyms::KEY_Right),
             },
             Action::FocusNearest(Direction::Right),
@@ -147,28 +147,28 @@ pub(super) fn default_bindings(mod_key: ModKey) -> HashMap<KeyCombo, Action> {
         ),
         (
             KeyCombo {
-                modifiers: m_ctrl.clone(),
+                modifiers: m_shift.clone(),
                 sym: Keysym::from(keysyms::KEY_1),
             },
             Action::SetBookmark("1".into()),
         ),
         (
             KeyCombo {
-                modifiers: m_ctrl.clone(),
+                modifiers: m_shift.clone(),
                 sym: Keysym::from(keysyms::KEY_2),
             },
             Action::SetBookmark("2".into()),
         ),
         (
             KeyCombo {
-                modifiers: m_ctrl.clone(),
+                modifiers: m_shift.clone(),
                 sym: Keysym::from(keysyms::KEY_3),
             },
             Action::SetBookmark("3".into()),
         ),
         (
             KeyCombo {
-                modifiers: m_ctrl,
+                modifiers: m_shift.clone(),
                 sym: Keysym::from(keysyms::KEY_4),
             },
             Action::SetBookmark("4".into()),
@@ -639,21 +639,21 @@ pub(super) fn default_mouse_bindings(
                 modifiers: alt_only.clone(),
                 trigger: MouseTrigger::Button(BTN_MIDDLE),
             },
-            MouseAction::Action(Action::FillWindow),
+            MouseAction::Action(Action::FitWindowSnapped),
         ),
         (
             MouseBinding {
                 modifiers: alt_shift,
                 trigger: MouseTrigger::Button(BTN_MIDDLE),
             },
-            MouseAction::Action(Action::FitWindowSnapped),
+            MouseAction::Action(Action::FitWindow),
         ),
         (
             MouseBinding {
                 modifiers: m.clone(),
                 trigger: MouseTrigger::Button(BTN_MIDDLE),
             },
-            MouseAction::Action(Action::ToggleFullscreen),
+            MouseAction::Action(Action::FillWindow),
         ),
     ]);
 
@@ -737,14 +737,14 @@ pub(super) fn default_gesture_bindings(
     let on_window = HashMap::from([
         (
             GestureBinding {
-                modifiers: alt_only.clone(),
+                modifiers: alt_only,
                 trigger: GestureTrigger::Swipe { fingers: 3 },
             },
             GestureConfigEntry::Continuous(ContinuousAction::ResizeWindowSnapped),
         ),
         (
             GestureBinding {
-                modifiers: alt_shift.clone(),
+                modifiers: alt_shift,
                 trigger: GestureTrigger::Swipe { fingers: 3 },
             },
             GestureConfigEntry::Continuous(ContinuousAction::ResizeWindow),
@@ -755,48 +755,6 @@ pub(super) fn default_gesture_bindings(
                 trigger: GestureTrigger::DoubletapSwipe { fingers: 3 },
             },
             GestureConfigEntry::Continuous(ContinuousAction::MoveWindow),
-        ),
-        (
-            GestureBinding {
-                modifiers: alt_only.clone(),
-                trigger: GestureTrigger::PinchIn { fingers: 2 },
-            },
-            GestureConfigEntry::Threshold(ThresholdAction::Fixed(Action::FitWindowSnapped)),
-        ),
-        (
-            GestureBinding {
-                modifiers: alt_only.clone(),
-                trigger: GestureTrigger::PinchOut { fingers: 2 },
-            },
-            GestureConfigEntry::Threshold(ThresholdAction::Fixed(Action::FitWindowSnapped)),
-        ),
-        (
-            GestureBinding {
-                modifiers: alt_shift.clone(),
-                trigger: GestureTrigger::PinchIn { fingers: 2 },
-            },
-            GestureConfigEntry::Threshold(ThresholdAction::Fixed(Action::FitWindow)),
-        ),
-        (
-            GestureBinding {
-                modifiers: alt_shift,
-                trigger: GestureTrigger::PinchOut { fingers: 2 },
-            },
-            GestureConfigEntry::Threshold(ThresholdAction::Fixed(Action::FitWindow)),
-        ),
-        (
-            GestureBinding {
-                modifiers: alt_only.clone(),
-                trigger: GestureTrigger::PinchIn { fingers: 3 },
-            },
-            GestureConfigEntry::Threshold(ThresholdAction::Fixed(Action::ToggleFullscreen)),
-        ),
-        (
-            GestureBinding {
-                modifiers: alt_only,
-                trigger: GestureTrigger::PinchOut { fingers: 3 },
-            },
-            GestureConfigEntry::Threshold(ThresholdAction::Fixed(Action::ToggleFullscreen)),
         ),
     ]);
 
@@ -915,7 +873,7 @@ pub(super) fn default_touch_bindings() -> ContextBindings<GestureTrigger, Gestur
     let on_window = HashMap::from([
         (
             GestureTrigger::Doubletap { fingers: 3 },
-            GestureConfigEntry::Threshold(ThresholdAction::Fixed(Action::FitWindow)),
+            GestureConfigEntry::Threshold(ThresholdAction::Fixed(Action::FitWindowSnapped)),
         ),
         (
             GestureTrigger::DoubletapSwipe { fingers: 3 },
@@ -923,7 +881,7 @@ pub(super) fn default_touch_bindings() -> ContextBindings<GestureTrigger, Gestur
         ),
         (
             GestureTrigger::HoldSwipe { fingers: 3 },
-            GestureConfigEntry::Continuous(ContinuousAction::ResizeWindow),
+            GestureConfigEntry::Continuous(ContinuousAction::ResizeWindowSnapped),
         ),
         (
             GestureTrigger::DoubletapHoldSwipe { fingers: 3 },

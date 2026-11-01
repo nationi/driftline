@@ -224,7 +224,7 @@ pub(crate) fn render_if_needed(data: &mut Driftline) {
     // (kept warm while one renders into them). Only fires on render-active
     // cycles, so a fully-idle stop frees on next activity — memory, not battery.
     data.render
-        .evict_idle_capture_state(data.start_time.elapsed());
+        .evict_idle_capture_state(crate::state::monotonic_now());
 
     let Some(device) = data.udev_device.clone() else {
         return;
@@ -1235,7 +1235,6 @@ fn create_surface(
             // Retry with Modifier::Invalid (implicit) only, which is the most
             // compatible option (lets the driver pick the layout).
             tracing::warn!("DrmCompositor failed ({e:?}), retrying with implicit modifier");
-            let _ = std::fs::write("/tmp/driftline-drm-error.txt", format!("{e:?}"));
 
             let fallback_surface = match drm.create_surface(crtc, mode, &[connector.handle()]) {
                 Ok(s) => s,
@@ -1264,10 +1263,6 @@ fn create_surface(
                 Ok(c) => c,
                 Err(e2) => {
                     tracing::error!("DrmCompositor failed even with implicit modifier: {e2:?}");
-                    let _ = std::fs::write(
-                        "/tmp/driftline-drm-error.txt",
-                        format!("First: {e:?}\nFallback: {e2:?}"),
-                    );
                     return None;
                 }
             }

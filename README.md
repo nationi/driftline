@@ -53,7 +53,7 @@ Explore the guides below for feature details and configuration.
 
 ### Build
 
-This README describes `main`. For a reproducible release build, use the [v1.1.6](https://github.com/nationi/driftline/releases/tag/v1.1.6) tag; see the [changelog](CHANGELOG.md) for version history.
+This README describes `main`. [Driftline 1.1.7](https://github.com/nationi/driftline/releases/tag/v1.1.7) integrates upstream changes through `e97a9d0` while retaining the fork's tiling and compatibility. Use the release tag for a reproducible build; see the [changelog](CHANGELOG.md) for version history.
 
 Use a current stable Rust toolchain. The manifest declares Rust 1.88 as the minimum and uses the 2024 edition. Install a C toolchain, `pkg-config`, Git and the system libraries for Smithay's input and graphics backends:
 
@@ -78,7 +78,7 @@ sudo pacman -S --needed git base-devel libdisplay-info libinput seatd mesa libxk
 Install Rust with [rustup](https://rustup.rs/) if needed, then build the fork:
 
 ```bash
-git clone --branch v1.1.6 --depth 1 https://github.com/nationi/driftline.git
+git clone --branch v1.1.7 --depth 1 https://github.com/nationi/driftline.git
 cd driftline
 cargo build --release --locked
 ```

@@ -287,6 +287,35 @@ fn quit_serialize_round_trip() {
     }
 }
 
+/// A stand-in that outgrew its cap is saved cut to the cap at its top-left,
+/// since the next boot drops an entry past it.
+#[test]
+fn a_stand_in_past_the_cap_is_saved_at_the_cap() {
+    let tmp = TempDir::new();
+    let path = tmp.path().join("session.json");
+    let mut f = Fixture::with_config(config_restore(true));
+    f.add_output(1, (1920, 1080));
+    f.state().session_store.path = Some(path.clone());
+    let cap = crate::decorations::MAX_BUFFER_EXTENT;
+    let sid = f.state().insert_suspended_for_test(
+        1,
+        Point::from((100, 100)),
+        Size::from((cap, cap)),
+        "s",
+        "S",
+    );
+    let chrome = f.state().suspended_chrome();
+
+    f.state().session_store_write_now();
+
+    let saved = session::read(&path);
+    assert_eq!(saved.entries[0].size, [cap, cap]);
+    let body = chrome.content_size(Size::from((cap, cap)));
+    let (x, y) = driftline::canvas::content_to_rule(Point::from((100, 100)), body, chrome);
+    assert_eq!(saved.entries[0].position, [x, y]);
+    f.state().dismiss_suspended(sid);
+}
+
 /// A restored stand-in renders the same centered clickable name as a
 /// conversion-born one: its display name survives the round-trip, and the
 /// label cache tracks font-readiness so a label built before the startup font
@@ -862,7 +891,7 @@ fn center_seed_restores_the_framed_viewport() {
 }
 
 /// The seed is checked after it resolves, so the bounds guard the camera the
-/// output actually takes. A centre that is itself inside the canvas limit but
+/// output actually takes. A centre that is itself inside the window range but
 /// lands outside it once the half-viewport is subtracted is refused, and the
 /// output keeps its default viewport.
 #[test]
@@ -870,7 +899,13 @@ fn a_center_seed_resolving_out_of_range_is_refused() {
     let mut f = Fixture::with_config(Config::default());
     let saved = HashMap::from([(
         "HEADLESS-1".to_string(),
-        (CameraSeed::Center { x: -1e9, y: 0.0 }, 0.5),
+        (
+            CameraSeed::Center {
+                x: -f64::from(crate::state::POSITION_LIMIT),
+                y: 0.0,
+            },
+            0.5,
+        ),
     )]);
     let (output, _global) =
         super::headless::add_output_with_saved(f.state(), 1, (1920, 1080), &saved);

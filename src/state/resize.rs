@@ -348,10 +348,10 @@ impl Driftline {
         self.render.blur_geometry_generation += 1;
     }
 
-    /// Walk the `dir` edge of the focused element outward by `step` px — inward
-    /// for a negative `step` — holding the opposite edge where it is. A diagonal
-    /// moves both of its named edges; an axis the direction does not name keeps
-    /// its size untouched.
+    /// Walk the `dir` edge of the focused element outward by `step` screen px
+    /// — inward for a negative `step` — holding the opposite edge where it is.
+    /// A diagonal moves both of its named edges; an axis the direction does not
+    /// name keeps its size untouched.
     ///
     /// The shift that keeps the opposite edge still comes off the delta the
     /// clamp actually granted, not the one asked for; what the client refuses
@@ -361,6 +361,7 @@ impl Driftline {
         let Some((element, start)) = self.step_target() else {
             return;
         };
+        let step = self.canvas_step(&element, step);
         self.step_resize(&element, start, dir, step);
     }
 

@@ -201,6 +201,12 @@ impl TabletSeatHandler for Driftline {
         _tool: &smithay::backend::input::TabletToolDescriptor,
         image: CursorImageStatus,
     ) {
+        // The locked dispatch forwards no tablet event, so no tool can reach
+        // a lock surface: any image set while locked comes from a client behind
+        // the lock, and the lock frame would draw it over the lock screen.
+        if self.session_lock.is_locked() {
+            return;
+        }
         self.cursor.cursor_status = image;
     }
 }
@@ -242,12 +248,47 @@ impl FractionalScaleHandler for Driftline {
     }
 }
 
+/// How long a client-minted activation token stays valid. A relaunch token
+/// keeps its own deadline instead.
+const ACTIVATION_TOKEN_TTL: std::time::Duration = std::time::Duration::from_secs(10);
+/// Most client-minted activation tokens held at once; the oldest go first.
+const MAX_ACTIVATION_TOKENS: usize = 256;
+
+fn is_relaunch_token(data: &XdgActivationTokenData) -> bool {
+    data.user_data
+        .get::<crate::state::RelaunchMarker>()
+        .is_some()
+}
+
+fn activation_token_expired(data: &XdgActivationTokenData) -> bool {
+    !is_relaunch_token(data) && data.timestamp.elapsed() >= ACTIVATION_TOKEN_TTL
+}
+
+/// Drop expired client tokens, then the oldest past the cap. Leaves room for
+/// the token being created, which smithay inserts after `token_created`.
+fn prune_activation_tokens(state: &mut XdgActivationState) {
+    state.retain_tokens(|_, data| !activation_token_expired(data));
+    let mut held: Vec<(XdgActivationToken, std::time::Instant)> = state
+        .tokens()
+        .filter(|(_, data)| !is_relaunch_token(data))
+        .map(|(token, data)| (token.clone(), data.timestamp))
+        .collect();
+    if held.len() < MAX_ACTIVATION_TOKENS {
+        return;
+    }
+    held.sort_unstable_by_key(|(_, minted)| *minted);
+    for (token, _) in &held[..=held.len() - MAX_ACTIVATION_TOKENS] {
+        state.remove_token(token);
+    }
+}
+
 impl XdgActivationHandler for Driftline {
     fn activation_state(&mut self) -> &mut XdgActivationState {
         &mut self.xdg_activation_state
     }
 
     fn token_created(&mut self, _token: XdgActivationToken, data: XdgActivationTokenData) -> bool {
+        prune_activation_tokens(&mut self.xdg_activation_state);
         if data.serial.is_some() {
             let now = std::time::Instant::now();
             self.cursor.exec_cursor_show_at = Some(now + std::time::Duration::from_millis(150));
@@ -258,7 +299,7 @@ impl XdgActivationHandler for Driftline {
 
     fn request_activation(
         &mut self,
-        _token: XdgActivationToken,
+        token: XdgActivationToken,
         token_data: XdgActivationTokenData,
         surface: WlSurface,
     ) {
@@ -313,6 +354,12 @@ impl XdgActivationHandler for Driftline {
             }
         }
 
+        // smithay never expires a token itself.
+        if activation_token_expired(&token_data) {
+            self.xdg_activation_state.remove_token(&token);
+            return;
+        }
+
         // Only honor tokens created from user input (has a serial).
         // Tokens without a serial are spontaneous attention requests from
         // background apps — ignore those to prevent focus stealing.
@@ -334,6 +381,7 @@ impl XdgActivationHandler for Driftline {
                 return;
             }
             self.activate_window_output_local(&window);
+            self.xdg_activation_state.remove_token(&token);
         }
     }
 }
@@ -564,22 +612,42 @@ impl XdgDialogHandler for Driftline {
         toplevel: ToplevelSurface,
         hint: smithay::wayland::shell::xdg::dialog::ToplevelDialogHint,
     ) {
-        if hint == smithay::wayland::shell::xdg::dialog::ToplevelDialogHint::Modal {
-            // Redirect focus from parent to this modal dialog
-            let wl_surface = toplevel.wl_surface().clone();
-            let window = self.window_for_surface(&wl_surface);
-            if let Some(window) = window {
-                let serial = smithay::utils::SERIAL_COUNTER.next_serial();
-                self.raise_and_focus(&window, serial);
-            }
+        if hint != smithay::wayland::shell::xdg::dialog::ToplevelDialogHint::Modal {
+            return;
         }
+        // Any app can flag a window modal at any time, so the hint only moves
+        // the keyboard off a parent whose app already holds it; otherwise the
+        // dialog is reached by focusing its parent.
+        let Some(parent_surface) = toplevel.parent() else {
+            return;
+        };
+        let (Some(parent), Some(parent_client)) = (
+            self.window_for_surface(&parent_surface),
+            parent_surface.client(),
+        ) else {
+            return;
+        };
+        let keyboard_on_parent_app = self
+            .seat
+            .get_keyboard()
+            .unwrap()
+            .current_focus()
+            .is_some_and(|focus| focus.0.client().as_ref() == Some(&parent_client));
+        if !keyboard_on_parent_app {
+            return;
+        }
+        let serial = smithay::utils::SERIAL_COUNTER.next_serial();
+        // Redirects to the topmost modal child, this dialog included.
+        self.raise_and_focus(&parent, serial);
     }
 }
 
 use smithay::wayland::shell::xdg::ToplevelSurface;
 use smithay::wayland::shell::xdg::decoration::XdgDecorationHandler;
 
-pub use driftline::window_ext::{decoration_mode_to_wire, set_tiled_states, unset_tiled_states};
+pub use driftline::window_ext::{
+    decoration_mode_to_kde, decoration_mode_to_wire, set_tiled_states, unset_tiled_states,
+};
 
 impl XdgDecorationHandler for Driftline {
     fn new_decoration(&mut self, toplevel: ToplevelSurface) {
@@ -674,6 +742,20 @@ impl XdgDecorationHandler for Driftline {
         if toplevel.is_initial_configure_sent() {
             toplevel.send_configure();
         }
+    }
+}
+
+use smithay::reexports::wayland_protocols_misc::server_decoration::server::org_kde_kwin_server_decoration::OrgKdeKwinServerDecoration;
+use smithay::wayland::shell::kde::decoration::{KdeDecorationHandler, KdeDecorationState};
+
+impl KdeDecorationHandler for Driftline {
+    fn kde_decoration_state(&self) -> &KdeDecorationState {
+        &self.kde_decoration_state
+    }
+
+    fn new_decoration(&mut self, _surface: &WlSurface, decoration: &OrgKdeKwinServerDecoration) {
+        let mode = decoration_mode_to_kde(&self.config.decorations.default_mode);
+        decoration.mode(mode);
     }
 }
 

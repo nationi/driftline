@@ -19,6 +19,7 @@ fn send_to_output_moves_a_tiled_window_between_scaled_output_strips_with_constra
     let source = f.add_output(1, (1200, 800));
     let target = f.add_output_scaled(2, (1920, 1080), 1.5);
     crate::state::output_state(&target).camera = Point::from((5000.0, 5000.0));
+    f.state().update_output_from_camera();
     let client = f.add_client();
     let surface = map_window(&mut f, client, "tiled-move", (400, 300));
     f.client(client).window(&surface).set_min_size(700, 400);
@@ -27,6 +28,13 @@ fn send_to_output_moves_a_tiled_window_between_scaled_output_strips_with_constra
     let window = window_by_app_id(&mut f, "tiled-move").unwrap();
     let id = f.state().stage.id_of(&window).unwrap();
     let original = window.geometry();
+    f.client(client).get_fractional_scale(&surface);
+    f.state().refresh_window_outputs();
+    f.double_roundtrip(client);
+    assert_eq!(
+        f.client(client).preferred_scales_for(&surface).last(),
+        Some(&120)
+    );
 
     f.state().execute_action(&Action::ToggleTiling);
     last_configured(&mut f, client, &surface);
@@ -102,6 +110,32 @@ fn send_to_output_moves_a_tiled_window_between_scaled_output_strips_with_constra
     );
     adopt_last_configure(&mut f, client, &surface);
     assert_eq!(f.state().tiling_pending_configures(), 0);
+    f.state().refresh_window_outputs();
+    f.double_roundtrip(client);
+    let scales = f.client(client).preferred_scales_for(&surface);
+    assert_eq!(
+        scales.last(),
+        Some(&180),
+        "the tile renders at its new output's scale"
+    );
+    f.state().refresh_window_outputs();
+    f.double_roundtrip(client);
+    assert_eq!(f.client(client).preferred_scales_for(&surface), scales);
+    f.state()
+        .execute_action(&Action::SendToOutput(Direction::Left));
+    last_configured(&mut f, client, &surface);
+    adopt_last_configure(&mut f, client, &surface);
+    f.state().refresh_window_outputs();
+    f.double_roundtrip(client);
+    assert_eq!(
+        f.client(client).preferred_scales_for(&surface).last(),
+        Some(&120)
+    );
+    assert!(f.state().stage.is_tiled(id));
+    assert_eq!(
+        f.state().stage.tiling_output_for_window(id),
+        Some(source.name().as_str())
+    );
     f.state().execute_action(&Action::ToggleTiling);
     assert_eq!(
         last_configured(&mut f, client, &surface),

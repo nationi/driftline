@@ -10,7 +10,7 @@ pub use parse::{
     parse_gesture_trigger, parse_key_combo, parse_mouse_action, parse_mouse_binding,
     parse_tap_combo, parse_touch_config_entry, parse_touch_trigger,
 };
-pub use toml::config_path;
+pub use toml::{config_path, set_config_path};
 pub use types::*;
 
 use std::collections::{BTreeMap, HashMap, HashSet};
@@ -171,9 +171,11 @@ pub struct Config {
     pub touch_speed: f64,
     /// Scroll momentum on a 0–1 scale: 0 = off, 0.5 = default, 1 = floatiest.
     pub drift: f64,
-    /// Pixels per keyboard nudge (Mod+Shift+Arrow).
+    /// Pixels per nudge-window step, and per move-to-snap step
+    /// (Mod+Shift+Arrow) with no stop that way.
     pub nudge_step: i32,
-    /// Pixels per grow-window / shrink-window step (no default binding).
+    /// Pixels per grow-window / shrink-window step (no default binding), and
+    /// per resize-to-snap shrink with no stop inside the window.
     pub resize_step: i32,
     /// Pixels per keyboard pan (Mod+Ctrl+Arrow).
     pub pan_step: f64,
@@ -2823,7 +2825,7 @@ mod tests {
                 .on_window
                 .get(&GestureTrigger::Doubletap { fingers: 3 }),
             Some(&GestureConfigEntry::Threshold(ThresholdAction::Fixed(
-                Action::FitWindow
+                Action::FitWindowSnapped
             )))
         );
         assert_eq!(
@@ -2839,7 +2841,7 @@ mod tests {
                 .on_window
                 .get(&GestureTrigger::HoldSwipe { fingers: 3 }),
             Some(&GestureConfigEntry::Continuous(
-                ContinuousAction::ResizeWindow
+                ContinuousAction::ResizeWindowSnapped
             ))
         );
         // Forwarding tiers (1-2 fingers on a window) stay unbound.

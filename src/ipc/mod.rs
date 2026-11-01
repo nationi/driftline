@@ -3,7 +3,8 @@ use std::os::fd::AsRawFd;
 use std::os::unix::fs::PermissionsExt;
 use std::os::unix::net::{UnixListener, UnixStream};
 use std::path::PathBuf;
-use std::time::Duration;
+use std::rc::Rc;
+use std::time::{Duration, Instant};
 
 use smithay::reexports::calloop::generic::Generic;
 use smithay::reexports::calloop::{Interest, LoopHandle, Mode, PostAction};
@@ -25,10 +26,39 @@ use self::protocol::{
 
 /// Reject a command line longer than this (without a newline) — bounds the
 /// per-connection buffer against a client that never terminates a command.
-const MAX_COMMAND_SIZE: usize = 4096;
+const MAX_COMMAND_SIZE: usize = 1 << 20;
 
-/// Cap how long a reply write may block, so a stuck reader can't hang the loop.
+/// Connections served at once. One past it is accepted and closed straight
+/// away, which also takes it off the level-triggered listener.
+const MAX_CONNECTIONS: usize = 1024;
+
+/// Cap how long the writes of one reply may block in all, so a stuck or
+/// trickling reader can't hang the loop. It starts once the reply is ready, so
+/// a slow command (a large screenshot) doesn't eat into it.
 const WRITE_TIMEOUT: Duration = Duration::from_secs(1);
+
+/// The largest size a request may ask for: a looser outer gate than the
+/// stand-in size cap, which clamps a suspended window afterward. Coordinates
+/// share session restore's [`crate::state::POSITION_LIMIT`].
+const SIZE_LIMIT: i32 = 32767;
+
+fn check_point(x: i32, y: i32) -> Result<(), String> {
+    let limit = crate::state::POSITION_LIMIT;
+    let range = -limit..=limit;
+    if range.contains(&x) && range.contains(&y) {
+        Ok(())
+    } else {
+        Err(format!("coordinates must be within ±{limit}"))
+    }
+}
+
+fn check_size(w: i32, h: i32) -> Result<(), String> {
+    if w <= SIZE_LIMIT && h <= SIZE_LIMIT {
+        Ok(())
+    } else {
+        Err(format!("sizes must be at most {SIZE_LIMIT}"))
+    }
+}
 
 pub struct IpcServer {
     socket_path: PathBuf,
@@ -39,7 +69,7 @@ impl IpcServer {
         event_loop: &LoopHandle<'static, Driftline>,
         wayland_display: &str,
     ) -> Result<Self, Box<dyn std::error::Error>> {
-        Self::new_at(event_loop, socket_path(wayland_display))
+        Self::new_at(event_loop, socket_path(wayland_display)?)
     }
 
     /// Bind the IPC listener at an explicit path instead of the
@@ -48,6 +78,15 @@ impl IpcServer {
     pub fn new_at(
         event_loop: &LoopHandle<'static, Driftline>,
         socket_path: PathBuf,
+    ) -> Result<Self, Box<dyn std::error::Error>> {
+        Self::with_cap(event_loop, socket_path, MAX_CONNECTIONS)
+    }
+
+    /// [`Self::new_at`], serving at most `max_connections` at once.
+    pub(crate) fn with_cap(
+        event_loop: &LoopHandle<'static, Driftline>,
+        socket_path: PathBuf,
+        max_connections: usize,
     ) -> Result<Self, Box<dyn std::error::Error>> {
         std::fs::remove_file(&socket_path).ok();
         if let Some(parent) = socket_path.parent() {
@@ -60,11 +99,20 @@ impl IpcServer {
 
         tracing::info!("IPC socket started at {}", socket_path.display());
 
+        // Each connection's callback holds a clone; calloop drops it with the
+        // source, so the count is the live connections plus this one.
+        let slots = Rc::new(());
         let source = Generic::new(listener, Interest::READ, Mode::Level);
-        event_loop.insert_source(source, |_, listener, state| {
+        event_loop.insert_source(source, move |_, listener, state| {
             loop {
                 match listener.accept() {
-                    Ok((stream, _)) => accept_client(state, stream),
+                    Ok((stream, _)) if Rc::strong_count(&slots) > max_connections => {
+                        tracing::debug!(
+                            "IPC: {max_connections} connections open, closing a new one"
+                        );
+                        refuse_connection(stream, max_connections);
+                    }
+                    Ok((stream, _)) => accept_client(state, stream, slots.clone()),
                     Err(e) if e.kind() == ErrorKind::WouldBlock => break,
                     // A transient accept error (e.g. fd exhaustion) must never
                     // tear down the compositor — log and keep serving.
@@ -88,9 +136,24 @@ impl Drop for IpcServer {
     }
 }
 
+/// Tell a connection past the cap why it is closed, so `driftwm msg` reports
+/// more than a missing reply. Never blocks: a fresh socket takes one short
+/// line, and a write that fails anyway changes nothing.
+fn refuse_connection(stream: UnixStream, max_connections: usize) {
+    let _ = stream.set_nonblocking(true);
+    let reply: Reply = Err(format!(
+        "{max_connections} IPC connections are already open"
+    ));
+    if let Ok(mut line) = serde_json::to_vec(&reply) {
+        line.push(b'\n');
+        let _ = (&stream).write_all(&line);
+    }
+}
+
 /// Register an accepted connection as its own calloop source. The closure owns a
-/// per-connection read buffer so partial commands survive across event-loop ticks.
-fn accept_client(state: &mut Driftline, stream: UnixStream) {
+/// per-connection read buffer so partial commands survive across event-loop
+/// ticks, and the connection's `slot` for as long as the source lives.
+fn accept_client(state: &mut Driftline, stream: UnixStream, slot: Rc<()>) {
     if let Err(e) = stream.set_nonblocking(true) {
         tracing::warn!("IPC: failed to set client nonblocking: {e}");
         return;
@@ -102,6 +165,7 @@ fn accept_client(state: &mut Driftline, stream: UnixStream) {
     let registered = state
         .loop_handle
         .insert_source(source, move |_, stream, state| {
+            let _slot = &slot;
             Ok(serve_connection(stream, &mut buffer, state))
         });
     if let Err(e) = registered {
@@ -109,48 +173,57 @@ fn accept_client(state: &mut Driftline, stream: UnixStream) {
     }
 }
 
-/// Drain everything readable, answering each complete `\n`-terminated command.
+/// Read once, answering each complete `\n`-terminated command the buffer then
+/// holds. The source is level-triggered, so anything still unread brings the
+/// callback back on the next turn of the loop, and a client streaming requests
+/// can't keep the loop here.
 fn serve_connection(
     mut stream: &UnixStream,
     buffer: &mut Vec<u8>,
     state: &mut Driftline,
 ) -> PostAction {
     let mut chunk = [0u8; 1024];
-    loop {
-        match stream.read(&mut chunk) {
-            Ok(0) => return disconnect(stream, state), // EOF
-            Ok(n) => {
-                buffer.extend_from_slice(&chunk[..n]);
-                if buffer.len() > MAX_COMMAND_SIZE {
-                    tracing::warn!("IPC command too large, disconnecting");
-                    return disconnect(stream, state);
-                }
-                while let Some(nl) = buffer.iter().position(|&b| b == b'\n') {
-                    let line: Vec<u8> = buffer.drain(..=nl).collect();
-                    // A half-written pushed event must be flushed before any
-                    // reply, or the reply lands mid-line and corrupts framing.
-                    if flush_pending_events(stream, state).is_err() {
-                        return disconnect(stream, state);
-                    }
-                    let written = match serde_json::from_slice::<Request>(&line[..nl]) {
-                        // Needs the raw stream to register a push channel, so it's
-                        // handled here rather than through the stream-less dispatch.
-                        Ok(Request::Subscribe) => subscribe(stream, state),
-                        Ok(request) => write_reply(stream, &dispatch(request, state)),
-                        Err(e) => write_reply(stream, &Err(format!("invalid request: {e}"))),
-                    };
-                    if written.is_err() {
-                        return disconnect(stream, state);
-                    }
-                }
-            }
-            Err(e) if e.kind() == ErrorKind::WouldBlock => return PostAction::Continue,
-            Err(e) => {
-                tracing::warn!("IPC read error: {e}");
-                return disconnect(stream, state);
-            }
+    let n = match stream.read(&mut chunk) {
+        Ok(0) => return disconnect(stream, state), // EOF
+        Ok(n) => n,
+        Err(e) if e.kind() == ErrorKind::WouldBlock => return PostAction::Continue,
+        Err(e) => {
+            tracing::warn!("IPC read error: {e}");
+            return disconnect(stream, state);
+        }
+    };
+    buffer.extend_from_slice(&chunk[..n]);
+    if buffer.len() > MAX_COMMAND_SIZE {
+        tracing::warn!("IPC command too large, disconnecting");
+        return disconnect(stream, state);
+    }
+    // Only the bytes just read can complete a command: rescanning a long
+    // partial one on every read would stall the loop.
+    if !chunk[..n].contains(&b'\n') {
+        return PostAction::Continue;
+    }
+    while let Some(nl) = buffer.iter().position(|&b| b == b'\n') {
+        let line: Vec<u8> = buffer.drain(..=nl).collect();
+        // A half-written pushed event must be flushed before any
+        // reply, or the reply lands mid-line and corrupts framing.
+        if flush_pending_events(stream, state).is_err() {
+            return disconnect(stream, state);
+        }
+        let written = match serde_json::from_slice::<Request>(&line[..nl]) {
+            // Needs the raw stream to register a push channel, so it's
+            // handled here rather than through the stream-less dispatch.
+            Ok(Request::Subscribe) => subscribe(stream, state),
+            Ok(request) => write_reply(stream, &dispatch(request, state)),
+            Err(e) => write_reply(stream, &Err(format!("invalid request: {e}"))),
+        };
+        if written.is_err() {
+            return disconnect(stream, state);
         }
     }
+    // A long command leaves its capacity behind on a connection that may live
+    // on as a subscriber.
+    buffer.shrink_to(4096);
+    PostAction::Continue
 }
 
 /// Tear down a connection, forgetting its subscription. Must run while the
@@ -172,11 +245,12 @@ fn flush_pending_events(stream: &UnixStream, state: &mut Driftline) -> std::io::
     };
     let partial = std::mem::take(&mut sub.partial);
     let queued = sub.queued.take();
+    let deadline = Instant::now() + WRITE_TIMEOUT;
     if !partial.is_empty() {
-        write_line(stream, &partial)?;
+        write_line(stream, &partial, deadline)?;
     }
     if let Some(event) = queued {
-        write_line(stream, &event)?;
+        write_line(stream, &event, deadline)?;
     }
     Ok(())
 }
@@ -251,6 +325,12 @@ fn cmd_camera(arg: Option<(f64, f64)>, state: &mut Driftline) -> Reply {
             // animation's arrival test — the viewport would never settle again.
             if !x.is_finite() || !y.is_finite() {
                 return Err("camera coordinates must be finite numbers".to_string());
+            }
+            if !crate::state::valid_canvas_point(x, y) {
+                return Err(format!(
+                    "camera coordinates must be within ±{:e}",
+                    crate::state::CAMERA_LIMIT
+                ));
             }
             // Exit before deriving the target below: a fullscreen output
             // refuses camera moves, and the target is derived from the zoom,
@@ -584,11 +664,7 @@ fn cmd_bookmark(
             Ok(Response::Bookmark { x, y })
         }
         (Some(name), Some((x, y))) => {
-            if !x.is_finite() || !y.is_finite() {
-                return Err("bookmark coordinates must be finite".to_string());
-            }
-            state.bookmarks.insert(name, [x, y]);
-            state.session_store_mark_dirty();
+            state.set_bookmark(name, [x, y])?;
             Ok(Response::Bookmark { x, y })
         }
     }
@@ -621,6 +697,9 @@ fn cmd_move(
     to: Option<(i32, i32)>,
     state: &mut Driftline,
 ) -> Reply {
+    if let Some((x, y)) = to {
+        check_point(x, y)?;
+    }
     let window = match element_by_selector(state, window.as_ref())? {
         StageWindow::Client(window) => window,
         // No client to reconfigure: read or set the stand-in's canvas position
@@ -715,6 +794,7 @@ fn cmd_resize(
     if width <= 0 || height <= 0 {
         return Err("size must be positive".to_string());
     }
+    check_size(width, height)?;
     // A pinned window renders at its pin, a fullscreen one fills its output, and
     // one held back for a deferred adopt is about to be replaced — none of them
     // hold a canvas rect a resize could write.
@@ -1043,6 +1123,8 @@ pub(crate) fn resolve_screenshot_region(
             if w <= 0 || h <= 0 {
                 return Err("region width and height must be positive".to_string());
             }
+            check_point(x, y)?;
+            check_size(w, h)?;
             if from_screen {
                 // slurp coords live in the output *layout* space (`current_location()`,
                 // what wl_output/xdg-output advertise), NOT the output's position in the
@@ -1063,10 +1145,15 @@ pub(crate) fn resolve_screenshot_region(
                     let os = crate::state::output_state(&output);
                     (os.camera, os.zoom)
                 };
-                let loc = Point::<i32, Logical>::from((
-                    (camera.x + (x - layout_pos.x) as f64 / zoom).round() as i32,
-                    (camera.y + (y - layout_pos.y) as f64 / zoom).round() as i32,
-                ));
+                let canvas_x = camera.x + (x - layout_pos.x) as f64 / zoom;
+                let canvas_y = camera.y + (y - layout_pos.y) as f64 / zoom;
+                // Zoomed out, a screen point in range can land on the canvas
+                // far past it.
+                if !crate::state::within_window_range(canvas_x, canvas_y) {
+                    return Err("region lies past the canvas range".to_string());
+                }
+                let loc =
+                    Point::<i32, Logical>::from((canvas_x.round() as i32, canvas_y.round() as i32));
                 let size = Size::<i32, Logical>::from((
                     (w as f64 / zoom).round() as i32,
                     (h as f64 / zoom).round() as i32,
@@ -1153,22 +1240,52 @@ fn union_rect(a: Rectangle<i32, Logical>, b: Rectangle<i32, Logical>) -> Rectang
     Rectangle::new((x0, y0).into(), (x1 - x0, y1 - y0).into())
 }
 
-/// Serialize and send a reply over `stream`.
+/// Serialize and send a reply over `stream`, within [`WRITE_TIMEOUT`].
 fn write_reply(stream: &UnixStream, reply: &Reply) -> std::io::Result<()> {
     let mut bytes = serde_json::to_vec(reply)?;
     bytes.push(b'\n');
-    write_line(stream, &bytes)
+    write_line(stream, &bytes, Instant::now() + WRITE_TIMEOUT)
 }
 
-/// Send a pre-serialized line on the request/reply path. Switches to a bounded
-/// blocking write so a large payload isn't truncated on `WouldBlock` and a stuck
-/// reader can't hang the loop, then restores nonblocking.
-fn write_line(mut stream: &UnixStream, bytes: &[u8]) -> std::io::Result<()> {
-    stream.set_nonblocking(false).ok();
-    stream.set_write_timeout(Some(WRITE_TIMEOUT)).ok();
-    let res = stream.write_all(bytes);
-    stream.set_nonblocking(true).ok();
-    res
+/// Send a pre-serialized line on the request/reply path, waiting out a full
+/// socket so a large payload isn't truncated, but only until `deadline`. The
+/// stream stays nonblocking: a blocking write's `SO_SNDTIMEO` bounds each wait
+/// for buffer space, so a reader draining a little at a time could hold one
+/// write for as long as it liked.
+fn write_line(mut stream: &UnixStream, mut bytes: &[u8], deadline: Instant) -> std::io::Result<()> {
+    while !bytes.is_empty() {
+        match stream.write(bytes) {
+            Ok(0) => return Err(ErrorKind::WriteZero.into()),
+            Ok(n) => bytes = &bytes[n..],
+            Err(e) if e.kind() == ErrorKind::Interrupted => {}
+            Err(e) if e.kind() == ErrorKind::WouldBlock => wait_writable(stream, deadline)?,
+            Err(e) => return Err(e),
+        }
+    }
+    Ok(())
+}
+
+/// Wait until `stream` takes more bytes, failing once `deadline` passes.
+fn wait_writable(stream: &UnixStream, deadline: Instant) -> std::io::Result<()> {
+    let left = deadline.saturating_duration_since(Instant::now());
+    if left.is_zero() {
+        return Err(ErrorKind::TimedOut.into());
+    }
+    let mut pollfd = libc::pollfd {
+        fd: stream.as_raw_fd(),
+        events: libc::POLLOUT,
+        revents: 0,
+    };
+    let ms = left.as_millis().clamp(1, i32::MAX as u128) as i32;
+    // SAFETY: one valid pollfd, alive for the whole call.
+    match unsafe { libc::poll(&mut pollfd, 1, ms) } {
+        0 => Err(ErrorKind::TimedOut.into()),
+        -1 => match std::io::Error::last_os_error() {
+            e if e.kind() == ErrorKind::Interrupted => Ok(()),
+            e => Err(e),
+        },
+        _ => Ok(()),
+    }
 }
 
 /// A subscribed IPC connection: the serving stream's fd (for dedup and
@@ -1193,14 +1310,16 @@ fn subscribe(stream: &UnixStream, state: &mut Driftline) -> std::io::Result<()> 
     // error reply rather than a silently half-registered subscriber.
     let clone = match stream.try_clone() {
         Ok(c) => c,
-        Err(e) => return write_reply(stream, &Err(format!("cannot subscribe: {e}"))),
+        Err(e) => {
+            return write_reply(stream, &Err(format!("cannot subscribe: {e}")));
+        }
     };
     write_reply(stream, &Ok(Response::Ok))?;
     // The initial snapshot may block (bounded): the client just asked for it,
     // so it's reading — same guarantee a `state` reply gets.
     let mut bytes = serde_json::to_vec(&Event::State(state_info(state)))?;
     bytes.push(b'\n');
-    write_line(stream, &bytes)?;
+    write_line(stream, &bytes, Instant::now() + WRITE_TIMEOUT)?;
     let fd = stream.as_raw_fd();
     if !state.ipc_subscribers.iter().any(|s| s.fd == fd) {
         state.ipc_subscribers.push(Subscriber {
@@ -1310,7 +1429,35 @@ fn camera_center(state: &Driftline) -> (f64, f64) {
 
 #[cfg(test)]
 mod tests {
-    use super::layout_code;
+    use super::{layout_code, write_line};
+    use std::io::Read;
+    use std::os::unix::net::UnixStream;
+    use std::time::{Duration, Instant};
+
+    #[test]
+    fn a_reply_to_a_trickling_reader_gives_up_at_its_deadline_in_total() {
+        let (server, mut peer) = UnixStream::pair().unwrap();
+        server.set_nonblocking(true).unwrap();
+        // Draining a little at a time keeps every single write making progress,
+        // so only a bound across all of them can end it.
+        let reader = std::thread::spawn(move || {
+            let mut buf = [0u8; 4096];
+            while matches!(peer.read(&mut buf), Ok(n) if n > 0) {
+                std::thread::sleep(Duration::from_millis(10));
+            }
+        });
+        let start = Instant::now();
+        let reply = vec![b'x'; 32 << 20];
+        let deadline = start + Duration::from_millis(300);
+        assert!(write_line(&server, &reply, deadline).is_err());
+        assert!(
+            start.elapsed() < Duration::from_millis(1500),
+            "gave up after {:?}",
+            start.elapsed()
+        );
+        drop(server);
+        reader.join().unwrap();
+    }
 
     #[test]
     fn layout_code_indexes_the_list() {

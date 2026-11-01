@@ -162,6 +162,11 @@ with existing integrations. The socket name is derived from the compositor's
 inside a session automatically targets that session. Set `DRIFTLINE_SOCKET` to
 point a client at an explicit path; `DRIFTWM_SOCKET` remains accepted as an alias.
 
+The server requires a non-empty `XDG_RUNTIME_DIR`; it does not fall back to a
+shared temporary directory. Requests are limited to 1 MiB per line, with at most
+1024 simultaneous connections. `screenshot -o -` uses a private temporary file
+in the runtime directory before the client streams it to stdout and removes it.
+
 > [!WARNING]
 > The socket is a full control surface, not a read-only one: `action` can run
 > `exec`/`spawn`, `quit`, and `reload-config`, and `relaunch` launches a
