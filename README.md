@@ -72,8 +72,10 @@ sudo apt install git build-essential pkg-config libseat-dev libdisplay-info-dev 
 **Arch Linux**
 
 ```bash
-sudo pacman -S --needed git base-devel libdisplay-info libinput seatd mesa libxkbcommon
+sudo pacman -S --needed git base-devel seatd libdisplay-info libinput systemd-libs mesa libxkbcommon wayland
 ```
+
+Package names may vary on derivatives; install the equivalent packages from your distribution's repositories.
 
 Install Rust with [rustup](https://rustup.rs/) if needed, then build the fork:
 
