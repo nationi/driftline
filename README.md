@@ -85,6 +85,10 @@ cd driftline
 cargo build --release --locked
 ```
 
+**NixOS**
+
+Use the flake for `nix build`, `nix run` and `nix develop`. The [NixOS guide](docs/nixos.md) covers declarative installation and display-manager integration. Use the module instead of `sudo make install` on NixOS.
+
 ### Install the session
 
 After building, install the binary, display-manager session entry, user service,
